@@ -334,4 +334,166 @@
   .stagger-item:nth-child(4) { animation-delay: 0.4s; }
   .stagger-item:nth-child(5) { animation-delay: 0.5s; }
   .stagger-item:nth-child(6) { animation-delay: 0.6s; }
+  
+  /* Neon Billboard Styling */
+  .neon-billboard {
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+    border-radius: 0.5rem;
+    padding: 3rem 2rem;
+    position: relative;
+    box-shadow: 0 0 60px rgba(230, 57, 70, 0.3), inset 0 0 40px rgba(0, 0, 0, 0.8);
+  }
+  
+  .neon-billboard::before,
+  .neon-billboard::after {
+    content: '';
+    position: absolute;
+    background: radial-gradient(circle, rgba(230, 57, 70, 0.8) 0%, rgba(230, 57, 70, 0.3) 70%, transparent 100%);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    animation: neon-blink 0.6s ease-in-out infinite;
+  }
+  
+  .neon-billboard::before {
+    top: 1rem;
+    left: 1rem;
+  }
+  
+  .neon-billboard::after {
+    top: 1rem;
+    right: 1rem;
+  }
+  
+  .neon-billboard-content {
+    text-align: center;
+    position: relative;
+    z-index: 2;
+  }
+  
+  .neon-billboard-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #ffffff;
+    text-shadow: 
+      0 0 10px rgba(230, 57, 70, 0.8),
+      0 0 20px rgba(230, 57, 70, 0.6),
+      0 0 30px rgba(230, 57, 70, 0.4);
+    margin-bottom: 2rem;
+    letter-spacing: 2px;
+    animation: neon-flicker 3s ease-in-out infinite;
+  }
+  
+  .neon-countdown-display {
+    background: rgba(0, 0, 0, 0.6);
+    border: 3px solid oklch(0.65 0.25 15);
+    border-radius: 0.5rem;
+    padding: 2rem;
+    box-shadow: 
+      inset 0 0 20px rgba(230, 57, 70, 0.2),
+      0 0 40px rgba(230, 57, 70, 0.3);
+  }
+  
+  .neon-countdown-grid {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+  
+  .neon-time-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .neon-number {
+    font-family: 'Playfair Display', serif;
+    font-size: 3.5rem;
+    font-weight: 800;
+    color: #ff3333;
+    text-shadow: 
+      0 0 10px rgba(255, 51, 51, 0.8),
+      0 0 20px rgba(255, 51, 51, 0.6),
+      0 0 30px rgba(255, 51, 51, 0.4),
+      0 0 40px rgba(255, 51, 51, 0.2);
+    letter-spacing: 2px;
+    animation: neon-pulse 1.5s ease-in-out infinite;
+  }
+  
+  .neon-label {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(230, 57, 70, 0.6);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  
+  .neon-separator {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #ff3333;
+    text-shadow: 
+      0 0 10px rgba(255, 51, 51, 0.8),
+      0 0 20px rgba(255, 51, 51, 0.6);
+    margin: 0 0.5rem;
+    animation: neon-pulse 1.5s ease-in-out infinite;
+  }
+  
+  .neon-date {
+    font-family: 'Crimson Text', serif;
+    font-size: 0.9rem;
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(230, 57, 70, 0.5);
+    letter-spacing: 1px;
+  }
+  
+  @keyframes neon-pulse {
+    0%, 100% {
+      text-shadow: 
+        0 0 10px rgba(255, 51, 51, 0.8),
+        0 0 20px rgba(255, 51, 51, 0.6),
+        0 0 30px rgba(255, 51, 51, 0.4),
+        0 0 40px rgba(255, 51, 51, 0.2);
+    }
+    50% {
+      text-shadow: 
+        0 0 20px rgba(255, 51, 51, 0.9),
+        0 0 30px rgba(255, 51, 51, 0.7),
+        0 0 40px rgba(255, 51, 51, 0.5),
+        0 0 50px rgba(255, 51, 51, 0.3);
+    }
+  }
+  
+  @keyframes neon-blink {
+    0%, 100% {
+      opacity: 1;
+      box-shadow: 0 0 10px rgba(230, 57, 70, 0.8), 0 0 20px rgba(230, 57, 70, 0.6);
+    }
+    50% {
+      opacity: 0.6;
+      box-shadow: 0 0 5px rgba(230, 57, 70, 0.4), 0 0 10px rgba(230, 57, 70, 0.2);
+    }
+  }
+  
+  @keyframes neon-flicker {
+    0%, 100% {
+      text-shadow: 
+        0 0 10px rgba(230, 57, 70, 0.8),
+        0 0 20px rgba(230, 57, 70, 0.6),
+        0 0 30px rgba(230, 57, 70, 0.4);
+    }
+    50% {
+      text-shadow: 
+        0 0 5px rgba(230, 57, 70, 0.4),
+        0 0 10px rgba(230, 57, 70, 0.2);
+    }
+  }
 }

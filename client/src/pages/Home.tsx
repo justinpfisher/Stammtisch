@@ -28,8 +28,8 @@ export default function Home() {
 
   useEffect(() => {
     const calculateCountdown = () => {
-      // Target: Friday, January 16, 2025 at 9:00 AM EST
-      const targetDate = new Date('2025-01-16T09:00:00-05:00').getTime();
+      // Target: Friday, January 16, 2026 at 9:00 AM EST
+      const targetDate = new Date('2026-01-16T09:00:00-05:00').getTime();
       const now = new Date().getTime();
       const distance = targetDate - now;
 
@@ -108,61 +108,40 @@ export default function Home() {
 
         <div className="divider-ornamental" />
 
-        {/* Countdown Timer Section */}
-        <section className="py-20 my-12 bg-gradient-to-br from-red-50 to-red-100/50 border-4 border-destructive rounded-sm shadow-lg">
-          <div className="container text-center">
-            <div className="text-accent text-sm tracking-widest mb-4 uppercase">
-              The Cottage Weekend Awaits
-            </div>
-            <h2 className="text-2xl md:text-3xl text-destructive mb-12 font-bold">
-              Stammtisch Cottage Weekend
-            </h2>
+        {/* Neon Billboard Countdown Timer Section */}
+        <section className="py-16 my-12">
+          <div className="container">
+            <div className="neon-billboard">
+              <div className="neon-billboard-content">
+                <h2 className="neon-billboard-title">
+                  The Stammtisch Gentlemen's Assembly
+                </h2>
+                <div className="neon-countdown-display">
 
-            {/* Countdown Display */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 mb-8">
-              {/* Days */}
-              <div className="stagger-item">
-                <div className="countdown-timer">
-                  {String(countdown.days).padStart(2, '0')}
-                </div>
-                <div className="text-sm uppercase tracking-widest text-destructive/70 mt-2">
-                  Days
+                  <div className="neon-countdown-grid">
+                    <div className="neon-time-unit">
+                      <div className="neon-number">{String(countdown.days).padStart(2, '0')}</div>
+                      <div className="neon-label">Days</div>
+                    </div>
+                    <div className="neon-separator">:</div>
+                    <div className="neon-time-unit">
+                      <div className="neon-number">{String(countdown.hours).padStart(2, '0')}</div>
+                      <div className="neon-label">Hours</div>
+                    </div>
+                    <div className="neon-separator">:</div>
+                    <div className="neon-time-unit">
+                      <div className="neon-number">{String(countdown.minutes).padStart(2, '0')}</div>
+                      <div className="neon-label">Minutes</div>
+                    </div>
+                    <div className="neon-separator">:</div>
+                    <div className="neon-time-unit">
+                      <div className="neon-number">{String(countdown.seconds).padStart(2, '0')}</div>
+                      <div className="neon-label">Seconds</div>
+                    </div>
+                  </div>
+                  <div className="neon-date">Friday, January 16, 2026 at 9:00 AM EST</div>
                 </div>
               </div>
-
-              {/* Hours */}
-              <div className="stagger-item">
-                <div className="countdown-timer">
-                  {String(countdown.hours).padStart(2, '0')}
-                </div>
-                <div className="text-sm uppercase tracking-widest text-destructive/70 mt-2">
-                  Hours
-                </div>
-              </div>
-
-              {/* Minutes */}
-              <div className="stagger-item">
-                <div className="countdown-timer">
-                  {String(countdown.minutes).padStart(2, '0')}
-                </div>
-                <div className="text-sm uppercase tracking-widest text-destructive/70 mt-2">
-                  Minutes
-                </div>
-              </div>
-
-              {/* Seconds */}
-              <div className="stagger-item">
-                <div className="countdown-timer">
-                  {String(countdown.seconds).padStart(2, '0')}
-                </div>
-                <div className="text-sm uppercase tracking-widest text-destructive/70 mt-2">
-                  Seconds
-                </div>
-              </div>
-            </div>
-
-            <div className="text-destructive/60 text-sm">
-              Friday, January 16, 2025 at 9:00 AM EST
             </div>
           </div>
         </section>
