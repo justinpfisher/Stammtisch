@@ -41,7 +41,7 @@ export default function Home() {
             {/* Main Logo Container */}
             <div className="w-72 h-72 md:w-96 md:h-96 relative z-10">
               <img 
-                src="/images/stammtisch_logo_final.png" 
+                src="/images/stammtisch_logo_faces.png" 
                 alt="Stammtisch Social Club Crest" 
                 className="w-full h-full object-contain drop-shadow-2xl"
               />
