@@ -34,38 +34,21 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
       
-      {/* Header Section */}
-      <header className="pt-16 pb-12 md:pt-24 md:pb-16">
-        <div className="container">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-8 md:gap-12">
+      {/* Header Section - Centered & Prominent */}
+      <header className="pt-16 pb-8 md:pt-24 md:pb-12">
+        <div className="container flex justify-center">
+          <div className="relative">
+            {/* Main Logo Container */}
+            <div className="w-72 h-72 md:w-96 md:h-96 relative z-10">
+              <img 
+                src="/images/stammtisch_logo_v2.png" 
+                alt="Stammtisch Social Club Crest" 
+                className="w-full h-full object-contain drop-shadow-2xl"
+              />
+            </div>
             
-            {/* Logo in Heraldic Frame */}
-            <div className="relative shrink-0">
-              <div className="w-48 h-48 md:w-56 md:h-56 relative z-10 bg-white p-2 shadow-xl border-4 border-double border-[#c5a059]">
-                <div className="w-full h-full border border-[#3e2b22] p-1">
-                  <img 
-                    src="/images/stammtisch_logo.png" 
-                    alt="Stammtisch Social Club Crest" 
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-              </div>
-              {/* Decorative elements behind logo */}
-              <div className="absolute -top-4 -left-4 w-full h-full border border-[#c5a059]/30 -z-10"></div>
-              <div className="absolute -bottom-4 -right-4 w-full h-full border border-[#c5a059]/30 -z-10"></div>
-            </div>
-
-            {/* Title Block */}
-            <div className="text-center md:text-left pt-4">
-              <h1 className="text-5xl md:text-7xl font-display font-bold text-[#1a3c28] mb-2 tracking-tight">
-                Stammtisch
-              </h1>
-              <div className="flex items-center justify-center md:justify-start gap-4">
-                <span className="h-px w-12 bg-[#c5a059]"></span>
-                <span className="text-xl md:text-2xl font-accent text-[#8a2c2c] tracking-widest uppercase">Social Club</span>
-                <span className="h-px w-12 bg-[#c5a059]"></span>
-              </div>
-            </div>
+            {/* Subtle decorative glow behind logo */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 h-3/4 bg-[#c5a059]/10 blur-3xl -z-10 rounded-full"></div>
           </div>
         </div>
       </header>
@@ -78,7 +61,7 @@ export default function Home() {
           </div>
 
           {/* Main Content */}
-          <section className="prose prose-lg md:prose-xl prose-stone mx-auto text-center md:text-left">
+          <section className="prose prose-lg md:prose-xl prose-stone mx-auto text-center">
             <h2 className="font-display text-3xl md:text-4xl text-[#1a3c28] mb-8 text-center">
               A Tradition of Gathering
             </h2>
@@ -90,7 +73,7 @@ export default function Home() {
               <p>
                 The Stammtisch Social Club distinguishes itself through a rare blend of informality and ceremony. While the aim of the Club is uncomplicated, the commitment to process, structure, and tradition is maintained with a seriousness that has become one of its defining qualities.
               </p>
-              <p className="italic text-[#6b5c54] border-l-4 border-[#c5a059] pl-6 py-2 my-8">
+              <p className="italic text-[#6b5c54] border-l-4 border-[#c5a059] pl-6 py-2 my-8 text-left mx-auto max-w-2xl">
                 This balance — understated, deliberate, and fully committed to the art of showing up — forms the essence of the Stammtisch Social Club.
               </p>
             </div>
