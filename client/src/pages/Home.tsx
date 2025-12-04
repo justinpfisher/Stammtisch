@@ -1,25 +1,7 @@
-import { useEffect, useState } from 'react';
-
-/**
- * Stammtisch Social Club Homepage
- * 
- * Design Philosophy: Neo-Baroque Heritage
- * - Deep forest green and charcoal anchors with burnished gold accents
- * - Asymmetric layout with generous whitespace
- * - Ornamental restraint: decorative elements frame key sections
- * - Red countdown timer as intentional disruption against somber aesthetic
- * - Typography: Playfair Display (headings), Crimson Text (body), Cormorant Garamond (accents)
- */
-
-interface CountdownState {
-  days: number;
-  hours: number;
-  minutes: number;
-  seconds: number;
-}
+import { useEffect, useState } from "react";
 
 export default function Home() {
-  const [countdown, setCountdown] = useState<CountdownState>({
+  const [countdown, setCountdown] = useState({
     days: 0,
     hours: 0,
     minutes: 0,
@@ -43,126 +25,145 @@ export default function Home() {
       }
     };
 
+    const timer = setInterval(calculateCountdown, 1000);
     calculateCountdown();
-    const interval = setInterval(calculateCountdown, 1000);
 
-    return () => clearInterval(interval);
+    return () => clearInterval(timer);
   }, []);
 
   return (
-    <div className="min-h-screen wood-texture">
-      {/* Header */}
-      <header className="border-b border-accent/20 py-12">
+    <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
+      
+      {/* Header Section */}
+      <header className="pt-16 pb-12 md:pt-24 md:pb-16">
         <div className="container">
-          <div className="flex items-start justify-between gap-8 mb-8">
-            {/* Logo Section - Asymmetric Left Placement */}
-            <div className="flex-shrink-0 w-48">
-              <div className="heraldic-frame">
-                <img
-                  src="/images/stammtisch_logo.png"
-                  alt="Stammtisch Social Club"
-                  className="w-full h-auto"
-                />
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-8 md:gap-12">
+            
+            {/* Logo in Heraldic Frame */}
+            <div className="relative shrink-0">
+              <div className="w-48 h-48 md:w-56 md:h-56 relative z-10 bg-white p-2 shadow-xl border-4 border-double border-[#c5a059]">
+                <div className="w-full h-full border border-[#3e2b22] p-1">
+                  <img 
+                    src="/images/stammtisch_logo.png" 
+                    alt="Stammtisch Social Club Crest" 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
               </div>
+              {/* Decorative elements behind logo */}
+              <div className="absolute -top-4 -left-4 w-full h-full border border-[#c5a059]/30 -z-10"></div>
+              <div className="absolute -bottom-4 -right-4 w-full h-full border border-[#c5a059]/30 -z-10"></div>
             </div>
 
-            {/* Title Section - Right Side */}
-            <div className="flex-1 pt-4">
-              <div className="text-accent mb-3 text-sm tracking-widest">
-                Est. 2024
-              </div>
-              <h1 className="text-4xl md:text-5xl text-primary mb-4">
+            {/* Title Block */}
+            <div className="text-center md:text-left pt-4">
+              <h1 className="text-5xl md:text-7xl font-display font-bold text-[#1a3c28] mb-2 tracking-tight">
                 Stammtisch
               </h1>
-              <p className="text-lg text-muted-foreground max-w-md">
-                Social Club
-              </p>
+              <div className="flex items-center justify-center md:justify-start gap-4">
+                <span className="h-px w-12 bg-[#c5a059]"></span>
+                <span className="text-xl md:text-2xl font-accent text-[#8a2c2c] tracking-widest uppercase">Social Club</span>
+                <span className="h-px w-12 bg-[#c5a059]"></span>
+              </div>
             </div>
           </div>
-
-          <div className="divider-ornamental" />
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container py-16">
-        {/* About Section */}
-        <section className="mb-20 stagger-item">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl mb-8 text-primary">
+      <main className="flex-grow">
+        <div className="container max-w-4xl">
+          
+          <div className="divider-ornamental">
+            <span className="text-[#c5a059] text-2xl">❖</span>
+          </div>
+
+          {/* Main Content */}
+          <section className="prose prose-lg md:prose-xl prose-stone mx-auto text-center md:text-left">
+            <h2 className="font-display text-3xl md:text-4xl text-[#1a3c28] mb-8 text-center">
               A Tradition of Gathering
             </h2>
-            <div className="space-y-6 text-foreground leading-relaxed">
+            
+            <div className="font-body text-lg md:text-xl leading-relaxed space-y-6 text-[#3e2b22]">
               <p>
-                The Stammtisch Social Club is an association dedicated to elevating the longstanding tradition of gathering with intention, consistency, and an admirable degree of ceremony. Composed of a select membership, the Stammtisch Social Club maintains a reputation for structure and significance disproportionate to the simplicity of its activities.
+                The <span className="font-bold text-[#1a3c28]">Stammtisch Social Club</span> is an association dedicated to elevating the longstanding tradition of gathering with intention, consistency, and an admirable degree of ceremony. Composed of a select membership, the Stammtisch Social Club maintains a reputation for structure and significance disproportionate to the simplicity of its activities.
               </p>
               <p>
                 The Stammtisch Social Club distinguishes itself through a rare blend of informality and ceremony. While the aim of the Club is uncomplicated, the commitment to process, structure, and tradition is maintained with a seriousness that has become one of its defining qualities.
               </p>
-              <p className="italic text-muted-foreground">
+              <p className="italic text-[#6b5c54] border-l-4 border-[#c5a059] pl-6 py-2 my-8">
                 This balance — understated, deliberate, and fully committed to the art of showing up — forms the essence of the Stammtisch Social Club.
               </p>
             </div>
+          </section>
+
+          <div className="divider-ornamental">
+            <span className="text-[#c5a059] text-2xl">❖</span>
           </div>
-        </section>
 
-        <div className="divider-ornamental" />
-
-        {/* Neon Billboard Countdown Timer Section */}
-        <section className="py-16 my-12">
-          <div className="container">
-            <div className="neon-billboard">
-              <div className="neon-billboard-content">
-                <h2 className="neon-billboard-title">
-                  The Stammtisch Gentlemen's Assembly
-                </h2>
-                <div className="neon-countdown-display">
-
-                  <div className="neon-countdown-grid">
-                    <div className="neon-time-unit">
-                      <div className="neon-number">{String(countdown.days).padStart(2, '0')}</div>
-                      <div className="neon-label">Days</div>
-                    </div>
-                    <div className="neon-separator">:</div>
-                    <div className="neon-time-unit">
-                      <div className="neon-number">{String(countdown.hours).padStart(2, '0')}</div>
-                      <div className="neon-label">Hours</div>
-                    </div>
-                    <div className="neon-separator">:</div>
-                    <div className="neon-time-unit">
-                      <div className="neon-number">{String(countdown.minutes).padStart(2, '0')}</div>
-                      <div className="neon-label">Minutes</div>
-                    </div>
-                    <div className="neon-separator">:</div>
-                    <div className="neon-time-unit">
-                      <div className="neon-number">{String(countdown.seconds).padStart(2, '0')}</div>
-                      <div className="neon-label">Seconds</div>
-                    </div>
+          {/* Traditional Countdown Timer Section */}
+          <section className="py-12 mb-20">
+            <div className="traditional-countdown">
+              <div className="absolute top-0 left-0 w-full h-full border border-[#c5a059] m-2 pointer-events-none opacity-50"></div>
+              
+              <h2 className="traditional-countdown-title">
+                The Stammtisch Gentlemen's Assembly
+              </h2>
+              
+              <div className="countdown-grid">
+                {/* Days */}
+                <div className="countdown-unit">
+                  <div className="countdown-value">
+                    {String(countdown.days).padStart(2, '0')}
                   </div>
-                  <div className="neon-date">Friday, January 16, 2026 at 9:00 AM EST</div>
+                  <div className="countdown-label">Days</div>
+                </div>
+
+                <div className="countdown-separator">:</div>
+
+                {/* Hours */}
+                <div className="countdown-unit">
+                  <div className="countdown-value">
+                    {String(countdown.hours).padStart(2, '0')}
+                  </div>
+                  <div className="countdown-label">Hours</div>
+                </div>
+
+                <div className="countdown-separator">:</div>
+
+                {/* Minutes */}
+                <div className="countdown-unit">
+                  <div className="countdown-value">
+                    {String(countdown.minutes).padStart(2, '0')}
+                  </div>
+                  <div className="countdown-label">Minutes</div>
+                </div>
+
+                <div className="countdown-separator">:</div>
+
+                {/* Seconds */}
+                <div className="countdown-unit">
+                  <div className="countdown-value">
+                    {String(countdown.seconds).padStart(2, '0')}
+                  </div>
+                  <div className="countdown-label">Seconds</div>
                 </div>
               </div>
+
+              <div className="mt-8 font-accent text-[#c5a059] text-lg tracking-wide uppercase opacity-80">
+                Friday, January 16, 2026 at 9:00 AM EST
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <div className="divider-ornamental" />
-
-        {/* Closing Statement */}
-        <section className="py-12 text-center stagger-item">
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto italic">
-            "The Stammtisch: where tradition meets intention, and ceremony becomes the substance of friendship."
-          </p>
-        </section>
+        </div>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-accent/20 py-8 mt-20">
-        <div className="container">
-          <div className="text-center text-sm text-muted-foreground">
-            <p>Stammtisch Social Club</p>
-            <p className="text-xs mt-2">A gathering place for men of intention</p>
-          </div>
+      <footer className="py-8 border-t border-[#d6cfc2] mt-auto">
+        <div className="container text-center">
+          <p className="font-accent text-[#6b5c54] text-sm tracking-widest uppercase">
+            &copy; {new Date().getFullYear()} Stammtisch Social Club
+          </p>
         </div>
       </footer>
     </div>

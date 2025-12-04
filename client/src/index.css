@@ -43,78 +43,80 @@
 }
 
 :root {
-  /* Neo-Baroque Heritage Color Palette */
-  --primary: oklch(0.22 0.08 140); /* Deep forest green #1a3a2a */
-  --primary-foreground: oklch(0.95 0.01 70); /* Cream #f5f1e8 */
-  --sidebar-primary: oklch(0.22 0.08 140);
-  --sidebar-primary-foreground: oklch(0.95 0.01 70);
-  --chart-1: oklch(0.55 0.15 50); /* Burnished gold #c9a961 */
-  --chart-2: oklch(0.22 0.08 140);
-  --chart-3: oklch(0.15 0.05 0); /* Charcoal #2a2a2a */
-  --chart-4: oklch(0.95 0.01 70);
-  --chart-5: oklch(0.55 0.15 50);
+  /* Bavarian Brauhaus Palette - Richer, Darker, More Premium */
+  --color-bavarian-green: #1a3c28; /* Deep Forest Green */
+  --color-bavarian-gold: #c5a059; /* Burnished Gold */
+  --color-bavarian-cream: #f4f1ea; /* Parchment/Cream */
+  --color-bavarian-brown: #3e2b22; /* Dark Wood */
+  --color-bavarian-red: #8a2c2c; /* Traditional Red (muted) */
+
+  --primary: var(--color-bavarian-green);
+  --primary-foreground: var(--color-bavarian-cream);
+  --sidebar-primary: var(--color-bavarian-green);
+  --sidebar-primary-foreground: var(--color-bavarian-cream);
   
-  --radius: 0.25rem;
+  --background: var(--color-bavarian-cream);
+  --foreground: var(--color-bavarian-brown);
   
-  /* Light theme - Bavarian aesthetic */
-  --background: oklch(0.97 0.005 70); /* Off-white with warm tone */
-  --foreground: oklch(0.15 0.05 0); /* Charcoal */
-  --card: oklch(0.98 0.002 70); /* Slightly warmer white */
-  --card-foreground: oklch(0.15 0.05 0);
-  --popover: oklch(0.98 0.002 70);
-  --popover-foreground: oklch(0.15 0.05 0);
-  --secondary: oklch(0.22 0.08 140); /* Forest green */
-  --secondary-foreground: oklch(0.95 0.01 70);
-  --muted: oklch(0.85 0.02 70); /* Muted cream */
-  --muted-foreground: oklch(0.45 0.05 0); /* Medium charcoal */
-  --accent: oklch(0.55 0.15 50); /* Burnished gold */
-  --accent-foreground: oklch(0.15 0.05 0);
-  --destructive: oklch(0.65 0.25 15); /* Red for countdown timer */
-  --destructive-foreground: oklch(0.95 0.01 70);
-  --border: oklch(0.88 0.01 70); /* Light border */
-  --input: oklch(0.95 0.01 70);
-  --ring: oklch(0.55 0.15 50);
-  --sidebar: oklch(0.98 0.002 70);
-  --sidebar-foreground: oklch(0.15 0.05 0);
-  --sidebar-accent: oklch(0.55 0.15 50);
-  --sidebar-accent-foreground: oklch(0.15 0.05 0);
-  --sidebar-border: oklch(0.88 0.01 70);
-  --sidebar-ring: oklch(0.55 0.15 50);
+  --card: #ffffff;
+  --card-foreground: var(--color-bavarian-brown);
+  
+  --popover: #ffffff;
+  --popover-foreground: var(--color-bavarian-brown);
+  
+  --secondary: #e8e4d9;
+  --secondary-foreground: var(--color-bavarian-green);
+  
+  --muted: #e8e4d9;
+  --muted-foreground: #6b5c54;
+  
+  --accent: var(--color-bavarian-gold);
+  --accent-foreground: var(--color-bavarian-brown);
+  
+  --destructive: var(--color-bavarian-red);
+  --destructive-foreground: var(--color-bavarian-cream);
+  
+  --border: #d6cfc2;
+  --input: #d6cfc2;
+  --ring: var(--color-bavarian-gold);
+  
+  --radius: 0.25rem; /* Sharper corners for a more traditional look */
+  
+  --chart-1: var(--color-bavarian-green);
+  --chart-2: var(--color-bavarian-gold);
+  --chart-3: var(--color-bavarian-brown);
+  --chart-4: var(--color-bavarian-red);
+  --chart-5: #5c4d46;
+  
+  --sidebar: var(--color-bavarian-cream);
+  --sidebar-foreground: var(--color-bavarian-brown);
+  --sidebar-accent: #e8e4d9;
+  --sidebar-accent-foreground: var(--color-bavarian-green);
+  --sidebar-border: #d6cfc2;
+  --sidebar-ring: var(--color-bavarian-gold);
 }
 
 .dark {
-  --primary: oklch(0.22 0.08 140);
-  --primary-foreground: oklch(0.95 0.01 70);
-  --sidebar-primary: oklch(0.22 0.08 140);
-  --sidebar-primary-foreground: oklch(0.95 0.01 70);
-  --background: oklch(0.15 0.05 0);
-  --foreground: oklch(0.95 0.01 70);
-  --card: oklch(0.2 0.06 0);
-  --card-foreground: oklch(0.95 0.01 70);
-  --popover: oklch(0.2 0.06 0);
-  --popover-foreground: oklch(0.95 0.01 70);
-  --secondary: oklch(0.22 0.08 140);
-  --secondary-foreground: oklch(0.95 0.01 70);
-  --muted: oklch(0.3 0.04 0);
-  --muted-foreground: oklch(0.75 0.01 70);
-  --accent: oklch(0.55 0.15 50);
-  --accent-foreground: oklch(0.15 0.05 0);
-  --destructive: oklch(0.65 0.25 15);
-  --destructive-foreground: oklch(0.95 0.01 70);
-  --border: oklch(0.25 0.05 0);
-  --input: oklch(0.2 0.06 0);
-  --ring: oklch(0.55 0.15 50);
-  --chart-1: oklch(0.55 0.15 50);
-  --chart-2: oklch(0.22 0.08 140);
-  --chart-3: oklch(0.15 0.05 0);
-  --chart-4: oklch(0.95 0.01 70);
-  --chart-5: oklch(0.55 0.15 50);
-  --sidebar: oklch(0.2 0.06 0);
-  --sidebar-foreground: oklch(0.95 0.01 70);
-  --sidebar-accent: oklch(0.55 0.15 50);
-  --sidebar-accent-foreground: oklch(0.15 0.05 0);
-  --sidebar-border: oklch(0.25 0.05 0);
-  --sidebar-ring: oklch(0.55 0.15 50);
+  /* Dark mode - richer wood tones */
+  --background: var(--color-bavarian-brown);
+  --foreground: var(--color-bavarian-cream);
+  --card: #2c1e18;
+  --card-foreground: var(--color-bavarian-cream);
+  --popover: #2c1e18;
+  --popover-foreground: var(--color-bavarian-cream);
+  --primary: var(--color-bavarian-gold);
+  --primary-foreground: var(--color-bavarian-brown);
+  --secondary: #4a352a;
+  --secondary-foreground: var(--color-bavarian-cream);
+  --muted: #4a352a;
+  --muted-foreground: #a89b95;
+  --accent: var(--color-bavarian-green);
+  --accent-foreground: var(--color-bavarian-cream);
+  --destructive: #a33e3e;
+  --destructive-foreground: #ffffff;
+  --border: #5c4d46;
+  --input: #5c4d46;
+  --ring: var(--color-bavarian-gold);
 }
 
 @layer base {
@@ -124,376 +126,166 @@
   body {
     @apply bg-background text-foreground;
     font-family: 'Crimson Text', serif;
-    letter-spacing: 0.3px;
+    background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
   }
-  
-  /* Typography System */
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Playfair Display', serif;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-    line-height: 1.2;
-  }
-  
-  h1 {
-    font-size: 3rem;
-    font-weight: 800;
-    letter-spacing: -1px;
-  }
-  
-  h2 {
-    font-size: 1.875rem;
-    margin-top: 1.5rem;
-    margin-bottom: 0.75rem;
-  }
-  
-  h3 {
-    font-size: 1.25rem;
-  }
-  
-  p {
-    font-size: 1rem;
-    line-height: 1.7;
-    margin-bottom: 1rem;
-  }
-  
-  /* Decorative text */
-  .text-accent {
-    font-family: 'Cormorant Garamond', serif;
-    font-weight: 300;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-  
-  button:not(:disabled),
-  [role="button"]:not([aria-disabled="true"]),
-  [type="button"]:not(:disabled),
-  [type="submit"]:not(:disabled),
-  [type="reset"]:not(:disabled),
-  a[href],
-  select:not(:disabled),
-  input[type="checkbox"]:not(:disabled),
-  input[type="radio"]:not(:disabled) {
-    @apply cursor-pointer;
+    @apply font-bold tracking-tight;
   }
 }
 
 @layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   * Neo-Baroque Heritage: Generous margins and asymmetric spacing.
-   */
   .container {
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
-  }
-
-  .flex {
-    min-height: 0;
-    min-width: 0;
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 
   @media (min-width: 640px) {
     .container {
-      padding-left: 2rem;
-      padding-right: 2rem;
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
     }
   }
 
   @media (min-width: 1024px) {
     .container {
-      padding-left: 3rem;
-      padding-right: 3rem;
-      max-width: 1400px;
+      padding-left: 2rem;
+      padding-right: 2rem;
+      max-width: 1024px; /* Narrower container for a more book-like feel */
     }
   }
+
+  /* Custom Typography Classes */
+  .font-display {
+    font-family: 'Playfair Display', serif;
+  }
   
-  /* Ornamental divider inspired by Bavarian woodcarving */
+  .font-body {
+    font-family: 'Crimson Text', serif;
+  }
+  
+  .font-accent {
+    font-family: 'Cormorant Garamond', serif;
+  }
+
+  /* Ornamental Divider */
   .divider-ornamental {
-    position: relative;
-    height: 2px;
-    background: linear-gradient(to right, 
-      transparent 0%, 
-      oklch(0.55 0.15 50) 20%, 
-      oklch(0.55 0.15 50) 80%, 
-      transparent 100%);
-    margin: 2rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 3rem 0;
+    opacity: 0.6;
   }
   
   .divider-ornamental::before,
   .divider-ornamental::after {
-    content: '';
-    position: absolute;
-    width: 8px;
-    height: 8px;
-    background: oklch(0.55 0.15 50);
-    top: 50%;
-    transform: translateY(-50%);
-    border-radius: 50%;
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--color-bavarian-gold), transparent);
   }
   
   .divider-ornamental::before {
-    left: 0;
+    margin-right: 1rem;
   }
   
   .divider-ornamental::after {
-    right: 0;
+    margin-left: 1rem;
   }
-  
-  /* Heraldic frame for logo and key sections */
-  .heraldic-frame {
+
+  /* Brauhaus Card Styling */
+  .brauhaus-card {
+    background-color: #fff;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
     position: relative;
-    padding: 2rem;
-    border: 3px solid oklch(0.55 0.15 50);
-    border-radius: 0.25rem;
-    box-shadow: inset 0 0 20px rgba(201, 169, 97, 0.1);
   }
   
-  .heraldic-frame::before {
-    content: '';
+  .brauhaus-card::before {
+    content: "";
     position: absolute;
-    top: -8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 16px;
-    height: 16px;
-    background: oklch(0.55 0.15 50);
-    border-radius: 50%;
+    top: 4px;
+    left: 4px;
+    right: 4px;
+    bottom: 4px;
+    border: 1px solid var(--border);
+    pointer-events: none;
   }
-  
-  /* Subtle wood grain texture background */
-  .wood-texture {
-    background-image: 
-      repeating-linear-gradient(
-        90deg,
-        transparent,
-        transparent 2px,
-        rgba(42, 42, 42, 0.02) 2px,
-        rgba(42, 42, 42, 0.02) 4px
-      );
-  }
-  
-  /* Countdown timer styling */
-  .countdown-timer {
-    font-family: 'Playfair Display', serif;
-    font-size: 4rem;
-    font-weight: 800;
-    color: oklch(0.65 0.25 15);
-    text-shadow: 0 0 20px rgba(230, 57, 70, 0.4);
-    animation: pulse-glow 1.5s ease-in-out infinite;
-  }
-  
-  @keyframes pulse-glow {
-    0%, 100% {
-      text-shadow: 0 0 20px rgba(230, 57, 70, 0.4), 0 0 40px rgba(230, 57, 70, 0.2);
-    }
-    50% {
-      text-shadow: 0 0 30px rgba(230, 57, 70, 0.6), 0 0 60px rgba(230, 57, 70, 0.3);
-    }
-  }
-  
-  /* Hover effects for interactive elements */
-  a, button {
-    transition: all 300ms ease-out;
-  }
-  
-  a:hover {
-    color: oklch(0.55 0.15 50);
-    text-decoration: underline;
-    text-decoration-color: oklch(0.55 0.15 50);
-    text-underline-offset: 4px;
-  }
-  
-  /* Entrance animations */
-  @keyframes fade-in-up {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  
-  .animate-fade-in-up {
-    animation: fade-in-up 0.6s ease-out forwards;
-  }
-  
-  /* Staggered animation for multiple elements */
-  .stagger-item {
-    animation: fade-in-up 0.6s ease-out forwards;
-  }
-  
-  .stagger-item:nth-child(1) { animation-delay: 0.1s; }
-  .stagger-item:nth-child(2) { animation-delay: 0.2s; }
-  .stagger-item:nth-child(3) { animation-delay: 0.3s; }
-  .stagger-item:nth-child(4) { animation-delay: 0.4s; }
-  .stagger-item:nth-child(5) { animation-delay: 0.5s; }
-  .stagger-item:nth-child(6) { animation-delay: 0.6s; }
-  
-  /* Neon Billboard Styling */
-  .neon-billboard {
-    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
-    border-radius: 0.5rem;
+
+  /* Traditional Countdown Styling */
+  .traditional-countdown {
+    background-color: var(--color-bavarian-green);
+    color: var(--color-bavarian-cream);
+    border: 4px double var(--color-bavarian-gold);
     padding: 3rem 2rem;
-    position: relative;
-    box-shadow: 0 0 60px rgba(230, 57, 70, 0.3), inset 0 0 40px rgba(0, 0, 0, 0.8);
-  }
-  
-  .neon-billboard::before,
-  .neon-billboard::after {
-    content: '';
-    position: absolute;
-    background: radial-gradient(circle, rgba(230, 57, 70, 0.8) 0%, rgba(230, 57, 70, 0.3) 70%, transparent 100%);
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    animation: neon-blink 0.6s ease-in-out infinite;
-  }
-  
-  .neon-billboard::before {
-    top: 1rem;
-    left: 1rem;
-  }
-  
-  .neon-billboard::after {
-    top: 1rem;
-    right: 1rem;
-  }
-  
-  .neon-billboard-content {
     text-align: center;
     position: relative;
-    z-index: 2;
+    box-shadow: 0 10px 30px -5px rgba(26, 60, 40, 0.3);
   }
   
-  .neon-billboard-title {
+  .traditional-countdown-title {
     font-family: 'Playfair Display', serif;
-    font-size: 2.5rem;
-    font-weight: 800;
-    color: #ffffff;
-    text-shadow: 
-      0 0 10px rgba(230, 57, 70, 0.8),
-      0 0 20px rgba(230, 57, 70, 0.6),
-      0 0 30px rgba(230, 57, 70, 0.4);
+    font-size: 2rem;
+    color: var(--color-bavarian-gold);
     margin-bottom: 2rem;
-    letter-spacing: 2px;
-    animation: neon-flicker 3s ease-in-out infinite;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-bottom: 1px solid rgba(197, 160, 89, 0.3);
+    padding-bottom: 1rem;
+    display: inline-block;
   }
   
-  .neon-countdown-display {
-    background: rgba(0, 0, 0, 0.6);
-    border: 3px solid oklch(0.65 0.25 15);
-    border-radius: 0.5rem;
-    padding: 2rem;
-    box-shadow: 
-      inset 0 0 20px rgba(230, 57, 70, 0.2),
-      0 0 40px rgba(230, 57, 70, 0.3);
-  }
-  
-  .neon-countdown-grid {
+  .countdown-grid {
     display: flex;
     justify-content: center;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
+    gap: 2rem;
     flex-wrap: wrap;
   }
   
-  .neon-time-unit {
+  .countdown-unit {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
   }
   
-  .neon-number {
+  .countdown-value {
     font-family: 'Playfair Display', serif;
     font-size: 3.5rem;
-    font-weight: 800;
-    color: #ff3333;
-    text-shadow: 
-      0 0 10px rgba(255, 51, 51, 0.8),
-      0 0 20px rgba(255, 51, 51, 0.6),
-      0 0 30px rgba(255, 51, 51, 0.4),
-      0 0 40px rgba(255, 51, 51, 0.2);
-    letter-spacing: 2px;
-    animation: neon-pulse 1.5s ease-in-out infinite;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--color-bavarian-cream);
+    font-variant-numeric: tabular-nums;
   }
   
-  .neon-label {
+  .countdown-label {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 0.75rem;
-    font-weight: 400;
-    color: #ffffff;
-    text-shadow: 0 0 10px rgba(230, 57, 70, 0.6);
-    letter-spacing: 2px;
+    font-size: 0.875rem;
     text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--color-bavarian-gold);
+    margin-top: 0.5rem;
   }
   
-  .neon-separator {
+  .countdown-separator {
     font-family: 'Playfair Display', serif;
-    font-size: 2.5rem;
-    font-weight: 800;
-    color: #ff3333;
-    text-shadow: 
-      0 0 10px rgba(255, 51, 51, 0.8),
-      0 0 20px rgba(255, 51, 51, 0.6);
-    margin: 0 0.5rem;
-    animation: neon-pulse 1.5s ease-in-out infinite;
+    font-size: 3rem;
+    color: var(--color-bavarian-gold);
+    opacity: 0.5;
+    margin-top: -0.5rem;
   }
   
-  .neon-date {
-    font-family: 'Crimson Text', serif;
-    font-size: 0.9rem;
-    color: #ffffff;
-    text-shadow: 0 0 10px rgba(230, 57, 70, 0.5);
-    letter-spacing: 1px;
-  }
-  
-  @keyframes neon-pulse {
-    0%, 100% {
-      text-shadow: 
-        0 0 10px rgba(255, 51, 51, 0.8),
-        0 0 20px rgba(255, 51, 51, 0.6),
-        0 0 30px rgba(255, 51, 51, 0.4),
-        0 0 40px rgba(255, 51, 51, 0.2);
+  @media (max-width: 640px) {
+    .countdown-grid {
+      gap: 1rem;
     }
-    50% {
-      text-shadow: 
-        0 0 20px rgba(255, 51, 51, 0.9),
-        0 0 30px rgba(255, 51, 51, 0.7),
-        0 0 40px rgba(255, 51, 51, 0.5),
-        0 0 50px rgba(255, 51, 51, 0.3);
+    .countdown-value {
+      font-size: 2.5rem;
     }
-  }
-  
-  @keyframes neon-blink {
-    0%, 100% {
-      opacity: 1;
-      box-shadow: 0 0 10px rgba(230, 57, 70, 0.8), 0 0 20px rgba(230, 57, 70, 0.6);
-    }
-    50% {
-      opacity: 0.6;
-      box-shadow: 0 0 5px rgba(230, 57, 70, 0.4), 0 0 10px rgba(230, 57, 70, 0.2);
-    }
-  }
-  
-  @keyframes neon-flicker {
-    0%, 100% {
-      text-shadow: 
-        0 0 10px rgba(230, 57, 70, 0.8),
-        0 0 20px rgba(230, 57, 70, 0.6),
-        0 0 30px rgba(230, 57, 70, 0.4);
-    }
-    50% {
-      text-shadow: 
-        0 0 5px rgba(230, 57, 70, 0.4),
-        0 0 10px rgba(230, 57, 70, 0.2);
+    .countdown-separator {
+      display: none;
     }
   }
 }
