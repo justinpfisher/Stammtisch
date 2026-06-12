@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stammtisch Social Club | The Stammtisch Gentlemen's Assembly</title>
+  <meta
+    name="description"
+    content="The Stammtisch Social Club — a tradition of gathering, with a countdown to the Stammtisch Gentlemen's Assembly."
+  />
+
+  <meta property="og:title" content="Stammtisch Social Club" />
+  <meta
+    property="og:description"
+    content="The Stammtisch Gentlemen's Assembly — a tradition of gathering."
+  />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="stammtisch-crest.png" />
+
+  <style>
+    :root {
+      --bg: #0e0b08;
+      --bg-soft: #16110d;
+      --panel: rgba(19, 14, 10, 0.88);
+      --text: #f2e7d3;
+      --text-soft: #d8c8ae;
+      --accent: #c79d56;
+      --accent-soft: rgba(199, 157, 86, 0.35);
+      --border: rgba(199, 157, 86, 0.22);
+      --shadow: rgba(0, 0, 0, 0.45);
+      --max-width: 1100px;
+      --radius: 18px;
+      --nav-height: 84px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behaviour: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top, rgba(199, 157, 86, 0.08), transparent 35%),
+        linear-gradient(180deg, #120d09 0%, #0c0907 100%);
+      font-family: Georgia, "Times New Roman", Times, serif;
+      line-height: 1.65;
+      min-height: 100vh;
+      position: relative;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.08;
+      background-image:
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 3px,
+          rgba(255, 255, 255, 0.02) 4px
+        ),
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 3px,
+          rgba(255, 255, 255, 0.015) 4px
+        );
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(10px);
+      background: rgba(10, 7, 5, 0.9);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-inner {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 0 24px;
+      min-height: var(--nav-height);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand img {
+      width: 54px;
+      height: 54px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .brand-text {
+      font-size: 0.95rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+      white-space: nowrap;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      flex-wrap: wrap;
+    }
+
+    .nav-links a {
+      position: relative;
+      font-size: 0.95rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+      padding-bottom: 6px;
+    }
+
+    .nav-links a.active,
+    .nav-links a:hover {
+      color: var(--text);
+    }
+
+    .nav-links a.active::after,
+    .nav-links a:hover::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 2px;
+      background: var(--accent);
+    }
+
+    .hero {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 56px 24px 72px;
+      text-align: center;
+    }
+
+    .hero-panel {
+      background: linear-gradient(180deg, rgba(20, 14, 10, 0.92), rgba(12, 9, 7, 0.95));
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      padding: 42px 24px 56px;
+      box-shadow: 0 24px 70px var(--shadow);
+    }
+
+    .crest {
+      width: min(280px, 72vw);
+      height: auto;
+      display: block;
+      margin: 0 auto 26px;
+      filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.45));
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.3rem, 5vw, 4.8rem);
+      line-height: 1.05;
+      letter-spacing: 0.02em;
+      font-weight: 500;
+      text-transform: none;
+    }
+
+    .ornament {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      margin: 18px auto 24px;
+      color: var(--accent);
+    }
+
+    .ornament::before,
+    .ornament::after {
+      content: "";
+      width: 110px;
+      max-width: 20vw;
+      height: 1px;
+      background: var(--accent-soft);
+    }
+
+    .ornament span {
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .countdown-wrap {
+      margin: 0 auto 24px;
+      max-width: 760px;
+    }
+
+    .countdown {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+      border: 1px solid var(--accent-soft);
+      border-radius: 18px;
+      overflow: hidden;
+      background: rgba(14, 10, 8, 0.75);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+
+    .countdown-item {
+      padding: 22px 10px 18px;
+      border-right: 1px solid var(--accent-soft);
+    }
+
+    .countdown-item:last-child {
+      border-right: none;
+    }
+
+    .countdown-value {
+      display: block;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      line-height: 1;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .countdown-label {
+      display: block;
+      font-size: 0.95rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .countdown-finished {
+      border: 1px solid var(--accent-soft);
+      border-radius: 18px;
+      padding: 22px 24px;
+      font-size: clamp(1.3rem, 2.4vw, 2rem);
+      color: var(--text);
+      background: rgba(14, 10, 8, 0.8);
+    }
+
+    .subheading {
+      margin: 16px 0 10px;
+      font-size: clamp(1.15rem, 2vw, 1.6rem);
+      color: var(--accent);
+      letter-spacing: 0.04em;
+    }
+
+    .content {
+      max-width: 820px;
+      margin: 0 auto;
+      text-align: left;
+    }
+
+    .content p {
+      margin: 0 0 24px;
+      font-size: clamp(1.06rem, 1.6vw, 1.25rem);
+      color: var(--text);
+    }
+
+    .footer-mark {
+      margin-top: 34px;
+      color: var(--accent);
+      font-size: 1rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+
+    .button-row {
+      margin-top: 28px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .button {
+      display: inline-block;
+      border: 1px solid var(--accent-soft);
+      color: var(--text);
+      padding: 14px 24px;
+      border-radius: 999px;
+      font-size: 0.95rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+      background: rgba(199, 157, 86, 0.08);
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+      background: rgba(199, 157, 86, 0.14);
+      border-color: rgba(199, 157, 86, 0.48);
+    }
+
+    @media (max-width: 860px) {
+      .nav-inner {
+        flex-direction: column;
+        justify-content: center;
+        padding-top: 14px;
+        padding-bottom: 14px;
+      }
+
+      .brand {
+        justify-content: center;
+      }
+
+      .brand-text {
+        white-space: normal;
+        text-align: center;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .hero {
+        padding: 34px 16px 50px;
+      }
+
+      .hero-panel {
+        padding: 30px 18px 40px;
+        border-radius: 22px;
+      }
+
+      .countdown {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .countdown-item:nth-child(2) {
+        border-right: none;
+      }
+
+      .countdown-item:nth-child(1),
+      .countdown-item:nth-child(2) {
+        border-bottom: 1px solid var(--accent-soft);
+      }
+
+      .content {
+        text-align: left;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .nav-links {
+        justify-content: center;
+        gap: 18px;
+      }
+
+      .nav-links a {
+        font-size: 0.85rem;
+      }
+
+      .brand img {
+        width: 46px;
+        height: 46px;
+      }
+
+      .brand-text {
+        font-size: 0.82rem;
+      }
+
+      .countdown-item {
+        padding: 18px 8px 16px;
+      }
+
+      .subheading {
+        line-height: 1.35;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="nav-inner">
+      <a class="brand" href="index.html">
+        <img src="stammtisch-crest.png" alt="Stammtisch Social Club crest" />
+        <div class="brand-text">The Stammtisch Social Club</div>
+      </a>
+
+      <nav class="nav-links" aria-label="Primary navigation">
+        <a href="index.html" class="active">Home</a>
+        <a href="location.html">Location</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="hero">
+    <section class="hero-panel">
+      <img
+        class="crest"
+        src="stammtisch-crest.png"
+        alt="Stammtisch Social Club crest"
+      />
+
+      <h1>The Stammtisch Gentlemen's Assembly:</h1>
+      <div class="ornament"><span>✦</span></div>
+
+      <div class="countdown-wrap">
+        <div id="countdown" class="countdown" aria-live="polite">
+          <div class="countdown-item">
+            <span class="countdown-value" id="days">0</span>
+            <span class="countdown-label">Days</span>
+          </div>
+          <div class="countdown-item">
+            <span class="countdown-value" id="hours">0</span>
+            <span class="countdown-label">Hours</span>
+          </div>
+          <div class="countdown-item">
+            <span class="countdown-value" id="minutes">0</span>
+            <span class="countdown-label">Minutes</span>
+          </div>
+          <div class="countdown-item">
+            <span class="countdown-value" id="seconds">0</span>
+            <span class="countdown-label">Seconds</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="subheading">The Stammtisch Social Club - A Tradition of Gathering</div>
+      <div class="ornament"><span>✦</span></div>
+
+      <div class="content">
+        <p>
+          The Stammtisch Social Club is an association dedicated to elevating the longstanding
+          tradition of gathering with intention, consistency, and an admirable degree of ceremony.
+          Composed of a select membership, the Stammtisch Social Club maintains a reputation for
+          structure and significance disproportionate to the simplicity of its activities.
+        </p>
+
+        <p>
+          The Stammtisch Social Club distinguishes itself through a rare blend of informality and
+          ceremony. While the aim of the Club is uncomplicated, the commitment to process,
+          structure, and tradition is maintained with a seriousness that has become one of its
+          defining qualities.
+        </p>
+
+        <p>
+          This balance — understated, deliberate, and fully committed to the art of showing up —
+          forms the essence of the Stammtisch Social Club.
+        </p>
+      </div>
+
+      <div class="button-row">
+        <a class="button" href="location.html">View Location</a>
+      </div>
+
+      <div class="footer-mark">The Stammtisch Social Club</div>
+    </section>
+  </main>
+
+  <script>
+    const countdownElement = document.getElementById("countdown");
+    const daysElement = document.getElementById("days");
+    const hoursElement = document.getElementById("hours");
+    const minutesElement = document.getElementById("minutes");
+    const secondsElement = document.getElementById("seconds");
+
+    // Friday, February 5, 2027 at 9:00am EST
+    const targetDate = new Date("2027-02-05T09:00:00-05:00").getTime();
+
+    function updateCountdown() {
+      const now = new Date().getTime();
+      const difference = targetDate - now;
+
+      if (difference <= 0) {
+        countdownElement.className = "countdown-finished";
+        countdownElement.innerHTML = "The 2026 Stammtisch Gentlemen's Assembly is underway";
+        return;
+      }
+
+      const day = 1000 * 60 * 60 * 24;
+      const hour = 1000 * 60 * 60;
+      const minute = 1000 * 60;
+
+      const days = Math.floor(difference / day);
+      const hours = Math.floor((difference % day) / hour);
+      const minutes = Math.floor((difference % hour) / minute);
+      const seconds = Math.floor((difference % minute) / 1000);
+
+      daysElement.textContent = days;
+      hoursElement.textContent = String(hours).padStart(2, "0");
+      minutesElement.textContent = String(minutes).padStart(2, "0");
+      secondsElement.textContent = String(seconds).padStart(2, "0");
+    }
+
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+  </script>
+</body>
+</html>
