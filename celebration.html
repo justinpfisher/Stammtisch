@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#193d32">
+  <title>Celebration of Life | Stammtisch Social Club</title>
+  <meta name="description" content="The Stammtisch Celebration of Life: our members’ celebrity lists, points standings, and the lives we gather to commemorate.">
+  <link rel="canonical" href="https://stammtischbrewery.com/celebration.html">
+  <meta property="og:title" content="Celebration of Life | Stammtisch Social Club">
+  <meta property="og:description" content="Our members’ selections, the standings, and the lives we gather to commemorate.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://stammtischbrewery.com/celebration.html">
+  <meta property="og:image" content="https://stammtischbrewery.com/stammtisch-crest.png">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="celebration.css">
+  <script type="module" src="celebration.mjs"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header"><div class="shell header-inner">
+    <a class="wordmark" href="index.html" aria-label="Stammtisch Social Club home"><img src="assets/crest-small.webp" width="56" height="56" alt=""><span>Stammtisch<small>Social Club</small></span></a>
+    <nav aria-label="Main navigation"><a href="index.html#the-club">The Club</a><a href="celebration.html" aria-current="page">Celebration of Life</a><a href="location.html">Annual Assembly <span aria-hidden="true">↗</span></a></nav>
+  </div></header>
+  <main id="main">
+    <section class="celebration-hero shell" aria-labelledby="celebration-title">
+      <div><p class="eyebrow"><span class="little-rule" aria-hidden="true"></span>A Stammtisch tradition</p><h1 id="celebration-title">Celebration <em>of Life.</em></h1></div>
+      <div class="celebration-intro"><p>Each of us keeps a list of people who matter to us. When one of them passes, we gather at the next Stammtisch to commemorate their life and what they brought to the world.</p><a class="text-link" href="#how-it-works">Our tradition &amp; the scoring <span aria-hidden="true">↓</span></a></div>
+    </section>
+    <section class="standings-section" aria-labelledby="standings-title">
+      <div class="shell">
+        <div class="standings-heading"><div><p class="eyebrow">The company · <span data-year>2026</span></p><h2 id="standings-title">The standings</h2></div><p>Choose a member to explore their list.</p></div>
+        <div class="standings-grid" id="standings"><p>Loading the standings…</p></div>
+      </div>
+    </section>
+    <div class="register-nav-wrap"><nav class="shell register-nav" aria-label="Celebration of Life sections"><a href="#the-lists">Everyone’s lists <span aria-hidden="true">↓</span></a><a href="#commemorations">Commemorations <span aria-hidden="true">↓</span></a><a href="#how-it-works">The tradition &amp; scoring <span aria-hidden="true">↓</span></a></nav></div>
+    <section class="shell register-section" id="the-lists" aria-labelledby="lists-title">
+      <div class="register-heading"><div><p class="eyebrow">01 / The people on our lists</p><h2 id="lists-title" tabindex="-1">Everyone’s <em>selections.</em></h2></div><p>Explore a member’s full list, or search for a name.<br><span class="snapshot-date" data-snapshot-date></span></p></div>
+      <div class="register-controls" id="register-controls" hidden>
+        <div class="member-filters" role="group" aria-label="Filter by member" id="member-filters"></div>
+        <div class="search-row"><div class="search-field"><label for="celebrity-search">Find a celebrity</label><input id="celebrity-search" type="search" placeholder="Search all names…" autocomplete="off"></div><div class="status-field"><label for="status-filter">Show</label><select id="status-filter"><option value="all">All selections</option><option value="commemorations">Commemorations</option><option value="unflagged">Not flagged</option><option value="double">Double-point selections</option></select></div><button class="reset-filters" id="reset-filters" type="button">Reset filters</button></div>
+      </div>
+      <p class="results-count" id="results-count" role="status" aria-live="polite" aria-atomic="true"></p>
+      <div id="member-lists"><p class="load-message">Loading the member lists…</p></div>
+      <noscript><p>Please enable JavaScript to explore the lists, or <a href="https://docs.google.com/spreadsheets/d/1B8tZFjIa5FsyBaex42Atg7pJ5Y86Lj1vHeJMRhrqrCY/edit">open the original spreadsheet</a>.</p></noscript>
+    </section>
+    <section class="commemorations-section" id="commemorations" aria-labelledby="commemorations-title"><div class="shell">
+      <div class="register-heading"><div><p class="eyebrow">02 / Taking a moment to remember</p><h2 id="commemorations-title">Lives to <em>commemorate.</em></h2></div><p>Passings recorded in our register.<br>A name, a life, and a story to share at the table.</p></div>
+      <div class="commemorations-grid" id="commemoration-list"><p>Loading commemorations…</p></div>
+    </div></section>
+    <section class="shell tradition-section" id="how-it-works" aria-labelledby="tradition-title">
+      <div class="section-heading"><p class="eyebrow">03 / The tradition</p><h2 id="tradition-title">A life remembered.<br><em>A story shared.</em></h2><p>At the next Stammtisch following a passing, the member presents a Celebration of Life speech about that person’s life and contribution to the world.</p></div>
+      <div class="scoring-notes">
+        <h3>How the points work</h3><div class="score-equation" role="img" aria-label="Points equal 100 minus age at passing"><span>100</span><span aria-hidden="true">−</span><span>age at passing</span><span aria-hidden="true">=</span><span>points</span></div>
+        <ul><li>A passing at age <strong>100 earns 10 points</strong>.</li><li>At age <strong>101 or older</strong>, 100 minus age gives a penalty: −1 at 101, −2 at 102, and so on.</li><li>The first and last selections carry <strong>double points</strong> in the spreadsheet.</li></ul>
+        <p>“Awarded” points contribute to the standings. For other selections, “Value” shows the points at the age shown. Ages and values use the register’s update date.</p>
+        <details class="source-notes"><summary>Scoring notes <span aria-hidden="true">+</span></summary><div class="details-body"><p>The standings retain the spreadsheet’s recorded totals and allocations. Kevin Keegan’s 25 points are recorded as 12 for Matt and 13 for Ken; Ken’s additional entry is labelled “BB” in the sheet.</p><p>Dolly Parton’s verified date of passing is included here. Her 20 points were already counted in Jamie’s total.</p><p>Values for selections without an awarded score use the age rules above. Where a spreadsheet value differs, you can see it by opening that person’s entry.</p></div></details>
+      </div>
+    </section>
+    <section class="shell distinctions-section" aria-labelledby="distinctions-title"><details class="distinctions-disclosure"><summary><span><span class="eyebrow">From the “buttons?” tab</span><span id="distinctions-title">Club distinctions &amp; button ideas</span></span><span aria-hidden="true">+</span></summary><div class="distinctions-grid" id="distinctions"></div></details></section>
+    <div class="shell register-source"><p id="source-date">Based on the club’s shared register.</p><a class="text-link" href="https://docs.google.com/spreadsheets/d/1B8tZFjIa5FsyBaex42Atg7pJ5Y86Lj1vHeJMRhrqrCY/edit" target="_blank" rel="noopener noreferrer">Open the original spreadsheet <span aria-hidden="true">↗</span></a></div>
+  </main>
+  <footer class="site-footer"><div class="shell footer-inner"><p>The Stammtisch Social Club<span>A tradition of gathering.</span></p><nav aria-label="Footer navigation"><a href="index.html#the-club">The Club</a><a href="celebration.html" aria-current="page">Celebration of Life</a><a href="location.html">The Annual Assembly ↗</a></nav></div></footer>
+</body>
+</html>

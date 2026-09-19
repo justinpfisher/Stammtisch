@@ -92,6 +92,9 @@ nav a:hover,nav a[aria-current="page"] { text-decoration:underline; text-decorat
 .footer-inner>p span { display:block; color:var(--muted); font:10px/1.6 var(--sans); margin-top:5px; }
 .footer-inner nav { gap:25px; }
 .footer-inner nav a { font-size:11px; }
+.celebration-teaser { display:flex; align-items:center; justify-content:space-between; gap:35px; border-block:1px solid var(--line); padding-block:42px; margin-bottom:70px; }
+.celebration-teaser h2 { font-size:clamp(34px,4vw,48px); letter-spacing:-.035em; margin-top:13px; }
+.celebration-teaser p:not(.eyebrow) { font-size:13px; color:var(--muted); margin-top:17px; }
 
 /* The Assembly */
 .assembly-hero { display:grid; grid-template-columns:1fr 230px; gap:40px; align-items:center; padding-block:30px 54px; }
@@ -130,7 +133,7 @@ nav a:hover,nav a[aria-current="page"] { text-decoration:underline; text-decorat
 summary { cursor:pointer; padding:21px 0; list-style:none; display:flex; justify-content:space-between; gap:20px; align-items:center; font:22px/1.3 var(--serif); }
 summary::-webkit-details-marker { display:none; }
 summary>span { font:23px/1 var(--sans); color:var(--brass); transition:transform .2s; }
-details[open] summary>span { transform:rotate(45deg); }
+details[open]>summary>span { transform:rotate(45deg); }
 .details-body { padding:0 26px 23px 0; color:#565e51; font-size:13px; line-height:1.85; }
 .details-body p+p { margin-top:15px; }
 .details-body .text-link { margin-top:12px; }
@@ -164,12 +167,12 @@ details[open] summary>span { transform:rotate(45deg); }
 @media (max-width:700px) {
   html { scroll-padding-top:20px; }
   .shell { width:calc(100% - 40px); }
-  .header-inner { min-height:88px; gap:15px; }
+  .header-inner { min-height:88px; gap:7px; flex-wrap:wrap; padding-block:16px 7px; }
   .wordmark { gap:9px; }
   .wordmark img { width:39px; height:39px; }
   .wordmark>span { font-size:19px; }
   .wordmark small { font-size:8px; margin-top:5px; letter-spacing:.23em; }
-  .header-inner nav { gap:16px; }
+  .header-inner nav { gap:20px; width:100%; justify-content:space-between; }
   .header-inner nav a { font-size:11px; gap:5px; }
   .hero { grid-template-columns:1fr; gap:35px; padding-block:38px; }
   .hero h1 { font-size:clamp(58px,12vw,82px); margin-top:20px; }
@@ -208,7 +211,8 @@ details[open] summary>span { transform:rotate(45deg); }
   .closing-note { padding-bottom:53px; }
   .closing-note p { font-size:23px; }
   .footer-inner { align-items:start; flex-direction:column; gap:12px; padding-block:25px; }
-  .footer-inner nav { gap:28px; }
+  .footer-inner nav { gap:12px 23px; flex-wrap:wrap; }
+  .celebration-teaser { flex-direction:column; align-items:start; gap:25px; padding-block:30px; margin-bottom:45px; }
   .assembly-hero { grid-template-columns:1fr; gap:0; padding-block:16px 38px; }
   .back-link { margin-bottom:19px; }
   .assembly-hero h1 { font-size:clamp(44px,10.5vw,70px); }

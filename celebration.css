@@ -1,0 +1,198 @@
+/* Celebration of Life: the shared register. */
+.celebration-hero { display:grid; grid-template-columns:1.2fr 1fr; gap:80px; padding-block:55px 48px; align-items:center; }
+.celebration-hero h1 { margin-top:18px; font-size:clamp(48px,5.6vw,72px); letter-spacing:-.055em; line-height:1.08; max-width:600px; }
+.celebration-hero h1 em { display:block; color:#45664e; }
+.celebration-intro { padding-top:17px; max-width:430px; }
+.celebration-intro>p { color:var(--muted); font-size:14px; line-height:1.9; }
+.celebration-intro .text-link { margin-top:16px; }
+.standings-section { background:var(--forest); color:var(--paper); padding-block:31px 36px; }
+.standings-heading { display:flex; justify-content:space-between; align-items:end; gap:25px; margin-bottom:24px; }
+.standings-heading .eyebrow { color:var(--gold); }
+.standings-heading h2 { font-size:31px; margin-top:6px; }
+.standings-heading>p { color:#d3dbd0; font-size:12px; }
+.standings-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:13px; }
+.standing-card { min-width:0; position:relative; display:flex; flex-direction:column; align-items:center; text-decoration:none; background:#23483c; border:1px solid #496052; padding:21px 12px 15px; transition:background .18s,border-color .18s; }
+.standing-card:first-child { border-color:#b89b60; background:#2d4c3d; }
+.standing-card:hover { background:#335b49; border-color:var(--gold); }
+.standing-card:focus-visible { outline-color:var(--gold); }
+.standing-rank { position:absolute; top:11px; left:13px; font:italic 14px var(--serif); color:#d5c296; }
+.standing-card img { width:66px; height:66px; object-fit:cover; border-radius:50%; margin-bottom:9px; border:2px solid #bec6af; }
+.standing-name { font:22px/1.4 var(--serif); }
+.standing-score { margin-top:10px; font:40px/1.1 var(--serif); font-variant-numeric:tabular-nums; }
+.standing-score small { font:9px/1.6 var(--sans); text-transform:uppercase; letter-spacing:.13em; color:#d3dbd0; margin-left:6px; }
+.standing-cta { font-size:10px; color:#d3dbd0; margin-top:14px; }
+.standing-cta>span { margin-left:15px; color:var(--gold); }
+.register-nav-wrap { border-bottom:1px solid var(--line); }
+.register-nav { justify-content:flex-start; gap:43px; min-height:67px; }
+.register-nav a { font-size:12px; gap:16px; }
+.register-nav a>span { color:var(--brass); }
+.register-section { padding-block:65px; }
+.register-heading { display:flex; justify-content:space-between; align-items:end; gap:35px; margin-bottom:30px; }
+.register-heading h2 { font-size:clamp(34px,3.6vw,46px); line-height:1.18; letter-spacing:-.035em; margin-top:13px; }
+.register-heading>p { color:var(--muted); font-size:12px; line-height:1.9; }
+.snapshot-date { font-size:11px; }
+.member-filters { display:flex; flex-wrap:wrap; gap:8px; padding-bottom:20px; }
+.member-filters button { min-height:44px; padding:8px 20px; border:1px solid var(--line); background:transparent; border-radius:3px; font:13px/1.5 var(--sans); color:var(--ink); cursor:pointer; }
+.member-filters button:hover { border-color:var(--forest); }
+.member-filters button[aria-pressed="true"] { background:var(--forest); border-color:var(--forest); color:var(--paper); }
+.search-row { display:flex; align-items:end; gap:15px; padding-bottom:22px; border-bottom:1px solid var(--line); }
+.search-field { flex:1; max-width:560px; }
+.status-field { width:230px; }
+.search-row label { display:block; font-size:11px; margin-bottom:6px; color:var(--muted); }
+.search-row input,.search-row select { width:100%; min-height:47px; border:1px solid #b7bbac; background:#faf8f2; color:var(--ink); border-radius:2px; padding:10px 13px; font:14px/1.4 var(--sans); }
+.search-row input::placeholder { color:#737669; }
+.reset-filters { border:0; background:transparent; color:var(--ink); text-decoration:underline; text-underline-offset:5px; min-height:47px; cursor:pointer; font:12px var(--sans); padding:8px 10px; }
+button:focus-visible,input:focus-visible,select:focus-visible { outline:3px solid var(--brass); outline-offset:3px; }
+.results-count { color:var(--muted); font-size:11px; margin-block:17px; min-height:19px; }
+.member-register { border:1px solid var(--line); margin-top:12px; background:#faf8f2; }
+.member-register>summary { display:grid; grid-template-columns:48px minmax(0,1fr) auto 18px; gap:18px; padding:17px 22px; }
+.member-register>summary:hover { background:#eeecdf; }
+.member-register>summary img { width:48px; height:48px; object-fit:cover; border-radius:50%; }
+.member-register>summary>span,.pick-entry>summary>span,.distinctions-disclosure>summary>span:first-child { transform:none!important; }
+.member-register-name { font:26px/1.3 var(--serif); color:var(--ink); }
+.member-register-name small { display:block; font:11px/1.5 var(--sans); color:var(--muted); margin-top:3px; }
+.member-register-score { font:27px/1.4 var(--serif); color:var(--ink); }
+.member-register-score small { color:var(--muted); font:11px var(--sans); }
+.disclosure-icon { font:20px/1 var(--sans); color:var(--brass); transform:none!important; }
+details[open]>summary>.disclosure-icon { transform:rotate(45deg)!important; }
+.pick-list { list-style:none; margin:0; padding:0 22px 12px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:25px; }
+.pick-list>li { min-width:0; border-top:1px solid #deded0; }
+.pick-entry>summary { display:grid; grid-template-columns:27px minmax(0,1fr) 48px 13px; gap:10px; padding-block:16px; min-height:88px; }
+.pick-number { font:italic 13px/1.4 var(--serif); color:var(--muted); align-self:start; margin-top:4px; }
+.pick-name-block { min-width:0; color:var(--ink); }
+.pick-name { font:18px/1.4 var(--serif); display:block; overflow-wrap:anywhere; }
+.record-meta { display:block; font:10px/1.7 var(--sans); color:var(--muted); margin-top:4px; }
+.record-meta>span { margin-inline:4px; }
+.selection-badge { font:600 10px/1.6 var(--sans); background:#eae0c4; color:#674e22; border-radius:3px; padding:2px 5px; margin-left:3px; white-space:nowrap; vertical-align:middle; }
+.pick-points { color:var(--ink); text-align:right; }
+.pick-points strong { font:25px/1 var(--serif); font-variant-numeric:tabular-nums; display:block; }
+.pick-points small { color:var(--muted); font:9px/1.5 var(--sans); display:block; margin-top:5px; }
+.record-status { display:inline-block; font:10px/1.7 var(--sans); color:#45604b; margin-top:4px; }
+.remembered .record-status::before { content:""; display:inline-block; width:5px; height:5px; border-radius:50%; background:#647c5c; margin-right:6px; vertical-align:2px; }
+.pick-entry-body { border-left:2px solid #c5ba97; margin:0 0 17px 36px; padding:0 10px 0 15px; }
+.pick-entry-body dl { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin:0; }
+.pick-entry-body dt { color:var(--muted); font-size:9px; text-transform:uppercase; letter-spacing:.07em; }
+.pick-entry-body dd { margin:3px 0 0; font-size:11px; }
+.pick-entry-body>p { font-size:11px; color:var(--muted); margin-top:13px; }
+.pick-entry-body a { color:var(--ink); }
+.no-results { padding:35px; text-align:center; border:1px solid var(--line); }
+.no-results h3 { font-size:27px; }
+.no-results p,.load-message { font-size:13px; margin-top:10px; color:var(--muted); }
+.commemorations-section { background:var(--paper-deep); padding-block:60px 65px; }
+.commemorations-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:15px; }
+.commemoration-card { border:1px solid #c7c7b7; padding:24px; background:rgb(250 248 242 / .55); }
+.commemoration-topline { display:flex; justify-content:space-between; font:10px/1.7 var(--sans); color:#6d684f; gap:10px; }
+.commemoration-card h3 { font-size:27px; line-height:1.25; margin-top:18px; letter-spacing:-.02em; }
+.commemoration-date { font-size:11px; color:var(--muted); margin-top:7px; }
+.commemoration-members { border-top:1px solid #cdd0bf; margin-top:22px; padding-top:9px; }
+.commemoration-members a { display:flex; justify-content:space-between; align-items:center; text-decoration:none; font-size:12px; min-height:35px; gap:10px; }
+.commemoration-members a:hover { text-decoration:underline; }
+.commemoration-members a>span { color:var(--muted); font-size:11px; }
+.commemoration-members a>span>span { margin-left:8px; color:var(--brass); }
+.verified-date { font-size:10px; display:inline-block; padding-block:8px; color:var(--muted); }
+.tradition-section { display:grid; grid-template-columns:1fr 1.2fr; gap:95px; padding-block:70px 55px; }
+.tradition-section .section-heading>p:last-child { color:var(--muted); font-size:13px; margin-top:23px; max-width:350px; }
+.scoring-notes>h3 { font-size:28px; }
+.score-equation { display:flex; gap:12px; align-items:center; padding:20px 0; border-bottom:1px solid var(--line); margin-bottom:18px; font:22px/1.4 var(--serif); }
+.score-equation>span:first-child { font-size:35px; color:var(--brass); }
+.scoring-notes ul { padding-left:18px; font-size:13px; color:var(--muted); }
+.scoring-notes li { margin-block:9px; }
+.scoring-notes>p { color:var(--muted); font-size:12px; line-height:1.8; margin-block:19px; }
+.source-notes { border-block:1px solid var(--line); }
+.source-notes>summary { font-size:18px; padding-block:16px; }
+.source-notes .details-body { font-size:12px; }
+.distinctions-section { padding-bottom:20px; }
+.distinctions-disclosure { border-block:1px solid var(--line); }
+.distinctions-disclosure>summary { padding-block:24px; }
+.distinctions-disclosure>summary>span:first-child { color:var(--ink); font:25px/1.4 var(--serif); }
+.distinctions-disclosure .eyebrow { display:block; margin-bottom:7px; }
+.distinctions-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:28px; padding-block:10px 30px; }
+.distinctions-grid h3 { font:19px/1.4 var(--serif); text-transform:capitalize; }
+.distinctions-grid article>p { font-size:11px; color:var(--muted); margin-top:12px; }
+.distinctions-grid details>summary { font:11px/1.5 var(--sans); padding-block:14px; }
+.distinctions-grid details>p { font-size:11px; color:var(--muted); }
+.register-source { display:flex; justify-content:space-between; gap:35px; align-items:center; padding-block:22px 40px; }
+.register-source>p { font-size:10px; color:var(--muted); max-width:500px; }
+.register-source .text-link { flex-shrink:0; font-size:11px; }
+@media(max-width:1000px) {
+  .celebration-hero { gap:40px; }
+  .standing-card { padding-inline:8px; }
+  .standing-score { font-size:34px; }
+  .standing-name { font-size:21px; }
+  .standing-score small { display:block; margin:5px 0 0; }
+  .standing-rank { left:8px; top:8px; font-size:12px; }
+  .standing-card img { width:58px; height:58px; }
+  .pick-list { grid-template-columns:1fr; }
+  .pick-entry>summary { grid-template-columns:27px minmax(0,1fr) 60px 13px; }
+  .commemoration-card { padding:20px; }
+  .tradition-section { gap:45px; }
+  .register-heading { align-items:start; }
+}
+@media(max-width:700px) {
+  .celebration-hero { grid-template-columns:1fr; gap:22px; padding-block:33px; }
+  .celebration-hero h1 { font-size:53px; }
+  .celebration-hero h1 em { display:inline; }
+  .celebration-intro { padding:0; max-width:none; }
+  .celebration-intro>p { font-size:13px; }
+  .celebration-intro .text-link { margin-top:9px; }
+  .standings-heading { align-items:start; gap:15px; }
+  .standings-heading>p { max-width:120px; padding-top:5px; font-size:10px; }
+  .standings-heading h2 { font-size:29px; }
+  .standings-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+  .standing-card { padding:21px 7px 12px; }
+  .standing-card img { width:56px; height:56px; }
+  .standing-name { font-size:20px; }
+  .standing-score { font-size:30px; margin-top:7px; }
+  .standing-score small { display:inline; margin-left:4px; font-size:8px; }
+  .standing-cta { font-size:9px; margin-top:9px; }
+  .standing-cta>span { margin-left:9px; }
+  .register-nav { gap:12px; justify-content:space-between; min-height:65px; }
+  .register-nav a { font-size:10px; gap:4px; max-width:125px; line-height:1.6; }
+  .register-nav a>span { display:none; }
+  .register-section { padding-block:39px; }
+  .register-heading { display:block; margin-bottom:23px; }
+  .register-heading h2 { font-size:36px; }
+  .register-heading>p { margin-top:16px; font-size:11px; }
+  .member-filters { gap:6px; padding-bottom:16px; }
+  .member-filters button { padding:8px 13px; font-size:12px; }
+  .search-row { flex-wrap:wrap; gap:12px; }
+  .search-field { flex-basis:100%; max-width:none; }
+  .status-field { flex:1; width:auto; }
+  .results-count { line-height:1.8; }
+  .member-register>summary { grid-template-columns:40px minmax(0,1fr) auto 15px; gap:11px; padding:15px 13px; }
+  .member-register>summary img { width:40px; height:40px; }
+  .member-register-name { font-size:23px; }
+  .member-register-name small { font-size:10px; }
+  .member-register-score { font-size:24px; text-align:right; }
+  .member-register-score small { display:block; font-size:9px; }
+  .pick-list { padding-inline:13px; }
+  .pick-entry>summary { grid-template-columns:21px minmax(0,1fr) 42px 10px; gap:8px; }
+  .pick-name { font-size:17px; }
+  .record-meta { font-size:10px; }
+  .pick-points strong { font-size:23px; }
+  .pick-entry-body { margin-left:29px; padding-left:11px; }
+  .pick-entry-body dl { grid-template-columns:1fr; gap:10px; }
+  .commemorations-section { padding-block:39px; }
+  .commemorations-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .commemoration-card { padding:17px 14px; }
+  .commemoration-topline { flex-direction:column; gap:0; font-size:9px; }
+  .commemoration-card h3 { font-size:23px; margin-top:13px; }
+  .commemoration-date { font-size:10px; }
+  .commemoration-members a { font-size:11px; align-items:start; flex-direction:column; gap:0; padding-block:5px; }
+  .commemoration-members a>span { font-size:10px; }
+  .tradition-section { grid-template-columns:1fr; gap:30px; padding-block:42px; }
+  .tradition-section .section-heading h2 { font-size:36px; }
+  .score-equation { gap:8px; font-size:20px; }
+  .distinctions-grid { grid-template-columns:1fr; gap:23px; }
+  .distinctions-disclosure>summary>span:first-child { font-size:22px; }
+  .register-source { flex-direction:column; align-items:start; gap:10px; padding-block:10px 30px; }
+}
+@media(max-width:380px) {
+  .celebration-hero h1 { font-size:46px; }
+  .standing-score { font-size:27px; }
+  .standing-score small { font-size:7px; }
+  .standing-name { font-size:19px; }
+  .commemorations-grid { grid-template-columns:1fr; }
+  .commemoration-topline { flex-direction:row; }
+  .commemoration-members a { flex-direction:row; }
+}
