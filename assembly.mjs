@@ -26,7 +26,7 @@ function mountCountdown() {
     if (parts.convened) {
       digits.hidden = true;
       status.classList.remove('sr-only');
-      status.textContent = 'The 2027 Assembly has convened.';
+      status.textContent = 'The Annual Gentlemen’s Assembly has convened.';
       root.querySelector('[data-countdown-label]').textContent = 'The appointed hour';
       clearInterval(timer);
       return;
