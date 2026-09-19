@@ -42,7 +42,8 @@ nav a:hover,nav a[aria-current="page"] { text-decoration:underline; text-decorat
 .hero-crest { width:86%; height:auto; position:relative; z-index:1; }
 .crest-caption { margin-top:24px; color:var(--brass); font:italic 15px/1.4 var(--serif); }
 .assembly-notice { background:var(--forest); color:var(--paper); }
-.notice-inner { display:grid; grid-template-columns:84px 1fr 280px; gap:35px; align-items:center; padding-block:37px; }
+.notice-inner { display:grid; grid-template-columns:minmax(0,1fr) 440px; gap:48px; align-items:center; padding-block:37px; }
+.notice-event { display:grid; grid-template-columns:84px minmax(0,1fr); gap:35px; align-items:center; }
 .date-seal { text-align:center; padding-right:26px; border-right:1px solid #456153; }
 .date-seal span { display:block; font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--gold); }
 .date-seal strong { display:block; font:58px/1.13 var(--serif); margin-block:3px; }
@@ -55,10 +56,10 @@ nav a:hover,nav a[aria-current="page"] { text-decoration:underline; text-decorat
 .text-link.light { color:var(--paper); border-color:#849177; }
 .text-link.light:hover { color:var(--gold); }
 .notice-copy .text-link { margin-top:9px; min-height:35px; }
-.countdown-block { border-left:1px solid #456153; padding-left:32px; }
-.countdown { display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:16px; margin-top:14px; }
-.countdown span { display:block; font:45px/1.1 var(--serif); font-variant-numeric:tabular-nums; letter-spacing:-.025em; }
-.countdown small { display:block; font-size:8px; text-transform:uppercase; letter-spacing:.16em; margin-top:9px; color:#cad3c6; }
+.countdown-block { border-left:1px solid #456153; padding-left:42px; }
+.countdown { display:grid; grid-template-columns:1.35fr 1fr 1fr; gap:26px; margin-top:12px; }
+.countdown span { display:block; font:64px/.98 var(--serif); font-variant-numeric:tabular-nums; letter-spacing:-.035em; }
+.countdown small { display:block; font-size:9px; text-transform:uppercase; letter-spacing:.16em; margin-top:12px; color:#cad3c6; }
 .countdown-status { font:22px/1.4 var(--serif); margin-top:15px; }
 .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 .section-space { padding-block:88px; }
@@ -142,10 +143,11 @@ details[open] summary>span { transform:rotate(45deg); }
   .shell { width:calc(100% - 64px); }
   .hero { gap:25px; }
   .crest-display { padding-right:0; }
-  .notice-inner { grid-template-columns:70px 1fr 230px; gap:24px; }
-  .countdown-block { padding-left:24px; }
-  .countdown { gap:12px; }
-  .countdown span { font-size:38px; }
+  .notice-inner { grid-template-columns:minmax(0,1fr) 350px; gap:30px; }
+  .notice-event { grid-template-columns:70px minmax(0,1fr); gap:24px; }
+  .countdown-block { padding-left:28px; }
+  .countdown { gap:17px; }
+  .countdown span { font-size:52px; }
   .notice-copy h2 { font-size:27px; }
   .club-section { gap:55px; }
   .principles>div { padding-inline:20px; grid-template-columns:25px 1fr; }
@@ -176,16 +178,17 @@ details[open] summary>span { transform:rotate(45deg); }
   .crest-display { display:none; }
   .crest-ring { width:240px; }
   .crest-caption { margin-top:17px; font-size:14px; }
-  .notice-inner { grid-template-columns:60px 1fr; gap:24px 18px; padding-block:29px; }
+  .notice-inner { grid-template-columns:1fr; gap:24px; padding-block:29px; }
+  .notice-event { grid-template-columns:60px minmax(0,1fr); gap:18px; }
   .date-seal { padding-right:17px; }
   .date-seal strong { font-size:46px; }
   .date-seal span { font-size:8px; }
   .notice-copy h2 { font-size:25px; }
   .notice-copy>p:not(.eyebrow) { font-size:11px; }
-  .countdown-block { grid-column:1 / -1; border-left:none; border-top:1px solid #456153; padding:22px 0 0; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+  .countdown-block { border-left:none; border-top:1px solid #456153; padding:22px 0 0; display:flex; align-items:center; justify-content:space-between; gap:16px; }
   .countdown-block>.eyebrow { max-width:77px; }
   .countdown { gap:24px; margin:0; }
-  .countdown span { font-size:37px; }
+  .countdown span { font-size:42px; }
   .countdown small { font-size:8px; margin-top:7px; }
   .section-space { padding-block:55px; }
   .club-section { grid-template-columns:1fr; gap:28px; }
@@ -236,7 +239,7 @@ details[open] summary>span { transform:rotate(45deg); }
   .hero h1 { font-size:55px; }
   .notice-copy h2 { font-size:23px; }
   .countdown { gap:17px; }
-  .countdown span { font-size:34px; }
+  .countdown span { font-size:38px; }
   .cottage-heading h2 { font-size:32px; }
   .cottage-gallery { grid-template-rows:220px 130px; }
 }
