@@ -1,0 +1,2 @@
+# Calendar interchange files require CRLF line endings on every platform.
+*.ics -text whitespace=cr-at-eol

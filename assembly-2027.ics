@@ -1,0 +1,18 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Stammtisch Social Club//Assembly//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:assembly-2027@stammtischbrewery.com
+DTSTAMP:20260919T150711Z
+DTSTART:20270205T140000Z
+SUMMARY:Stammtisch Gentlemen's Assembly 2027
+LOCATION:Huntsville\, Ontario\, Canada
+URL:https://stammtischbrewery.com/location.html
+DESCRIPTION:Assembly starts at 9 a.m. Eastern on February 5\, 2027.\nCottag
+ e check-in and checkout follow the reservation.\nEnd date and programme to
+  be confirmed within the group.
+STATUS:CONFIRMED
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
