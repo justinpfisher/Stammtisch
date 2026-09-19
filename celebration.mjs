@@ -11,7 +11,7 @@ export function basePoints(age) {
 }
 
 export function multiplierFor(pick) {
-  return /\*\s*2\s*$/.test(pick.pointsFormula || '') ? 2 : 1;
+  return pick.pick === 1 || pick.pick === 50 || ['diamond', 'orange'].includes(pick.marker) ? 2 : 1;
 }
 
 export function selectionValue(pick, asOf) {

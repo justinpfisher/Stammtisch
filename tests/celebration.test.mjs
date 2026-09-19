@@ -59,7 +59,23 @@ test('unawarded values follow centenary rules and source multipliers', () => {
   assert.equal(selectionValue(picks.find(p => p.name === 'Mel Brooks'), data.asOf), 10);
   assert.equal(selectionValue(picks.find(p => p.name === 'Eva Marie Saint'), data.asOf), -2);
   assert.equal(multiplierFor(picks.find(p => p.name === 'Kid Rock')), 2);
-  assert.equal(selectionValue({ born: '1925-01-01', counted: false, pointsFormula: 'ROUNDUP(...) * 2' }, '2026-09-19'), -2);
+  assert.equal(selectionValue({ born: '1925-01-01', counted: false, pick: 1 }, '2026-09-19'), -2);
+});
+
+test('double-point selections survive formula rewrites and pasted values', () => {
+  for (const pick of [1, 50]) {
+    for (const pointsFormula of [null, '2*ROUNDUP(...)', 'ROUNDUP(...)*2']) {
+      const entry = { pick, pointsFormula, points: 40, born: '1946-01-19', counted: false };
+      assert.equal(multiplierFor(entry), 2);
+      assert.equal(selectionValue(entry, '2026-09-19'), 40);
+      assert.ok(matchesPick({ ...entry, name: 'Example' }, '', 'double'));
+    }
+  }
+  for (const member of data.members) {
+    assert.deepEqual(member.picks.filter(p => multiplierFor(p) === 2).map(p => p.pick), [1, 50]);
+  }
+  assert.equal(multiplierFor({ pick: 2, marker: 'diamond' }), 2);
+  assert.equal(multiplierFor({ pick: 2, marker: null }), 1);
 });
 
 test('search is accent-insensitive and combines with the commemoration filter', () => {
