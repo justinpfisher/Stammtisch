@@ -13,7 +13,7 @@ Whoever has the most points at the end of the year wins.
 
 The number of points is equal to 100 minus their age at time of death.
 
-If the celebrity is 100 years old when they die, you receive 10 points, and a Steal at the next draft.
+If the celebrity is 100 years old when they die, you receive 10 points, and a Steal at the next draft. Diamond bonuses apply as described below; a Brown Diamond at 100 earns two Blood Diamonds instead of a Steal.
 
 If the celebrity is over 100 when they die, you lose points. The number of points is equal to their age minus 100.
 
@@ -23,15 +23,21 @@ The first Celebrity on your list, #1, is your Blue Diamond.
 
 When your Blue Diamond dies, you get double points (or lose double points, if they’re over 100.) You also earn a Steal at the next draft.
 
+If your Blue Diamond dies at exactly 100, you earn two Steals.
+
 ## BROWN DIAMOND
 
 The last Celebrity on your list, #50, is your Brown Diamond.
 
 When your Brown Diamond dies, you get double points (or lose double points, if they’re over 100.) You also earn a Blood Diamond at the next draft. (Blood Diamond is a protection you place on one of your celebrities, making them unstealable.)
 
+If your Brown Diamond dies at exactly 100, you earn two Blood Diamonds.
+
 ## PRIZE
 
 The person with the highest score for the year (January 1 to December 31) gets a $100 gift, paid for and chosen by the other five.
+
+If players tie for the win, they share the prize.
 
 ## BIRTHDAY BUFFET
 
@@ -72,6 +78,8 @@ You can steal any Celebrity from anyone else’s list, excluding Diamonds. Once 
 
 The player with the lowest points from the previous year gets either one Steal OR one Blood Diamond.
 
+If players tie for the lowest score, each receives Devil’s Share.
+
 ### THIRD - Jettisons
 
 If you have fewer than five spots available on your list, you can jettison Celebrities until you have five. You can waive this right if you prefer to keep your current Celebrities. (In that case you won’t get five new picks.) If you have five or more spots available, you’re not eligible to jettison.
@@ -89,6 +97,8 @@ All jettisoned Celebrities become immediately available for the draft.
 Your new drafts replace empty slots on your list.
 
 The person with lowest score for the previous year drafts first, followed by second lowest, etc. The person with the highest overall score goes last, then drafts again and it goes back down the line.
+
+Tied scores for draft order are resolved by rock, paper, scissors.
 
 Drafting continues until all lists are back to 50 celebrities.
 
@@ -114,3 +124,7 @@ These notes are separate from the supplied rules above.
 - The youngest-death comparison goes to the day level when needed.
 - The group learned of the passing in Dolly Parton’s entry on the same day as the recorded death: August 25, 2026.
 - Kevin Keegan’s Birthday Buffet allocation was decided by a group vote: Matt receives 12 points and Ken receives 13. This is an approved exception, not an unresolved discrepancy.
+
+- Justin confirmed there are no Blood Diamonds currently assigned. This records the current register, not a restriction on future awards.
+- Tied winners share the prize; draft-order ties use rock, paper, scissors; every player tied for last receives Devil’s Share.
+- A Blue Diamond dying at 100 earns two Steals; a Brown Diamond dying at 100 earns two Blood Diamonds.

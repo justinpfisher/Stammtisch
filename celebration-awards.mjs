@@ -57,9 +57,9 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}) {
   const youngest = canCompareDays ? youngestByYear.filter(x => x.ageInDays === Math.min(...youngestByYear.map(x => x.ageInDays))) : youngestByYear;
   const youngestOwners = unique(youngest.flatMap(x => x.owners.map(p => p.memberId)));
   const unconfirmedAges = events.filter(x => !x.ageConfirmed).length;
-  const cards = [{ id:'pool-prize', title:'The $100 prize', status:leader.length > 1 ? 'Tied on points' : final ? 'Winner' : 'Leading',
+  const cards = [{ id:'pool-prize', title:'The $100 prize', status:leader.length > 1 ? (final ? 'Shared winners' : 'Tied on points') : final ? 'Winner' : 'Leading',
     value:names(leader), description:`${leader[0]?.score ?? 0} points · ${final ? 'Final register' : 'Year to date'}`,
-    details:leader.length > 1 ? ['The rules do not specify a tie-break.'] : ['The highest score from January 1 to December 31 wins.'] },
+    details:leader.length > 1 ? ['Tied winners share the $100 prize.'] : ['The highest score from January 1 to December 31 wins.'] },
   { id:'youngest', title:'Youngest celebrity', status:youngest.length ? 'Provisional contenders' : 'No dated records',
     value:youngest.length ? names(members.filter(m => youngestOwners.includes(m.id))) : 'No contender yet',
     description:minAge === null ? 'One Blood Diamond at the next draft.' : `Youngest recorded age: ${minAge} · One Blood Diamond at the next draft`,
@@ -67,9 +67,9 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}) {
       canCompareDays ? ['Equal whole-year ages are compared by age in days, using birth and actual death dates.'] : youngestByYear.length > 1 ? ['The group uses age in days to break a whole-year tie. Actual death dates are needed to complete that comparison.'] : [],
       canCompareDays && youngestOwners.length > 1 ? ['Still tied at the day level; the group must resolve this exact tie.'] : [],
       unconfirmedAges || undated ? ['Actual ages at death must be confirmed before this award is settled.'] : []) },
-  { id:'devils-share', title:'Devil’s Share', status:lowest.length > 1 ? 'Tied on points' : final ? 'Eligible' : 'If the year ended now',
+  { id:'devils-share', title:'Devil’s Share', status:final ? 'Eligible' : lowest.length > 1 ? 'Tied on points' : 'If the year ended now',
     value:names(lowest), description:`${lowest[0]?.score ?? 0} points · Choose one Steal or one Blood Diamond`,
-    details:lowest.length > 1 ? ['The group needs to resolve the tie before assigning this benefit.'] : ['Based on the lowest score for the year. The player makes the choice at the draft.'] }];
+    details:lowest.length > 1 ? ['Every player tied for the lowest score receives Devil’s Share and chooses their own Steal or Blood Diamond.'] : ['Based on the lowest score for the year. The player makes the choice at the draft.'] }];
 
   const draft = [...members].sort((a,b) => a.score-b.score || a.name.localeCompare(b.name)).map(member => {
     const owned = events.filter(x => x.owners.some(p => p.memberId === member.id));
@@ -81,9 +81,8 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}) {
       if (blue) benefits.push({ kind:'Steal', event:event.name, at:event.diedOn, confirmed:Boolean(event.diedOn), reason:'Blue Diamond' });
       if (brown) benefits.push({ kind:'Blood Diamond', event:event.name, at:event.diedOn, confirmed:Boolean(event.diedOn), reason:'Brown Diamond' });
       if (event.age === 100 && !birthday) {
-        if (blue) benefits.push({ kind:'Review', event:event.name, reason:'Blue Diamond died at 100: confirm whether the two Steal triggers stack.', confirmed:false });
-        else benefits.push({ kind:'Steal', event:event.name, at:event.diedOn,
-          confirmed:event.ageConfirmed && Boolean(event.diedOn) && (event.diamond || Boolean(event.discoveredOn)), reason:'Age 100' });
+        benefits.push({ kind:brown ? 'Blood Diamond' : 'Steal', event:event.name, at:event.diedOn,
+          confirmed:event.ageConfirmed && Boolean(event.diedOn) && (event.diamond || Boolean(event.discoveredOn)), reason:brown ? 'Brown Diamond at 100: second Blood Diamond' : blue ? 'Blue Diamond at 100: second Steal' : 'Age 100' });
       }
     }
     const rank = 1 + members.filter(m => m.score < member.score).length;
@@ -148,5 +147,5 @@ export function awardsMarkup(model) {
 }
 
 export function draftMarkup(model) {
-  return model.draft.map(member => `<article class="draft-card"><h3><a href="#the-lists" data-member-link="${e(member.id)}">${e(member.name)}</a></h3><p class="draft-position">${member.tied ? 'Tied at' : 'Pick'} ${member.rank} · ${member.score} points</p><ul>${member.benefits.map(b => `<li><strong>${e(b.kind)}${b.confirmed ? '' : ' to confirm'}</strong> · ${e(b.event)} (${e(b.reason)})</li>`).join('')}${member.youngest ? '<li>Youngest-death Blood Diamond contender</li>' : ''}${member.devil ? '<li>Devil’s Share contender: choose a Steal or Blood Diamond</li>' : ''}${!member.benefits.length && !member.youngest && !member.devil ? '<li>No draft benefit indicated yet</li>' : ''}</ul><p>${member.vacancies} listed ${member.vacancies === 1 ? 'passing' : 'passings'} to replace · Up to ${member.optionalJettisons} optional jettisons to make five spaces.</p></article>`).join('');
+  return model.draft.map(member => `<article class="draft-card"><h3><a href="#the-lists" data-member-link="${e(member.id)}">${e(member.name)}</a></h3><p class="draft-position">${member.tied ? 'Tied at' : 'Pick'} ${member.rank} · ${member.score} points${member.tied ? ' · Rock, paper, scissors decides order' : ''}</p><ul>${member.benefits.map(b => `<li><strong>${e(b.kind)}${b.confirmed ? '' : ' to confirm'}</strong> · ${e(b.event)} (${e(b.reason)})</li>`).join('')}${member.youngest ? '<li>Youngest-death Blood Diamond contender</li>' : ''}${member.devil ? '<li>Devil’s Share contender: choose a Steal or Blood Diamond</li>' : ''}${!member.benefits.length && !member.youngest && !member.devil ? '<li>No draft benefit indicated yet</li>' : ''}</ul><p>${member.vacancies} listed ${member.vacancies === 1 ? 'passing' : 'passings'} to replace · Up to ${member.optionalJettisons} optional jettisons to make five spaces.</p></article>`).join('');
 }

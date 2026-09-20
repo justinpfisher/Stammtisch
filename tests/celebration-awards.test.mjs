@@ -49,7 +49,13 @@ test('score ties share ranks, and an old snapshot never becomes a final winner o
   assert.equal(card(model,'pool-prize').status,'Tied on points');
   assert.equal(card(model,'devils-share').status,'Tied on points');
   assert.deepEqual(model.draft.map(m=>m.rank),[1,1,3,3]);
+  assert.match(card(model,'pool-prize').details.join(' '),/share the \$100 prize/);
+  assert.match(card(model,'devils-share').details.join(' '),/Every player/);
+  assert.equal(model.draft.filter(m=>m.devil).length,2);
+  assert.match(draftMarkup(model),/Rock, paper, scissors/);
   data.asOf='2026-12-31';
+  assert.equal(card(calculateAwards(data,{finalizedYear:2026}),'pool-prize').status,'Shared winners');
+  assert.equal(card(calculateAwards(data,{finalizedYear:2026}),'devils-share').status,'Eligible');
   data.members[0].score=11;
   assert.equal(card(calculateAwards(data),'pool-prize').status,'Leading');
   assert.equal(card(calculateAwards(data,{finalizedYear:2026}),'pool-prize').status,'Winner');
@@ -98,10 +104,15 @@ test('age-100 Birthday Buffet never grants a Steal; all diamond types are exclud
   assert.doesNotMatch(card(model,'birthday-buffet').details.join(' '),/Protected|Brown/);
 });
 
-test('Blue Diamond at 100 does not silently double the Steal entitlement', () => {
-  const model=calculateAwards(season([member('a',20,[pick('Centenarian',{pick:1,born:'1926-01-01'})])]));
-  assert.equal(model.draft[0].benefits.filter(b=>b.kind==='Steal').length,1);
-  assert.equal(model.draft[0].benefits.filter(b=>b.kind==='Review').length,1);
+test('at 100 Blue earns two Steals and Brown earns two Blood Diamonds, including birthday discoveries', () => {
+  for (const [slot,kind] of [[1,'Steal'],[50,'Blood Diamond']]) {
+    const data=season([member('marc',20,[pick('Centenarian',{pick:slot,born:'1926-01-01',discoveryDate:'2026-03-26'})])]);
+    const benefits=calculateAwards(data).draft[0].benefits;
+    assert.deepEqual(benefits.map(b=>b.kind),[kind,kind]);
+    assert.ok(benefits.every(b=>b.confirmed));
+    delete data.members[0].picks[0].actualDeathDate;
+    assert.ok(calculateAwards(data).draft[0].benefits.every(b=>!b.confirmed));
+  }
 });
 
 test('same-day discoveries share a gap endpoint, equal gaps remain tied and the open gap is not awarded', () => {

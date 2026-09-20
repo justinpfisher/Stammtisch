@@ -11,15 +11,18 @@ The spreadsheet's `distinctions` entries supply the separate button ideas.
 ## Automated views
 
 - The $100 prize leader and Devil's Share contender use recorded member scores.
+  Tied winners share the prize; everyone tied for lowest receives Devil’s Share.
 - The youngest-death view compares complete-year ages, then age in days when
   needed, as confirmed by Justin. Day-level comparison requires actual death
   dates. Missing dates leave contenders provisional; exact day-level ties are
   not silently resolved.
 - Blue Diamond deaths indicate a Steal; Brown Diamond deaths indicate a Blood
   Diamond. Deaths at 100 indicate a Steal except under Birthday Buffet. A Blue
-  Diamond death at 100 is flagged for a stacking decision rather than silently
-  awarding two Steals. Benefits that lack the necessary dates remain unconfirmed.
+  Diamond death at 100 earns two Steals; a Brown Diamond death at 100 earns two
+  Blood Diamonds (not a Blood Diamond plus a Steal). Benefits that lack the necessary dates remain unconfirmed.
 - The draft preview orders members by ascending score with shared ranks for ties.
+  Rock, paper, scissors resolves draft-order ties; alphabetical display within
+  a tie does not decide who drafts first.
   Replacement counts use numbered selections with dated passings, excluding BB
   entries. Optional jettisons show the maximum needed to reach five spaces,
   before steals or jettisons. The preview does not choose any celebrity to remove.
@@ -77,8 +80,8 @@ Prior-year and future-dated events are excluded from the season calculation.
 
 The clock alone never finalizes an award. After reviewing the completed annual
 register, a maintainer may set `awardSettings.finalizedYear` on that snapshot to
-the matching `year`, with `asOf` at December 31 or later. This permits the untied
-points winner and Devil's Share eligibility to be labelled final. It does not
+the matching `year`, with `asOf` at December 31 or later. This permits the
+points winner (or shared winners) and Devil's Share eligibility to be labelled final. It does not
 resolve badge definitions, ties, unconfirmed ages or nominations. The importer
 does not carry this reviewed finalization flag into a fresh snapshot.
 
@@ -89,3 +92,8 @@ boundaries, discovery versus actual dates, duplicate BB allocations, all diamond
 types, centenary benefits, open/tied streaks, Cavalcade qualification, and escaped
 rendered names. Inspect the dashboard, badge disclosures, draft preview and its
 member links on desktop and phone widths when changing the UI.
+
+## Current Blood Diamond status
+
+Justin confirmed that no Blood Diamonds have been assigned yet. Blue and Brown
+Diamonds remain selections #1 and #50 respectively.
