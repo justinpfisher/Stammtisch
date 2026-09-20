@@ -1,4 +1,4 @@
-import { ageAt, basePoints, cavalcadeRule } from './celebration-rules.mjs';
+import { ageAt, basePoints, cavalcadeRule, copycatRule } from './celebration-rules.mjs';
 
 const birthdays = { marc: '03-26', jerome: '05-09', matt: '06-25', fish: '07-06', ken: '07-20', jamie: '09-19' };
 const isPick = p => Number.isInteger(p.pick) && p.pick >= 1 && p.pick <= 50;
@@ -9,6 +9,13 @@ const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') && !Number.is
 const e = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const names = entries => unique(entries.map(x => x.name)).join(' & ');
 const dateText = date => new Intl.DateTimeFormat('en-CA', { month:'short', day:'numeric', timeZone:'UTC' }).format(new Date(`${date}T00:00:00Z`));
+
+function deathInstant(value, date) {
+  // Require the actual date and an explicit offset; never infer midnight or use
+  // the reader's timezone to decide who died second.
+  const match = /^(\d{4}-\d{2}-\d{2})T([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?(Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.exec(value ?? '');
+  return match && match[1] === date && validDate(date) ? Date.parse(value) : null;
+}
 
 // The legacy dateOfPassing field is a group discovery date, except where
 // dateSource supplies an independently sourced actual death date.
@@ -26,12 +33,14 @@ export function awardEvents(data) {
     const deaths = unique(event.entries.map(p => p.actualDeathDate ?? p.dateSource?.dateOfPassing).filter(validDate));
     const discoveredOn = discoveries.length === 1 ? discoveries[0] : null;
     const diedOn = deaths.length === 1 ? deaths[0] : null;
+    const deathTimes = unique(event.entries.filter(p => p.actualDeathAt != null).map(p => deathInstant(p.actualDeathAt, diedOn)));
+    const diedAt = deathTimes.length === 1 && Number.isFinite(deathTimes[0]) ? deathTimes[0] : null;
     const explicitAges = unique(event.entries.map(p => p.ageAtDeath).filter(n => Number.isInteger(n) && n >= 0));
     const confirmedAge = explicitAges.length === 1 ? explicitAges[0] : ageAt(event.born, diedOn);
     const age = explicitAges.length > 1 || deaths.length > 1 ? null : confirmedAge ?? ageAt(event.born, discoveredOn);
     const at = diedOn || discoveredOn;
     const inSeason = Boolean(at && at.slice(0,4) === String(data.year) && at <= data.asOf);
-    return { ...event, discoveredOn, diedOn, at, age, ageConfirmed:confirmedAge !== null,
+    return { ...event, discoveredOn, diedOn, diedAt, at, age, ageConfirmed:confirmedAge !== null,
       ageInDays:validDate(event.born) && diedOn && diedOn >= event.born ? daysBetween(event.born,diedOn) : null,
       allocationDecision:event.entries.find(p => p.allocationDecision)?.allocationDecision ?? null,
       inSeason, dateConflict:discoveries.length > 1 || deaths.length > 1,
@@ -119,15 +128,28 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}) {
     details:calamity.map(m => `${m.name}: ${m.qualifying} qualifying deaths${m.qualifying < 3 ? ' · minimum 3 needed' : ''}`).concat(
       ['Counts awarded deaths on the player’s numbered list. Exactly 9 points does not qualify. Birthday-only entries are excluded.'],
       calamityLeaders.length > 1 ? ['The highest count is tied; resolve the tie at the cottage badge ceremony.'] : []) });
-  const slots = new Map();
-  for (const event of events) for (const owner of event.owners) {
-    if (!slots.has(owner.pick)) slots.set(owner.pick,[]);
-    slots.get(owner.pick).push({name:owner.memberName, id:owner.memberId, celebrity:event.name});
+  const deathDates = new Map();
+  for (const event of events.filter(event => event.diedOn && event.owners.length)) {
+    if (!deathDates.has(event.diedOn)) deathDates.set(event.diedOn, []);
+    deathDates.get(event.diedOn).push(event);
   }
-  const matches = [...slots].filter(([,entries]) => unique(entries.map(p => p.id)).length > 1);
-  cards.push({ id:'copycat', title:'Copycat', status:'Matches for group review', value:matches.length ? `${matches.length} matching pick positions` : 'No matching positions',
-    description:'Recorded passings in the same numbered slot on different lists.',
-    details:matches.map(([slot,picks]) => `#${slot}: ${picks.map(p => `${p.name} (${p.celebrity})`).join(' · ')}`).concat(['These are candidates; confirm the intended meaning of “same CoL pick position” before awarding the button.']) });
+  const copycatDays = [...deathDates].filter(([,deaths]) => deaths.length > 1 && unique(deaths.flatMap(event => event.owners.map(p => p.memberId))).length > 1);
+  const copycatRecipients = [];
+  const copycatDetails = copycatDays.map(([date,deaths]) => {
+    const description = `${dateText(date)}: ${deaths.map(event => `${event.name} (${names(event.owners.map(p => ({ name:p.memberName })))})`).join(' · ')}`;
+    if (deaths.length !== 2 || deaths.some(event => unique(event.owners.map(p => p.memberId)).length !== 1)) return `${description}. Multiple deaths or shared selections need group review.`;
+    if (deaths.some(event => event.diedAt === null)) return `${description}. Actual times of death need confirmation; no recipient selected.`;
+    if (deaths[0].diedAt === deaths[1].diedAt) return `${description}. Recorded times are equal; no second passing established.`;
+    const second = deaths[0].diedAt > deaths[1].diedAt ? deaths[0] : deaths[1];
+    copycatRecipients.push(second.owners[0].memberId);
+    return `${description}. ${second.name} died second: ${second.owners[0].memberName} is the Copycat candidate.`;
+  });
+  const missingDeathDates = allEvents.filter(event => event.owners.length && (!event.diedOn || event.dateConflict)).length;
+  cards.push({ id:'copycat', title:'Copycat', status:copycatRecipients.length ? 'Provisional badge candidate' : copycatDays.length ? 'Death times or group review needed' : missingDeathDates ? 'Actual death dates needed' : 'No same-day matches',
+    value:copycatRecipients.length ? names(members.filter(member => copycatRecipients.includes(member.id))) : copycatDays.length ? 'Recipient unconfirmed' : 'No confirmed match yet',
+    description:copycatRule,
+    details:copycatDetails.concat(['Matching list positions and discovery dates do not count. Unknown or equal death times cannot establish who died second.'],
+      missingDeathDates ? [`${missingDeathDates} passing(s) still need confirmed actual death dates; the preview may be incomplete.`] : []) });
   cards.push({id:'providence', title:'Hand of Providence', status:'By nomination', value:'Chosen by the group', description:'A passing that narrowly avoids a loss or reduction in points.', details:['A date close to a birthday does not establish this award. The group nominates the recipient.']},
     {id:'summit', title:'Summit in Purgatory', status:'Event confirmation needed', value:'Chosen by the group', description:'Multiple CoL deaths in a mass casualty event.', details:['Matching dates alone do not establish a shared event.']});
   const buffet = events.filter(x => !x.diamond && x.discoveredOn && Object.values(birthdays).includes(x.discoveredOn.slice(5))).map(event => {

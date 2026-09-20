@@ -38,9 +38,8 @@ These are provisional candidates, not recorded button awards. On September 20,
 2026, Justin confirmed that Rainmaker and Droughtmaker use group discovery dates
 within each calendar year. Justin confirmed that Cavalcade of Calamity and
 Copycat are for the cottage badge ceremony and are not needed for day-to-day
-CoL. Cavalcade's count-based definition is now confirmed by Justin, its author;
-clarifying Copycat is deferred until ceremony prep. Neither affects standings
-or scoring.
+CoL. Justin confirmed Cavalcade's count-based definition and that Copycat uses
+the actual date and time of death. Neither affects standings or scoring.
 
 - **Rainmaker / Droughtmaker:** longest completed interval between group discovery
   dates within the current calendar year. Use the owners at the end/start of the
@@ -58,9 +57,15 @@ or scoring.
   The original imported spreadsheet wording is retained in the source snapshot,
   but `celebration-rules.mjs` supplies the confirmed wording for both the badge
   card and button notes, so a register refresh cannot restore the old definition.
-- **Copycat:** surface recorded passings in the same numbered position on different
-  lists. The group must confirm what “same CoL pick position” means before awarding
-  the button.
+- **Copycat:** when two different celebrities on different members' lists die on
+  the same actual date, the member whose celebrity dies second gets the button.
+  Compare confirmed actual death times, including their timezone offsets;
+  discovery dates, report order and numbered pick positions do not determine it.
+  Missing, invalid, conflicting or equal times leave the recipient unconfirmed.
+  More than two deaths on a date or shared celebrity selections are left for
+  group review rather than extending the two-person rule. Matching calendar
+  dates use the recorded actual death dates; offsets establish chronological
+  order. The confirmed wording overrides the old spreadsheet button notes.
 - **Hand of Providence:** by nomination; no recipient inferred.
 - **Summit in Purgatory:** needs evidence of a shared mass casualty event; matching
   dates alone do not award the button.
@@ -81,6 +86,14 @@ importer also preserves confirmed allocation decisions without treating them as
 verified death dates. Justin confirmed Dolly’s discovery date equals the recorded
 death date (August 25, 2026); this is saved in the confirmations file. Preserve
 other reviewed optional fields when refreshing the register.
+
+For Copycat, `actualDeathAt` is an optional verified ISO timestamp with an
+explicit offset, for example `2026-02-07T14:30:00-05:00`. Its date must match
+`actualDeathDate` (or the verified `dateSource.dateOfPassing`). Never fill in a
+time from a publication timestamp or invent midnight when only a date is known.
+The confirmations file and importer preserve this field and its
+`actualDeathTimeSource` evidence. No death times have been inferred for the
+current register.
 
 Brad Arnold and Jason Collins have verified actual death dates in the
 confirmations file, with the imported group discovery dates and scores preserved.

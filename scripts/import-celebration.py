@@ -85,6 +85,19 @@ def apply_confirmations(result, confirmations):
             pick["dateOfPassing"] = confirmation["dateOfPassing"]
             pick["dateSource"] = confirmation
             pick["needsReview"] = False
+        if "actualDeathAt" in confirmation:
+            stamp = confirmation["actualDeathAt"]
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:\d{2})", stamp):
+                raise ValueError("An actual death time requires an ISO date, time and timezone offset.")
+            instant = dt.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+            death_date = pick.get("actualDeathDate") or (pick.get("dateSource") or {}).get("dateOfPassing")
+            if instant.date().isoformat() != death_date:
+                raise ValueError("The actual death time must match the confirmed actual death date.")
+            existing = pick.get("actualDeathAt")
+            if existing and dt.datetime.fromisoformat(existing.replace("Z", "+00:00")) != instant:
+                raise ValueError("Conflicting actual death times require review before importing.")
+            pick["actualDeathAt"] = stamp
+            pick["actualDeathTimeSource"] = {key: confirmation[key] for key in ("sourceUrl", "sourceLabel", "verifiedOn")}
         if "discoveryDate" in confirmation:
             dt.date.fromisoformat(confirmation["discoveryDate"])
             pick["discoveryDate"] = confirmation["discoveryDate"]

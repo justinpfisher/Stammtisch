@@ -19,7 +19,8 @@ test('current register produces provisional leaders, preserves scores and exclud
   assert.equal(card(model,'youngest').value,'Matt');
   assert.equal(card(model,'rainmaker').value,'Marc');
   assert.equal(card(model,'droughtmaker').value,'Ken');
-  assert.equal(card(model,'copycat').value,'2 matching pick positions');
+  assert.equal(card(model,'copycat').value,'No confirmed match yet');
+  assert.equal(card(model,'copycat').status,'Actual death dates needed');
   assert.deepEqual(model.draft.map(m => m.id), ['fish','jamie','ken','marc','matt','jerome']);
   assert.equal(model.draft.find(m => m.id === 'ken').vacancies,1);
   assert.equal(model.draft.find(m => m.id === 'jerome').benefits[0].confirmed,false);
@@ -175,7 +176,44 @@ test('Cavalcade button notes use the confirmed rule even when the imported sprea
   assert.equal(distinctionReason(entry), 'Goes to the player with the most deaths worth fewer than 9 points, with a minimum of three qualifying deaths.');
   assert.equal(card(calculateAwards(source),'calamity').description, distinctionReason(entry));
   const copycat=source.distinctions.find(item => item.name.toLowerCase() === 'copycat');
-  assert.equal(distinctionReason(copycat), copycat.reason);
+  assert.equal(distinctionReason(copycat), card(calculateAwards(source),'copycat').description);
+  assert.match(distinctionReason(copycat), /actual date and time of death/);
+});
+
+test('Copycat uses actual chronology including timezone offsets, regardless of discovery order or pick position', () => {
+  const data=season([
+    member('a',24,[pick('Later',{pick:2,actualDeathAt:'2026-01-30T09:00:00-05:00',discoveryDate:'2026-02-01'})]),
+    member('b',24,[pick('Earlier',{pick:7,actualDeathAt:'2026-01-30T13:00:00Z',discoveryDate:'2026-02-03'})])]);
+  assert.equal(card(calculateAwards(data),'copycat').value,'a');
+  assert.match(card(calculateAwards(data),'copycat').details.join(' '), /Later died second: a/);
+});
+
+test('Copycat does not infer death order from missing, invalid, date-mismatched or equal times', () => {
+  for (const timestamp of [undefined, '2026-01-30T15:00:00', '2026-01-30T25:00:00Z', '2026-01-31T15:00:00Z', '2026-01-30T13:00:00Z']) {
+    const data=season([member('a',24,[pick('A',{actualDeathAt:timestamp})]),
+      member('b',24,[pick('B',{actualDeathAt:'2026-01-30T13:00:00Z'})])]);
+    assert.equal(card(calculateAwards(data),'copycat').value,'Recipient unconfirmed');
+  }
+});
+
+test('Copycat needs separate celebrities and members sharing an actual death date', () => {
+  const cases=[
+    [member('a',24,[pick('A',{actualDeathDate:undefined})]),member('b',24,[pick('B',{actualDeathDate:undefined})])],
+    [member('a',24,[pick('A')]),member('b',24,[pick('B',{actualDeathDate:'2026-01-31'})])],
+    [member('a',24,[pick('Shared')]),member('b',24,[pick('Shared')])],
+    [member('a',48,[pick('A'),pick('B',{pick:3})])]
+  ];
+  for (const members of cases) assert.equal(card(calculateAwards(season(members)),'copycat').value,'No confirmed match yet');
+});
+
+test('Copycat leaves multiple deaths, shared selections and conflicting actual times for review', () => {
+  const a=pick('A',{actualDeathAt:'2026-01-30T09:00:00Z'});
+  const b=pick('B',{actualDeathAt:'2026-01-30T13:00:00Z'});
+  const c=pick('C',{actualDeathAt:'2026-01-30T15:00:00Z'});
+  assert.equal(card(calculateAwards(season([member('a',24,[a]),member('b',24,[b]),member('c',24,[c])])),'copycat').value,'Recipient unconfirmed');
+  assert.equal(card(calculateAwards(season([member('a',24,[a]),member('b',24,[b]),member('c',24,[b])])),'copycat').value,'Recipient unconfirmed');
+  const conflict=season([member('a',48,[a,{...a,pick:3,actualDeathAt:'2026-01-30T10:00:00Z'}]),member('b',24,[b])]);
+  assert.equal(card(calculateAwards(conflict),'copycat').value,'Recipient unconfirmed');
 });
 
 test('empty records give no invented badge holders, and names are escaped in both renderers', () => {
