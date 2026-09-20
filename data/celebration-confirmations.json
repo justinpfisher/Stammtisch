@@ -7,6 +7,22 @@
     "sourceUrl": "https://www.dollyparton.com/news/official-announcement-dolly-parton-passes-away-at-80",
     "sourceLabel": "Official announcement from Dolly Parton’s family",
     "verifiedOn": "2026-09-19",
-    "note": "The source sheet already includes 20 points in Jamie’s total. This supplies the missing date; it does not add points again."
+    "note": "The source sheet already includes 20 points in Jamie’s total. This supplies the missing date; it does not add points again.",
+    "discoveryDate": "2026-08-25",
+    "discoveryConfirmedBy": "Justin: the group learned on the death day."
+  },
+  {
+    "memberId": "matt",
+    "name": "Kevin Keegan",
+    "born": "1951-02-14",
+    "allocationDecision": "Group vote approved the exception: 12 points to Matt and 13 points to Ken.",
+    "confirmedBy": "Justin"
+  },
+  {
+    "memberId": "ken",
+    "name": "Kevin Keegan",
+    "born": "1951-02-14",
+    "allocationDecision": "Group vote approved the exception: 12 points to Matt and 13 points to Ken.",
+    "confirmedBy": "Justin"
   }
 ]

@@ -23,7 +23,23 @@ test('current register produces provisional leaders, preserves scores and exclud
   assert.equal(model.draft.find(m => m.id === 'ken').vacancies,1);
   assert.equal(model.draft.find(m => m.id === 'jerome').benefits[0].confirmed,false);
   assert.match(card(model,'birthday-buffet').details.join(' '),/Matt 12, Ken 13/);
+  assert.match(card(model,'birthday-buffet').details.join(' '),/Group vote approved/);
+  assert.doesNotMatch(card(model,'birthday-buffet').details.join(' '),/flagged for review/);
+  assert.equal(model.events.find(x=>x.name==='Dolly Parton').discoveredOn,'2026-08-25');
+  assert.doesNotMatch(card(model,'rainmaker').details.join(' '),/lack a group discovery date/);
   assert.equal(JSON.stringify(source),before);
+});
+
+test('youngest uses day-level ages when actual dates are available, preserving unknown and exact ties', () => {
+  const data=season([member('a',50,[pick('Older',{born:'1976-01-01',actualDeathDate:'2026-02-02'})]),
+    member('b',50,[pick('Younger',{born:'1976-01-01',actualDeathDate:'2026-02-01'})])]);
+  assert.equal(card(calculateAwards(data),'youngest').value,'b');
+  data.members[1].picks[0].actualDeathDate='2026-02-02';
+  assert.equal(card(calculateAwards(data),'youngest').value,'a & b');
+  assert.match(card(calculateAwards(data),'youngest').details.join(' '),/Still tied at the day level/);
+  delete data.members[1].picks[0].actualDeathDate;
+  assert.equal(card(calculateAwards(data),'youngest').value,'a & b');
+  assert.match(card(calculateAwards(data),'youngest').details.join(' '),/Actual death dates are needed/);
 });
 
 test('score ties share ranks, and an old snapshot never becomes a final winner on its own', () => {

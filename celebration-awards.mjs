@@ -32,6 +32,8 @@ export function awardEvents(data) {
     const at = diedOn || discoveredOn;
     const inSeason = Boolean(at && at.slice(0,4) === String(data.year) && at <= data.asOf);
     return { ...event, discoveredOn, diedOn, at, age, ageConfirmed:confirmedAge !== null,
+      ageInDays:validDate(event.born) && diedOn && diedOn >= event.born ? daysBetween(event.born,diedOn) : null,
+      allocationDecision:event.entries.find(p => p.allocationDecision)?.allocationDecision ?? null,
       inSeason, dateConflict:discoveries.length > 1 || deaths.length > 1,
       owners:event.entries.filter(isPick),
       diamond:event.entries.some(p => p.pick === 1 || p.pick === 50 || p.bloodDiamond === true),
@@ -50,7 +52,9 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}) {
   const lowest = members.filter(m => m.score === Math.min(...members.map(m => m.score)));
   const ageEvents = events.filter(x => x.age !== null && x.owners.length);
   const minAge = ageEvents.length ? Math.min(...ageEvents.map(x => x.age)) : null;
-  const youngest = ageEvents.filter(x => x.age === minAge);
+  const youngestByYear = ageEvents.filter(x => x.age === minAge);
+  const canCompareDays = youngestByYear.length > 1 && youngestByYear.every(x => x.ageInDays !== null);
+  const youngest = canCompareDays ? youngestByYear.filter(x => x.ageInDays === Math.min(...youngestByYear.map(x => x.ageInDays))) : youngestByYear;
   const youngestOwners = unique(youngest.flatMap(x => x.owners.map(p => p.memberId)));
   const unconfirmedAges = events.filter(x => !x.ageConfirmed).length;
   const cards = [{ id:'pool-prize', title:'The $100 prize', status:leader.length > 1 ? 'Tied on points' : final ? 'Winner' : 'Leading',
@@ -59,8 +63,9 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}) {
   { id:'youngest', title:'Youngest celebrity', status:youngest.length ? 'Provisional contenders' : 'No dated records',
     value:youngest.length ? names(members.filter(m => youngestOwners.includes(m.id))) : 'No contender yet',
     description:minAge === null ? 'One Blood Diamond at the next draft.' : `Youngest recorded age: ${minAge} · One Blood Diamond at the next draft`,
-    details:youngest.map(x => `${x.name} · ${x.age}${x.ageConfirmed ? '' : ' (age estimated at discovery)'} · ${names(x.owners.map(p => ({name:p.memberName})))}`).concat(
-      youngestOwners.length > 1 ? ['Tied at the same whole-year age; a tie-break needs the group’s decision.'] : [],
+    details:youngest.map(x => `${x.name} · ${x.age}${x.ageConfirmed ? '' : ' (age estimated at discovery)'}${x.ageInDays === null ? '' : ` · ${x.ageInDays.toLocaleString('en-CA')} days old`} · ${names(x.owners.map(p => ({name:p.memberName})))}`).concat(
+      canCompareDays ? ['Equal whole-year ages are compared by age in days, using birth and actual death dates.'] : youngestByYear.length > 1 ? ['The group uses age in days to break a whole-year tie. Actual death dates are needed to complete that comparison.'] : [],
+      canCompareDays && youngestOwners.length > 1 ? ['Still tied at the day level; the group must resolve this exact tie.'] : [],
       unconfirmedAges || undated ? ['Actual ages at death must be confirmed before this award is settled.'] : []) },
   { id:'devils-share', title:'Devil’s Share', status:lowest.length > 1 ? 'Tied on points' : final ? 'Eligible' : 'If the year ended now',
     value:names(lowest), description:`${lowest[0]?.score ?? 0} points · Choose one Steal or one Blood Diamond`,
@@ -130,11 +135,11 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}) {
   const buffet = events.filter(x => !x.diamond && x.discoveredOn && Object.values(birthdays).includes(x.discoveredOn.slice(5))).map(event => {
     const recipient = members.find(m => birthdays[m.id] === event.discoveredOn.slice(5));
     const expected = event.ageConfirmed ? basePoints(event.age) : null;
-    return { name:event.name, recipient:recipient?.name, date:event.discoveredOn, expected, allocations:event.allocations };
+    return { name:event.name, recipient:recipient?.name, date:event.discoveredOn, expected, allocations:event.allocations, decision:event.allocationDecision };
   });
   cards.push({id:'birthday-buffet', title:'Birthday Buffet', status:buffet.length ? 'Recorded birthday matches' : 'No dated matches',
     value:buffet.length ? names(buffet.map(x => ({name:x.recipient}))) : 'No match yet', description:'Uses the group’s discovery date. Diamonds are excluded.',
-    details:buffet.map(x => `${x.name} · ${dateText(x.date)} · Birthday: ${x.recipient}. Recorded allocation: ${x.allocations.map(a => `${a.name} ${a.points}`).join(', ') || 'none'}${x.expected === null ? '. Age at death needs confirmation.' : `. Rule value: ${x.expected} points.`}`).concat(buffet.length ? ['Birthday matches are flagged for review; recorded scores are not reassigned automatically.'] : [])});
+    details:buffet.map(x => `${x.name} · ${dateText(x.date)} · Birthday: ${x.recipient}. Recorded allocation: ${x.allocations.map(a => `${a.name} ${a.points}`).join(', ') || 'none'}${x.decision ? `. ${x.decision}` : x.expected === null ? '. Age at death needs confirmation.' : `. Rule value: ${x.expected} points.`}`).concat(buffet.some(x => !x.decision) ? ['Undecided birthday matches are flagged for review; recorded scores are not reassigned automatically.'] : [])});
   return { year:data.year, asOf:data.asOf, final, cards, draft, events, undated };
 }
 

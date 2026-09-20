@@ -60,7 +60,7 @@ Every January, we draft new Celebrities until we each have 50 again.
 
 If your Brown Diamond died in the previous calendar year, you add a Blood Diamond to someone on your list, making them ineligible for Steals and Jettisons. *(Note Blood Diamonds do NOT give you double-points when they die, unlike the Blue or Brown Diamond.)*
 
-Whoever had the youngest celebrity death the previous year also gets a Blood Diamond.
+Whoever had the youngest celebrity death the previous year also gets a Blood Diamond. If needed, compare ages at the day level.
 
 ### SECOND - Steals
 
@@ -107,3 +107,10 @@ These notes are separate from the supplied rules above.
 - **Youngest-death rule adopted, confirmed September 20, 2026:** Justin confirmed that whoever had the youngest celebrity death the previous year also gets a Blood Diamond. This is an adopted rule, and the proposal label above has been removed.
 - **Discovery dates:** Justin clarified on September 20, 2026 that spreadsheet dates record when the group collectively first learned of a passing. Keep these separate from the actual date of death and from the date an automated monitor finds the news. A monitor alert does not establish the group’s discovery date. Scoring uses age at death; Birthday Buffet uses discovery as described above.
 - **Future work:** Consult this file for Celebration of Life scoring, diamonds, Birthday Buffet, prizes and draft behaviour. Any unresolved interpretation should be flagged before it changes points or eligibility. Recording these rules does not establish that every rule is implemented on the website.
+
+## Further confirmations from Justin
+
+- Blue Diamonds are the first selections (#1); Brown Diamonds are the 50th selections (#50).
+- The youngest-death comparison goes to the day level when needed.
+- The group learned of the passing in Dolly Parton’s entry on the same day as the recorded death: August 25, 2026.
+- Kevin Keegan’s Birthday Buffet allocation was decided by a group vote: Matt receives 12 points and Ken receives 13. This is an approved exception, not an unresolved discrepancy.

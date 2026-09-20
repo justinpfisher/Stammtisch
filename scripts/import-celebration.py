@@ -65,6 +65,27 @@ def score_rows(formula):
     return {int(ref[1:]) for ref in expression.split(",")}
 
 
+def apply_confirmations(result, confirmations):
+    for confirmation in confirmations:
+        member = next(m for m in result["members"] if m["id"] == confirmation["memberId"])
+        matches = [p for p in member["picks"] if p["name"] == confirmation["name"] and p["born"] == confirmation["born"]]
+        if len(matches) != 1:
+            raise ValueError("A confirmed record no longer matches the sheet. Review before importing.")
+        pick = matches[0]
+        if "dateOfPassing" in confirmation:
+            if pick["dateOfPassing"] not in (None, confirmation["dateOfPassing"]):
+                raise ValueError("The sheet conflicts with a verified date of passing. Review before importing.")
+            pick["dateOfPassing"] = confirmation["dateOfPassing"]
+            pick["dateSource"] = confirmation
+            pick["needsReview"] = False
+        if "discoveryDate" in confirmation:
+            dt.date.fromisoformat(confirmation["discoveryDate"])
+            pick["discoveryDate"] = confirmation["discoveryDate"]
+        if "allocationDecision" in confirmation:
+            pick["allocationDecision"] = confirmation["allocationDecision"]
+    return result
+
+
 def import_data(path, captured_at, confirmations=()):
     sheets = read_workbook(path)
     if set(sheets) != {"LEADERBOARD", "buttons", *MEMBERS}:
@@ -126,18 +147,7 @@ def import_data(path, captured_at, confirmations=()):
     for row in sorted({int(ref[1:]) for ref in cells if re.fullmatch(r"A\d+", ref) and int(ref[1:]) > 1}):
         result["distinctions"].append({"name": cells[f"A{row}"]["value"].strip(),
             "reason": cells.get(f"B{row}", {}).get("value"), "imageIdea": cells.get(f"C{row}", {}).get("value")})
-    for confirmation in confirmations:
-        member = next(m for m in result["members"] if m["id"] == confirmation["memberId"])
-        matches = [p for p in member["picks"] if p["name"] == confirmation["name"] and p["born"] == confirmation["born"]]
-        if len(matches) != 1:
-            raise ValueError("A confirmed record no longer matches the sheet. Review before importing.")
-        pick = matches[0]
-        if pick["dateOfPassing"] not in (None, confirmation["dateOfPassing"]):
-            raise ValueError("The sheet conflicts with a verified date of passing. Review before importing.")
-        pick["dateOfPassing"] = confirmation["dateOfPassing"]
-        pick["dateSource"] = confirmation
-        pick["needsReview"] = False
-    return result
+    return apply_confirmations(result, confirmations)
 
 
 if __name__ == "__main__":

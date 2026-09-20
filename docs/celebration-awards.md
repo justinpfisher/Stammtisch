@@ -11,8 +11,10 @@ The spreadsheet's `distinctions` entries supply the separate button ideas.
 ## Automated views
 
 - The $100 prize leader and Devil's Share contender use recorded member scores.
-- The youngest-death view compares complete-year ages and displays every tied
-  contender. It does not invent a tie-break or promise multiple Blood Diamonds.
+- The youngest-death view compares complete-year ages, then age in days when
+  needed, as confirmed by Justin. Day-level comparison requires actual death
+  dates. Missing dates leave contenders provisional; exact day-level ties are
+  not silently resolved.
 - Blue Diamond deaths indicate a Steal; Brown Diamond deaths indicate a Blood
   Diamond. Deaths at 100 indicate a Steal except under Birthday Buffet. A Blue
   Diamond death at 100 is flagged for a stacking decision rather than silently
@@ -23,7 +25,9 @@ The spreadsheet's `distinctions` entries supply the separate button ideas.
   before steals or jettisons. The preview does not choose any celebrity to remove.
 - Birthday Buffet matches use group discovery dates and the six birthdays in the
   rules. Blue, Brown and explicitly recorded Blood Diamonds are excluded. Existing
-  score allocations, including Kevin Keegan's 12/13 split, remain unchanged.
+  score allocations remain unchanged. Justin confirmed that Kevin Keegan's
+  12 points for Matt and 13 for Ken were approved by a group vote; this is a
+  settled exception, not an allocation needing review.
 
 ## Button previews and confirmed definitions
 
@@ -60,8 +64,11 @@ Optional pick fields can clarify the record: `discoveryDate`, `actualDeathDate`,
 `ageAtDeath` (completed years), and `bloodDiamond` (boolean). An actual date from
 `dateSource.dateOfPassing` is also recognized. Dates are `YYYY-MM-DD`. Do not
 populate group discovery dates from automated news alerts. These optional fields
-are not currently populated by the XLSX importer; preserve reviewed additions
-when refreshing the register.
+can be preserved through the confirmations file for discovery dates. The
+importer also preserves confirmed allocation decisions without treating them as
+verified death dates. Justin confirmed Dolly’s discovery date equals the recorded
+death date (August 25, 2026); this is saved in the confirmations file. Preserve
+other reviewed optional fields when refreshing the register.
 
 If the actual age is unknown, the age on the discovery date is an estimate and
 the youngest-death result remains provisional. Duplicate celebrity/BB records
