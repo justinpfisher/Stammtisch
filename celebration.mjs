@@ -1,14 +1,6 @@
-export function ageAt(born, at) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(born || '') || !/^\d{4}-\d{2}-\d{2}$/.test(at || '') || at < born) return null;
-  const [by, bm, bd] = born.split('-').map(Number);
-  const [ay, am, ad] = at.split('-').map(Number);
-  return ay - by - Number(am < bm || (am === bm && ad < bd));
-}
-
-export function basePoints(age) {
-  if (!Number.isInteger(age) || age < 0) return null;
-  return age === 100 ? 10 : 100 - age;
-}
+import { ageAt, basePoints } from './celebration-rules.mjs';
+export { ageAt, basePoints } from './celebration-rules.mjs';
+import { calculateAwards, awardsMarkup, draftMarkup } from './celebration-awards.mjs';
 
 export function multiplierFor(pick) {
   return pick.pick === 1 || pick.pick === 50 || ['diamond', 'orange'].includes(pick.marker) ? 2 : 1;
@@ -97,6 +89,8 @@ async function mountCelebration() {
     data = await response.json();
     if (!Array.isArray(data.members) || !data.members.length) throw new Error('The register is empty.');
   } catch (error) {
+    document.querySelector('#award-leaders').innerHTML = '<p>Award progress is unavailable until the register loads.</p>';
+    document.querySelector('#draft-benefits').innerHTML = '<p>Please reload the page to see the draft preview.</p>';
     document.querySelector('#standings').innerHTML = '<p>The standings could not be loaded.</p>';
     document.querySelector('#member-lists').innerHTML = '<p class="load-message">The register is temporarily unavailable. Please reload the page or use the original spreadsheet linked below.</p>';
     document.querySelector('#commemoration-list').innerHTML = '<p>Please use the original spreadsheet linked below.</p>';
@@ -104,6 +98,11 @@ async function mountCelebration() {
   }
   const e = escapeHtml;
   const members = rankedMembers(data.members);
+  const awards = calculateAwards(data);
+  document.querySelector('#award-leaders').innerHTML = awardsMarkup({ ...awards, cards:awards.cards.slice(0,3) });
+  document.querySelector('#badge-leaders').innerHTML = awardsMarkup({ ...awards, cards:awards.cards.slice(3) });
+  document.querySelector('#draft-benefits').innerHTML = draftMarkup(awards);
+  document.querySelector('#awards-date').textContent = data.year + ' season · Register updated ' + dateLabel(data.asOf) + '.';
   let selectedMember = 'all';
   let query = '';
   let status = 'all';

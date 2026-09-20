@@ -12,6 +12,7 @@ The publishing branch is `main`; there is no build step.
 - `assembly-2027.ics`: a calendar start reminder, with no invented end time.
 - `assets/`: resized crest files; the original PNG remains for sharing previews.
 - `celebration.html`, `celebration.css`, `celebration.mjs`: Celebration of Life standings, searchable member lists, commemorations, scoring, and button ideas.
+- `celebration-awards.mjs`, `celebration-rules.mjs`: calculated award leaders, badge previews and draft benefits, using the pool's scoring rules.
 - `data/celebration.json`: dated import of the club's full register, with recorded scores and source formulas.
 - `data/celebration-confirmations.json`: independently sourced corrections kept separately from the spreadsheet import.
 - `scripts/import-celebration.py`: standard-library-only importer for an authorized XLSX export of the Google spreadsheet.
@@ -54,6 +55,11 @@ When updating the reference, update that website section to match.
 Consult them before changing related behaviour. They include the confirmed Brown Diamond wording correction and the adopted
 youngest-death Blood Diamond rule. Spreadsheet dates record when the group learned of a passing, which
 may differ from the actual date of death.
+
+The [awards and draft dashboard](celebration.html#awards) recalculates when the
+website's register is refreshed. See [award calculation notes](docs/celebration-awards.md)
+for the date distinctions, provisional badge interpretations, ties, and year-end
+finalization. Existing scores and allocations are preserved.
 
 The first version uses the September 19, 2026 snapshot of all eight tabs.
 It contains 300 numbered selections and Ken's extra BB entry, the six recorded

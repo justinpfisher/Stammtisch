@@ -219,3 +219,30 @@ details[open]>summary>.disclosure-icon { transform:rotate(45deg)!important; }
   .register-nav a { max-width:none; font-size:11px; }
   .rules-section { padding-block:35px 45px; }
 }
+
+/* Award progress and January draft preview. */
+.awards-section { padding-block:55px; border-bottom:1px solid var(--line); }
+.awards-intro { color:var(--muted); max-width:760px; font-size:14px; margin-bottom:27px; }
+.awards-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; align-items:start; }
+.award-card { border:1px solid var(--line); background:#faf8f2; padding:23px; min-width:0; }
+.award-status { font-size:10px; font-weight:600; color:var(--brass); text-transform:uppercase; letter-spacing:.06em; }
+.award-card h3 { font-size:24px; line-height:1.3; margin-top:9px; }
+.award-holder { font:22px/1.4 var(--serif); margin-top:22px; }
+.award-description { font-size:12px; color:var(--muted); margin-top:9px; }
+.award-card details { border-top:1px solid var(--line); margin-top:19px; }
+.award-card summary { font:12px/1.5 var(--sans); padding-block:14px 0; }
+.award-card summary span { font-size:18px; }
+.award-card ul,.draft-card ul { padding-left:18px; font-size:12px; color:var(--muted); margin-bottom:0; }
+.award-card li+li,.draft-card li+li { margin-top:9px; }
+.draft-preview { border-block:1px solid var(--line); margin-top:30px; }
+.draft-preview>p { font-size:13px; color:var(--muted); max-width:800px; margin-bottom:23px; }
+.draft-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; margin-bottom:23px; }
+.draft-card { padding:21px; background:var(--paper-deep); }
+.draft-card h3 { font:25px/1.3 var(--serif); margin:0; }
+.draft-position { font-size:11px; margin-top:8px; color:var(--brass); }
+.draft-card>p:last-child { font-size:12px; margin-top:17px; }
+@media(max-width:1000px) { .awards-grid,.draft-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:650px) { .awards-section { padding-block:35px; } .awards-grid,.draft-grid { grid-template-columns:1fr; } .award-card { padding:21px; } }
+
+.badge-preview { border-top:1px solid var(--line); margin-top:30px; }
+.badge-preview .awards-grid { padding-bottom:15px; }
