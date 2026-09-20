@@ -101,7 +101,7 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}) {
       details:recordGaps.map(g => `${dateText(g.start)} → ${dateText(g.end)}`).concat(
         dates.length ? [`Current gap: ${daysBetween(dates.at(-1),data.asOf)} days since ${dateText(dates.at(-1))}; still open.`] : [],
         discoveryMissing ? [`${discoveryMissing} passing(s) lack a group discovery date; the longest gap may change.`] : [],
-        ['Uses group discovery dates within the calendar year. Button criteria still need the group’s confirmation.']) });
+        ['Uses group discovery dates within the calendar year, as confirmed by the group.']) });
   }
   const calamity = members.map(member => {
     const picks = events.flatMap(x => x.owners.filter(p => p.memberId === member.id && p.counted));

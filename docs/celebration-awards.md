@@ -25,11 +25,12 @@ The spreadsheet's `distinctions` entries supply the separate button ideas.
   rules. Blue, Brown and explicitly recorded Blood Diamonds are excluded. Existing
   score allocations, including Kevin Keegan's 12/13 split, remain unchanged.
 
-## Button previews awaiting interpretation
+## Button previews and confirmed definitions
 
-These are provisional candidates, not recorded button awards. Justin was asked
-on September 20, 2026 to confirm the streak period/date basis and the averaging
-method; no answer had been received when these previews were introduced.
+These are provisional candidates, not recorded button awards. On September 20,
+2026, Justin confirmed that Rainmaker and Droughtmaker use group discovery dates
+within each calendar year. The Cavalcade averaging method remains a provisional
+interpretation pending his answer.
 
 - **Rainmaker / Droughtmaker:** longest completed interval between group discovery
   dates within the current calendar year. Use the owners at the end/start of the
