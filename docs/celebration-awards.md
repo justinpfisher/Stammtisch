@@ -36,8 +36,11 @@ The spreadsheet's `distinctions` entries supply the separate button ideas.
 
 These are provisional candidates, not recorded button awards. On September 20,
 2026, Justin confirmed that Rainmaker and Droughtmaker use group discovery dates
-within each calendar year. The Cavalcade averaging method remains a provisional
-interpretation pending his answer.
+within each calendar year. Justin confirmed that Cavalcade of Calamity and
+Copycat are for the cottage badge ceremony and are not needed for day-to-day
+CoL. Cavalcade's count-based definition is now confirmed by Justin, its author;
+clarifying Copycat is deferred until ceremony prep. Neither affects standings
+or scoring.
 
 - **Rainmaker / Droughtmaker:** longest completed interval between group discovery
   dates within the current calendar year. Use the owners at the end/start of the
@@ -45,11 +48,16 @@ interpretation pending his answer.
   endpoint. Report elapsed days between dates, and show the current unfinished
   interval separately. Do not invent a January 1 passing or an earlier-year event.
   Missing discovery dates make the preview incomplete.
-- **Cavalcade of Calamity:** require at least three numbered-list deaths with
-  awarded values of 9 or less, then compare average awarded points across all
-  dated deaths on that numbered list. Birthday-only entries are excluded.
-  `awardSettings.calamityAverage: "low-only"` selects the alternate average across
-  qualifying deaths if the group chooses that interpretation.
+- **Cavalcade of Calamity:** goes to the player with the most deaths worth
+  strictly fewer than 9 points, with a minimum of three qualifying deaths.
+  Exactly 9 points does not qualify. Count dated, awarded deaths on the player's
+  numbered list in the current season; count each death once per player and
+  exclude birthday-only entries. Average points do not determine the result.
+  Equal highest counts are shown as tied candidates for resolution at the
+  cottage ceremony; no tiebreaker has been supplied.
+  The original imported spreadsheet wording is retained in the source snapshot,
+  but `celebration-rules.mjs` supplies the confirmed wording for both the badge
+  card and button notes, so a register refresh cannot restore the old definition.
 - **Copycat:** surface recorded passings in the same numbered position on different
   lists. The group must confirm what “same CoL pick position” means before awarding
   the button.
@@ -67,11 +75,23 @@ Optional pick fields can clarify the record: `discoveryDate`, `actualDeathDate`,
 `ageAtDeath` (completed years), and `bloodDiamond` (boolean). An actual date from
 `dateSource.dateOfPassing` is also recognized. Dates are `YYYY-MM-DD`. Do not
 populate group discovery dates from automated news alerts. These optional fields
-can be preserved through the confirmations file for discovery dates. The
+can be preserved through the confirmations file for discovery and actual death
+dates; `actualDeathSource` records the supporting source separately. The
 importer also preserves confirmed allocation decisions without treating them as
 verified death dates. Justin confirmed Dolly’s discovery date equals the recorded
 death date (August 25, 2026); this is saved in the confirmations file. Preserve
 other reviewed optional fields when refreshing the register.
+
+Brad Arnold and Jason Collins have verified actual death dates in the
+confirmations file, with the imported group discovery dates and scores preserved.
+Brad's September 27, 1978–February 7, 2026 lifespan is 17,300 days; Jason's
+December 2, 1978–May 12, 2026 lifespan is 17,328 days. Brad was 28 days younger,
+so Matt is the current youngest-death contender, ahead of Marc. This does not
+assign a Blood Diamond before the year-end award is settled.
+Sources: [3 Doors Down announcement](https://3doorsdown.com/),
+[Brad Arnold biography](https://celebrities.legacy.com/legacy/notable-deaths/brad-arnold),
+[NBA family announcement report](https://www.nba.com/news/jason-collins-obit-dies-47-brain-cancer),
+and [Jason Collins NBA profile](https://www.nba.com/stats/player/2215).
 
 If the actual age is unknown, the age on the discovery date is an estimate and
 the youngest-death result remains provisional. Duplicate celebrity/BB records

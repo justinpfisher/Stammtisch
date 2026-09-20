@@ -1,5 +1,23 @@
 [
   {
+    "memberId": "matt",
+    "name": "Brad Arnold",
+    "born": "1978-09-27",
+    "actualDeathDate": "2026-02-07",
+    "sourceUrl": "https://3doorsdown.com/",
+    "sourceLabel": "3 Doors Down family announcement",
+    "verifiedOn": "2026-09-20"
+  },
+  {
+    "memberId": "marc",
+    "name": "Jason Collins",
+    "born": "1978-12-02",
+    "actualDeathDate": "2026-05-12",
+    "sourceUrl": "https://www.nba.com/news/jason-collins-obit-dies-47-brain-cancer",
+    "sourceLabel": "NBA / Associated Press report of the family announcement",
+    "verifiedOn": "2026-09-20"
+  },
+  {
     "memberId": "jamie",
     "name": "Dolly Parton",
     "born": "1946-01-19",

@@ -1,3 +1,11 @@
+export const cavalcadeRule = 'Goes to the player with the most deaths worth fewer than 9 points, with a minimum of three qualifying deaths.';
+
+// Justin's clarification takes precedence over the older spreadsheet wording,
+// including after a new register import.
+export function distinctionReason(item) {
+  return item.name.trim().toLowerCase() === 'cavalcade of calamity' ? cavalcadeRule : item.reason;
+}
+
 export function ageAt(born, at) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(born || '') || !/^\d{4}-\d{2}-\d{2}$/.test(at || '') || at < born) return null;
   const [by, bm, bd] = born.split('-').map(Number);

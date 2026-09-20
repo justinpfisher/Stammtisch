@@ -1,4 +1,4 @@
-import { ageAt, basePoints } from './celebration-rules.mjs';
+import { ageAt, basePoints, cavalcadeRule } from './celebration-rules.mjs';
 
 const birthdays = { marc: '03-26', jerome: '05-09', matt: '06-25', fish: '07-06', ken: '07-20', jamie: '09-19' };
 const isPick = p => Number.isInteger(p.pick) && p.pick >= 1 && p.pick <= 50;
@@ -107,19 +107,18 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}) {
         discoveryMissing ? [`${discoveryMissing} passing(s) lack a group discovery date; the longest gap may change.`] : [],
         ['Uses group discovery dates within the calendar year, as confirmed by the group.']) });
   }
-  const calamity = members.map(member => {
-    const picks = events.flatMap(x => x.owners.filter(p => p.memberId === member.id && p.counted));
-    const low = picks.filter(p => p.points <= 9);
-    const sample = settings.calamityAverage === 'low-only' ? low : picks;
-    return { ...member, qualifying:low.length, average:sample.length ? sample.reduce((sum,p) => sum+p.points,0)/sample.length : null };
-  });
+  const calamity = members.map(member => ({ ...member,
+    qualifying:events.filter(event => event.owners.some(p => p.memberId === member.id && p.counted && Number.isFinite(p.points) && p.points < 9)).length
+  }));
   const eligible = calamity.filter(m => m.qualifying >= 3);
-  const lowestAverage = eligible.length ? Math.min(...eligible.map(m => m.average)) : null;
-  cards.push({ id:'calamity', title:'Cavalcade of Calamity', status:eligible.length ? 'Provisional badge candidate' : 'No one qualifies yet',
-    value:eligible.length ? names(eligible.filter(m => m.average === lowestAverage)) : 'Three low-point deaths needed',
-    description:'At least three deaths worth 9 points or less.',
-    details:calamity.map(m => `${m.name}: ${m.qualifying}/3 qualifying deaths${m.average === null ? '' : ` · ${m.average.toFixed(1)} average points`}`).concat(
-      [`Average uses ${settings.calamityAverage === 'low-only' ? 'only qualifying low-point deaths' : 'all awarded deaths on the player’s numbered list'}. Birthday-only entries are excluded.`]) });
+  const mostDeaths = eligible.length ? Math.max(...eligible.map(m => m.qualifying)) : null;
+  const calamityLeaders = eligible.filter(m => m.qualifying === mostDeaths);
+  cards.push({ id:'calamity', title:'Cavalcade of Calamity', status:calamityLeaders.length > 1 ? 'Tied badge candidates' : eligible.length ? 'Provisional badge candidate' : 'No one qualifies yet',
+    value:names(calamityLeaders) || 'Three low-point deaths needed',
+    description:cavalcadeRule,
+    details:calamity.map(m => `${m.name}: ${m.qualifying} qualifying deaths${m.qualifying < 3 ? ' · minimum 3 needed' : ''}`).concat(
+      ['Counts awarded deaths on the player’s numbered list. Exactly 9 points does not qualify. Birthday-only entries are excluded.'],
+      calamityLeaders.length > 1 ? ['The highest count is tied; resolve the tie at the cottage badge ceremony.'] : []) });
   const slots = new Map();
   for (const event of events) for (const owner of event.owners) {
     if (!slots.has(owner.pick)) slots.set(owner.pick,[]);

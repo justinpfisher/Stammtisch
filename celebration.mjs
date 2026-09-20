@@ -1,4 +1,4 @@
-import { ageAt, basePoints } from './celebration-rules.mjs';
+import { ageAt, basePoints, distinctionReason } from './celebration-rules.mjs';
 export { ageAt, basePoints } from './celebration-rules.mjs';
 import { calculateAwards, awardsMarkup, draftMarkup } from './celebration-awards.mjs';
 
@@ -153,7 +153,7 @@ async function mountCelebration() {
   });
   renderLists();
   document.querySelector('#commemoration-list').innerHTML = groupedCommemorations(members).map(person => `<article class="commemoration-card"><div class="commemoration-topline"><span>${e(person.born?.slice(0, 4))}—${e(person.dateOfPassing.slice(0, 4))}</span><span>Aged ${ageAt(person.born, person.dateOfPassing)}</span></div><h3>${e(person.name)}</h3><p class="commemoration-date">${dateLabel(person.dateOfPassing)}</p><div class="commemoration-members">${person.members.map(member => `<a href="#the-lists" data-member-link="${e(member.id)}">${e(member.name)}<span>${pointsLabel(member.points)} ${member.counted ? 'points' : 'recorded points'} <span aria-hidden="true">↗</span></span></a>`).join('')}</div>${person.dateSource ? `<a class="verified-date" href="${safeSourceUrl(person.dateSource.sourceUrl)}" target="_blank" rel="noopener noreferrer">Official announcement ↗</a>` : ''}</article>`).join('') || '<p>No commemorations have been recorded yet.</p>';
-  document.querySelector('#distinctions').innerHTML = data.distinctions.map(item => `<article><h3>${e(readableSentence(item.name))}</h3><p>${e(readableSentence(item.reason))}</p>${item.imageIdea ? `<details><summary>Button illustration idea <span aria-hidden="true">+</span></summary><p>${e(readableSentence(item.imageIdea))}</p></details>` : ''}</article>`).join('');
+  document.querySelector('#distinctions').innerHTML = data.distinctions.map(item => `<article><h3>${e(readableSentence(item.name))}</h3><p>${e(readableSentence(distinctionReason(item)))}</p>${item.imageIdea ? `<details><summary>Button illustration idea <span aria-hidden="true">+</span></summary><p>${e(readableSentence(item.imageIdea))}</p></details>` : ''}</article>`).join('');
 }
 
 if (typeof document !== 'undefined') mountCelebration();

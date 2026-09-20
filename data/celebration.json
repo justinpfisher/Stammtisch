@@ -173,7 +173,13 @@
           "sourceRow": 13,
           "pointsFormula": null,
           "marker": null,
-          "needsReview": false
+          "needsReview": false,
+          "actualDeathDate": "2026-02-07",
+          "actualDeathSource": {
+            "sourceUrl": "https://3doorsdown.com/",
+            "sourceLabel": "3 Doors Down family announcement",
+            "verifiedOn": "2026-09-20"
+          }
         },
         {
           "id": "matt-14",
@@ -3373,7 +3379,13 @@
           "sourceRow": 23,
           "pointsFormula": null,
           "marker": null,
-          "needsReview": false
+          "needsReview": false,
+          "actualDeathDate": "2026-05-12",
+          "actualDeathSource": {
+            "sourceUrl": "https://www.nba.com/news/jason-collins-obit-dies-47-brain-cancer",
+            "sourceLabel": "NBA / Associated Press report of the family announcement",
+            "verifiedOn": "2026-09-20"
+          }
         },
         {
           "id": "marc-24",

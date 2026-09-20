@@ -72,6 +72,13 @@ def apply_confirmations(result, confirmations):
         if len(matches) != 1:
             raise ValueError("A confirmed record no longer matches the sheet. Review before importing.")
         pick = matches[0]
+        if "actualDeathDate" in confirmation:
+            dt.date.fromisoformat(confirmation["actualDeathDate"])
+            existing = pick.get("actualDeathDate") or (pick.get("dateSource") or {}).get("dateOfPassing")
+            if existing not in (None, confirmation["actualDeathDate"]):
+                raise ValueError("The record conflicts with a verified actual death date. Review before importing.")
+            pick["actualDeathDate"] = confirmation["actualDeathDate"]
+            pick["actualDeathSource"] = {key: confirmation[key] for key in ("sourceUrl", "sourceLabel", "verifiedOn")}
         if "dateOfPassing" in confirmation:
             if pick["dateOfPassing"] not in (None, confirmation["dateOfPassing"]):
                 raise ValueError("The sheet conflicts with a verified date of passing. Review before importing.")

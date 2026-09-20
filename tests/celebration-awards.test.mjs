@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { awardEvents, calculateAwards, awardsMarkup, draftMarkup } from '../celebration-awards.mjs';
+import { distinctionReason } from '../celebration-rules.mjs';
 
 const source = JSON.parse(readFileSync(new URL('../data/celebration.json', import.meta.url), 'utf8'));
 const pick = (name, fields = {}) => ({ pick:2, name, born:'1950-01-01', counted:true, points:24, discoveryDate:'2026-02-01', actualDeathDate:'2026-01-30', ...fields });
@@ -15,7 +16,7 @@ test('current register produces provisional leaders, preserves scores and exclud
   assert.equal(card(model,'pool-prize').value,'Jerome');
   assert.equal(card(model,'pool-prize').status,'Leading');
   assert.equal(card(model,'devils-share').value,'Justin');
-  assert.equal(card(model,'youngest').value,'Matt & Marc');
+  assert.equal(card(model,'youngest').value,'Matt');
   assert.equal(card(model,'rainmaker').value,'Marc');
   assert.equal(card(model,'droughtmaker').value,'Ken');
   assert.equal(card(model,'copycat').value,'2 matching pick positions');
@@ -28,6 +29,20 @@ test('current register produces provisional leaders, preserves scores and exclud
   assert.equal(model.events.find(x=>x.name==='Dolly Parton').discoveredOn,'2026-08-25');
   assert.doesNotMatch(card(model,'rainmaker').details.join(' '),/lack a group discovery date/);
   assert.equal(JSON.stringify(source),before);
+});
+
+test('verified Brad Arnold and Jason Collins dates resolve the youngest contender to Matt by 28 days', () => {
+  const model=calculateAwards(source);
+  const brad=model.events.find(event=>event.name==='Brad Arnold');
+  const jason=model.events.find(event=>event.name==='Jason Collins');
+  assert.equal(brad.ageInDays,17300);
+  assert.equal(jason.ageInDays,17328);
+  assert.equal(jason.ageInDays-brad.ageInDays,28);
+  assert.equal(brad.discoveredOn,'2026-02-07');
+  assert.equal(jason.discoveredOn,'2026-05-12');
+  assert.equal(card(model,'youngest').value,'Matt');
+  assert.deepEqual(model.draft.filter(member=>member.youngest).map(member=>member.id),['matt']);
+  assert.match(card(model,'youngest').details.join(' '),/17,300 days old/);
 });
 
 test('youngest uses day-level ages when actual dates are available, preserving unknown and exact ties', () => {
@@ -125,12 +140,42 @@ test('same-day discoveries share a gap endpoint, equal gaps remain tied and the 
   assert.match(card(model,'rainmaker').details.join(' '),/still open/);
 });
 
-test('Cavalcade requires three qualifying numbered deaths and supports either requested averaging definition', () => {
-  const data=season([member('a',45,[pick('a1',{points:5}),pick('a2',{pick:3,points:5}),pick('a3',{pick:4,points:5}),pick('a4',{pick:5,points:30})]),
-    member('b',24,[pick('b1',{points:8}),pick('b2',{pick:3,points:8}),pick('b3',{pick:4,points:8})]),
-    member('c',3,[pick('c1',{points:1}),pick('c2',{pick:3,points:1}),pick('c3',{pick:'BB',points:1})])]);
-  assert.equal(card(calculateAwards(data),'calamity').value,'b');
-  assert.equal(card(calculateAwards(data,{calamityAverage:'low-only'}),'calamity').value,'a');
+test('Cavalcade ranks the number of qualifying deaths rather than average points', () => {
+  const data=season([member('a',3,[pick('a1',{points:1}),pick('a2',{pick:3,points:1}),pick('a3',{pick:4,points:1})]),
+    member('b',72,[pick('b1',{points:8}),pick('b2',{pick:3,points:8}),pick('b3',{pick:4,points:8}),pick('b4',{pick:5,points:8}),pick('b5',{pick:6,points:40})])]);
+  const result = card(calculateAwards(data),'calamity');
+  assert.equal(result.value,'b');
+  assert.ok(result.details.includes('b: 4 qualifying deaths'));
+});
+
+test('Cavalcade requires three deaths strictly under 9 and excludes birthday-only and unawarded entries', () => {
+  const data=season([member('a',24,[pick('a1',{points:7}),pick('a2',{pick:3,points:8}),pick('a3',{pick:4,points:9}),
+    pick('birthday',{pick:'BB',points:1}),pick('unawarded',{pick:5,points:1,counted:false})])]);
+  let result = card(calculateAwards(data),'calamity');
+  assert.equal(result.status,'No one qualifies yet');
+  assert.ok(result.details.includes('a: 2 qualifying deaths · minimum 3 needed'));
+  data.members[0].picks[2].points=8;
+  result = card(calculateAwards(data),'calamity');
+  assert.equal(result.value,'a');
+  assert.ok(result.details.includes('a: 3 qualifying deaths'));
+});
+
+test('Cavalcade preserves equal-count ties, includes zero and negative points, and counts each death once', () => {
+  const data=season([member('a',-1,[pick('a1',{points:0}),pick('a2',{pick:3,points:-1}),pick('a3',{pick:4,points:0}),pick('a3',{pick:5,points:0})]),
+    member('b',24,[pick('b1',{points:8}),pick('b2',{pick:3,points:8}),pick('b3',{pick:4,points:8})])]);
+  const result = card(calculateAwards(data),'calamity');
+  assert.equal(result.value,'a & b');
+  assert.equal(result.status,'Tied badge candidates');
+  assert.ok(result.details.includes('a: 3 qualifying deaths'));
+  assert.match(result.details.join(' '),/resolve the tie/);
+});
+
+test('Cavalcade button notes use the confirmed rule even when the imported spreadsheet has older wording', () => {
+  const entry=source.distinctions.find(item => item.name.toLowerCase() === 'cavalcade of calamity');
+  assert.equal(distinctionReason(entry), 'Goes to the player with the most deaths worth fewer than 9 points, with a minimum of three qualifying deaths.');
+  assert.equal(card(calculateAwards(source),'calamity').description, distinctionReason(entry));
+  const copycat=source.distinctions.find(item => item.name.toLowerCase() === 'copycat');
+  assert.equal(distinctionReason(copycat), copycat.reason);
 });
 
 test('empty records give no invented badge holders, and names are escaped in both renderers', () => {
