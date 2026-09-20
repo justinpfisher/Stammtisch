@@ -212,7 +212,6 @@ details[open]>summary>.disclosure-icon { transform:rotate(45deg)!important; }
 .rule-body caption { text-align:left; font-weight:600; margin-bottom:8px; }
 .rule-body th,.rule-body td { border-bottom:1px solid var(--line); padding:9px 12px 9px 0; }
 .rule-body tbody th { font-weight:400; }
-.rule-proposal,.rule-note { padding:16px 20px; border-left:3px solid var(--brass); background:var(--paper-deep); }
 .rules-reference { font-size:12px; color:var(--muted); margin-top:25px; }
 .register-nav { flex-wrap:wrap; }
 @media(max-width:650px) {

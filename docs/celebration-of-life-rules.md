@@ -1,9 +1,9 @@
 # STAMMTISCH — Celebration of Life Pool
 
 Official rules supplied by Justin on September 20, 2026. Formatting and HTML
-spacing have been cleaned up; the supplied rule wording is retained. The
-explicitly proposed rule below remains a proposal. See the editorial notes
-at the end before interpreting ambiguous wording.
+spacing have been cleaned up. Justin confirmed the Brown Diamond wording
+correction and adoption of the youngest-death Blood Diamond rule on September 20,
+2026. See the editorial notes at the end for the confirmation history.
 
 Each member of Stammtisch has a list of 50 Celebrities.
 When a celebrity on your list dies, you get points.
@@ -27,7 +27,7 @@ When your Blue Diamond dies, you get double points (or lose double points, if th
 
 The last Celebrity on your list, #50, is your Brown Diamond.
 
-When your Blue Diamond dies, you get double points (or lose double points, if they’re over 100.) You also earn a Blood Diamond at the next draft. (Blood Diamond is a protection you place on one of your celebrities, making them unstealable.)
+When your Brown Diamond dies, you get double points (or lose double points, if they’re over 100.) You also earn a Blood Diamond at the next draft. (Blood Diamond is a protection you place on one of your celebrities, making them unstealable.)
 
 ## PRIZE
 
@@ -60,7 +60,7 @@ Every January, we draft new Celebrities until we each have 50 again.
 
 If your Brown Diamond died in the previous calendar year, you add a Blood Diamond to someone on your list, making them ineligible for Steals and Jettisons. *(Note Blood Diamonds do NOT give you double-points when they die, unlike the Blue or Brown Diamond.)*
 
-***PROPOSED NEW RULE: Whoever had the youngest celebrity death the previous year also gets a Blood Diamond.***
+Whoever had the youngest celebrity death the previous year also gets a Blood Diamond.
 
 ### SECOND - Steals
 
@@ -102,8 +102,8 @@ If any of your Diamonds died the previous year, they can be replaced by any of y
 
 These notes are separate from the supplied rules above.
 
-- **Brown Diamond wording:** The BROWN DIAMOND paragraph says “When your Blue Diamond dies.” The heading and FIRST - Blood Diamonds section refer to the Brown Diamond. The wording is preserved pending clarification; do not silently resolve this inconsistency when implementing rules.
+- **Brown Diamond correction confirmed September 20, 2026:** Justin confirmed that the BROWN DIAMOND paragraph refers to the Brown Diamond (#50), not the Blue Diamond. Its death gives double points (or double negative points over 100) and earns a Blood Diamond at the next draft. The paragraph above has been corrected.
 - **Draft numbering:** Both Devil’s Share and Jettisons are labelled THIRD in the supplied text. Their order and labels are preserved.
-- **Proposed rule:** The youngest-celebrity-death Blood Diamond clause is explicitly proposed. Do not treat it as adopted without confirmation from the group.
+- **Youngest-death rule adopted, confirmed September 20, 2026:** Justin confirmed that whoever had the youngest celebrity death the previous year also gets a Blood Diamond. This is an adopted rule, and the proposal label above has been removed.
 - **Discovery dates:** Justin clarified on September 20, 2026 that spreadsheet dates record when the group collectively first learned of a passing. Keep these separate from the actual date of death and from the date an automated monitor finds the news. A monitor alert does not establish the group’s discovery date. Scoring uses age at death; Birthday Buffet uses discovery as described above.
 - **Future work:** Consult this file for Celebration of Life scoring, diamonds, Birthday Buffet, prizes and draft behaviour. Any unresolved interpretation should be flagged before it changes points or eligibility. Recording these rules does not establish that every rule is implemented on the website.

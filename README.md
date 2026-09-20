@@ -51,9 +51,8 @@ The [official Celebration of Life rules](docs/celebration-of-life-rules.md)
 are the reference for scoring, diamonds, Birthday Buffet, prizes and drafting.
 The full rules are also published on [the Celebration of Life page](celebration.html#official-rules).
 When updating the reference, update that website section to match.
-Consult them before changing related behaviour. They preserve the supplied
-wording, identify ambiguities and distinguish the proposed rule from adopted
-rules. Spreadsheet dates record when the group learned of a passing, which
+Consult them before changing related behaviour. They include the confirmed Brown Diamond wording correction and the adopted
+youngest-death Blood Diamond rule. Spreadsheet dates record when the group learned of a passing, which
 may differ from the actual date of death.
 
 The first version uses the September 19, 2026 snapshot of all eight tabs.
