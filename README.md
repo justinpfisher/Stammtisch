@@ -47,6 +47,13 @@ node --test tests/assembly.test.mjs
 
 ## Celebration of Life
 
+The [official Celebration of Life rules](docs/celebration-of-life-rules.md)
+are the reference for scoring, diamonds, Birthday Buffet, prizes and drafting.
+Consult them before changing related behaviour. They preserve the supplied
+wording, identify ambiguities and distinguish the proposed rule from adopted
+rules. Spreadsheet dates record when the group learned of a passing, which
+may differ from the actual date of death.
+
 The first version uses the September 19, 2026 snapshot of all eight tabs.
 It contains 300 numbered selections and Ken's extra BB entry, the six recorded
 totals, birth and passing dates, and all six button ideas. Member portraits
