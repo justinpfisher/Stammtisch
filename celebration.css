@@ -196,3 +196,27 @@ details[open]>summary>.disclosure-icon { transform:rotate(45deg)!important; }
   .commemoration-topline { flex-direction:row; }
   .commemoration-members a { flex-direction:row; }
 }
+
+/* Official pool rules. */
+.rules-section { padding-block:45px 65px; border-top:1px solid var(--line); }
+.rules-content { max-width:780px; }
+.rules-content>p { margin-bottom:24px; }
+.rule-topic { border-bottom:1px solid var(--line); }
+.rule-topic:first-of-type { border-top:1px solid var(--line); }
+.rule-topic>summary { font:600 13px/1.6 var(--sans); letter-spacing:.06em; padding-block:22px; }
+.rule-body { padding-bottom:25px; font-size:14px; line-height:1.85; }
+.rule-body p+p { margin-top:16px; }
+.rule-body h3 { font:25px/1.4 var(--serif); margin:28px 0 14px; }
+.rule-body h3:first-child { margin-top:0; }
+.rule-body table { width:100%; max-width:460px; border-collapse:collapse; margin-top:22px; text-align:left; }
+.rule-body caption { text-align:left; font-weight:600; margin-bottom:8px; }
+.rule-body th,.rule-body td { border-bottom:1px solid var(--line); padding:9px 12px 9px 0; }
+.rule-body tbody th { font-weight:400; }
+.rule-proposal,.rule-note { padding:16px 20px; border-left:3px solid var(--brass); background:var(--paper-deep); }
+.rules-reference { font-size:12px; color:var(--muted); margin-top:25px; }
+.register-nav { flex-wrap:wrap; }
+@media(max-width:650px) {
+  .register-nav { display:grid; grid-template-columns:1fr 1fr; gap:0 16px; padding-block:10px; }
+  .register-nav a { max-width:none; font-size:11px; }
+  .rules-section { padding-block:35px 45px; }
+}

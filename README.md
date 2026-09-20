@@ -49,6 +49,8 @@ node --test tests/assembly.test.mjs
 
 The [official Celebration of Life rules](docs/celebration-of-life-rules.md)
 are the reference for scoring, diamonds, Birthday Buffet, prizes and drafting.
+The full rules are also published on [the Celebration of Life page](celebration.html#official-rules).
+When updating the reference, update that website section to match.
 Consult them before changing related behaviour. They preserve the supplied
 wording, identify ambiguities and distinguish the proposed rule from adopted
 rules. Spreadsheet dates record when the group learned of a passing, which
