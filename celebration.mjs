@@ -29,8 +29,8 @@ export function normalizeSearch(value) {
 
 export function matchesPick(pick, query = '', status = 'all') {
   if (!normalizeSearch(pick.name).includes(normalizeSearch(query))) return false;
-  if (status === 'commemorations') return Boolean(pick.dateOfPassing);
-  if (status === 'unflagged') return !pick.dateOfPassing && !pick.needsReview;
+  if (status === 'commemorations') return Boolean(actualDeathDate(pick) || pick.dateOfPassing);
+  if (status === 'unflagged') return !actualDeathDate(pick) && !pick.dateOfPassing && !pick.needsReview;
   if (status === 'double') return multiplierFor(pick) === 2;
   return true;
 }
@@ -39,10 +39,11 @@ export function groupedCommemorations(members) {
   const groups = new Map();
   for (const member of members) {
     for (const pick of member.picks) {
-      if (!pick.dateOfPassing) continue;
+      if (!actualDeathDate(pick) && !pick.dateOfPassing) continue;
       const key = `${normalizeSearch(pick.name)}:${pick.born}`;
       if (!groups.has(key)) groups.set(key, { ...pick, members: [] });
       const current = groups.get(key);
+      if (!current.dateOfPassing && pick.dateOfPassing) current.dateOfPassing = pick.dateOfPassing;
       if (!actualDeathDate(current) && actualDeathDate(pick)) {
         current.actualDeathDate = actualDeathDate(pick);
         current.actualDeathSource = pick.actualDeathSource || null;
@@ -51,7 +52,8 @@ export function groupedCommemorations(members) {
       groups.get(key).members.push({ id: member.id, name: member.name, points: pick.points, counted: pick.counted });
     }
   }
-  return [...groups.values()].sort((a, b) => b.dateOfPassing.localeCompare(a.dateOfPassing) || a.name.localeCompare(b.name));
+  const dated = pick => actualDeathDate(pick) || pick.dateOfPassing || '';
+  return [...groups.values()].sort((a, b) => dated(b).localeCompare(dated(a)) || a.name.localeCompare(b.name));
 }
 
 export const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -76,19 +78,21 @@ function pickMarkup(pick, member, data) {
   const value = selectionValue(pick, data.asOf);
   const multiplier = multiplierFor(pick);
   const sourceDiffers = value !== pick.points;
-  const status = pick.dateOfPassing ? '<span class="record-status">In remembrance</span>' : pick.needsReview ? '<span class="record-status">Date to confirm</span>' : '';
+  const hasPassing = Boolean(deathDate || pick.dateOfPassing);
+  const status = pick.dateOfPassing ? '<span class="record-status">In remembrance</span>' : deathDate ? '<span class="record-status">Passing verified · Club score pending</span>' : pick.needsReview ? '<span class="record-status">Date to confirm</span>' : '';
   const badge = multiplier === 2 ? '<span class="selection-badge" aria-label="Double-point selection">2×</span>' : '';
   const displayedDate = deathDate || pick.dateOfPassing;
-  const meta = pick.dateOfPassing ? `${e(pick.born?.slice(0, 4))}–${e(displayedDate.slice(0, 4))} <span aria-hidden="true">·</span> ${dateLabel(displayedDate)}` : `Born ${dateLabel(pick.born)} <span aria-hidden="true">·</span> Age ${age ?? '—'}`;
+  const meta = hasPassing ? `${e(pick.born?.slice(0, 4))}–${e(displayedDate.slice(0, 4))} <span aria-hidden="true">·</span> ${dateLabel(displayedDate)}` : `Born ${dateLabel(pick.born)} <span aria-hidden="true">·</span> Age ${age ?? '—'}`;
   const source = pick.actualDeathSource || pick.dateSource;
   const dateSource = source ? `<a href="${safeSourceUrl(source.sourceUrl)}" target="_blank" rel="noopener noreferrer">${e(source.sourceLabel)} ↗</a>` : 'The Stammtisch register';
-  return `<li><details class="pick-entry${pick.dateOfPassing ? ' remembered' : ''}">
-    <summary><span class="pick-number">${e(pick.pick)}</span><span class="pick-name-block"><span class="pick-name">${e(pick.name)} ${badge}</span><span class="record-meta">${meta}</span>${status}</span><span class="pick-points"><strong>${pointsLabel(value)}</strong><small>${pick.counted ? 'Awarded' : 'Value'}</small></span><span class="disclosure-icon" aria-hidden="true">+</span></summary>
-    <div class="pick-entry-body"><dl><div><dt>Selected by</dt><dd>${e(member.name)} · ${typeof pick.pick === 'number' ? 'Selection' : 'Entry'} ${e(pick.pick)}</dd></div><div><dt>Date of birth</dt><dd>${dateLabel(pick.born)}</dd></div><div><dt>${pick.dateOfPassing ? 'Date recorded by group' : 'Age on ' + dateLabel(data.asOf)}</dt><dd>${pick.dateOfPassing ? dateLabel(pick.dateOfPassing) + (deathDate ? ' · Actual death: ' + dateLabel(deathDate) : ' · Actual death date unverified') + ' · Aged ' + age : e(pick.ageText || age)}</dd></div><div><dt>${pick.counted ? 'Points in the standings' : 'Points at this age'}</dt><dd>${pointsLabel(value)}${multiplier === 2 ? ' · Double-point selection' : ''}</dd></div></dl>
+  return `<li><details class="pick-entry${hasPassing ? ' remembered' : ''}">
+    <summary><span class="pick-number">${e(pick.pick)}</span><span class="pick-name-block"><span class="pick-name">${e(pick.name)} ${badge}</span><span class="record-meta">${meta}</span>${status}</span><span class="pick-points"><strong>${pointsLabel(value)}</strong><small>${pick.counted ? 'Awarded' : deathDate ? 'Not yet awarded' : 'Value'}</small></span><span class="disclosure-icon" aria-hidden="true">+</span></summary>
+    <div class="pick-entry-body"><dl><div><dt>Selected by</dt><dd>${e(member.name)} · ${typeof pick.pick === 'number' ? 'Selection' : 'Entry'} ${e(pick.pick)}</dd></div><div><dt>Date of birth</dt><dd>${dateLabel(pick.born)}</dd></div><div><dt>${pick.dateOfPassing ? 'Date recorded by group' : deathDate ? 'Verified date of death' : 'Age on ' + dateLabel(data.asOf)}</dt><dd>${pick.dateOfPassing ? dateLabel(pick.dateOfPassing) + (deathDate ? ' · Actual death: ' + dateLabel(deathDate) : ' · Actual death date unverified') + ' · Aged ' + age : deathDate ? dateLabel(deathDate) + ' · Group discovery date not yet recorded · Aged ' + age : e(pick.ageText || age)}</dd></div><div><dt>${pick.counted ? 'Points in the standings' : deathDate ? 'Potential points (not yet in standings)' : 'Points at this age'}</dt><dd>${pointsLabel(value)}${multiplier === 2 ? ' · Double-point selection' : ''}</dd></div></dl>
     ${sourceDiffers ? `<p>The spreadsheet shows ${pointsLabel(pick.points)}. The value above applies the Club’s age rule to the date shown.</p>` : ''}
     ${pick.pick === 'BB' ? '<p>This additional selection is labelled “BB” in the spreadsheet.</p>' : ''}
     ${pick.needsReview ? '<p>These points are included in the recorded total; a date of passing is still to be confirmed.</p>' : ''}
-    ${pick.dateOfPassing ? `<p class="record-source">${deathDate ? 'Actual death source: ' + dateSource : 'The group-recorded date is not an independently verified date of death'}.</p>` : ''}
+    ${hasPassing ? `<p class="record-source">${deathDate ? 'Actual death source: ' + dateSource : 'The group-recorded date is not an independently verified date of death'}.</p>` : ''}
+    ${deathDate && !pick.dateOfPassing ? `<p class="record-source">Independently verified after the club’s ${dateLabel(data.asOf)} register snapshot; no change has been made to the club’s recorded score.</p>` : ''}
     </div></details></li>`;
 }
 
@@ -104,12 +108,7 @@ async function mountCelebration() {
     document.querySelector('#draft-benefits').innerHTML = '<p>Please reload the page to see the draft preview.</p>';
     document.querySelector('#standings').innerHTML = '<p>The standings could not be loaded.</p>';
     document.querySelector('#member-lists').innerHTML = '<p class="load-message">The register is temporarily unavailable. Please reload the page or use the original spreadsheet linked below.</p>';
-  document.querySelector('#commemoration-list').innerHTML = groupedCommemorations(members).map(person => {
-    const death = actualDeathDate(person);
-    const source = person.actualDeathSource || person.dateSource;
-    const displayed = death || person.dateOfPassing;
-    return `<article class="commemoration-card"><div class="commemoration-topline"><span>${e(person.born?.slice(0, 4))}—${e(displayed.slice(0, 4))}</span><span>Aged ${ageAt(person.born, displayed)}</span></div><h3>${e(person.name)}</h3><p class="commemoration-date">${death ? 'Actual death: ' + dateLabel(death) + ' · Group record: ' + dateLabel(person.dateOfPassing) : 'Group recorded: ' + dateLabel(person.dateOfPassing) + ' · Actual death date unverified'}</p><div class="commemoration-members">${person.members.map(member => `<a href="#the-lists" data-member-link="${e(member.id)}">${e(member.name)}<span>${pointsLabel(member.points)} ${member.counted ? 'points' : 'recorded points'} <span aria-hidden="true">↗</span></span></a>`).join('')}</div>${source ? `<a class="verified-date" href="${safeSourceUrl(source.sourceUrl)}" target="_blank" rel="noopener noreferrer">Supporting source ↗</a>` : ''}</article>`;
-  }).join('') || '<p>No commemorations have been recorded yet.</p>';
+    document.querySelector('#commemoration-list').innerHTML = '<p>Please use the original spreadsheet linked below.</p>';
     return;
   }
   const e = escapeHtml;
@@ -128,7 +127,7 @@ async function mountCelebration() {
   const statusControl = document.querySelector('#status-filter');
   document.querySelector('[data-year]').textContent = data.year;
   document.querySelector('[data-snapshot-date]').textContent = `Register updated ${dateLabel(data.asOf)}.`;
-  document.querySelector('#source-date').textContent = `From the shared register · ${dateLabel(data.asOf)}. Dates added from other sources are linked in the relevant entry.`;
+  document.querySelector('#source-date').textContent = `Club scores and discovery dates reflect the ${dateLabel(data.asOf)} register snapshot. Independently verified deaths may be newer and do not affect standings until the club updates its register.`;
   document.querySelector('#standings').innerHTML = members.map(member => `<a class="standing-card" href="#the-lists" data-member-link="${e(member.id)}" aria-label="${e(member.name)}, rank ${member.rank}, ${member.score} points. View full list."><span class="standing-rank">${String(member.rank).padStart(2, '0')}</span><img src="${e(member.avatar)}" width="240" height="240" alt=""><span class="standing-name">${e(member.name)}</span><span class="standing-score">${pointsLabel(member.score)}<small>points</small></span><span class="standing-cta">View list <span aria-hidden="true">↗</span></span></a>`).join('');
   filters.innerHTML = [{ id: 'all', name: 'Everyone' }, ...members].map(member => `<button type="button" data-member="${e(member.id)}" aria-pressed="${member.id === 'all'}">${e(member.name)}</button>`).join('');
   document.querySelector('#register-controls').hidden = false;
@@ -168,7 +167,22 @@ async function mountCelebration() {
     document.querySelector('#lists-title').focus({ preventScroll: true });
   });
   renderLists();
-  document.querySelector('#commemoration-list').innerHTML = groupedCommemorations(members).map(person => `<article class="commemoration-card"><div class="commemoration-topline"><span>${e(person.born?.slice(0, 4))}—${e(person.dateOfPassing.slice(0, 4))}</span><span>Aged ${ageAt(person.born, person.dateOfPassing)}</span></div><h3>${e(person.name)}</h3><p class="commemoration-date">${dateLabel(person.dateOfPassing)}</p><div class="commemoration-members">${person.members.map(member => `<a href="#the-lists" data-member-link="${e(member.id)}">${e(member.name)}<span>${pointsLabel(member.points)} ${member.counted ? 'points' : 'recorded points'} <span aria-hidden="true">↗</span></span></a>`).join('')}</div>${person.dateSource ? `<a class="verified-date" href="${safeSourceUrl(person.dateSource.sourceUrl)}" target="_blank" rel="noopener noreferrer">Official announcement ↗</a>` : ''}</article>`).join('') || '<p>No commemorations have been recorded yet.</p>';
+  document.querySelector('#commemoration-list').innerHTML = groupedCommemorations(members).map(person => {
+    const death = actualDeathDate(person);
+    const displayed = death || person.dateOfPassing;
+    const source = person.actualDeathSource || person.dateSource;
+    const clubDate = person.dateOfPassing ? dateLabel(person.dateOfPassing) : 'Not yet recorded';
+    const timing = death
+      ? `Verified date of death: ${dateLabel(death)} · Club discovery date: ${clubDate}`
+      : `Group recorded: ${dateLabel(person.dateOfPassing)} · Actual death date unverified`;
+    const memberLinks = person.members.map(member =>
+      `<a href="#the-lists" data-member-link="${e(member.id)}">${e(member.name)}<span>${pointsLabel(member.points)} ${member.counted ? 'points awarded' : 'potential points (not yet awarded)'} <span aria-hidden="true">↗</span></span></a>`).join('');
+    const note = death && !person.dateOfPassing
+      ? '<p class="record-source">Independently verified; the club register has not yet recorded this passing or awarded the resulting points.</p>' : '';
+    const sourceLink = source?.sourceUrl
+      ? `<a class="verified-date" href="${safeSourceUrl(source.sourceUrl)}" target="_blank" rel="noopener noreferrer">${e(source.sourceLabel || 'Supporting source')} ↗</a>` : '';
+    return `<article class="commemoration-card"><div class="commemoration-topline"><span>${e(person.born?.slice(0, 4))}—${e(displayed.slice(0, 4))}</span><span>Aged ${ageAt(person.born, displayed)}</span></div><h3>${e(person.name)}</h3><p class="commemoration-date">${e(timing)}</p>${note}<div class="commemoration-members">${memberLinks}</div>${sourceLink}</article>`;
+  }).join('') || '<p>No commemorations have been recorded yet.</p>';
   document.querySelector('#distinctions').innerHTML = data.distinctions.map(item => `<article><h3>${e(readableSentence(item.name))}</h3><p>${e(readableSentence(distinctionReason(item)))}</p>${item.imageIdea ? `<details><summary>Button illustration idea <span aria-hidden="true">+</span></summary><p>${e(readableSentence(item.imageIdea))}</p></details>` : ''}</article>`).join('');
 }
 
