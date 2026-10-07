@@ -67,6 +67,16 @@ class SyncTests(unittest.TestCase):
         finally:
             sync.importer.import_data = original
 
+    def test_previously_counted_undated_record_gains_date_and_requires_verification(self):
+        previous = sample(dead=True)
+        previous["members"][0]["picks"][0]["dateOfPassing"] = None
+        proposed = sample(dead=True)
+        self.assertEqual([("matt", proposed["members"][0]["picks"][0])],
+                         list(sync.newly_reported_deaths(previous, proposed)))
+        unchanged = sample(dead=True)
+        unchanged["members"][0]["picks"][0]["dateOfPassing"] = None
+        self.assertEqual([], list(sync.newly_reported_deaths(previous, unchanged)))
+
     def test_existing_source_allows_safe_new_death(self):
         previous, proposed = sample(), sample(dead=True, confirmed=True)
         original = sync.importer.import_data
