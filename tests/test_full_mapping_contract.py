@@ -187,6 +187,15 @@ class FullMappingContractTests(unittest.TestCase):
             sync.prepare(to_api(sheets), PUBLIC, CONFIRMATIONS, PUBLIC["capturedAt"],
                          allow_research=False)
 
+    def test_shared_celebrity_cannot_have_two_group_discovery_dates(self):
+        sheets = public_as_sheet_cells()
+        ken = next(m for m in PUBLIC["members"] if m["id"] == "ken")
+        birthday = next(p for p in ken["picks"] if p["name"] == "Kevin Keegan")
+        sheets["ken"][f"D{birthday['sourceRow']}"]["value"] = serial("2026-07-21")
+        with self.assertRaisesRegex(ValueError, "conflicting group discovery dates"):
+            sync.prepare(to_api(sheets), PUBLIC, CONFIRMATIONS, PUBLIC["capturedAt"],
+                         allow_research=False)
+
     def test_actual_death_cannot_be_later_than_club_record(self):
         sheets = public_as_sheet_cells()
         eva = next(p for p in PUBLIC["members"][2]["picks"] if p["name"] == "Eva Marie Saint")
