@@ -6,6 +6,10 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/celebration-sheet-monitor.yml'
+      - 'scripts/monitor-celebration-sheet.py'
+      - 'scripts/sync-celebration-sheet.py'
+      - 'scripts/import-celebration.py'
+      - 'data/celebration-confirmations.json'
   schedule:
     - cron: '58 * * * *'
       timezone: America/Toronto
