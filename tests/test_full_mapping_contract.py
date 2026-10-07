@@ -126,14 +126,16 @@ class FullMappingContractTests(unittest.TestCase):
 
     def test_missing_counted_selection_reference_fails_closed(self):
         sheets = public_as_sheet_cells()
-        sheets["jerome"]["E1"]["formula"] += ",E999"
+        score_formula = sheets["jerome"]["E1"]["formula"]
+        sheets["jerome"]["E1"]["formula"] = score_formula[:-1] + ",E999)"
         with self.assertRaisesRegex(ValueError, "missing selection row"):
             sync.importer.import_data(None, PUBLIC["capturedAt"], CONFIRMATIONS, sheets=sheets)
 
     def test_repeated_counted_reference_fails_closed(self):
         sheets = public_as_sheet_cells()
         counted = next(p for p in PUBLIC["members"][2]["picks"] if p["counted"])
-        sheets["jerome"]["E1"]["formula"] += f",E{counted['sourceRow']}"
+        score_formula = sheets["jerome"]["E1"]["formula"]
+        sheets["jerome"]["E1"]["formula"] = score_formula[:-1] + f",E{counted['sourceRow']})"
         with self.assertRaisesRegex(ValueError, "repeats a source row"):
             sync.importer.import_data(None, PUBLIC["capturedAt"], CONFIRMATIONS, sheets=sheets)
 
