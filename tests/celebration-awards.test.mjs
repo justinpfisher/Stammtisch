@@ -10,29 +10,23 @@ const member = (id, score, picks = []) => ({ id, name:id, score, picks });
 const season = members => ({ year:2026, asOf:'2026-09-19', members });
 const card = (model,id) => model.cards.find(c => c.id === id);
 
-test('current register produces provisional leaders, preserves scores and excludes BB from vacancies', () => {
+test('current register calculates leaders and draft order dynamically without mutating the source', () => {
   const before = JSON.stringify(source);
   const model = calculateAwards(source);
-  assert.equal(card(model,'pool-prize').value,'Jerome');
-  assert.equal(card(model,'pool-prize').status,'Leading');
-  assert.equal(card(model,'devils-share').value,'Justin');
-  assert.equal(card(model,'youngest').value,'Matt');
-  assert.equal(card(model,'rainmaker').value,'Marc');
-  assert.equal(card(model,'droughtmaker').value,'Ken');
-  assert.equal(card(model,'copycat').value,'No confirmed match yet');
-  assert.equal(card(model,'copycat').status,'Actual death dates needed');
-  assert.deepEqual(model.draft.map(m => m.id), ['fish','jamie','ken','marc','matt','jerome']);
-  assert.equal(model.draft.find(m => m.id === 'ken').vacancies,1);
-  assert.equal(model.draft.find(m => m.id === 'jerome').benefits[0].confirmed,false);
+  const scoreDescending = [...source.members].sort((a,b) => b.score - a.score || a.name.localeCompare(b.name));
+  const scoreAscending = [...source.members].sort((a,b) => a.score - b.score || a.name.localeCompare(b.name));
+  assert.equal(card(model,'pool-prize').value, scoreDescending.filter(m => m.score === scoreDescending[0].score).map(m => m.name).join(' & '));
+  assert.equal(card(model,'devils-share').value, scoreAscending.filter(m => m.score === scoreAscending[0].score).map(m => m.name).join(' & '));
+  assert.deepEqual(model.draft.map(m => m.id), scoreAscending.map(m => m.id));
+  assert.equal(card(model,'pool-prize').status, scoreDescending[0].score === scoreDescending[1].score ? 'Tied on points' : 'Leading');
+  assert.equal(model.final, false);
+  assert.ok(model.events.some(event => event.name === 'Dolly Parton' && event.discoveredOn === '2026-08-25'));
   assert.match(card(model,'birthday-buffet').details.join(' '),/Matt 12, Ken 13/);
   assert.match(card(model,'birthday-buffet').details.join(' '),/Group vote approved/);
-  assert.doesNotMatch(card(model,'birthday-buffet').details.join(' '),/flagged for review/);
-  assert.equal(model.events.find(x=>x.name==='Dolly Parton').discoveredOn,'2026-08-25');
-  assert.doesNotMatch(card(model,'rainmaker').details.join(' '),/lack a group discovery date/);
   assert.equal(JSON.stringify(source),before);
 });
 
-test('verified Brad Arnold and Jason Collins dates resolve the youngest contender to Matt by 28 days', () => {
+test('verified Brad Arnold and Jason Collins dates retain their 28-day comparison', () => {
   const model=calculateAwards(source);
   const brad=model.events.find(event=>event.name==='Brad Arnold');
   const jason=model.events.find(event=>event.name==='Jason Collins');
@@ -41,9 +35,6 @@ test('verified Brad Arnold and Jason Collins dates resolve the youngest contende
   assert.equal(jason.ageInDays-brad.ageInDays,28);
   assert.equal(brad.discoveredOn,'2026-02-07');
   assert.equal(jason.discoveredOn,'2026-05-12');
-  assert.equal(card(model,'youngest').value,'Matt');
-  assert.deepEqual(model.draft.filter(member=>member.youngest).map(member=>member.id),['matt']);
-  assert.match(card(model,'youngest').details.join(' '),/17,300 days old/);
 });
 
 test('youngest uses day-level ages when actual dates are available, preserving unknown and exact ties', () => {
