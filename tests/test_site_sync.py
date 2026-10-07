@@ -107,6 +107,26 @@ class SyncTests(unittest.TestCase):
         finally:
             sync.importer.import_data, sync.verifier.research = old_import, old_verify
 
+    def test_article_verification_requires_death_and_date_near_identity(self):
+        class DummyPage:
+            status = 200
+            headers = {"Content-Type": "text/html"}
+            def __init__(self, page): self.page = page
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, limit): return self.page.encode("utf-8")[:limit]
+        class DummyOpener:
+            def __init__(self, page): self.page = page
+            def open(self, request, timeout): return DummyPage(self.page)
+        original = verifier.build_opener
+        try:
+            verifier.build_opener = lambda *_: DummyOpener("<html><body>Famous Sample died on October 7, 2026.</body></html>")
+            self.assertTrue(verifier.article_supports("https://www.cbc.ca/arts/story", "Famous Sample", "2026-10-07"))
+            verifier.build_opener = lambda *_: DummyOpener("Famous Sample won an award. " + "Other coverage. " * 100 + "Different Person died on October 7, 2026.")
+            self.assertFalse(verifier.article_supports("https://www.cbc.ca/arts/story", "Famous Sample", "2026-10-07"))
+        finally:
+            verifier.build_opener = original
+
     def test_web_verifier_only_accepts_known_https_publishers(self):
         self.assertEqual(verifier.source_publisher("https://www.apnews.com/a"), "Associated Press")
         self.assertIsNone(verifier.source_publisher("http://apnews.com/a"))
