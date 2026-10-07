@@ -170,7 +170,8 @@ test('failed register fetch renders fallback rather than crashing', async () => 
     if (!(s in nodes)) throw new Error('Unexpected fallback selector: ' + s);
     return nodes[s];
   } };
-  globalThis.fetch = async () => { throw new Error('offline'); };
+  let request;
+  globalThis.fetch = async (...args) => { request = args; throw new Error('offline'); };
   try {
     await mountCelebration();
     for (const selector of selectors) assert.ok(nodes[selector].innerHTML.length, selector);
