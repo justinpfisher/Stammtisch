@@ -58,8 +58,15 @@ def sheets_api_cells(workbook):
                         raise ValueError("Overlapping Sheet data regions")
                     cells[address] = {"value":value, "formula":formula.lstrip("=") if formula else None}
         result[title] = cells
-    if set(result) != {"LEADERBOARD", "buttons", *importer.MEMBERS}:
-        raise ValueError("Spreadsheet tab mapping changed; review required")
+    required = {"LEADERBOARD", "buttons", *importer.MEMBERS}
+    present = set(result)
+    missing, extra = required - present, present - required
+    if missing and extra:
+        raise ValueError("Expected tabs missing and additional unmapped tabs present")
+    if missing:
+        raise ValueError("Expected tabs missing from live workbook")
+    if extra:
+        raise ValueError("Additional unmapped tabs present in live workbook")
     return result
 
 def public_material(data):
@@ -155,6 +162,9 @@ def failure_code(exc):
         ("Spreadsheet has a calculated cell error", "cell_calculation"),
         ("Overlapping Sheet data regions", "overlapping_regions"),
         ("Spreadsheet tab mapping changed", "unsupported_tabs"),
+        ("Expected tabs missing and additional unmapped tabs present", "missing_and_extra_tabs"),
+        ("Expected tabs missing from live workbook", "required_tabs_missing"),
+        ("Additional unmapped tabs present in live workbook", "extra_tabs_present"),
         ("Sheet names changed", "unsupported_tabs"),
         ("Unrecognized total formula", "unsupported_score_formula"),
         ("Invalid points in", "invalid_point_value"),
