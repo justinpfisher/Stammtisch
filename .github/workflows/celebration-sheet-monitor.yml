@@ -1,6 +1,11 @@
 name: Celebration sheet monitor
 
 on:
+  # Reconcile once when this workflow is changed, including initial deployment.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/celebration-sheet-monitor.yml'
   schedule:
     - cron: '58 * * * *'
       timezone: America/Toronto
@@ -81,8 +86,10 @@ jobs:
             const existing = issues.find(issue => issue.title === title);
             if (existing) { const { data: comments } = await github.rest.issues.listComments({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, per_page: 100 }); if (![existing.body, ...comments.map(c => c.body)].some(text => text.includes(`sheet-monitor:${result.alertKey}`))) await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body }); }
             else await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
-      - name: Prepare verified public website update
-        if: success() && steps.compare.outputs.publication_inputs_changed == 'true'
+      - name: Reconcile current Sheet with published website data
+        # A previous monitor baseline may already include edits missing from the site.
+        # Run after every successful normal comparison, not just a new sheet diff.
+        if: success() && inputs.initialize != true
         id: site_sync
         run: |
           checked="$(python -c "import json; print(json.load(open('monitor-result.json'))['checkedAt'])")"
@@ -161,6 +168,19 @@ jobs:
               const { data: comments } = await github.rest.issues.listComments({ owner:context.repo.owner, repo:context.repo.repo, issue_number:issue.number, per_page:100 });
               if (![issue.body, ...comments.map(c => c.body)].some(text => text?.includes(marker)))
                 await github.rest.issues.createComment({ owner:context.repo.owner, repo:context.repo.repo, issue_number:issue.number, body });
+            } else {
+              // A change captured before publisher activation won't have a new
+              // monitor alert. Record the public-data reconciliation explicitly.
+              const title = 'Celebration website sync: verified register refresh published';
+              const { data: existing } = await github.rest.issues.listForRepo({ owner:context.repo.owner, repo:context.repo.repo, state:'open', per_page:100 });
+              const prior = existing.find(item => item.title === title);
+              if (prior) {
+                const { data: comments } = await github.rest.issues.listComments({ owner:context.repo.owner, repo:context.repo.repo, issue_number:prior.number, per_page:100 });
+                if (![prior.body, ...comments.map(c => c.body)].some(text => text?.includes(marker)))
+                  await github.rest.issues.createComment({ owner:context.repo.owner, repo:context.repo.repo, issue_number:prior.number, body });
+              } else {
+                await github.rest.issues.create({ owner:context.repo.owner, repo:context.repo.repo, title, body });
+              }
             }
       - name: Promote successful comparison state
         if: success()
