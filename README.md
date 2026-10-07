@@ -61,7 +61,7 @@ website's register is refreshed. See [award calculation notes](docs/celebration-
 for the date distinctions, provisional badge interpretations, ties, and year-end
 finalization. Existing scores and allocations are preserved.
 
-The first version uses the September 19, 2026 snapshot of all eight tabs.
+The initial version used the September 19, 2026 snapshot of all eight tabs. When the hourly monitor is enabled, validated changes to published register fields can refresh the site automatically.
 It contains 300 numbered selections and Ken's extra BB entry, the six recorded
 totals, birth and passing dates, and all six button ideas. Member portraits
 come from the spreadsheet. No speeches or speech scheduling are included.
@@ -91,8 +91,7 @@ Use the actual export capture time. The importer rejects unfamiliar sheet
 structure, unreconciled totals, formula changes it cannot interpret, and
 conflicting confirmed dates. Review its output and any changed regression
 expectations before publishing. It neither fetches private credentials nor
-publishes changes. The separate daily Codex monitor reports changes for review;
-it does not update the website automatically.
+publishes changes. The separate GitHub Actions monitor checks hourly at :58 Eastern when enabled. Entered register changes are imported, reconciled and checked against independent evidence for any newly reported passing. Verified data is committed and a GitHub Pages build is explicitly requested. If independent verification fails, no new website data is published and a metadata-only review issue is opened. See [monitor and publishing procedure](docs/celebration-sheet-monitor.md).
 
 Verify search (including accented names), member selection, nested disclosures,
 the commemoration filter, clearing filters, date/point details and original-sheet
