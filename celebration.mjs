@@ -71,7 +71,7 @@ function safeSourceUrl(value) {
   try { const url = new URL(value); return url.protocol === 'https:' ? escapeHtml(url.href) : '#'; } catch { return '#'; }
 }
 
-function pickMarkup(pick, member, data) {
+export function pickMarkup(pick, member, data) {
   const e = escapeHtml;
   const deathDate = actualDeathDate(pick);
   const age = ageAt(pick.born, deathDate || pick.dateOfPassing || data.asOf);
@@ -96,7 +96,7 @@ function pickMarkup(pick, member, data) {
     </div></details></li>`;
 }
 
-async function mountCelebration() {
+export async function mountCelebration() {
   let data;
   try {
     const response = await fetch('data/celebration.json');
