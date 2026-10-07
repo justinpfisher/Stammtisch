@@ -139,6 +139,33 @@ class FullMappingContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "repeats a source row"):
             sync.importer.import_data(None, PUBLIC["capturedAt"], CONFIRMATIONS, sheets=sheets)
 
+    def test_existing_confirmed_date_backfills_undated_scored_source_row(self):
+        # Historically, the source scored Dolly Parton before entering a date
+        # in its D column. The reviewed confirmation supplies the verified date.
+        # Do not re-award the 20 points or reject this legitimate old workbook.
+        sheets = public_as_sheet_cells()
+        dolly = next(p for p in PUBLIC["members"][-1]["picks"] if p["name"] == "Dolly Parton")
+        sheets["jamie"][f"D{dolly['sourceRow']}"]["value"] = None
+        imported = sync.importer.import_data(
+            None, PUBLIC["capturedAt"], CONFIRMATIONS, sheets=sheets
+        )
+        jamie = next(m for m in imported["members"] if m["id"] == "jamie")
+        pick = next(p for p in jamie["picks"] if p["name"] == "Dolly Parton")
+        self.assertTrue(pick["counted"])
+        self.assertEqual(pick["dateOfPassing"], "2026-08-25")
+        self.assertEqual(pick["points"], 20)
+        self.assertEqual(jamie["score"], PUBLIC["members"][-1]["score"])
+
+        without_confirmation = [
+            c for c in CONFIRMATIONS if not (
+                c["memberId"] == "jamie" and c["name"] == "Dolly Parton"
+            )
+        ]
+        with self.assertRaisesRegex(ValueError, "counted passing lacks"):
+            sync.importer.import_data(
+                None, PUBLIC["capturedAt"], without_confirmation, sheets=sheets
+            )
+
     def test_pasted_text_death_date_cannot_disappear_from_import(self):
         sheets = public_as_sheet_cells()
         eva = next(p for p in PUBLIC["members"][2]["picks"] if p["name"] == "Eva Marie Saint")
