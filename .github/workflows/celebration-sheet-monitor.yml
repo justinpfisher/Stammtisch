@@ -14,8 +14,9 @@ on:
 
 permissions:
   actions: read
-  contents: read
+  contents: write
   issues: write
+  pages: write
 
 concurrency:
   group: celebration-sheet-monitor
@@ -60,9 +61,11 @@ jobs:
         run: |
           init=''
           if [ "${{ inputs.initialize }}" = 'true' ]; then init='--initialize'; fi
-          python scripts/monitor-celebration-sheet.py --previous-baseline monitor-state/baseline.enc --baseline monitor-state/next-baseline.enc --report monitor-state/change-report.enc $init > monitor-result.json
+          python scripts/monitor-celebration-sheet.py --previous-baseline monitor-state/baseline.enc --baseline monitor-state/next-baseline.enc --report monitor-state/change-report.enc --workbook-json monitor-state/current-workbook.json $init > monitor-result.json
           changed="$(python -c "import json; print(str(json.load(open('monitor-result.json'))['changed']).lower())")"
           printf 'changed=%s\n' "$changed" >> "$GITHUB_OUTPUT"
+          publication_inputs_changed="$(python -c "import json; print(str(json.load(open('monitor-result.json'))['publicationInputsChanged']).lower())")"
+          printf 'publication_inputs_changed=%s\n' "$publication_inputs_changed" >> "$GITHUB_OUTPUT"
         id: compare
       - name: Open or update a metadata-only change alert
         if: success() && steps.compare.outputs.changed == 'true' && vars.CELEBRATION_SHEET_MONITOR_ISSUES_ENABLED != 'false'
@@ -77,6 +80,87 @@ jobs:
             const existing = issues.find(issue => issue.title === title);
             if (existing) { const { data: comments } = await github.rest.issues.listComments({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, per_page: 100 }); if (![existing.body, ...comments.map(c => c.body)].some(text => text.includes(`sheet-monitor:${result.alertKey}`))) await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body }); }
             else await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
+      - name: Prepare verified public website update
+        if: success() && steps.compare.outputs.publication_inputs_changed == 'true'
+        id: site_sync
+        run: |
+          checked="$(python -c "import json; print(json.load(open('monitor-result.json'))['checkedAt'])")"
+          python scripts/sync-celebration-sheet.py --workbook monitor-state/current-workbook.json --checked-at "$checked" --status monitor-state/site-sync-status.json
+      - name: Verify generated site data and award calculations
+        if: success() && steps.site_sync.outcome == 'success'
+        run: |
+          python -m unittest discover -s tests -p 'test_*.py'
+          node --test tests/*.test.mjs
+      - name: Commit verified website data
+        if: success() && steps.site_sync.outcome == 'success'
+        id: site_commit
+        run: |
+          if git diff --quiet -- data/celebration.json data/celebration-confirmations.json; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo 'No material public-site data changes to commit.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add -- data/celebration.json data/celebration-confirmations.json
+            git commit -m 'Refresh Celebration website from verified Sheet changes'
+            # A competing edit to main must fail rather than be overwritten.
+            git push origin HEAD:main
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish and verify GitHub Pages
+        if: success() && steps.site_sync.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # GITHUB_TOKEN pushes do NOT trigger branch-based GitHub Pages builds.
+          target="$(git rev-parse HEAD)"
+          live_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          if [ "$target" != "$live_ref" ]; then
+            echo 'main advanced while attempting to publish; retry from a fresh checkout' >&2
+            exit 1
+          fi
+          latest_commit="$(gh api "repos/$GITHUB_REPOSITORY/pages/builds/latest" --jq '.commit // empty' 2>/dev/null || true)"
+          latest_status="$(gh api "repos/$GITHUB_REPOSITORY/pages/builds/latest" --jq '.status // empty' 2>/dev/null || true)"
+          if [ "$latest_commit" = "$target" ] && [ "$latest_status" = built ]; then
+            echo 'Pages has already built the current commit.'
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" >/dev/null
+            published='false'
+            for attempt in $(seq 1 24); do
+              sleep 10
+              build="$(gh api "repos/$GITHUB_REPOSITORY/pages/builds/latest")"
+              commit="$(echo "$build" | jq -r '.commit // empty')"
+              status="$(echo "$build" | jq -r '.status // empty')"
+              if [ "$commit" = "$target" ] && [ "$status" = built ]; then
+                published='true'
+                break
+              fi
+              if [ "$commit" = "$target" ] && [ "$status" = errored ]; then
+                echo 'GitHub Pages build failed for the new site data.' >&2
+                exit 1
+              fi
+            done
+            if [ "$published" != true ]; then
+              echo 'GitHub Pages did not confirm the target commit was built.' >&2
+              exit 1
+            fi
+          fi
+      - name: Record successful website publication
+        if: success() && steps.site_commit.outputs.changed == 'true' && vars.CELEBRATION_SHEET_MONITOR_ISSUES_ENABLED != 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const result = require('./monitor-result.json');
+            const title = 'Celebration Sheet monitor: meaningful change detected';
+            const marker = '<!-- site-published:' + result.alertKey + ' -->';
+            const body = marker + '\nThe verified website data was updated and the GitHub Pages build completed in run ' + context.serverUrl + '/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId + '. The site calculates standings, commemorations, awards and draft previews from the updated register.';
+            const { data: issues } = await github.rest.issues.listForRepo({ owner:context.repo.owner, repo:context.repo.repo, state:'open', per_page:100 });
+            const issue = issues.find(item => item.title === title);
+            if (issue) {
+              const { data: comments } = await github.rest.issues.listComments({ owner:context.repo.owner, repo:context.repo.repo, issue_number:issue.number, per_page:100 });
+              if (![issue.body, ...comments.map(c => c.body)].some(text => text?.includes(marker)))
+                await github.rest.issues.createComment({ owner:context.repo.owner, repo:context.repo.repo, issue_number:issue.number, body });
+            }
       - name: Promote successful comparison state
         if: success()
         run: mv monitor-state/next-baseline.enc monitor-state/baseline.enc
@@ -89,6 +173,14 @@ jobs:
             monitor-state/baseline.enc
             monitor-state/change-report.enc
           if-no-files-found: error
+          retention-days: 30
+      - name: Preserve encrypted change report when publication is blocked
+        if: failure() && steps.compare.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: celebration-sheet-monitor-review-${{ github.run_id }}
+          path: monitor-state/change-report.enc
+          if-no-files-found: warn
           retention-days: 30
       - name: Open or update a monitor failure alert
         if: failure() && vars.CELEBRATION_SHEET_MONITOR_ISSUES_ENABLED != 'false'
