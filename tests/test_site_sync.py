@@ -1,4 +1,5 @@
 import importlib.util
+import copy
 import pathlib
 import unittest
 
@@ -13,13 +14,47 @@ sync = load("celebration_sync", "sync-celebration-sheet.py")
 verifier = load("celebration_verify", "verify-celebration-death.py")
 
 def api_workbook():
-    titles = ["LEADERBOARD", "buttons", *sync.importer.MEMBERS]
-    return {"spreadsheetId":sync.EXPECTED_SHEET_ID,
-            "sheets":[{"properties":{"title":title, "sheetId":n},
-                       "data":[{"startRow":0,"rowData":[{"values":[
-                           {"effectiveValue":{"numberValue":2026},
-                            "userEnteredValue":{"formulaValue":"=YEAR(TODAY())"}}]}]}]}
-                      for n,title in enumerate(titles)]}
+    """Tiny but structurally representative eight-tab Sheets API fixture."""
+    def cell(value=None, formula=None):
+        result = {}
+        if value is not None:
+            kind = "stringValue" if isinstance(value, str) else "numberValue"
+            result["effectiveValue"] = {kind: value}
+            if not formula:
+                result["userEnteredValue"] = {kind: value}
+        if formula:
+            result["userEnteredValue"] = {"formulaValue": formula}
+        return result
+
+    tabs = []
+    board_members = list(sync.importer.MEMBERS)
+    board = {
+        "properties": {"title": "LEADERBOARD", "sheetId": 10},
+        "data": [{"startRow": 0, "rowData": [
+            {"values": [cell(2026, "=YEAR(TODAY())")]},
+            {"values": [cell()] + [cell(0, f"={member}!E1") for member in board_members]},
+        ]}],
+    }
+    tabs.append(board)
+    tabs.append({
+        "properties": {"title": "buttons", "sheetId": 11},
+        "data": [{"startRow": 1, "rowData": [
+            {"values": [cell("Rainmaker")]},
+            {"values": [cell("Droughtmaker")]},
+            {"values": [cell("Copycat")]},
+        ]}],
+    })
+    for index, member in enumerate(board_members, 20):
+        head = [cell(46301), cell(sync.MEMBER_LABELS[member]), cell(), cell(), cell(0, "=SUM(E3)")]
+        tabs.append({
+            "properties": {"title": member, "sheetId": index},
+            "data": [{"startRow": 0, "rowData": [
+                {"values": head}, {"values": []},
+                {"values": [cell(1), cell("Sample Person"), cell(40000), cell(), cell(0)]},
+            ]}],
+        })
+    return {"spreadsheetId": sync.EXPECTED_SHEET_ID, "sheets": tabs}
+
 
 def sample(dead=False, confirmed=False):
     pick = {"id":"matt-3","name":"Sample Person","born":"1940-01-01",
@@ -63,6 +98,64 @@ class SyncTests(unittest.TestCase):
                          "required_tabs_missing")
         self.assertEqual(sync.failure_code(ValueError("Expected tabs missing and additional unmapped tabs present")),
                          "missing_and_extra_tabs")
+
+    def test_safe_case_and_whitespace_tab_renames(self):
+        workbook = api_workbook()
+        workbook["sheets"][0]["properties"]["title"] = " Leaderboard "
+        workbook["sheets"][1]["properties"]["title"] = "Buttons"
+        workbook["sheets"][2]["properties"]["title"] = " MATT "
+        cells = sync.sheets_api_cells(workbook)
+        self.assertEqual(set(cells), {"LEADERBOARD", "buttons", *sync.importer.MEMBERS})
+        self.assertEqual(cells["matt"]["B1"]["value"], "Matt")
+        self.assertEqual(cells["LEADERBOARD"]["B2"]["formula"], "matt!E1")
+
+    def test_member_tab_rename_uses_public_B1_identity_and_score_link(self):
+        workbook = api_workbook()
+        # Fish is the legacy tab id for Justin; Google updates references when
+        # the live tab title is renamed. No fuzzy name guessing is allowed.
+        workbook["sheets"][3]["properties"]["title"] = "Justin - 2026"
+        board_second = workbook["sheets"][0]["data"][0]["rowData"][1]["values"][2]
+        board_second["userEnteredValue"]["formulaValue"] = "='Justin - 2026'!E1"
+        cells = sync.sheets_api_cells(workbook)
+        self.assertEqual(cells["fish"]["B1"]["value"], "Justin")
+        self.assertEqual(cells["LEADERBOARD"]["C2"]["formula"], "fish!E1")
+
+    def test_renamed_supporting_tabs_require_unambiguous_structure(self):
+        workbook = api_workbook()
+        workbook["sheets"][0]["properties"]["title"] = "2026 Summary"
+        workbook["sheets"][1]["properties"]["title"] = "Badge Awards"
+        cells = sync.sheets_api_cells(workbook)
+        self.assertIn("LEADERBOARD", cells)
+        self.assertIn("buttons", cells)
+
+    def test_identical_member_labels_are_rejected_if_tab_names_missing(self):
+        workbook = api_workbook()
+        # Two renamed Matt sheets would be ambiguous, even if the original
+        # canonical title is absent. Do not publish against an arbitrary one.
+        workbook["sheets"][2]["properties"]["title"] = "First Matt"
+        duplicate = copy.deepcopy(workbook["sheets"][2])
+        duplicate["properties"]["title"] = "Second Matt"
+        duplicate["properties"]["sheetId"] = 999
+        workbook["sheets"].append(duplicate)
+        with self.assertRaisesRegex(ValueError, "^Ambiguous member tab identity"):
+            sync.sheets_api_cells(workbook)
+
+    def test_unrecognised_new_member_tab_still_blocks_publication(self):
+        workbook = api_workbook()
+        extra = copy.deepcopy(workbook["sheets"][2])
+        extra["properties"]["title"] = "New Member"
+        extra["properties"]["sheetId"] = 999
+        extra["data"][0]["rowData"][0]["values"][1]["effectiveValue"]["stringValue"] = "New Member"
+        workbook["sheets"].append(extra)
+        with self.assertRaisesRegex(ValueError, "^Additional unmapped tabs present"):
+            sync.sheets_api_cells(workbook)
+
+    def test_leaderboard_must_reference_each_member_exactly_once(self):
+        workbook = api_workbook()
+        board_third = workbook["sheets"][0]["data"][0]["rowData"][1]["values"][3]
+        board_third["userEnteredValue"]["formulaValue"] = "=matt!E1"
+        with self.assertRaisesRegex(ValueError, "^Leaderboard does not reference each member exactly once"):
+            sync.sheets_api_cells(workbook)
 
     def test_derived_ageing_does_not_trigger_publish(self):
         before = sample()
