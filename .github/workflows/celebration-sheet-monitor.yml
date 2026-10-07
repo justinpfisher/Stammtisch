@@ -24,8 +24,9 @@ concurrency:
 
 jobs:
   monitor:
-    # Scheduled checks are opt-in. A dispatch remains available to initialize or test it.
-    if: github.event_name == 'workflow_dispatch' || vars.CELEBRATION_SHEET_MONITOR_ENABLED == 'true'
+    # Scheduled checks run by default after explicit baseline initialization.
+    # Set CELEBRATION_SHEET_MONITOR_ENABLED=false only to pause them.
+    if: github.event_name == 'workflow_dispatch' || vars.CELEBRATION_SHEET_MONITOR_ENABLED != 'false'
     runs-on: ubuntu-latest
     env:
       GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON }}
