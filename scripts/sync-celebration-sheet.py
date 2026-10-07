@@ -90,11 +90,13 @@ def newly_reported_deaths(existing, proposed):
             old = previous.get(pick["id"])
             same_person = old and (old["name"], old["born"]) == (pick["name"], pick["born"])
             now_reported = pick["dateOfPassing"] is not None or pick["counted"]
-            # A previously scored but undated record is not proof of death.
-            # Its first date must pass the same verification gate as a new report.
-            previously_dated = same_person and old["dateOfPassing"] is not None
-            newly_counted_without_existing_death = same_person and not old["counted"] and old["dateOfPassing"] is None and pick["counted"]
-            if now_reported and (not previously_dated or newly_counted_without_existing_death):
+            # A previously scored but undated record is not proof of death:
+            # verify when its first date is added, without rechecking unchanged
+            # existing incomplete records on unrelated spreadsheet edits.
+            new_identity = not same_person
+            newly_dated = same_person and old["dateOfPassing"] is None and pick["dateOfPassing"] is not None
+            newly_counted = same_person and not old["counted"] and pick["counted"]
+            if now_reported and (new_identity or newly_dated or newly_counted):
                 yield member["id"], pick
 
 def prepare(workbook, existing, confirmations, checked_at, allow_research=True):
