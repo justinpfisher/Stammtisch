@@ -106,8 +106,8 @@ def apply_confirmations(result, confirmations):
     return result
 
 
-def import_data(path, captured_at, confirmations=()):
-    sheets = read_workbook(path)
+def import_data(path, captured_at, confirmations=(), sheets=None):
+    sheets = read_workbook(path) if sheets is None else sheets
     if set(sheets) != {"LEADERBOARD", "buttons", *MEMBERS}:
         raise ValueError("Sheet names changed. Review the import mapping before continuing.")
     result = {"year": sheets["LEADERBOARD"]["A1"]["value"], "sourceUrl": SOURCE,
