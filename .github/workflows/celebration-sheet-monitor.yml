@@ -9,6 +9,9 @@ on:
       - 'scripts/monitor-celebration-sheet.py'
       - 'scripts/sync-celebration-sheet.py'
       - 'scripts/import-celebration.py'
+      - 'tests/celebration.test.mjs'
+      - 'tests/celebration-awards.test.mjs'
+      - 'tests/test_site_sync.py'
       - 'data/celebration-confirmations.json'
   schedule:
     - cron: '58 * * * *'
