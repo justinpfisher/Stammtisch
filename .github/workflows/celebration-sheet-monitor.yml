@@ -2,7 +2,7 @@ name: Celebration sheet monitor
 
 on:
   schedule:
-    - cron: '0 0,6,12,18 * * *'
+    - cron: '58 * * * *'
       timezone: America/Toronto
   workflow_dispatch:
     inputs:
@@ -89,7 +89,7 @@ jobs:
             monitor-state/baseline.enc
             monitor-state/change-report.enc
           if-no-files-found: error
-          retention-days: 90
+          retention-days: 30
       - name: Open or update a monitor failure alert
         if: failure() && vars.CELEBRATION_SHEET_MONITOR_ISSUES_ENABLED != 'false'
         uses: actions/github-script@v7
