@@ -315,6 +315,25 @@ def prepare(workbook, existing, confirmations, checked_at, allow_research=True):
             raise ValueError("Shared celebrity has conflicting group discovery dates")
         if len(actual) > 1:
             raise ValueError("Shared celebrity has conflicting verified death dates")
+    # For independently verified actual death dates, check the club's
+    # arithmetic even if the Sheet's own totals reconcile. A consistent typo
+    # could otherwise change both the leaderboard and the website together.
+    # Preserve explicitly approved group-voted allocations (Kevin Keegan).
+    for member in candidate["members"]:
+        for pick in member["picks"]:
+            verified_date = pick.get("actualDeathDate") or (
+                pick.get("dateSource") or {}
+            ).get("dateOfPassing")
+            if not pick["counted"] or not verified_date or pick.get("allocationDecision"):
+                continue
+            born = date.fromisoformat(pick["born"])
+            died = date.fromisoformat(verified_date)
+            years = died.year - born.year - ((died.month, died.day) <
+                                             (born.month, born.day))
+            base = 10 if years == 100 else 100 - years
+            expected = base * (2 if pick["pick"] in (1, 50) else 1)
+            if pick["points"] != expected:
+                raise ValueError("Verified passing points disagree with the club's scoring rules")
     known_sources = {}
     for member in candidate["members"]:
         for pick in member["picks"]:
@@ -376,6 +395,7 @@ def failure_code(exc):
         ("Button tab structure changed", "button_tab_structure_changed"),
         ("Club discovery date precedes", "discovery_precedes_death"),
         ("Shared celebrity has conflicting group discovery dates", "shared_group_discovery_conflict"),
+        ("Verified passing points disagree", "verified_scoring_conflict"),
         ("Shared celebrity has conflicting verified death dates", "shared_actual_death_conflict"),
         ("Previously published club passing was removed", "published_passing_removed"),
         ("Member snapshot date is missing", "snapshot_date_invalid"),
