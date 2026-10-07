@@ -91,7 +91,7 @@ Use the actual export capture time. The importer rejects unfamiliar sheet
 structure, unreconciled totals, formula changes it cannot interpret, and
 conflicting confirmed dates. Review its output and any changed regression
 expectations before publishing. It neither fetches private credentials nor
-publishes changes. The separate GitHub Actions monitor checks hourly at :58 Eastern when enabled. Entered register changes are imported, reconciled and checked against independent evidence for any newly reported passing. Verified data is committed and a GitHub Pages build is explicitly requested. If independent verification fails, no new website data is published and a metadata-only review issue is opened. See [monitor and publishing procedure](docs/celebration-sheet-monitor.md).
+publishes changes. The separate GitHub Actions monitor checks hourly at :58 Eastern when enabled. Every normal check also reconciles the current workbook with the website, catching changes already present in the encrypted baseline when publishing was enabled. Entered register changes are imported, reconciled and checked against independent evidence for any newly reported passing. Verified data is committed and a GitHub Pages build is explicitly requested. If independent verification fails, no new website data is published and a metadata-only review issue is opened. See [monitor and publishing procedure](docs/celebration-sheet-monitor.md).
 
 Verify search (including accented names), member selection, nested disclosures,
 the commemoration filter, clearing filters, date/point details and original-sheet

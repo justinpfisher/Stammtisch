@@ -90,6 +90,51 @@ class SyncTests(unittest.TestCase):
         finally:
             sync.importer.import_data = original
 
+    def test_unchanged_monitor_baseline_still_reconciles_stale_public_register(self):
+        monitor = load("site_monitor", "monitor-celebration-sheet.py")
+        workbook = api_workbook()
+        baseline = monitor.semantic_snapshot(workbook)
+        self.assertFalse(monitor.publication_inputs_changed(baseline, baseline))
+        before, current_sheet = sample(), sample(dead=True, confirmed=True)
+        previous_importer = sync.importer.import_data
+        try:
+            sync.importer.import_data = lambda *args, **kwargs: current_sheet
+            result, updated, _ = sync.prepare(
+                workbook, before, [], "2026-10-07T22:00:00Z",
+                allow_research=False,
+            )
+            self.assertEqual(result["status"], "ready")
+            self.assertTrue(result["publish"], "A previously monitored edit must still reach the website")
+            self.assertEqual(updated["members"][0]["score"], 4)
+        finally:
+            sync.importer.import_data = previous_importer
+
+        # Regression guard: the workflow must actually run the reconciliation
+        # even when the latest monitor comparison is unchanged.
+        workflow = (ROOT / ".github/workflows/celebration-sheet-monitor.yml").read_text(encoding="utf-8")
+        step = workflow.split("      - name: Reconcile current Sheet with published website data", 1)[1].split(
+            "      - name: Verify generated site data and award calculations", 1
+        )[0]
+        self.assertIn("inputs.initialize != true", step)
+        self.assertNotIn("steps.compare.outputs.publication_inputs_changed", step)
+
+    def test_reconciling_already_published_data_is_idempotent(self):
+        workbook = api_workbook()
+        identical = sample(dead=True, confirmed=True)
+        previous_importer = sync.importer.import_data
+        try:
+            sync.importer.import_data = lambda *args, **kwargs: identical
+            result, updated, confirmations = sync.prepare(
+                workbook, identical, [], "2026-10-07T22:00:00Z",
+                allow_research=False,
+            )
+            self.assertEqual(result["status"], "ready")
+            self.assertFalse(result["publish"])
+            self.assertIsNone(updated)
+            self.assertIsNone(confirmations)
+        finally:
+            sync.importer.import_data = previous_importer
+
     def test_web_research_writes_provenance_not_group_discovery_date(self):
         previous, proposed = sample(), sample(dead=True)
         old_import, old_verify = sync.importer.import_data, sync.verifier.research
