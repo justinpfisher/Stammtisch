@@ -187,6 +187,18 @@ class FullMappingContractTests(unittest.TestCase):
             sync.prepare(to_api(sheets), PUBLIC, CONFIRMATIONS, PUBLIC["capturedAt"],
                          allow_research=False)
 
+    def test_verified_death_penalty_must_match_rules_even_if_totals_match(self):
+        sheets = public_as_sheet_cells()
+        eva = next(p for p in PUBLIC["members"][2]["picks"] if p["name"] == "Eva Marie Saint")
+        sheets["jerome"][f"E{eva['sourceRow']}"]["value"] = 2
+        # Deliberately corrupt both the member total and leaderboard together.
+        # A basic "totals reconcile" check would otherwise accept the typo.
+        sheets["jerome"]["E1"]["value"] = PUBLIC["members"][2]["score"] + 4
+        sheets["LEADERBOARD"]["D2"]["value"] = sheets["jerome"]["E1"]["value"]
+        with self.assertRaisesRegex(ValueError, "Verified passing points disagree"):
+            sync.prepare(to_api(sheets), PUBLIC, CONFIRMATIONS, PUBLIC["capturedAt"],
+                         allow_research=False)
+
     def test_shared_celebrity_cannot_have_two_group_discovery_dates(self):
         sheets = public_as_sheet_cells()
         ken = next(m for m in PUBLIC["members"] if m["id"] == "ken")
