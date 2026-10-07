@@ -92,6 +92,28 @@ def a1(key):
     return f"{letters}{row + 1}"
 
 
+def publication_inputs_changed(before, after):
+    """Only entered cell/formula edits can trigger website synchronization.
+
+    Notes, formatting, protections and TODAY() formula recalculations are not
+    website edits. The full semantic monitor still detects those separately.
+    """
+    old, new = before["sheets"], after["sheets"]
+    if set(old) != set(new):
+        return True  # tab structure change: let the importer fail closed
+    for sheet_id in old:
+        a, b = old[sheet_id], new[sheet_id]
+        if a["properties"].get("title") != b["properties"].get("title"):
+            return True
+        left = {k: v.get("userEnteredValue") for k, v in a.get("cells", {}).items()
+                if "userEnteredValue" in v}
+        right = {k: v.get("userEnteredValue") for k, v in b.get("cells", {}).items()
+                 if "userEnteredValue" in v}
+        if left != right:
+            return True
+    return False
+
+
 def changes_between(before, after):
     if before.get("version") != STATE_VERSION:
         raise ValueError("Unsupported monitor state version")
@@ -173,6 +195,7 @@ def main():
     parser.add_argument("--previous-baseline", type=pathlib.Path)
     parser.add_argument("--report", type=pathlib.Path, help="encrypted detailed comparison report")
     parser.add_argument("--initialize", action="store_true")
+    parser.add_argument("--workbook-json", type=pathlib.Path, help="ephemeral API response for the site sync; never upload")
     parser.add_argument("--spreadsheet-id", default=os.environ.get("SPREADSHEET_ID", DEFAULT_SHEET_ID))
     parser.add_argument("--credentials-json", default=os.environ.get("GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON"))
     parser.add_argument("--state-key", default=os.environ.get("MONITOR_STATE_KEY"))
@@ -180,24 +203,29 @@ def main():
     if not args.credentials_json or not args.state_key:
         raise ValueError("GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON and MONITOR_STATE_KEY are required")
     # Fetch before touching a baseline. Failed authentication/network calls preserve it.
-    current = semantic_snapshot(fetch_workbook(args.spreadsheet_id, args.credentials_json))
+    workbook = fetch_workbook(args.spreadsheet_id, args.credentials_json)
+    current = semantic_snapshot(workbook)
     previous_path = args.previous_baseline or args.baseline
     if args.initialize:
         if previous_path.exists():
             raise FileExistsError("A baseline already exists; initialization will not overwrite it")
-        result = {"status": "initialized", "changed": False, "changes": []}
+        result = {"status": "initialized", "changed": False, "publicationInputsChanged": False, "changes": []}
     elif not previous_path.exists():
         raise FileNotFoundError("No baseline is available. Run workflow_dispatch with initialize=true.")
     else:
         previous = decrypt_state(previous_path, args.state_key)
         changes = changes_between(previous, current)
-        result = {"status": "changed" if changes else "unchanged", "changed": bool(changes), "changes": changes}
+        result = {"status": "changed" if changes else "unchanged", "changed": bool(changes),
+                  "publicationInputsChanged": publication_inputs_changed(previous, current), "changes": changes}
         result["alertKey"] = hashlib.sha256(json.dumps(
             {"before": previous, "after": current, "changes": changes}, sort_keys=True).encode()).hexdigest()
         if args.report:
             args.report.parent.mkdir(parents=True, exist_ok=True)
             # This can contain entered values and therefore must always be encrypted.
             args.report.write_bytes(encrypt_state({"before": previous, "after": current, "changes": changes}, args.state_key))
+    if args.workbook_json:
+        args.workbook_json.parent.mkdir(parents=True, exist_ok=True)
+        args.workbook_json.write_text(json.dumps(workbook, ensure_ascii=False), encoding="utf-8")
     args.baseline.parent.mkdir(parents=True, exist_ok=True)
     args.baseline.write_bytes(encrypt_state(current, args.state_key))
     result["checkedAt"] = datetime.now(timezone.utc).isoformat()
