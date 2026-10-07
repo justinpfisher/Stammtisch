@@ -62,7 +62,10 @@ def score_rows(formula):
         expression = expression[4:-1]
     if not re.fullmatch(r"E\d+(?:,E\d+)*", expression):
         raise ValueError(f"Unrecognized total formula: {formula!r}. Review it before importing.")
-    return {int(ref[1:]) for ref in expression.split(",")}
+    references = [int(ref[1:]) for ref in expression.split(",")]
+    if len(references) != len(set(references)):
+        raise ValueError("The member total formula repeats a source row. Review before importing.")
+    return set(references)
 
 
 def apply_confirmations(result, confirmations):
@@ -123,6 +126,8 @@ def import_data(path, captured_at, confirmations=(), sheets=None):
         member = {"id": member_id, "name": str(val("B1")).title(),
                   "score": val("E1"), "avatar": f"assets/members/{member_id}.webp", "picks": []}
         rows = sorted({int(ref[1:]) for ref in cells if re.fullmatch(r"B\d+", ref) and int(ref[1:]) >= 3})
+        if not counted.issubset(rows):
+            raise ValueError("Counted score formula references a missing selection row.")
         for row in rows:
             original = str(val(f"B{row}"))
             date_of_passing = serial_date(val(f"D{row}"))
@@ -138,11 +143,29 @@ def import_data(path, captured_at, confirmations=(), sheets=None):
                      "pointsFormula": cells.get(f"E{row}", {}).get("formula"),
                      "marker": "diamond" if "💎" in original else "orange" if "🔶" in original else None}
             entry["needsReview"] = bool(entry["counted"] and not date_of_passing)
+            if not entry["name"]:
+                raise ValueError("A numbered selection name is blank.")
+            if entry["pick"] != "BB" and (
+                not isinstance(entry["pick"], int) or isinstance(entry["pick"], bool)
+                or not 1 <= entry["pick"] <= 50
+            ):
+                raise ValueError("Selection number or extra entry label is invalid.")
+            if not entry["born"] or entry["born"] > as_of:
+                raise ValueError("Selection birth date is missing or later than the snapshot.")
+            if date_of_passing and (date_of_passing < entry["born"] or date_of_passing > as_of):
+                raise ValueError("Recorded passing date is outside the person's lifespan or snapshot.")
+            if entry["counted"] and not date_of_passing:
+                raise ValueError("A counted passing lacks a valid recorded date.")
+            if isinstance(points, bool):
+                raise ValueError("Selection points must be numeric, not boolean.")
             member["picks"].append(entry)
+        numbered = [p["pick"] for p in member["picks"] if isinstance(p["pick"], int)]
+        if len(numbered) != 50 or set(numbered) != set(range(1, 51)):
+            raise ValueError("The numbered selections must contain every position from 1 to 50 exactly once.")
+        if len({(p["name"].casefold(), p["born"]) for p in member["picks"]}) != len(member["picks"]):
+            raise ValueError("A member has duplicate celebrity selections.")
         if sum(p["points"] for p in member["picks"] if p["counted"]) != member["score"]:
             raise ValueError(f"The imported entries do not reconcile with {member_id}'s total.")
-        if len([p for p in member["picks"] if isinstance(p["pick"], int)]) != 50:
-            raise ValueError(f"The number of picks changed for {member_id}. Review before importing.")
         result["members"].append(member)
     board = sheets["LEADERBOARD"]
     for col in "BCDEFG":
