@@ -146,6 +146,37 @@ def prepare(workbook, existing, confirmations, checked_at, allow_research=True):
     return {"status":"ready", "pending":0, "publish":changed,
             "confirmationsAdded":len(to_append)}, (candidate if changed else None), (combined if to_append else None)
 
+def failure_code(exc):
+    """Return a metadata-only diagnostic label; never publish Sheet content."""
+    message = str(exc)
+    codes = (
+        ("Unexpected spreadsheet identity", "spreadsheet_identity"),
+        ("Missing or duplicate tab", "tab_identity"),
+        ("Spreadsheet has a calculated cell error", "cell_calculation"),
+        ("Overlapping Sheet data regions", "overlapping_regions"),
+        ("Spreadsheet tab mapping changed", "unsupported_tabs"),
+        ("Sheet names changed", "unsupported_tabs"),
+        ("Unrecognized total formula", "unsupported_score_formula"),
+        ("Invalid points in", "invalid_point_value"),
+        ("Member sheets have inconsistent snapshot dates", "inconsistent_snapshot_dates"),
+        ("The imported entries do not reconcile", "member_score_mismatch"),
+        ("The number of picks changed", "selection_count_mismatch"),
+        ("Cannot match leaderboard column", "leaderboard_column_formula"),
+        ("Leaderboard total differs", "leaderboard_score_mismatch"),
+        ("Leaderboard/name mismatch", "leaderboard_selection_mismatch"),
+        ("A confirmed record no longer matches", "confirmed_record_identity"),
+        ("The record conflicts with a verified actual death date", "verified_date_conflict"),
+        ("The sheet conflicts with a verified date of passing", "confirmed_sheet_date_conflict"),
+        ("New pool season requires review", "season_review"),
+        ("Spreadsheet snapshot date regressed or is missing", "snapshot_date_regressed"),
+        ("Spreadsheet snapshot date is in the future", "future_snapshot_date"),
+    )
+    for prefix, code in codes:
+        if message.startswith(prefix):
+            return code
+    return "unclassified_validation_error" if isinstance(exc, ValueError) else "internal_processing_error"
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--workbook", type=pathlib.Path, required=True)
@@ -159,8 +190,16 @@ def main():
     existing = json.loads(args.existing.read_text(encoding="utf-8"))
     confirmations = json.loads(args.confirmations.read_text(encoding="utf-8"))
     datetime.fromisoformat(args.checked_at.replace("Z", "+00:00"))
-    result, data, combined = prepare(workbook, existing, confirmations, args.checked_at,
-                                     allow_research=not args.disable_research)
+    try:
+        result, data, combined = prepare(workbook, existing, confirmations, args.checked_at,
+                                         allow_research=not args.disable_research)
+    except Exception as exc:
+        # No private names, values, formulas, dates, or source snippets in public
+        # GitHub logs/issues. The failure label is a fixed, allowlisted code.
+        args.status.parent.mkdir(parents=True, exist_ok=True)
+        args.status.write_text(json.dumps({"status": "failed", "errorCode": failure_code(exc)}),
+                               encoding="utf-8")
+        raise
     args.status.parent.mkdir(parents=True, exist_ok=True)
     args.status.write_text(json.dumps(result), encoding="utf-8")
     if result["status"] != "ready":
