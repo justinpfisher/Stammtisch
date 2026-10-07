@@ -9,6 +9,7 @@ import copy
 import importlib.util
 import json
 import pathlib
+import re
 import sys
 from datetime import date, datetime, timezone
 
@@ -32,14 +33,166 @@ def column_name(index):
         letters = chr(65 + rem) + letters
     return letters
 
+# These are the established six public member identities. B1 is an independent
+# check when a tab has been renamed; the tab title alone must not determine who
+# receives a score. Never infer a seventh member or a new season automatically.
+MEMBER_LABELS = {
+    "matt": "Matt", "fish": "Justin", "jerome": "Jerome",
+    "ken": "Ken", "marc": "Marc", "jamie": "Jamie",
+}
+KNOWN_BUTTONS = {
+    "rainmaker", "droughtmaker", "cavalcade of calamity",
+    "copycat", "hand of providence", "summit in purgatory",
+}
+# Google Sheets may quote/escape tab titles and may use absolute cell references.
+MEMBER_SCORE_REF = re.compile(
+    r"(?P<sheet>'(?:[^']|'')+'|[A-Za-z_][\w]*)!\$?E\$?1\b", re.I
+)
+
+
+def normalized_label(value):
+    return " ".join(str(value or "").split()).casefold()
+
+
+def looks_like_member_tab(cells):
+    def value(address):
+        return cells.get(address, {}).get("value")
+    return (
+        isinstance(value("A1"), (int, float))
+        and isinstance(value("B1"), str)
+        and isinstance(value("E1"), (int, float))
+        and bool(cells.get("E1", {}).get("formula"))
+        and isinstance(value("B3"), str)
+    )
+
+
+def looks_like_leaderboard(cells):
+    return (
+        isinstance(cells.get("A1", {}).get("value"), (int, float))
+        and all(isinstance(cells.get(f"{col}2", {}).get("value"), (int, float))
+                and bool(MEMBER_SCORE_REF.search(cells.get(f"{col}2", {}).get("formula") or ""))
+                for col in "BCDEFG")
+    )
+
+
+def looks_like_buttons(cells):
+    names = {
+        normalized_label(cell.get("value"))
+        for ref, cell in cells.items()
+        if re.fullmatch(r"A(?:[2-9]|[1-9]\d+)", ref)
+        and isinstance(cell.get("value"), str)
+    }
+    return len(KNOWN_BUTTONS & names) >= 3
+
+
+def canonical_sheet_mapping(tabs):
+    """Resolve verified identities despite simple renames; reject ambiguity.
+
+    This is **not** a best-effort fuzzy matcher. Required tabs must map uniquely,
+    and unfamiliar additional tabs are never discarded from the site import.
+    """
+    expected = ["LEADERBOARD", "buttons", *importer.MEMBERS]
+    mapped, assigned = {}, set()
+
+    # Exact case/whitespace variants are safe for established logical tabs.
+    for target in expected:
+        choices = [title for title in tabs if normalized_label(title) == normalized_label(target)]
+        if len(choices) > 1:
+            raise ValueError("Ambiguous tab identity in live workbook")
+        if choices:
+            mapped[target] = choices[0]
+            assigned.add(choices[0])
+
+    for member_id, label in MEMBER_LABELS.items():
+        if member_id in mapped:
+            continue
+        options = [
+            title for title, cells in tabs.items()
+            if title not in assigned
+            and looks_like_member_tab(cells)
+            and normalized_label(cells["B1"]["value"]) == normalized_label(label)
+        ]
+        if len(options) > 1:
+            raise ValueError("Ambiguous member tab identity in live workbook")
+        if len(options) == 1:
+            mapped[member_id] = options[0]
+            assigned.add(options[0])
+
+    for role, predicate in (
+        ("LEADERBOARD", looks_like_leaderboard),
+        ("buttons", looks_like_buttons),
+    ):
+        if role in mapped:
+            continue
+        options = [
+            title for title, cells in tabs.items()
+            if title not in assigned and predicate(cells)
+        ]
+        if len(options) > 1:
+            raise ValueError("Ambiguous supporting tab identity in live workbook")
+        if len(options) == 1:
+            mapped[role] = options[0]
+            assigned.add(options[0])
+
+    missing = set(expected) - set(mapped)
+    extra = set(tabs) - assigned
+    if missing and extra:
+        raise ValueError("Expected tabs missing and additional unmapped tabs present")
+    if missing:
+        raise ValueError("Expected tabs missing from live workbook")
+    if extra:
+        raise ValueError("Additional unmapped tabs present in live workbook")
+    return mapped
+
+
+def original_sheet_reference(ref):
+    if ref.startswith("'") and ref.endswith("'"):
+        return ref[1:-1].replace("''", "'")
+    return ref
+
+
+def normalise_board_member_links(board, mapping):
+    """Rewrite references solely in the ephemeral import copy, never Google.
+
+    The legacy importer understands canonical names such as 'matt!E1'.
+    Resolve Google formulas against the verified actual tab names instead of
+    trusting a substring match when tab titles change.
+    """
+    lookup = {normalized_label(raw_title): member_id
+              for member_id, raw_title in mapping.items() if member_id in importer.MEMBERS}
+    # Accept canonical aliases where Google preserves old spelling.
+    lookup.update({normalized_label(member_id): member_id for member_id in importer.MEMBERS})
+    mapped_members = []
+    for col in "BCDEFG":
+        entry = board.get(f"{col}2")
+        formula = entry.get("formula") if entry else None
+        hits = list(MEMBER_SCORE_REF.finditer(formula or ""))
+        if len(hits) != 1:
+            raise ValueError("Cannot resolve leaderboard member formula safely")
+        hit = hits[0]
+        sheet_label = original_sheet_reference(hit.group("sheet"))
+        member_id = lookup.get(normalized_label(sheet_label))
+        if member_id is None:
+            raise ValueError("Leaderboard references an unmapped member tab")
+        mapped_members.append(member_id)
+        entry["formula"] = (
+            formula[:hit.start()] + f"{member_id}!E1" + formula[hit.end():]
+        )
+    if set(mapped_members) != set(importer.MEMBERS):
+        raise ValueError("Leaderboard does not reference each member exactly once")
+
+
 def sheets_api_cells(workbook):
-    """Map effective Sheets API grid values to the existing strict XLSX importer."""
+    """Convert the live authorised Sheets response into a verified canonical map.
+
+    Never send the private workbook into public logs or GitHub Issues.
+    """
     if workbook.get("spreadsheetId") != EXPECTED_SHEET_ID:
         raise ValueError("Unexpected spreadsheet identity")
-    result = {}
+    tabs = {}
     for sheet in workbook.get("sheets", []):
         title = sheet.get("properties", {}).get("title")
-        if not title or title in result:
+        if not isinstance(title, str) or not title or title in tabs:
             raise ValueError("Missing or duplicate tab")
         cells = {}
         for grid in sheet.get("data", []):
@@ -56,18 +209,15 @@ def sheets_api_cells(workbook):
                     address = f"{column_name(start_col + col_offset)}{start_row + row_offset + 1}"
                     if address in cells:
                         raise ValueError("Overlapping Sheet data regions")
-                    cells[address] = {"value":value, "formula":formula.lstrip("=") if formula else None}
-        result[title] = cells
-    required = {"LEADERBOARD", "buttons", *importer.MEMBERS}
-    present = set(result)
-    missing, extra = required - present, present - required
-    if missing and extra:
-        raise ValueError("Expected tabs missing and additional unmapped tabs present")
-    if missing:
-        raise ValueError("Expected tabs missing from live workbook")
-    if extra:
-        raise ValueError("Additional unmapped tabs present in live workbook")
-    return result
+                    cells[address] = {"value": value, "formula": formula.lstrip("=") if formula else None}
+        tabs[title] = cells
+    mapping = canonical_sheet_mapping(tabs)
+    canonical = {name: copy.deepcopy(tabs[title]) for name, title in mapping.items()}
+    # The existing XLSX importer remains the final score/selection authority.
+    # Only the transient leaderboard formulas are normalized to its expected ids.
+    normalise_board_member_links(canonical["LEADERBOARD"], mapping)
+    return canonical
+
 
 def public_material(data):
     """Discard only derived ageing and timestamp noise when deciding to publish."""
@@ -162,6 +312,12 @@ def failure_code(exc):
         ("Spreadsheet has a calculated cell error", "cell_calculation"),
         ("Overlapping Sheet data regions", "overlapping_regions"),
         ("Spreadsheet tab mapping changed", "unsupported_tabs"),
+        ("Ambiguous tab identity", "ambiguous_tab_identity"),
+        ("Ambiguous member tab identity", "ambiguous_member_identity"),
+        ("Ambiguous supporting tab identity", "ambiguous_supporting_tab"),
+        ("Cannot resolve leaderboard member formula safely", "leaderboard_formula_unresolved"),
+        ("Leaderboard references an unmapped member tab", "leaderboard_unmapped_reference"),
+        ("Leaderboard does not reference each member exactly once", "leaderboard_duplicate_reference"),
         ("Expected tabs missing and additional unmapped tabs present", "missing_and_extra_tabs"),
         ("Expected tabs missing from live workbook", "required_tabs_missing"),
         ("Additional unmapped tabs present in live workbook", "extra_tabs_present"),
