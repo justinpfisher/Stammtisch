@@ -45,6 +45,25 @@ class SyncTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             sync.sheets_api_cells(book)
 
+    def test_distinguish_extra_missing_and_renamed_tabs_without_exposing_titles(self):
+        baseline = api_workbook()
+        extra = {"properties": {"title": "confidential new tab", "sheetId": 999}, "data": []}
+        extra_book = dict(baseline, sheets=baseline["sheets"] + [extra])
+        with self.assertRaisesRegex(ValueError, "^Additional unmapped tabs present in live workbook$"):
+            sync.sheets_api_cells(extra_book)
+        missing_book = dict(baseline, sheets=baseline["sheets"][:-1])
+        with self.assertRaisesRegex(ValueError, "^Expected tabs missing from live workbook$"):
+            sync.sheets_api_cells(missing_book)
+        renamed_book = dict(baseline, sheets=baseline["sheets"][:-1] + [extra])
+        with self.assertRaisesRegex(ValueError, "^Expected tabs missing and additional unmapped tabs present$"):
+            sync.sheets_api_cells(renamed_book)
+        self.assertEqual(sync.failure_code(ValueError("Additional unmapped tabs present in live workbook")),
+                         "extra_tabs_present")
+        self.assertEqual(sync.failure_code(ValueError("Expected tabs missing from live workbook")),
+                         "required_tabs_missing")
+        self.assertEqual(sync.failure_code(ValueError("Expected tabs missing and additional unmapped tabs present")),
+                         "missing_and_extra_tabs")
+
     def test_derived_ageing_does_not_trigger_publish(self):
         before = sample()
         after = sample()
