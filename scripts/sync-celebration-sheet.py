@@ -298,6 +298,23 @@ def prepare(workbook, existing, confirmations, checked_at, allow_research=True):
             actual = pick.get("actualDeathDate") or (pick.get("dateSource") or {}).get("dateOfPassing")
             if recorded and actual and recorded < actual:
                 raise ValueError("Club discovery date precedes the verified actual death date")
+    # The pool recognises one collective group-discovery date per celebrity,
+    # even if two members list that person (including Birthday Buffet). Conflicting
+    # source dates must not silently choose whichever entry renders first.
+    shared = {}
+    for member in candidate["members"]:
+        for pick in member["picks"]:
+            identity = (verifier.norm(pick["name"]), pick["born"])
+            shared.setdefault(identity, []).append(pick)
+    for entries in shared.values():
+        discovered = {p["dateOfPassing"] for p in entries if p.get("dateOfPassing")}
+        actual = {p.get("actualDeathDate") or (p.get("dateSource") or {}).get("dateOfPassing")
+                  for p in entries}
+        actual.discard(None)
+        if len(discovered) > 1:
+            raise ValueError("Shared celebrity has conflicting group discovery dates")
+        if len(actual) > 1:
+            raise ValueError("Shared celebrity has conflicting verified death dates")
     known_sources = {}
     for member in candidate["members"]:
         for pick in member["picks"]:
@@ -358,6 +375,8 @@ def failure_code(exc):
         ("Leaderboard structure changed", "leaderboard_structure_changed"),
         ("Button tab structure changed", "button_tab_structure_changed"),
         ("Club discovery date precedes", "discovery_precedes_death"),
+        ("Shared celebrity has conflicting group discovery dates", "shared_group_discovery_conflict"),
+        ("Shared celebrity has conflicting verified death dates", "shared_actual_death_conflict"),
         ("Previously published club passing was removed", "published_passing_removed"),
         ("Member snapshot date is missing", "snapshot_date_invalid"),
         ("A passing date was entered as unparsed text", "unparsed_passing_date"),
