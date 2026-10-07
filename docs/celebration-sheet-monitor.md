@@ -12,7 +12,7 @@ The encrypted baseline and encrypted detailed report are uploaded as a 30-day Gi
 2. Add `GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON` as a GitHub Actions secret containing the complete service-account JSON.
 3. Generate a Fernet key locally with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`, then add it as the `MONITOR_STATE_KEY` Actions secret. Keep this key private; losing it makes prior state artifacts unreadable.
 4. Manually run **Celebration sheet monitor** with `initialize=true`. This fetches the Sheet and creates the first encrypted baseline. It is intentionally not treated as an unchanged check.
-5. Inspect that run, then set repository variable `CELEBRATION_SHEET_MONITOR_ENABLED` to `true` to enable scheduled runs. Set `CELEBRATION_SHEET_MONITOR_ISSUES_ENABLED` to `false` only if issue alerts should be disabled; alerts are enabled by default.
+5. After initialization, scheduled runs are on by default. Set repository variable `CELEBRATION_SHEET_MONITOR_ENABLED` to `false` only when you deliberately want to pause scheduled checks; unset or `true` means active. Set `CELEBRATION_SHEET_MONITOR_ISSUES_ENABLED` to `false` only if issue alerts should be disabled; alerts are enabled by default.
 
 The workflow uses GitHub Actions' `timezone: America/Toronto` schedule hourly at minute 58 (00:58, 01:58, and so on), preserving Eastern local time through daylight saving changes. It has concurrency protection and fails closed if credentials, API access, state decryption, or a complete baseline is unavailable. A failed fetch never replaces the previous baseline. After an artifact expires, run the explicit manual initialization again; the scheduler never silently creates a new baseline.
 
@@ -30,7 +30,7 @@ The workflow never edits the source Google Sheet, changes official rules, awards
 
 ### Retries, permissions and privacy
 
-The workflow needs `actions: read`, `contents: write`, `issues: write` and `pages: write`. Keep the two existing Actions secrets and explicit first initialization. Enable scheduled checks with repository variable `CELEBRATION_SHEET_MONITOR_ENABLED=true`. The GitHub Actions identity must be allowed to update the two site data files on `main`, which must remain the GitHub Pages publishing branch and root.
+The workflow needs `actions: read`, `contents: write`, `issues: write` and `pages: write`. Keep the two existing Actions secrets and explicit first initialization. Scheduled checks are enabled by default after the first explicit initialization; use repository variable `CELEBRATION_SHEET_MONITOR_ENABLED=false` to pause them. The GitHub Actions identity must be allowed to update the two site data files on `main`, which must remain the GitHub Pages publishing branch and root.
 
 A failed import, missing death verification, test failure, git push conflict or Pages build error retains the previous encrypted baseline for a later retry. The detailed report is uploaded encrypted, not in a public issue. If the public site data has already been committed, the workflow can retry the Pages build without duplicating the commit. Checks are serialized, and competing `main` branch updates cannot be force-pushed over.
 
