@@ -57,7 +57,7 @@ test('special allocations are preserved and the same person is commemorated once
 
 test('unawarded values follow centenary rules and source multipliers', () => {
   const picks = data.members.flatMap(m => m.picks);
-  for (const name of ['David Attenborough', 'Mel Brooks', 'Eva Marie Saint']) {
+  for (const name of ['David Attenborough', 'Mel Brooks']) {
     const pick = picks.find(p => p.name === name && !p.counted);
     assert.ok(pick, name + ' remains a selection in this season');
     assert.equal(selectionValue(pick, data.asOf), basePoints(ageAt(pick.born, data.asOf)) * multiplierFor(pick));
@@ -97,32 +97,68 @@ test('tied scores share a rank and source strings cannot inject markup', () => {
 });
 
 
-test('Eva Marie Saint independently verified passing is shown without assigning club points', () => {
+test('Eva Marie Saint verified passing follows the club record without double-counting', () => {
   const jerome = data.members.find(m => m.id === 'jerome');
   const eva = jerome.picks.find(p => p.name === 'Eva Marie Saint');
+  assert.ok(eva, 'Eva remains selection #13 for Jerome');
   assert.equal(eva.pick, 13);
   assert.equal(eva.born, '1924-07-04');
   assert.equal(eva.actualDeathDate, '2026-10-06');
-  assert.equal(eva.dateOfPassing, null);
-  assert.equal(eva.counted, false);
   assert.equal(eva.points, -2);
-  assert.equal(jerome.score, 109);
-  assert.equal(selectionValue(eva, data.asOf), -2);
   assert.equal(ageAt(eva.born, eva.actualDeathDate), 102);
   assert.ok(eva.actualDeathSource.sourceUrl.startsWith('https://www.reuters.com/'));
   assert.ok(matchesPick(eva, 'eva marie', 'commemorations'));
   assert.ok(!matchesPick(eva, '', 'unflagged'));
-  const commemoration = groupedCommemorations(data.members).find(p => p.name === 'Eva Marie Saint');
+  const commemorations = groupedCommemorations(data.members);
+  assert.equal(commemorations.filter(p => p.name === 'Eva Marie Saint').length, 1);
+  const commemoration = commemorations.find(p => p.name === 'Eva Marie Saint');
   assert.equal(commemoration.actualDeathDate, '2026-10-06');
-  assert.equal(commemoration.dateOfPassing, null);
   assert.deepEqual(commemoration.members.map(m => m.name), ['Jerome']);
+  // The official total must be the sum of *counted* selections, regardless
+  // of whether this revision of the workbook has awarded Eva's penalty.
+  assert.equal(jerome.score, jerome.picks.filter(p => p.counted).reduce((n, p) => n + p.points, 0));
+  assert.equal(selectionValue(eva, data.asOf), -2);
   const html = pickMarkup(eva, jerome, data);
-  assert.match(html, /Passing verified.*Club score pending/);
-  assert.match(html, /Verified date of death/);
-  assert.match(html, /Potential points \(not yet in standings\)/);
   assert.match(html, /Reuters report/);
   const event = awardEvents(data).find(x => x.name === 'Eva Marie Saint');
-  assert.equal(event.inSeason, false); // a September 19 club snapshot cannot award an October death
+  assert.ok(event);
+  if (eva.counted) {
+    assert.ok(eva.dateOfPassing, 'scored passing must have a group-recorded date');
+    assert.equal(commemoration.dateOfPassing, eva.dateOfPassing);
+    assert.match(html, /In remembrance/);
+    assert.match(html, /Date recorded by group/);
+    assert.match(html, /Points in the standings/);
+    assert.ok(!html.includes('Club score pending'));
+    assert.equal(event.inSeason, data.asOf >= eva.actualDeathDate);
+  } else {
+    assert.match(html, /Not yet awarded/);
+    if (eva.dateOfPassing) {
+      assert.match(html, /Date recorded by group/);
+    } else {
+      assert.equal(commemoration.dateOfPassing, null);
+      assert.match(html, /Club score pending/);
+      assert.match(html, /Verified date of death/);
+      assert.match(html, /Potential points \(not yet in standings\)/);
+    }
+  }
+});
+
+test('post-snapshot confirmed death can become recorded without duplicate points', () => {
+  const copy = structuredClone(data);
+  const jerome = copy.members.find(m => m.id === 'jerome');
+  const eva = jerome.picks.find(p => p.name === 'Eva Marie Saint');
+  const priorCounted = eva.counted;
+  const priorScore = jerome.score;
+  eva.dateOfPassing = '2026-10-06';
+  eva.counted = true;
+  eva.points = -2;
+  jerome.score = priorScore + (priorCounted ? 0 : -2);
+  copy.asOf = '2026-10-07';
+  assert.equal(eva.actualDeathDate, '2026-10-06');
+  assert.equal(jerome.score, jerome.picks.filter(p => p.counted).reduce((n,p) => n+p.points, 0));
+  assert.equal(selectionValue(eva, copy.asOf), -2);
+  assert.match(pickMarkup(eva, jerome, copy), /Points in the standings/);
+  assert.equal(awardEvents(copy).filter(x => x.name === 'Eva Marie Saint').length, 1);
 });
 
 test('failed register fetch renders fallback rather than crashing', async () => {
