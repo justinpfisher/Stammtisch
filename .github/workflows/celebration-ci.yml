@@ -29,3 +29,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_*.py'
       - name: Site and award calculations
         run: node --test tests/*.test.mjs
+      - name: Confirm existing public site register is readable
+        # The current committed data is already published. This is a bounded
+        # connectivity smoke to validate the publication guard before rollout.
+        run: python scripts/verify-celebration-publication.py --expected data/celebration.json --commit ci-smoke --attempts 1 --pause 0
