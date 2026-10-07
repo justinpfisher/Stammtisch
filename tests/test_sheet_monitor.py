@@ -42,6 +42,17 @@ class SheetMonitorTests(unittest.TestCase):
         self.assertEqual(["A1"], change["cells"])
         self.assertNotIn("private", str(change))
 
+    def test_publication_ignores_note_and_format_only_edits(self):
+        before = self.snapshot(cell={"stringValue": "same"}, note="old", style={"textFormat": {"bold": True}})
+        after = self.snapshot(cell={"stringValue": "same"}, note="new", style={"textFormat": {"italic": True}})
+        self.assertTrue(monitor.changes_between(before, after))
+        self.assertFalse(monitor.publication_inputs_changed(before, after))
+
+    def test_publication_detects_entered_change_only(self):
+        before = self.snapshot(cell={"stringValue": "old"})
+        after = self.snapshot(cell={"stringValue": "new"})
+        self.assertTrue(monitor.publication_inputs_changed(before, after))
+
     def test_detects_note_style_and_tab_rename(self):
         before = self.snapshot(cell={"stringValue": "x"}, note="old", style={"textFormat": {"bold": True}})
         after = self.snapshot(cell={"stringValue": "x"}, title="RENAMED", note="new", style={"textFormat": {"italic": True}})
