@@ -99,7 +99,7 @@ export function pickMarkup(pick, member, data) {
 export async function mountCelebration() {
   let data;
   try {
-    const response = await fetch('data/celebration.json');
+    const response = await fetch('data/celebration.json', { cache: 'no-store' });
     if (!response.ok) throw new Error(`Could not load the register (${response.status}).`);
     data = await response.json();
     if (!Array.isArray(data.members) || !data.members.length) throw new Error('The register is empty.');
