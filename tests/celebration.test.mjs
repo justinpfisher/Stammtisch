@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ageAt, basePoints, multiplierFor, selectionValue, rankedMembers, matchesPick, groupedCommemorations, escapeHtml } from '../celebration.mjs';
+import { ageAt, basePoints, multiplierFor, selectionValue, rankedMembers, matchesPick, groupedCommemorations, escapeHtml, pickMarkup, mountCelebration } from '../celebration.mjs';
+import { awardEvents } from '../celebration-awards.mjs';
 
 const data = JSON.parse(readFileSync(new URL('../data/celebration.json', import.meta.url), 'utf8'));
 
@@ -93,4 +94,55 @@ test('search is accent-insensitive and combines with the commemoration filter', 
 test('tied scores share a rank and source strings cannot inject markup', () => {
   assert.deepEqual(rankedMembers([{name:'A',score:10},{name:'B',score:10},{name:'C',score:5}]).map(m => m.rank), [1,1,3]);
   assert.equal(escapeHtml('<img src=x onerror="alert(1)">'), '&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
+});
+
+
+test('Eva Marie Saint independently verified passing is shown without assigning club points', () => {
+  const jerome = data.members.find(m => m.id === 'jerome');
+  const eva = jerome.picks.find(p => p.name === 'Eva Marie Saint');
+  assert.equal(eva.pick, 13);
+  assert.equal(eva.born, '1924-07-04');
+  assert.equal(eva.actualDeathDate, '2026-10-06');
+  assert.equal(eva.dateOfPassing, null);
+  assert.equal(eva.counted, false);
+  assert.equal(eva.points, -2);
+  assert.equal(jerome.score, 109);
+  assert.equal(selectionValue(eva, data.asOf), -2);
+  assert.equal(ageAt(eva.born, eva.actualDeathDate), 102);
+  assert.ok(eva.actualDeathSource.sourceUrl.startsWith('https://www.reuters.com/'));
+  assert.ok(matchesPick(eva, 'eva marie', 'commemorations'));
+  assert.ok(!matchesPick(eva, '', 'unflagged'));
+  const commemoration = groupedCommemorations(data.members).find(p => p.name === 'Eva Marie Saint');
+  assert.equal(commemoration.actualDeathDate, '2026-10-06');
+  assert.equal(commemoration.dateOfPassing, null);
+  assert.deepEqual(commemoration.members.map(m => m.name), ['Jerome']);
+  const html = pickMarkup(eva, jerome, data);
+  assert.match(html, /Passing verified.*Club score pending/);
+  assert.match(html, /Verified date of death/);
+  assert.match(html, /Potential points \(not yet in standings\)/);
+  assert.match(html, /Reuters report/);
+  const event = awardEvents(data).find(x => x.name === 'Eva Marie Saint');
+  assert.equal(event.inSeason, false); // a September 19 club snapshot cannot award an October death
+});
+
+test('failed register fetch renders fallback rather than crashing', async () => {
+  const previousDocument = globalThis.document;
+  const previousFetch = globalThis.fetch;
+  const selectors = ['#award-leaders', '#draft-benefits', '#standings', '#member-lists', '#commemoration-list'];
+  const nodes = Object.fromEntries(selectors.map(s => [s, { innerHTML: '' }]));
+  globalThis.document = { querySelector: s => {
+    if (!(s in nodes)) throw new Error('Unexpected fallback selector: ' + s);
+    return nodes[s];
+  } };
+  globalThis.fetch = async () => { throw new Error('offline'); };
+  try {
+    await mountCelebration();
+    for (const selector of selectors) assert.ok(nodes[selector].innerHTML.length, selector);
+    assert.match(nodes['#commemoration-list'].innerHTML, /original spreadsheet/);
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+  }
 });
