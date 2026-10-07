@@ -89,9 +89,12 @@ def newly_reported_deaths(existing, proposed):
         for pick in member["picks"]:
             old = previous.get(pick["id"])
             same_person = old and (old["name"], old["born"]) == (pick["name"], pick["born"])
-            already_reported = same_person and (old["dateOfPassing"] is not None or old["counted"])
             now_reported = pick["dateOfPassing"] is not None or pick["counted"]
-            if now_reported and not already_reported:
+            # A previously scored but undated record is not proof of death.
+            # Its first date must pass the same verification gate as a new report.
+            previously_dated = same_person and old["dateOfPassing"] is not None
+            newly_counted_without_existing_death = same_person and not old["counted"] and old["dateOfPassing"] is None and pick["counted"]
+            if now_reported and (not previously_dated or newly_counted_without_existing_death):
                 yield member["id"], pick
 
 def prepare(workbook, existing, confirmations, checked_at, allow_research=True):
