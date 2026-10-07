@@ -278,6 +278,16 @@ def prepare(workbook, existing, confirmations, checked_at, allow_research=True):
     if candidate["asOf"] > datetime.now(timezone.utc).date().isoformat():
         # Sheets may use Eastern Time. A future date, however, is never acceptable.
         raise ValueError("Spreadsheet snapshot date is in the future")
+    # Do not silently erase a public club commemoration through a cell
+    # deletion, formula error, or mistaken paste. Corrections of established
+    # deaths need reviewed action rather than automatic "resurrection".
+    previous = {p["id"]: p for m in existing["members"] for p in m["picks"]}
+    for member in candidate["members"]:
+        for pick in member["picks"]:
+            prior = previous.get(pick["id"])
+            if (prior and prior["name"] == pick["name"] and prior["born"] == pick["born"]
+                    and prior.get("dateOfPassing") and not pick.get("dateOfPassing")):
+                raise ValueError("Previously published club passing was removed without review")
     # Previously verified death dates remain authoritative after a later Sheet
     # correction. Otherwise an old group discovery date can be accidentally
     # moved to *before* the independently established death without triggering
@@ -348,6 +358,9 @@ def failure_code(exc):
         ("Leaderboard structure changed", "leaderboard_structure_changed"),
         ("Button tab structure changed", "button_tab_structure_changed"),
         ("Club discovery date precedes", "discovery_precedes_death"),
+        ("Previously published club passing was removed", "published_passing_removed"),
+        ("Member snapshot date is missing", "snapshot_date_invalid"),
+        ("A passing date was entered as unparsed text", "unparsed_passing_date"),
         ("Selection number or extra entry label is invalid", "invalid_selection_number"),
         ("The numbered selections must contain every position", "duplicate_or_missing_selection"),
         ("A member has duplicate celebrity selections", "duplicate_member_selection"),
