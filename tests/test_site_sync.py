@@ -54,6 +54,22 @@ class SyncTests(unittest.TestCase):
         after["members"][0]["picks"][0]["ageText"] = "86y"
         self.assertEqual(sync.public_material(before), sync.public_material(after))
 
+    def test_failure_codes_disclose_no_private_sheet_details(self):
+        examples = {
+            "Unrecognized total formula: =SUM(secret-name-sheet!E1)": "unsupported_score_formula",
+            "The imported entries do not reconcile with private-member's total.": "member_score_mismatch",
+            "The number of picks changed for private-member. Review before importing.": "selection_count_mismatch",
+            "A confirmed record no longer matches the sheet. Review before importing.": "confirmed_record_identity",
+            "Spreadsheet tab mapping changed; review required": "unsupported_tabs",
+        }
+        for secret_message, expected_code in examples.items():
+            with self.subTest(expected=expected_code):
+                result = sync.failure_code(ValueError(secret_message))
+                self.assertEqual(result, expected_code)
+                self.assertNotIn("private", result)
+                self.assertNotIn("secret", result)
+        self.assertEqual(sync.failure_code(ValueError("Some private value")), "unclassified_validation_error")
+
     def test_new_death_requires_verified_source(self):
         previous, proposed = sample(), sample(dead=True)
         original = sync.importer.import_data

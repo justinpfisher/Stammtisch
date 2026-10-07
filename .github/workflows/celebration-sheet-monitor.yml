@@ -216,7 +216,13 @@ jobs:
             const runLink = context.serverUrl + '/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId;
             const body = reviewRequired
               ? 'The latest Sheet edit includes ' + status.pending + ' newly reported passing(s) without sufficient independent corroboration. No unverified website data was published. Review the encrypted change report from ' + runLink + ', add a sourced confirmation or correct the Sheet, and the next hourly check will retry. No Sheet cell content is included here.'
-              : 'The monitor or website update failed in run ' + runLink + '. The previous encrypted baseline remains available so the check can retry.';
+              : 'The monitor or website update failed in run ' + runLink + '. The previous encrypted baseline remains available so the check can retry.' + (status?.errorCode ? ' Safe diagnostic category: ' + status.errorCode + '.' : '');
             const { data: issues } = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100 });
             const existing = issues.find(issue => issue.title === title);
-            if (!existing) await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
+            if (!existing) {
+              await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
+            } else {
+              const { data: comments } = await github.rest.issues.listComments({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, per_page: 100 });
+              if (![existing.body, ...comments.map(c => c.body)].some(text => text?.includes(runLink)))
+                await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body });
+            }
