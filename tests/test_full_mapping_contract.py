@@ -139,6 +139,27 @@ class FullMappingContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "repeats a source row"):
             sync.importer.import_data(None, PUBLIC["capturedAt"], CONFIRMATIONS, sheets=sheets)
 
+    def test_pasted_text_death_date_cannot_disappear_from_import(self):
+        sheets = public_as_sheet_cells()
+        eva = next(p for p in PUBLIC["members"][2]["picks"] if p["name"] == "Eva Marie Saint")
+        sheets["jerome"][f"D{eva['sourceRow']}"]["value"] = "2026-10-06"
+        with self.assertRaisesRegex(ValueError, "unparsed text"):
+            sync.importer.import_data(None, PUBLIC["capturedAt"], CONFIRMATIONS, sheets=sheets)
+
+    def test_removing_previously_published_passing_requires_review(self):
+        sheets = public_as_sheet_cells()
+        eva = next(p for p in PUBLIC["members"][2]["picks"] if p["name"] == "Eva Marie Saint")
+        sheets["jerome"][f"D{eva['sourceRow']}"]["value"] = None
+        sheets["jerome"]["E1"]["formula"] = "SUM(" + ",".join(
+            "E" + str(p["sourceRow"]) for p in PUBLIC["members"][2]["picks"]
+            if p["counted"] and p["id"] != eva["id"]
+        ) + ")"
+        sheets["jerome"]["E1"]["value"] = PUBLIC["members"][2]["score"] - eva["points"]
+        sheets["LEADERBOARD"]["D2"]["value"] = sheets["jerome"]["E1"]["value"]
+        with self.assertRaisesRegex(ValueError, "Previously published club passing"):
+            sync.prepare(to_api(sheets), PUBLIC, CONFIRMATIONS, PUBLIC["capturedAt"],
+                         allow_research=False)
+
     def test_actual_death_cannot_be_later_than_club_record(self):
         sheets = public_as_sheet_cells()
         eva = next(p for p in PUBLIC["members"][2]["picks"] if p["name"] == "Eva Marie Saint")
