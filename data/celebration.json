@@ -1726,7 +1726,13 @@
           "sourceRow": 15,
           "pointsFormula": "ROUNDDOWN(100-DATEDIF(C15,A$1,\"D\")/365.25,0)",
           "marker": null,
-          "needsReview": false
+          "needsReview": false,
+          "actualDeathDate": "2026-10-06",
+          "actualDeathSource": {
+            "sourceUrl": "https://www.reuters.com/lifestyle/eva-marie-saint-north-by-northwest-movie-star-dies-102-2026-10-06/",
+            "sourceLabel": "Reuters report of the family's announcement",
+            "verifiedOn": "2026-10-07"
+          }
         },
         {
           "id": "jerome-16",

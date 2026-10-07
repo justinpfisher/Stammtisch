@@ -130,3 +130,9 @@ member links on desktop and phone widths when changing the UI.
 
 Justin confirmed that no Blood Diamonds have been assigned yet. Blue and Brown
 Diamonds remain selections #1 and #50 respectively.
+
+## Independent post-snapshot reports
+
+On October 7, 2026, Eva Marie Saint's death on October 6 was corroborated by [Reuters](https://www.reuters.com/lifestyle/eva-marie-saint-north-by-northwest-movie-star-dies-102-2026-10-06/) and [Associated Press](https://www.washingtonpost.com/entertainment/2026/10/06/eva-marie-saint-dies/e09c31a8-c1d0-11f1-8170-681419af1cc9_story.html). She was 102. Her independently confirmed actual death date is held in `data/celebration-confirmations.json` and the public register, separately from the club's discovery date.
+
+Jerome holds her as selection #13. Under the published rules, the prospective result is a **−2-point penalty**, but the currently published club register is still dated September 19 and retains Jerome's officially recorded 109 points. The new commemoration makes the verified news visible without inventing when the club learned of it, changing the source Sheet, assigning points, or treating later news as part of September's awards snapshot. The next validated club Sheet refresh must supply the discovery date and recorded allocation; the importer preserves the independent actual-death confirmation.
