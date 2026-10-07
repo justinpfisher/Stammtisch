@@ -1,0 +1,31 @@
+name: Celebration regression checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/celebration-*.yml'
+      - 'scripts/**'
+      - 'data/celebration*.json'
+      - 'celebration*.mjs'
+      - 'tests/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Python source and publication safety checks
+        run: python -m unittest discover -s tests -p 'test_*.py'
+      - name: Site and award calculations
+        run: node --test tests/*.test.mjs
