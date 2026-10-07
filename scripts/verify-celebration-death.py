@@ -84,16 +84,20 @@ def article_supports(url, name, death_date):
     person = norm(name)
     if person not in normal:
         return False
-    if not any(term in normal for term in ("died", "death", "passes away", "passed away", "obituary", "has died")):
-        return False
     day = date.fromisoformat(death_date)
     formats = (day.strftime("%Y-%m-%d"), day.strftime("%B %d, %Y"),
                day.strftime("%d %B %Y"), day.strftime("%B %d %Y"))
-    # Dates may appear as e.g., October 7 vs October 07.
+    # A generic site-wide date or unrelated sidebar obituary is not evidence.
     variants = set(formats)
     for x in formats:
         variants.add(re.sub(r"\b0([1-9])\b", r"\1", x))
-    return any(norm(x) in normal for x in variants)
+    normalized_dates = {norm(x) for x in variants}
+    death_words = re.compile(r"\b(?:died|death|passes away|passed away|obituary|has died)\b")
+    for person_match in re.finditer(re.escape(person), normal):
+        passage = normal[max(0, person_match.start() - 220):person_match.end() + 420]
+        if death_words.search(passage) and any(x in passage for x in normalized_dates):
+            return True
+    return False
 
 def claim_date(claim):
     try:
