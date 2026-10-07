@@ -174,6 +174,8 @@ test('failed register fetch renders fallback rather than crashing', async () => 
   globalThis.fetch = async (...args) => { request = args; throw new Error('offline'); };
   try {
     await mountCelebration();
+    assert.equal(request[0], 'data/celebration.json');
+    assert.equal(request[1]?.cache, 'no-store');
     for (const selector of selectors) assert.ok(nodes[selector].innerHTML.length, selector);
     assert.match(nodes['#commemoration-list'].innerHTML, /original spreadsheet/);
   } finally {
