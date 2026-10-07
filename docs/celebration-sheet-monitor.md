@@ -24,7 +24,7 @@ The monitor continues to check every tab and report formatting, notes and struct
 2. Preserve reviewed corrections in `data/celebration-confirmations.json`. For any new death report, attempt public research: exact name and birth-date in Wikidata, a precise death-date claim, and two readable accounts from distinct established news organisations corroborating the identity and date.
 3. If the evidence passes, store the actual death date, publication links and verification method in the public confirmation record. Preserve the club's discovery date separately. If independent sources cannot be confirmed, or the group discovery date is missing, stop and create a review issue without publishing the new claim.
 4. Update only `data/celebration.json` and `data/celebration-confirmations.json`. Member lists, leaderboards, commemorations, award calculations, draft previews, search and filters all read the public data file. Dates are labelled as either group-recorded or independently verified actual deaths.
-5. Run Python and Node regression tests, commit changed data to `main`, explicitly request a GitHub Pages build, and verify the target commit's successful build before advancing the encrypted monitoring baseline.
+5. Run Python and Node regression tests, commit changed data to `main`, and explicitly request a GitHub Pages build. Require both the target commit's completed Pages build **and an exact comparison between the committed public JSON and the visitor-facing public JSON** (with retries for CDN propagation). Advance the encrypted monitoring baseline only after this full confirmation.
 
 The workflow never edits the source Google Sheet, changes official rules, awards badges, conducts drafts, adds speeches or finalizes a year automatically. A competition-year change or unsupported tab structure requires review.
 
@@ -41,3 +41,24 @@ The Wikidata/news research gate is intentionally conservative. If a trustworthy 
 ### Testing
 
 Run `python -m unittest discover -s tests -p 'test_*.py'` and `node --test tests/*.test.mjs`. The same checks run automatically on relevant pull requests. A full live check still requires valid read-only Google Sheets credentials and the Pages permissions described above.
+
+## Mapping and automation assurance review — October 7, 2026
+
+The importer is validated against the eight established logical tabs: `LEADERBOARD`, `buttons`, `matt`, `fish` (Justin), `jerome`, `ken`, `marc` and `jamie`. A full synthetic workbook reconstructed from the already-published data validates the **six member identities, 300 numbered positions, Ken's BB entry, all source row IDs, all counted point totals, all dated passings, leaderboard references and six button definitions**. A real production import previously succeeded using the authenticated read-only Google Sheets API. This does not mean private, unreleased spreadsheet cells were copied into repository tests.
+
+Additional fail-closed checks guard against duplicate/missing numbered positions, score formulas referring to absent or repeated selections, empty names, missing/invalid birth and counted-death dates, date-like text pasted into the date column, a club discovery date preceding an independently verified actual death, unreviewed removal of an already-published club passing and exact-titled tabs whose member identity has changed. Invalid or unsupported data produces a **metadata-only failure issue**, retains the prior encrypted baseline and does not deploy.
+
+A successful GitHub Pages build alone is no longer the publication success criterion; the public `data/celebration.json` must also match the validated committed file. Public visitors' browsers request the register with a no-store cache policy when loading the page, to avoid serving a stale JSON response from their own browser cache.
+
+### What updates automatically
+
+Every successful normal hourly check reimports the current workbook and compares the validated public fields to the website, even when the encrypted monitor baseline already includes an earlier edit. Meaningful, supported edits to member names and selections, recorded scores, formulas, deaths, group-recorded dates and button descriptions publish together if all mapping, date, scoring and external-evidence checks pass. Standings, searchable lists, commemorations, badges and draft previews recalculate from the same public register.
+
+### What needs review or cannot be sensed automatically
+
+- A new annual competition, new member, unknown tab, ambiguous renamed tab, changed source formula grammar, contested death or a new unverified passing that cannot be corroborated is **not** an authorised automatic publishing event. It remains pending with an issue until the cause is reviewed. An unsafe source correction is not silently accepted.
+- A format-only edit, note-only edit, or routine formula recalculation that changes no *published* content does not produce a needless website deployment. Purely calendar-driven age changes remain anchored to the most recent published register snapshot; an unchanged source register does not force a new snapshot each day.
+- The Sheets API cannot fully observe all drawing/image-layer changes. Replacing portraits or other website assets, altering official rules, club event details, or changing an unrelated page is a separate editorial/deployment task. The API monitor cannot promise to publish those from a spreadsheet edit.
+- Google/GitHub scheduling is **hourly polling at approximately minute 58**, not an instant Google Sheets edit webhook; platform delays, network failure, a missing/expired encrypted baseline or permission problems can delay a run. Failures are reported and the last good state is preserved for retry. Open browser tabs do not instantly refresh themselves; a page reload loads the new data after deployment.
+
+The automation must stay **read-only** toward the Google Sheet. Public member data is only written to the two allowlisted website JSON files; worksheet contents, formulas and notes outside those public fields stay out of GitHub issues and artifacts except for the existing encrypted report.
