@@ -119,6 +119,8 @@ def import_data(path, captured_at, confirmations=(), sheets=None):
         cells = sheets[member_id]
         val = lambda address: cells.get(address, {}).get("value")
         as_of = serial_date(val("A1"))
+        if not as_of:
+            raise ValueError("Member snapshot date is missing or invalid.")
         if result["asOf"] not in (None, as_of):
             raise ValueError("Member sheets have inconsistent snapshot dates.")
         result["asOf"] = as_of
@@ -130,7 +132,13 @@ def import_data(path, captured_at, confirmations=(), sheets=None):
             raise ValueError("Counted score formula references a missing selection row.")
         for row in rows:
             original = str(val(f"B{row}"))
-            date_of_passing = serial_date(val(f"D{row}"))
+            raw_passing = val(f"D{row}")
+            # The Sheet normally supplies a numeric date serial when someone
+            # has died, or text such as "102y, 3m, 2d" for a living pick.
+            # A pasted text date must not silently become an unawarded age.
+            if isinstance(raw_passing, str) and re.search(r"\b(?:19|20)\d{2}\b", raw_passing):
+                raise ValueError("A passing date was entered as unparsed text.")
+            date_of_passing = serial_date(raw_passing)
             points = val(f"E{row}")
             if not isinstance(points, (int, float)):
                 raise ValueError(f"Invalid points in {member_id}!E{row}: {points}")
