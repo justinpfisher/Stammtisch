@@ -142,6 +142,18 @@ def canonical_sheet_mapping(tabs):
         raise ValueError("Expected tabs missing from live workbook")
     if extra:
         raise ValueError("Additional unmapped tabs present in live workbook")
+    # An exact tab name is not sufficient authority to assign its contents to a
+    # member. A worksheet accidentally swapped or repurposed under the same
+    # title must not silently reassign people or scores.
+    for member_id, expected_label in MEMBER_LABELS.items():
+        member_cells = tabs[mapped[member_id]]
+        if (not looks_like_member_tab(member_cells)
+                or normalized_label(member_cells["B1"]["value"]) != normalized_label(expected_label)):
+            raise ValueError("Member tab content does not match its verified club identity")
+    if not looks_like_leaderboard(tabs[mapped["LEADERBOARD"]]):
+        raise ValueError("Leaderboard structure changed; manual mapping review required")
+    if not looks_like_buttons(tabs[mapped["buttons"]]):
+        raise ValueError("Button tab structure changed; manual mapping review required")
     return mapped
 
 
@@ -266,6 +278,16 @@ def prepare(workbook, existing, confirmations, checked_at, allow_research=True):
     if candidate["asOf"] > datetime.now(timezone.utc).date().isoformat():
         # Sheets may use Eastern Time. A future date, however, is never acceptable.
         raise ValueError("Spreadsheet snapshot date is in the future")
+    # Previously verified death dates remain authoritative after a later Sheet
+    # correction. Otherwise an old group discovery date can be accidentally
+    # moved to *before* the independently established death without triggering
+    # the "newly reported" gate.
+    for member in candidate["members"]:
+        for pick in member["picks"]:
+            recorded = pick.get("dateOfPassing")
+            actual = pick.get("actualDeathDate") or (pick.get("dateSource") or {}).get("dateOfPassing")
+            if recorded and actual and recorded < actual:
+                raise ValueError("Club discovery date precedes the verified actual death date")
     known_sources = {}
     for member in candidate["members"]:
         for pick in member["picks"]:
@@ -322,6 +344,20 @@ def failure_code(exc):
         ("Expected tabs missing from live workbook", "required_tabs_missing"),
         ("Additional unmapped tabs present in live workbook", "extra_tabs_present"),
         ("Sheet names changed", "unsupported_tabs"),
+        ("Member tab content does not match its verified club identity", "member_identity_conflict"),
+        ("Leaderboard structure changed", "leaderboard_structure_changed"),
+        ("Button tab structure changed", "button_tab_structure_changed"),
+        ("Club discovery date precedes", "discovery_precedes_death"),
+        ("Selection number or extra entry label is invalid", "invalid_selection_number"),
+        ("The numbered selections must contain every position", "duplicate_or_missing_selection"),
+        ("A member has duplicate celebrity selections", "duplicate_member_selection"),
+        ("Counted score formula references a missing", "missing_counted_selection"),
+        ("The member total formula repeats a source row", "duplicate_score_reference"),
+        ("Selection birth date is missing", "invalid_birth_date"),
+        ("Recorded passing date is outside", "invalid_recorded_death_date"),
+        ("A counted passing lacks a valid recorded date", "counted_passing_date_missing"),
+        ("Selection points must be numeric", "invalid_points_type"),
+        ("A numbered selection name is blank", "blank_selection_name"),
         ("Unrecognized total formula", "unsupported_score_formula"),
         ("Invalid points in", "invalid_point_value"),
         ("Member sheets have inconsistent snapshot dates", "inconsistent_snapshot_dates"),
