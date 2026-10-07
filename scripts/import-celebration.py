@@ -162,8 +162,6 @@ def import_data(path, captured_at, confirmations=(), sheets=None):
                 raise ValueError("Selection birth date is missing or later than the snapshot.")
             if date_of_passing and (date_of_passing < entry["born"] or date_of_passing > as_of):
                 raise ValueError("Recorded passing date is outside the person's lifespan or snapshot.")
-            if entry["counted"] and not date_of_passing:
-                raise ValueError("A counted passing lacks a valid recorded date.")
             if isinstance(points, bool):
                 raise ValueError("Selection points must be numeric, not boolean.")
             member["picks"].append(entry)
@@ -198,7 +196,20 @@ def import_data(path, captured_at, confirmations=(), sheets=None):
     for row in sorted({int(ref[1:]) for ref in cells if re.fullmatch(r"A\d+", ref) and int(ref[1:]) > 1}):
         result["distinctions"].append({"name": cells[f"A{row}"]["value"].strip(),
             "reason": cells.get(f"B{row}", {}).get("value"), "imageIdea": cells.get(f"C{row}", {}).get("value")})
-    return apply_confirmations(result, confirmations)
+    result = apply_confirmations(result, confirmations)
+    # Existing vetted confirmations may supply a missing group-recorded date
+    # without awarding points a second time (e.g. Dolly Parton's historic row).
+    # Validate after applying those records, not before.
+    for member in result["members"]:
+        for pick in member["picks"]:
+            if pick["counted"] and not pick["dateOfPassing"]:
+                raise ValueError("A counted passing lacks a valid recorded date.")
+            if pick["dateOfPassing"] and (
+                pick["dateOfPassing"] < pick["born"]
+                or pick["dateOfPassing"] > result["asOf"]
+            ):
+                raise ValueError("A confirmed passing date is outside the person's lifespan or snapshot.")
+    return result
 
 
 if __name__ == "__main__":
