@@ -86,7 +86,7 @@ test('subscription accordion sits below the content with an introductory jump li
   assert.match(html, /data-col-push-prepare disabled>Enable notifications/);
 });
 
-test('pilot iPhone UI keeps consent explicit and updates enabled / unsubscribed status', async () => {
+for (const device of ['iPhone', 'Android']) test(`public ${device} UI keeps consent explicit and updates enabled / unsubscribed status`, async () => {
   const { mountColPush } = await import('../col-push.mjs');
   const saved = new Map(['document', 'window', 'navigator', 'localStorage', 'Notification', 'fetch']
     .map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
@@ -114,11 +114,11 @@ test('pilot iPhone UI keeps consent explicit and updates enabled / unsubscribed 
     } };
   try {
     Object.defineProperty(globalThis, 'navigator', { configurable: true, value: {
-      userAgent: 'iPhone', standalone: true, serviceWorker: {} } });
+      userAgent: device, standalone: device === 'iPhone', serviceWorker: {} } });
     globalThis.Notification = { permission: 'granted' };
     globalThis.window = { Notification: {}, location: { search: '' }, matchMedia: () => ({ matches: true }) };
     globalThis.localStorage = { getItem: () => null, setItem() {} };
-    globalThis.fetch = async () => ({ ok: true, json: async () => ({ ...ready, mode: 'pilot' }) });
+    globalThis.fetch = async () => ({ ok: true, json: async () => ready });
     globalThis.document = { querySelector: () => panel, createElement: () => ({}),
       head: { appendChild(script) { loads++; script.onload();
         for (const callback of window.OneSignalDeferred) callback(sdk); } } };
@@ -144,4 +144,12 @@ test('pilot iPhone UI keeps consent explicit and updates enabled / unsubscribed 
       else delete globalThis[key];
     }
   }
+});
+
+test('public subscription includes Android instructions and requires no pilot URL', () => {
+  assert.equal(config.mode, 'public');
+  assert.equal(pushConfigReady(config, ''), true);
+  assert.match(html, /On Android:/);
+  assert.match(html, /Home Screen is optional/);
+  assert.match(html, /Each device has its own subscription/);
 });

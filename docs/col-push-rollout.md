@@ -1,6 +1,6 @@
 # Stammtisch Celebration of Life web push — controlled rollout
 
-**Status: IPHONE PILOT VERIFIED; PUBLIC DELIVERY OFF.** The existing OneSignal app and protected GitHub secrets are configured. The owner confirmed iPhone lock-screen receipt, click-through to CoL, and receipt after re-subscribing on October 7, 2026. Android testing was waived by the owner. Website mode and delivery mode remain `pilot`; public activation is not approved. Deploying the interface or sender does not send a test or public notification.
+**Status: PUBLIC ACTIVATION APPROVED — October 8, 2026.** The owner explicitly requested Android instructions and go-live for both iPhone and Android after confirming the iPhone pilot receipt, click-through and re-subscription. Android physical delivery has not been tested; the earlier owner waiver remains recorded. Public subscriptions use the existing OneSignal app. Activation requires website mode `public`, delivery mode `live` and `COL_PUSH_LIVE_APPROVED=true`; the first live run seeds the current register without sending historical alerts.
 
 ## Agreed product contract
 
@@ -18,8 +18,8 @@
 
 - /manifest.json: installable CoL start page with its existing `/celebration.html` identity. The approved Stammtisch Home Screen artwork is already deployed as 180/192/512-pixel icons (including Android maskable). `/site-manifest.json` supports installs from the Club homepage; preserve both app identities.
 - /push/onesignal/OneSignalSDKWorker.js: dedicated permanent service worker at /push/onesignal/ with no root-scope caching or interception of unrelated pages.
-- /col-push.mjs: one optional subscription panel on celebration.html. The compact “Stay in the loop” box is below the standings and before selections, with a top introductory jump link. Ordinary pilot visitors see a disabled preview. The pilot URL or an installed standalone app can manage voluntary subscriptions. The iOS instructions appear before permission is attempted; the SDK still loads only after consent.
-- /data/col-push-config.json: public, non-secret mode and OneSignal app ID; currently mode `pilot` with the existing Stammtisch OneSignal app ID.
+- /col-push.mjs: one optional subscription panel on celebration.html. The compact, default-collapsed “Stay in the loop” row is below all content, above the footer, with a top introductory jump link. Any visitor can manage voluntary subscriptions. iPhone and Android setup and unsubscribe instructions are inside the disclosure; the SDK still loads only after consent.
+- /data/col-push-config.json: public, non-secret mode and OneSignal app ID; now mode `public` with the existing Stammtisch OneSignal app ID.
 - /.github/workflows/celebration-push.yml: independent workflow, manual pilot-test action, scheduled retry at 29 minutes past the hour UTC, and successful CoL publisher completion trigger. It cannot delay or undo the separate CoL website publisher.
 - /scripts/col-push-delivery.py: no-send first live checkpoint, site-publication verification, material-data hashes, message composition, persistent issue-based delivery acknowledgement, UUIDv4 OneSignal deduplication, and 25-day maximum safe retry window.
 - Automated Node and Python tests guard the off state, audience, pilot-only sending, public go-live gate, invalid recipient lists, stale-public-site blocking and lost-acknowledgement retry.
@@ -41,7 +41,7 @@
 
 ## Explicit public activation after successful pilot
 
-The owner must explicitly approve public activation after the successful iPhone pilot. Two independent changes are required; neither is performed by this update:
+The owner explicitly approved public activation on October 8, 2026, after the successful iPhone pilot. The activation procedure preserves two independent gates:
 
 1. Change the public config mode from pilot to public. The opt-in setting then appears on the CoL website for **any visitor**. Anyone can choose Enable notifications or Disable notifications on each device.
 2. Set GitHub repository variable COL_PUSH_DELIVERY_MODE=live and separately COL_PUSH_LIVE_APPROVED=true after owner review. The sender refuses broad messages if either gate or the corresponding website config does not match.

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "mode": "pilot",
+  "mode": "public",
   "oneSignalAppId": "622111ee-da5d-44c1-a5bc-18deafa71a44",
   "audience": "any_visitor_who_opts_in",
   "source": "celebration_of_life_only"
