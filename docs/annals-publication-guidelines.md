@@ -58,6 +58,12 @@ A proposed **Cocktail Register** could eventually contain for each contributed d
 
 **No actual recipes, syrup methods, attributed creators or photographs have been supplied for publication yet.** Do not generate imaginary "Stammtisch classics" and pass them off as real. Store source recipes privately during collection, then publish only approved edited versions.
 
+## Proposed contributor-by-email workflow (not activated)
+
+The owner has now asked to investigate a single email address to accept all kinds of club contributions and prepare website-ready Annals entries with AI, without asking the six members to edit the site or learn categories. The recommended *unactivated* architecture is specified in [the 8 October email-publishing proposal](annals-email-publishing-proposal-2026-10-08.md).
+
+**A submitted email is permission to consider the material, not blanket consent to publish its contents.** Email bodies, handwriting, attachments and AI drafts must stay private until final-content authorisation; a public GitHub branch or unlisted Pages preview is already public exposure. After a careful pilot, any narrow text-only autopublish rule would require a further explicit approval. New identifiable photos, sensitive stories or quotes remain approval-gated.
+
 ## Next steps / decisions reserved
 
 The club's owner has expressly favoured **The Annals** and expressed concern about public photos/identifiers. Design a text-first layout and a safe content submission/approval process before publicly publishing the first edition. New identifiable content requires a new specific approval; current approved artwork and CoL information may remain.
