@@ -1,9 +1,9 @@
 {
-  "id": "/celebration.html",
+  "id": "/",
   "name": "Stammtisch Social Club",
   "short_name": "Stammtisch",
-  "description": "Stammtisch Celebration of Life standings and notifications",
-  "start_url": "/celebration.html",
+  "description": "A tradition of gathering. The Stammtisch Social Club.",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f8f7f1",
