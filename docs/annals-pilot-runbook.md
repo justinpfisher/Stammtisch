@@ -1,10 +1,12 @@
 # Annals of Stammtisch — private email-intake prototype runbook
 
-**As of 8 October 2026 | NOT ACTIVATED | Source-only and synthetic testing.**
+**Status (8 October 2026):** The receiving address works. The owner has reported one manual **synthetic-only** intake run. Production Annals processing, automated triggers, AI interpretation and public publication are not activated.
 
-## Custom-domain receiving address — not yet activated
+**Routing and intake update:** The owner confirmed the dedicated private Gmail inbox, free domain forward, two deliveries and an opened test attachment; two-step verification is enabled. Later manual Apps Script logs supplied by the owner show the synthetic preflight with production gates off and `staged:1`. The actual private Drive artefacts, authenticated Google permissions, duplicate-run outcome and absence of a trigger have **not been independently inspected**. See [issue #24](https://github.com/justinpfisher/Stammtisch/issues/24). Follow [the narrower synthetic pilot setup](annals-synthetic-pilot-setup.md), deploying **only** `PilotCore.js` + `SyntheticPilot.gs`; the broader prototype instructions below are historical and do not authorise broader inbox scanning.
 
-The current **first operational task** is to verify whether the previously used Porkbun registrar can supply free `annals@stammtischbrewery.com` forwarding to a newly created **dedicated private Gmail** account, without disrupting pre-existing MX/email or GitHub Pages. Follow [the Work execution handoff](annals-email-routing-work-handoff-2026-10-08.md). This step can be handled in ChatGPT Work with the owner securely signing in. After actual routing is verified, the remaining private-processing implementation belongs in Codex and requires separate approvals. **The Google Apps Script gates remain disabled** until real consented pilot testing.
+## Custom-domain receiving address — established
+
+The owner has confirmed working **receiving-only** forwarding for `annals@stammtischbrewery.com` to a dedicated private Gmail account; delivery and a test attachment were checked. See the [original routing handoff](annals-email-routing-work-handoff-2026-10-08.md) and issue #24 for operational evidence. This does **not** make the address ready for general member submissions or authorise routine processing. Keep all production Apps Script switches **off**. The manual synthetic adapter has separate switches and must be disabled after completing its controlled test.
 
 ## Outcome and current scope
 
@@ -17,7 +19,7 @@ This package is the **first functioning, safe engineering layer** beneath the [e
 - `scripts/annals/private-preview-cli.mjs` — writes the preview **only outside the public checkout**; refuses an existing preview (no silent overwrite); never sends mail or publishes content.
 - `tests/annals-private-intake.test.mjs` and `tests/annals-private-preview.test.mjs` — synthetic Node tests for gates, idempotence, unknown/untrusted senders, MIME types, iPhone HEIC holding, recipe facts, quote handling, escaping, and paths.
 
-**Not yet implemented/authorised:** actual dedicated submission address; Gmail/Apps Script deployment and OAuth; model calls and handwriting/HEIC/PDF OCR; cost enforcement; acknowledgement emails; authenticated reply-based approval; per-person photographic consent; public Annals page; public publishing or publication verification. Do not describe any of these as functioning merely because the code is merged.
+**Still unimplemented/unapproved:** model calls and handwriting/HEIC/PDF interpretation, paid-processing cost enforcement, acknowledgement emails, authenticated reply-based approval, specific photographic consent, public Annals page, publishing and publication verification. The owner reported a one-message synthetic Apps Script staging run, but provider settings, private Drive contents and duplicate-run behaviour still need private acceptance checks. Source code, tests and one staged synthetic message do **not** establish a running automatic Annals system.
 
 **Important:** The heuristic category selection is a *suggestion*, not AI analysis. The preview engine renders a structured candidate from a separate model or reviewer; the external model is not connected yet. All drafts and photos remain private and cannot be published through this prototype.
 
@@ -55,9 +57,9 @@ A private *synthetic* preview can be prepared without calling a model:
 - A successful test of a synthetic signature is not real publication authority; no live Pages build should use invented receipts or a test-only HMAC key.
 - Only after a successful real pilot and exact human approval should a future publisher write validated output to the existing GitHub Pages source, request a Pages build, and compare the actual visitor-facing result. The existing CoL and OneSignal pathways must not be touched.
 
-## Google Apps Script setup — future owner-authorised work ONLY
+## Original broader Apps Script setup — historical, NOT the synthetic pilot
 
-**The following has not been performed. It requires the owner to obtain/authorise a dedicated Gmail account and review account permissions and ongoing costs.**
+**Do not use these older `Code.gs` instructions to repeat or expand the already owner-reported synthetic test.** They describe an earlier, wider inbox-scanning prototype, not the approved labelled-message adapter. The account and forwarding prerequisites were owner-reported as completed. For any further authorised manual synthetic checks use `PilotCore.js` + `SyntheticPilot.gs` and the [specific setup guide](annals-synthetic-pilot-setup.md); never deploy `Code.gs` beside `SyntheticPilot.gs`.
 
 1. In a newly created dedicated Stammtisch Gmail account with 2FA/recovery, make a private `Annals Staging` folder in My Drive. Verify it is not shared.
 2. Create a standalone Google Apps Script project under that account. Copy `scripts/annals/PilotCore.js` and `scripts/annals/Code.gs` as two script code files. If deploying with `clasp`, exclude credentials and private manifest files from the publicly published repository; keep the Apps Script project private. Apps Script does not execute these files merely because they exist in the GitHub repository.
@@ -92,4 +94,4 @@ Before declaring an operational six-member intake and hands-free website mainten
 - Test retries, backlog handling, quota failures, prompt injection, ambiguous or embarrassing quotes, image metadata and faces, budgets, and removal/correction process.
 - Pilot with one or two consenting members, then move to all six when approved; do not expand OneSignal beyond CoL.
 
-**Current next decision:** the owner must establish the dedicated account (or explicitly authorise its creation through a suitable connected provider), confirm domain mail-routing constraints, agree on which inbox may be processed, and explicitly authorise any future OpenAI API billing and transmission of member submissions. None is implied by committing testable private-only code.
+**Next acceptance gate:** privately verify the one synthetic message's owner-only Drive outputs, run the duplicate/idempotency check, and disable the two synthetic switches again. No real submissions should be processed, and any future external AI transmission/API billing, standing trigger, authenticated approval or public publishing requires separate explicit authority.
