@@ -1,0 +1,163 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
+import {
+  validatePublicTextEntry, contentDigest, verifyApproval, buildApprovedAnnals,
+} from '../scripts/annals/ApprovedRenderer.mjs';
+
+const TEST_SECRET = 'synthetic-test-only-approval-key-at-least-32-characters-long';
+
+const baseDrink = {
+  id: 'sample-cocktail-01', category: 'cocktail',
+  title: 'A fictional test cocktail', summary: 'This is invented for automated testing.',
+  year: 2026, dateLabel: 'Illustrative month 2026', sortDate: '',
+  quoteVerbatim: '',
+  recipe: {
+    drinkIngredients: ['1/2 oz test syrup', '1 oz fictional juice'],
+    syrupIngredients: ['1 cup invented ingredient'],
+    steps: ['Stir the synthetic ingredients.'],
+  },
+  credit: 'anonymous',
+};
+
+const baseQuote = {
+  id: 'sample-quotation-01', category: 'quotation',
+  title: 'An invented line for testing', summary: 'This was not said by anyone.',
+  year: 2025, dateLabel: 'Undated synthetic example', sortDate: '',
+  quoteVerbatim: 'This is an invented test quotation.',
+  recipe: { drinkIngredients: [], syrupIngredients: [], steps: [] },
+  credit: 'a club member',
+};
+
+const canonical = obj => Array.isArray(obj) ? obj.map(canonical) :
+  obj && typeof obj === 'object'
+    ? Object.fromEntries(Object.keys(obj).sort().map(k => [k, canonical(obj[k])])) : obj;
+
+function signedTestReceipt(entry, consents = {}) {
+  const normalized = validatePublicTextEntry(entry);
+  const receipt = {
+    entryId: normalized.id, approvedAt: '2026-10-08T13:00:00Z',
+    reviewedBy: 'synthetic-test-reviewer',
+    consents: {
+      publication: true, quotePublication: false, recipeVerified: false,
+      namedAttribution: false, ...consents,
+    },
+    contentSha256: contentDigest(normalized),
+  };
+  const input = JSON.stringify(canonical({
+    entry: normalized, receipt,
+  }));
+  return {
+    ...receipt,
+    signature: createHmac('sha256', TEST_SECRET).update(input).digest('hex'),
+  };
+}
+
+test('a text-only fictional cocktail with explicit review and signed receipt can render', () => {
+  const receipt = signedTestReceipt(baseDrink, { recipeVerified: true });
+  assert.equal(verifyApproval(baseDrink, receipt, TEST_SECRET), true);
+  const result = buildApprovedAnnals([baseDrink], [receipt], TEST_SECRET);
+  assert.equal(result.entryCount, 1);
+  assert.ok(result.html.includes('The Annals of Stammtisch'));
+  assert.ok(result.html.includes('1/2 oz test syrup'));
+  assert.ok(result.html.includes('Homemade syrup'));
+  assert.ok(!result.html.includes('<script'));
+});
+
+test('future or revised content cannot reuse old approval', () => {
+  const receipt = signedTestReceipt(baseDrink, { recipeVerified: true });
+  assert.equal(verifyApproval({ ...baseDrink, summary: 'Changed after review' },
+    receipt, TEST_SECRET), false);
+  assert.equal(verifyApproval(baseDrink, receipt, 'not-secret'), false);
+  assert.equal(verifyApproval(baseDrink, { ...receipt, approvedAt: '2026-10-09T13:00:00Z' },
+    TEST_SECRET), false);
+  assert.throws(() => buildApprovedAnnals([baseDrink], [receipt], 'bad-secret'),
+    /Missing authenticated/);
+});
+
+test('cannot publish a quote without quote consent, including supposedly anonymous quotes', () => {
+  const bad = signedTestReceipt(baseQuote);
+  assert.equal(verifyApproval(baseQuote, bad, TEST_SECRET), false);
+  const good = signedTestReceipt(baseQuote, { quotePublication: true });
+  assert.equal(verifyApproval(baseQuote, good, TEST_SECRET), true);
+  assert.ok(buildApprovedAnnals([baseQuote], [good], TEST_SECRET).html.includes(
+    'This is an invented test quotation.'));
+});
+
+test('recipe verification and named attribution are separately consent-gated', () => {
+  assert.equal(verifyApproval(baseDrink, signedTestReceipt(baseDrink), TEST_SECRET), false);
+  const named = { ...baseDrink, credit: 'Test Contributor' };
+  assert.equal(verifyApproval(named, signedTestReceipt(named, { recipeVerified: true }), TEST_SECRET),
+    false);
+  assert.equal(verifyApproval(named, signedTestReceipt(named,
+    { recipeVerified: true, namedAttribution: true }), TEST_SECRET), true);
+});
+
+test('raw emails, extra photograph properties and unknown categories are forbidden', () => {
+  assert.throws(() => validatePublicTextEntry({ ...baseDrink, sourceEmail: 'private@example.test' }),
+    /Unexpected public entry field/);
+  assert.throws(() => validatePublicTextEntry({ ...baseDrink, image: '/private/photo.jpg' }),
+    /Unexpected public entry field/);
+  assert.throws(() => validatePublicTextEntry({ ...baseDrink, category: 'unverified' }),
+    /Unapproved entry category/);
+  assert.throws(() => validatePublicTextEntry({ ...baseDrink, category: 'uncategorised' }),
+    /Unapproved entry category/);
+  assert.throws(() => validatePublicTextEntry({ ...baseDrink, recipe: {
+    ...baseDrink.recipe, privateSource: 'email-001',
+  } }), /Unexpected recipe field/);
+});
+
+test('invalid dates and unsupported recipe/quote crossovers are refused', () => {
+  assert.throws(() => validatePublicTextEntry({ ...baseDrink, sortDate: '2026-02-30' }),
+    /Unverified or malformed/);
+  assert.throws(() => validatePublicTextEntry({ ...baseDrink, sortDate: '2025-12-15' }),
+    /Unverified or malformed/);
+  assert.throws(() => validatePublicTextEntry({ ...baseDrink, category: 'club_history' }),
+    /Unexpected recipe fields/);
+  assert.throws(() => validatePublicTextEntry({ ...baseDrink, quoteVerbatim: 'injected' }),
+    /Unexpected quotation text/);
+});
+
+test('all public text fields are escaped, including attempted HTML attributes and script', () => {
+  const attack = {
+    ...baseDrink,
+    title: 'A <script>alert(1)</script> test',
+    summary: '<img src=x onerror=alert(1)>',
+    recipe: { ...baseDrink.recipe, steps: ['<svg onload=alert(1)>'] },
+  };
+  const receipt = signedTestReceipt(attack, { recipeVerified: true });
+  const result = buildApprovedAnnals([attack], [receipt], TEST_SECRET);
+  assert.ok(result.html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
+  assert.ok(result.html.includes('&lt;img src=x onerror=alert(1)&gt;'));
+  assert.ok(result.html.includes('&lt;svg onload=alert(1)&gt;'));
+  assert.ok(!result.html.includes('<script>alert'));
+});
+
+test('duplicates and invalid receipts stop the entire batch, not just one entry', () => {
+  const receipt = signedTestReceipt(baseDrink, { recipeVerified: true });
+  assert.throws(() => buildApprovedAnnals([baseDrink, baseDrink], [receipt, receipt], TEST_SECRET),
+    /Duplicate entry/);
+  assert.throws(() => buildApprovedAnnals([baseDrink], [], TEST_SECRET),
+    /Invalid publication batch/);
+  assert.throws(() => buildApprovedAnnals([baseDrink], [{ ...receipt, signature: 'bad' }],
+    TEST_SECRET), /Missing authenticated/);
+});
+
+test('a mixed set of fictional entries sorts newest year first with existing navigation', () => {
+  const dReceipt = signedTestReceipt(baseDrink, { recipeVerified: true });
+  const qReceipt = signedTestReceipt(baseQuote, { quotePublication: true });
+  const html = buildApprovedAnnals(
+    [baseQuote, baseDrink], [qReceipt, dReceipt], TEST_SECRET,
+  ).html;
+  assert.ok(html.indexOf('id="year-2026"') < html.indexOf('id="year-2025"'));
+  assert.ok(html.includes('href="celebration.html"'));
+  assert.ok(html.includes('href="location.html"'));
+  assert.ok(html.includes('width=device-width'));
+});
+
+test('empty publication has no accidental test entry or sender data', () => {
+  const result = buildApprovedAnnals([], [], '');
+  assert.equal(result.entryCount, 0);
+  assert.ok(result.html.includes('The first entry awaits its appointed occasion'));
+  assert.ok(!result.html.includes('example.test'));
+});
