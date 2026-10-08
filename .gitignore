@@ -1,2 +1,9 @@
 __pycache__/
 *.py[cod]
+
+# Annals private working copies: not for any GitHub repository branch.
+.annals-private/
+annals-private/
+annals-preview/
+*.eml
+*.mbox
