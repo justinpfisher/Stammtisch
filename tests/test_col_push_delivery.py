@@ -80,13 +80,21 @@ class CoLPushTests(unittest.TestCase):
 
     def test_public_mode_first_seeds_and_never_broadcasts_old_updates(self):
         ledger = FakeLedger()
-        with mock.patch.object(sender, "send", side_effect=AssertionError("sent")):
+        with mock.patch.object(sender.verify, "same_public_register", return_value=True), \
+             mock.patch.object(sender, "send", side_effect=AssertionError("sent")):
             status = sender.live(DATA, COMMIT, APP, "placeholder", ledger)
         self.assertEqual(status, "seeded_without_sending")
         state = sender.parse(ledger.record["body"])
         self.assertEqual(state["last_digest"], sender.digest(DATA))
         self.assertEqual(state["last_result"], "seeded")
         self.assertIsNone(state["pending"])
+
+    def test_initial_checkpoint_does_not_seed_from_unpublished_site(self):
+        ledger = FakeLedger()
+        with mock.patch.object(sender.verify, "same_public_register", return_value=False):
+            with self.assertRaisesRegex(RuntimeError, "Cannot seed"):
+                sender.live(DATA, COMMIT, APP, "unused", ledger)
+        self.assertIsNone(ledger.record)
 
     def test_no_change_does_not_attempt_a_send(self):
         state = {"version": 1, "mode": "live", "last_digest": sender.digest(DATA),
