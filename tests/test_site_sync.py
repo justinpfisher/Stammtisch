@@ -57,7 +57,9 @@ def api_workbook():
 
 
 def sample(dead=False, confirmed=False):
-    pick = {"id":"matt-3","name":"Sample Person","born":"1940-01-01",
+    # Born Oct 5, 1928: age 98 at the confirmed Oct 5, 2026 death,
+    # worth 2 base points; selection #1 doubles this to 4 points.
+    pick = {"id":"matt-3","name":"Sample Person","born":"1928-10-05",
             "dateOfPassing":"2026-10-06" if dead else None,
             "counted":dead, "pick":1,"points":4, "ageText":None}
     if confirmed:
