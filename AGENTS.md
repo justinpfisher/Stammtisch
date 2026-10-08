@@ -2,6 +2,13 @@
 
 These rules apply to website, Celebration of Life, and notification work.
 
+
+## Club identity and institutional memory
+
+- Before changing club-facing narrative, membership descriptions, the Annual Assembly, image choices, or club traditions, consult `docs/club-context-and-history.md`. It consolidates relevant prior conversations **without** converting unapproved draft governance into adopted rules.
+- `docs/website-opportunity-review-2026-10-08.md` is a research/recommendation record, not authorization to implement its feature ideas. Preserve existing CoL and notification authorities and request an explicit product decision for new features.
+- The repository is public. Never add original private source/reference photos, private conversation transcripts, contacts, unapproved personal information, precise private gathering/entry details, or constitution drafts merely to expand the context record. Keep proposals distinct from member-approved history and seek consent for publicly archived photos/stories.
+
 ## Preferred execution machine
 
 - **GMKtec M6 Ultra (Windows 11) is the preferred local machine** for interactive development, Codex work started on that machine, offline tests, and browser previews. Prefer an existing verified checkout; for a new checkout use `C:\Projects\Stammtisch\Repositories\Stammtisch`. This preference does not prove the checkout exists or let cloud agents access the machine.
