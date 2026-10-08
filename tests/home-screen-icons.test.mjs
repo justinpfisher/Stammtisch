@@ -26,16 +26,16 @@ test('approved and derived Home Screen icons exist at the correct sizes', () => 
 
 test('all public pages declare the approved iOS icon and short name', () => {
   const pages = [
-    ['index.html', '/site-manifest.json?v=20261007'],
-    ['location.html', '/site-manifest.json?v=20261007'],
-    ['celebration.html', '/manifest.json?v=20261007'],
+    ['index.html', '/site-manifest.json?v=crest2'],
+    ['location.html', '/site-manifest.json?v=crest2'],
+    ['celebration.html', '/manifest.json'],
   ];
   for (const [path, manifest] of pages) {
     const html = get(path).toString('utf8');
     assert.ok(html.includes('rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"'), path);
     assert.ok(html.includes('name="apple-mobile-web-app-title" content="Stammtisch"'), path);
     assert.ok(html.includes('rel="manifest" href="' + manifest + '"'), path);
-    assert.ok(html.includes('/assets/favicon.png?v=20261007'), path);
+    assert.ok(html.includes('/assets/favicon.png?v=crest2'), path);
     assert.equal((html.match(/rel="apple-touch-icon"/g) || []).length, 1, path);
   }
 });
