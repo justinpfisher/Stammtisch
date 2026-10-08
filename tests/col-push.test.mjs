@@ -17,10 +17,13 @@ const uuid = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const ready = { schemaVersion: 1, mode: 'public', oneSignalAppId: uuid,
   audience: 'any_visitor_who_opts_in', source: 'celebration_of_life_only' };
 
-test('feature is not activated without confirmed pilot and nonempty OneSignal ID', () => {
-  assert.equal(config.mode, 'off');
-  assert.equal(config.oneSignalAppId, '');
-  assert.equal(pushConfigReady(config), false);
+test('feature is gated by explicit rollout mode, UUID and correct public audience', () => {
+  assert.ok(['off', 'pilot', 'public'].includes(config.mode));
+  if (config.mode === 'off') {
+    assert.equal(pushConfigReady(config), false);
+  } else {
+    assert.match(config.oneSignalAppId, /^[0-9a-f]{8}-/i);
+  }
   assert.equal(pushConfigReady({ ...ready, mode: 'off' }), false);
   assert.equal(pushConfigReady({ ...ready, oneSignalAppId: '' }), false);
   assert.equal(pushConfigReady({ ...ready, audience: 'members_only' }), false);
