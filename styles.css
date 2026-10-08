@@ -41,6 +41,18 @@ nav a:hover,nav a[aria-current="page"] { text-decoration:underline; text-decorat
 .crest-ring::after { content:""; position:absolute; inset:12px; border:1px solid #dedccc; border-radius:50%; pointer-events:none; }
 .hero-crest { width:86%; height:auto; position:relative; z-index:1; }
 .crest-caption { margin-top:24px; color:var(--brass); font:italic 15px/1.4 var(--serif); }
+
+/* Monthly Stammtisch: standing date-only reminder, not a claimed start hour. */
+.monthly-notice { background:var(--paper-deep); border-block:1px solid var(--line); }
+.monthly-inner { display:grid; grid-template-columns:minmax(0,1fr) 180px; gap:35px; align-items:center; padding-block:25px; }
+.monthly-copy h2 { margin-top:5px; font-size:clamp(26px,3vw,34px); line-height:1.2; letter-spacing:-.02em; }
+.monthly-copy>p:not(.eyebrow) { margin-top:8px; color:var(--muted); font-size:12px; line-height:1.7; }
+.monthly-copy time { color:var(--ink); font-weight:600; }
+.monthly-copy .text-link { margin-top:6px; }
+.monthly-copy>.monthly-calendar-note { font-size:10px!important; margin-top:5px!important; }
+.monthly-days { min-height:94px; border-left:1px solid var(--line); padding-left:25px; display:flex; align-items:center; gap:14px; }
+.monthly-days strong { font:54px/1 var(--serif); font-variant-numeric:tabular-nums; letter-spacing:-.04em; }
+.monthly-days span { max-width:98px; font:600 10px/1.5 var(--sans); text-transform:uppercase; letter-spacing:.07em; color:var(--muted); }
 .assembly-notice { background:var(--forest); color:var(--paper); }
 .notice-inner { display:grid; grid-template-columns:minmax(0,1fr) 440px; gap:48px; align-items:center; padding-block:37px; }
 .notice-event { display:grid; grid-template-columns:84px minmax(0,1fr); gap:35px; align-items:center; }
@@ -193,6 +205,12 @@ details[open]>summary>span { transform:rotate(45deg); }
   .countdown { gap:24px; margin:0; }
   .countdown span { font-size:42px; }
   .countdown small { font-size:8px; margin-top:7px; }
+
+  .monthly-inner { grid-template-columns:1fr; gap:15px; padding-block:23px; }
+  .monthly-copy h2 { font-size:27px; }
+  .monthly-days { min-height:0; border-left:0; border-top:1px solid var(--line); padding:14px 0 0; }
+  .monthly-days strong { font-size:38px; }
+  .monthly-days span { max-width:none; }
   .section-space { padding-block:55px; }
   .club-section { grid-template-columns:1fr; gap:28px; }
   .section-heading h2 { font-size:40px; margin-top:15px; }
