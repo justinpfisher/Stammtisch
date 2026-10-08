@@ -96,3 +96,11 @@ publishes changes. The separate GitHub Actions monitor checks hourly at :58 East
 Verify search (including accented names), member selection, nested disclosures,
 the commemoration filter, clearing filters, date/point details and original-sheet
 links on desktop and phone. Test all three pages after shared navigation changes.
+
+## Celebration of Life web notifications
+
+The site includes an **inactive-by-default** web-push integration prepared for a future OneSignal pilot. After a successful iPhone and Android pilot, subscribers may opt in from the CoL website; the intended audience is **any visitor who opts in**, not a private six-person list. No SMS numbers or additional app-store downloads are required. iPhone users must open Stammtisch from its Home Screen icon.
+
+Notification sending is separate from the existing verified CoL data publication, and is restricted to material Celebration of Life register updates. The pilot can send only to explicitly supplied test subscription identifiers. Public delivery requires a separate OneSignal configuration and two GitHub approval variables. **No OneSignal account, live message or subscription is activated by this code alone.**
+
+See [controlled notification rollout](docs/col-push-rollout.md) for configuration, test steps, safety gates, duplicate avoidance and manual activation.

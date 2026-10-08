@@ -246,3 +246,30 @@ details[open]>summary>.disclosure-icon { transform:rotate(45deg)!important; }
 
 .badge-preview { border-top:1px solid var(--line); margin-top:30px; }
 .badge-preview .awards-grid { padding-bottom:15px; }
+
+/* Optional CoL push subscriptions. Hidden on the live site until configured. */
+.col-push-section[hidden],
+.col-push-actions button[hidden],
+[data-col-push-ios-help][hidden] { display: none !important; }
+.col-push-section { margin-block: 1.5rem 2rem; }
+.col-push-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
+  border: 1px solid rgba(25,61,50,.24); border-radius: 14px;
+  background: #f4f5ef; color: #193d32; padding: 1.25rem 1.5rem;
+}
+.col-push-card h2 { margin: .2rem 0 .6rem; font-size: clamp(1.2rem,2vw,1.65rem); }
+.col-push-card p { max-width: 68ch; margin: .35rem 0; line-height: 1.55; }
+.col-push-status { font-weight: 650; }
+.col-push-privacy { font-size: .82rem; opacity: .85; }
+.col-push-privacy a { color: inherit; text-decoration: underline; }
+.col-push-actions { flex: 0 0 auto; }
+.col-push-actions button {
+  min-height: 44px; padding: .75rem 1rem; border: 0; border-radius: .5rem;
+  background: #193d32; color: white; font: inherit; font-weight: 650; cursor: pointer;
+}
+.col-push-actions button:focus-visible { outline: 3px solid #d9ab60; outline-offset: 3px; }
+.col-push-actions button:disabled { opacity: .6; cursor: wait; }
+@media (max-width: 680px) {
+  .col-push-card { flex-direction: column; align-items: stretch; }
+  .col-push-actions button { width: 100%; }
+}

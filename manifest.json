@@ -1,0 +1,19 @@
+{
+  "id": "/celebration.html",
+  "name": "Stammtisch · Celebration of Life",
+  "short_name": "Stammtisch CoL",
+  "description": "Stammtisch Celebration of Life standings and notifications",
+  "start_url": "/celebration.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f7f1",
+  "theme_color": "#193d32",
+  "icons": [
+    {
+      "src": "/stammtisch-crest.png",
+      "type": "image/png",
+      "sizes": "any",
+      "purpose": "any"
+    }
+  ]
+}

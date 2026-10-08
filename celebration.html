@@ -13,9 +13,12 @@
   <meta property="og:url" content="https://stammtischbrewery.com/celebration.html">
   <meta property="og:image" content="https://stammtischbrewery.com/stammtisch-crest.png">
   <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/stammtisch-crest.png">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="celebration.css">
   <script type="module" src="celebration.mjs"></script>
+  <script type="module" src="col-push.mjs"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -27,6 +30,24 @@
     <section class="celebration-hero shell" aria-labelledby="celebration-title">
       <div><p class="eyebrow"><span class="little-rule" aria-hidden="true"></span>A Stammtisch tradition</p><h1 id="celebration-title">Celebration <em>of Life.</em></h1></div>
       <div class="celebration-intro"><p>Each of us keeps a list of people who matter to us. When one of them passes, we gather at the next Stammtisch to commemorate their life and what they brought to the world.</p><a class="text-link" href="#how-it-works">Our tradition &amp; the scoring <span aria-hidden="true">↓</span></a> <a class="text-link" href="#official-rules">Read the official rules <span aria-hidden="true">↓</span></a></div>
+    </section>
+    <section class="shell col-push-section" data-col-push hidden aria-labelledby="col-push-heading">
+      <div class="col-push-card">
+        <div>
+          <p class="eyebrow">Optional notifications</p>
+          <h2 id="col-push-heading">Celebration of Life updates</h2>
+          <p data-col-push-explanation>Get a notification when the CoL register changes and the updated website is live. Unchanged hourly checks and other Stammtisch pages never trigger an alert.</p>
+          <p class="col-push-status" data-col-push-status role="status" aria-live="polite"></p>
+          <div data-col-push-ios-help hidden>
+            <p><strong>iPhone/iPad:</strong> In Safari, open Share → Add to Home Screen. Open Stammtisch using the new Home Screen icon, then return here to enable notifications. No App Store download is required.</p>
+          </div>
+          <p class="col-push-privacy">Only subscribe if you want these alerts. After you choose Set up, OneSignal processes browser and device subscription information to deliver notifications. You can turn alerts off on this device at any time. <a href="https://onesignal.com/privacy_policy" target="_blank" rel="noopener noreferrer">OneSignal privacy policy ↗</a></p>
+        </div>
+        <div class="col-push-actions">
+          <button type="button" data-col-push-prepare>Set up CoL notifications</button>
+          <button type="button" data-col-push-toggle hidden>Enable CoL notifications</button>
+        </div>
+      </div>
     </section>
     <section class="standings-section" aria-labelledby="standings-title">
       <div class="shell">

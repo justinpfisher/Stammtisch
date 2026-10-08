@@ -1,0 +1,89 @@
+name: Celebration of Life web push
+
+# Inactive until explicit repository configuration; site mode also starts off.
+on:
+  workflow_run:
+    workflows: ["Celebration sheet monitor"]
+    types: [completed]
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'data/celebration.json'
+  schedule:
+    - cron: '29 * * * *'
+  workflow_dispatch:
+    inputs:
+      pilot_test:
+        description: "Send a single test only to protected pilot subscription IDs"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: stammtisch-col-push-delivery
+  cancel-in-progress: false
+
+jobs:
+  deliver:
+    # Pilot sends only on manual dispatch; live needs two independent gates.
+    if: >-
+      (vars.COL_PUSH_DELIVERY_MODE == 'pilot' && github.event_name == 'workflow_dispatch')
+      ||
+      (vars.COL_PUSH_DELIVERY_MODE == 'live' && vars.COL_PUSH_LIVE_APPROVED == 'true'
+        && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'))
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      COL_PUSH_DELIVERY_MODE: ${{ vars.COL_PUSH_DELIVERY_MODE }}
+      COL_PUSH_LIVE_APPROVED: ${{ vars.COL_PUSH_LIVE_APPROVED }}
+      COL_PUSH_ONESIGNAL_API_KEY: ${{ secrets.COL_PUSH_ONESIGNAL_API_KEY }}
+      COL_PUSH_TEST_SUBSCRIPTION_IDS: ${{ secrets.COL_PUSH_TEST_SUBSCRIPTION_IDS }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Send only the authorised pilot or published CoL change
+        run: |
+          set -eu
+          action=check
+          if [ "${{ github.event_name }}" = 'workflow_dispatch' ] && [ "${{ inputs.pilot_test }}" = 'true' ]; then
+            action=pilot-test
+          fi
+          python scripts/col-push-delivery.py --action "$action"
+      - name: Open or update a metadata-only push failure issue
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Celebration web push: delivery requires review';
+            const runLink = context.serverUrl + '/' + context.repo.owner + '/' +
+              context.repo.repo + '/actions/runs/' + context.runId;
+            const body = 'No website data was changed. Push delivery stopped safely in ' +
+              runLink + '. Check the workflow with repository-owner access. No OneSignal keys, ' +
+              'subscription identifiers, or private workbook content are included here.';
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100
+            });
+            const previous = issues.find(i => i.title === title);
+            if (!previous) {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo, title, body
+              });
+            } else {
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: previous.number, per_page: 100
+              });
+              if (![previous.body, ...comments.map(c => c.body)].some(t => t?.includes(runLink))) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: previous.number, body
+                });
+              }
+            }

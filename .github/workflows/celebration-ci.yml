@@ -8,6 +8,12 @@ on:
       - 'scripts/**'
       - 'data/celebration*.json'
       - 'celebration*.mjs'
+      - 'col-push.mjs'
+      - 'manifest.json'
+      - 'data/col-push-config.json'
+      - 'push/**'
+      - 'celebration.html'
+      - 'celebration.css'
       - 'tests/**'
   workflow_dispatch:
 
