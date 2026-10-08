@@ -6,12 +6,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/celebration-sheet-monitor.yml'
-      - 'scripts/monitor-celebration-sheet.py'
-      - 'scripts/sync-celebration-sheet.py'
-      - 'scripts/import-celebration.py'
-      - 'tests/celebration.test.mjs'
-      - 'tests/celebration-awards.test.mjs'
-      - 'tests/test_site_sync.py'
+      - 'scripts/**'
+      - 'tests/**'
       - 'data/celebration-confirmations.json'
   schedule:
     - cron: '58 * * * *'
@@ -160,6 +156,12 @@ jobs:
               exit 1
             fi
           fi
+      - name: Verify visitor-facing website register
+        # A Pages build may finish before the public CDN serves the new data.
+        # Do not mark the encrypted source baseline successful until the actual
+        # public JSON is identical to the validated committed register.
+        if: success() && steps.site_sync.outcome == 'success'
+        run: python scripts/verify-celebration-publication.py --expected data/celebration.json --commit "$(git rev-parse HEAD)"
       - name: Record successful website publication
         if: success() && steps.site_commit.outputs.changed == 'true' && vars.CELEBRATION_SHEET_MONITOR_ISSUES_ENABLED != 'false'
         uses: actions/github-script@v7

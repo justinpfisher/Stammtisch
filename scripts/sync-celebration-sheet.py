@@ -142,6 +142,18 @@ def canonical_sheet_mapping(tabs):
         raise ValueError("Expected tabs missing from live workbook")
     if extra:
         raise ValueError("Additional unmapped tabs present in live workbook")
+    # An exact tab name is not sufficient authority to assign its contents to a
+    # member. A worksheet accidentally swapped or repurposed under the same
+    # title must not silently reassign people or scores.
+    for member_id, expected_label in MEMBER_LABELS.items():
+        member_cells = tabs[mapped[member_id]]
+        if (not looks_like_member_tab(member_cells)
+                or normalized_label(member_cells["B1"]["value"]) != normalized_label(expected_label)):
+            raise ValueError("Member tab content does not match its verified club identity")
+    if not looks_like_leaderboard(tabs[mapped["LEADERBOARD"]]):
+        raise ValueError("Leaderboard structure changed; manual mapping review required")
+    if not looks_like_buttons(tabs[mapped["buttons"]]):
+        raise ValueError("Button tab structure changed; manual mapping review required")
     return mapped
 
 
@@ -228,7 +240,13 @@ def public_material(data):
         for pick in member["picks"]:
             if not pick["counted"] and not pick["dateOfPassing"]:
                 pick.pop("ageText", None)
-                pick.pop("points", None)
+                # Volatile age-derived formulas can recalculate without an
+                # entered edit and do not need a new deployment. But a literal
+                # unawarded point value is still referenced by the site's
+                # source-difference note. Never silently discard a manual
+                # numeric edit to that value.
+                if pick.get("pointsFormula"):
+                    pick.pop("points", None)
     return result
 
 def verified_evidence(pick):
@@ -266,6 +284,62 @@ def prepare(workbook, existing, confirmations, checked_at, allow_research=True):
     if candidate["asOf"] > datetime.now(timezone.utc).date().isoformat():
         # Sheets may use Eastern Time. A future date, however, is never acceptable.
         raise ValueError("Spreadsheet snapshot date is in the future")
+    # Do not silently erase a public club commemoration through a cell
+    # deletion, formula error, or mistaken paste. Corrections of established
+    # deaths need reviewed action rather than automatic "resurrection".
+    previous = {p["id"]: p for m in existing["members"] for p in m["picks"]}
+    for member in candidate["members"]:
+        for pick in member["picks"]:
+            prior = previous.get(pick["id"])
+            if (prior and prior["name"] == pick["name"] and prior["born"] == pick["born"]
+                    and prior.get("dateOfPassing") and not pick.get("dateOfPassing")):
+                raise ValueError("Previously published club passing was removed without review")
+    # Previously verified death dates remain authoritative after a later Sheet
+    # correction. Otherwise an old group discovery date can be accidentally
+    # moved to *before* the independently established death without triggering
+    # the "newly reported" gate.
+    for member in candidate["members"]:
+        for pick in member["picks"]:
+            recorded = pick.get("dateOfPassing")
+            actual = pick.get("actualDeathDate") or (pick.get("dateSource") or {}).get("dateOfPassing")
+            if recorded and actual and recorded < actual:
+                raise ValueError("Club discovery date precedes the verified actual death date")
+    # The pool recognises one collective group-discovery date per celebrity,
+    # even if two members list that person (including Birthday Buffet). Conflicting
+    # source dates must not silently choose whichever entry renders first.
+    shared = {}
+    for member in candidate["members"]:
+        for pick in member["picks"]:
+            identity = (verifier.norm(pick["name"]), pick["born"])
+            shared.setdefault(identity, []).append(pick)
+    for entries in shared.values():
+        discovered = {p["dateOfPassing"] for p in entries if p.get("dateOfPassing")}
+        actual = {p.get("actualDeathDate") or (p.get("dateSource") or {}).get("dateOfPassing")
+                  for p in entries}
+        actual.discard(None)
+        if len(discovered) > 1:
+            raise ValueError("Shared celebrity has conflicting group discovery dates")
+        if len(actual) > 1:
+            raise ValueError("Shared celebrity has conflicting verified death dates")
+    # For independently verified actual death dates, check the club's
+    # arithmetic even if the Sheet's own totals reconcile. A consistent typo
+    # could otherwise change both the leaderboard and the website together.
+    # Preserve explicitly approved group-voted allocations (Kevin Keegan).
+    for member in candidate["members"]:
+        for pick in member["picks"]:
+            verified_date = pick.get("actualDeathDate") or (
+                pick.get("dateSource") or {}
+            ).get("dateOfPassing")
+            if not pick["counted"] or not verified_date or pick.get("allocationDecision"):
+                continue
+            born = date.fromisoformat(pick["born"])
+            died = date.fromisoformat(verified_date)
+            years = died.year - born.year - ((died.month, died.day) <
+                                             (born.month, born.day))
+            base = 10 if years == 100 else 100 - years
+            expected = base * (2 if pick["pick"] in (1, 50) else 1)
+            if pick["points"] != expected:
+                raise ValueError("Verified passing points disagree with the club's scoring rules")
     known_sources = {}
     for member in candidate["members"]:
         for pick in member["picks"]:
@@ -322,6 +396,26 @@ def failure_code(exc):
         ("Expected tabs missing from live workbook", "required_tabs_missing"),
         ("Additional unmapped tabs present in live workbook", "extra_tabs_present"),
         ("Sheet names changed", "unsupported_tabs"),
+        ("Member tab content does not match its verified club identity", "member_identity_conflict"),
+        ("Leaderboard structure changed", "leaderboard_structure_changed"),
+        ("Button tab structure changed", "button_tab_structure_changed"),
+        ("Club discovery date precedes", "discovery_precedes_death"),
+        ("Shared celebrity has conflicting group discovery dates", "shared_group_discovery_conflict"),
+        ("Verified passing points disagree", "verified_scoring_conflict"),
+        ("Shared celebrity has conflicting verified death dates", "shared_actual_death_conflict"),
+        ("Previously published club passing was removed", "published_passing_removed"),
+        ("Member snapshot date is missing", "snapshot_date_invalid"),
+        ("A passing date was entered as unparsed text", "unparsed_passing_date"),
+        ("Selection number or extra entry label is invalid", "invalid_selection_number"),
+        ("The numbered selections must contain every position", "duplicate_or_missing_selection"),
+        ("A member has duplicate celebrity selections", "duplicate_member_selection"),
+        ("Counted score formula references a missing", "missing_counted_selection"),
+        ("The member total formula repeats a source row", "duplicate_score_reference"),
+        ("Selection birth date is missing", "invalid_birth_date"),
+        ("Recorded passing date is outside", "invalid_recorded_death_date"),
+        ("A counted passing lacks a valid recorded date", "counted_passing_date_missing"),
+        ("Selection points must be numeric", "invalid_points_type"),
+        ("A numbered selection name is blank", "blank_selection_name"),
         ("Unrecognized total formula", "unsupported_score_formula"),
         ("Invalid points in", "invalid_point_value"),
         ("Member sheets have inconsistent snapshot dates", "inconsistent_snapshot_dates"),

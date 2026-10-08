@@ -57,7 +57,9 @@ def api_workbook():
 
 
 def sample(dead=False, confirmed=False):
-    pick = {"id":"matt-3","name":"Sample Person","born":"1940-01-01",
+    # Born Oct 5, 1928: age 98 at the confirmed Oct 5, 2026 death,
+    # worth 2 base points; selection #1 doubles this to 4 points.
+    pick = {"id":"matt-3","name":"Sample Person","born":"1928-10-05",
             "dateOfPassing":"2026-10-06" if dead else None,
             "counted":dead, "pick":1,"points":4, "ageText":None}
     if confirmed:
@@ -160,11 +162,19 @@ class SyncTests(unittest.TestCase):
     def test_derived_ageing_does_not_trigger_publish(self):
         before = sample()
         after = sample()
+        before["members"][0]["picks"][0]["pointsFormula"] = "ROUNDUP(100-DATEDIF(...))"
+        after["members"][0]["picks"][0]["pointsFormula"] = "ROUNDUP(100-DATEDIF(...))"
         after["capturedAt"] = "later"
         after["asOf"] = "2026-10-08"
         after["members"][0]["picks"][0]["points"] = 5
         after["members"][0]["picks"][0]["ageText"] = "86y"
         self.assertEqual(sync.public_material(before), sync.public_material(after))
+
+    def test_manual_unawarded_point_edit_triggers_public_update(self):
+        before, after = sample(), sample()
+        after["members"][0]["picks"][0]["points"] = 5
+        self.assertNotEqual(sync.public_material(before), sync.public_material(after))
+
 
     def test_failure_codes_disclose_no_private_sheet_details(self):
         examples = {
