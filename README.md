@@ -6,7 +6,8 @@ The publishing branch is `main`; there is no build step.
 
 ## Club context and review
 
-- [Club context and institutional memory](docs/club-context-and-history.md) — six-person club identity, history, traditions, settled vs draft decisions, private-photo boundary, and source hierarchy. Read this before changing the club narrative.
+- [Club context and institutional memory](docs/club-context-and-history.md) — six-person club identity, third-Friday meetings, homemade cocktail tradition, Annual Assembly, January CoL draft continuity, settled vs draft decisions, private-photo boundary, and source hierarchy. Read this before changing the club narrative.
+- [The Annals: privacy and publication guide](docs/annals-publication-guidelines.md) — the owner's text-first public history preference; review and consent requirements for new personal photos/stories and contributed cocktail recipes.
 - [Website and opportunity review (8 October 2026)](docs/website-opportunity-review-2026-10-08.md) — functionality assessment, known limitations, risk-ranked recommendations and suggested tests. This is analysis, **not** authority to implement proposed features or change CoL rules.
 
 The context summary does not replace the official Celebration of Life rules, source spreadsheet, published event facts or the repository safeguards in `AGENTS.md`.
@@ -18,6 +19,8 @@ The context summary does not replace the official Celebration of Life rules, sou
 - `styles.css`: shared responsive design.
 - `assembly.mjs`: countdown based on the page's `time[data-assembly-start]`.
 - `assembly-2027.ics`: a calendar start reminder, with no invented end time.
+- `monthly.mjs`: Toronto-local next third-Friday date and day-only countdown; no invented meeting hour.
+- `stammtisch-monthly.ics`: repeatable third-Friday **all-day date reminder** (not an all-day meeting or a confirmed location).
 - `assets/`: resized crest files; the original PNG remains for sharing previews.
 - `celebration.html`, `celebration.css`, `celebration.mjs`: Celebration of Life standings, searchable member lists, commemorations, scoring, and button ideas.
 - `celebration-awards.mjs`, `celebration-rules.mjs`: calculated award leaders, badge previews and draft benefits, using the pool's scoring rules.
@@ -27,7 +30,9 @@ The context summary does not replace the official Celebration of Life rules, sou
 
 ## Event details
 
-Confirmed start: February 5, 2027, at 09:00 America/Toronto (14:00 UTC).
+**Monthly Stammtisch:** the standing date is the **third Friday of every month**, often at the headquarters. Exact meeting time, venue, and occasional exceptions are agreed privately. The homepage computes the next third Friday in **America/Toronto**, using calendar days rather than hours to a presumed start time. The downloadable `stammtisch-monthly.ics` is an **all-day calendar date placeholder**, not a claim the meeting lasts all day. It recurs as `RRULE:FREQ=MONTHLY;BYDAY=3FR`, starts on October 16, 2026 and deliberately omits a private location. Changing the standing rule requires updating the website, script, calendar and tests together.
+
+**Annual Gentlemen's Assembly:** separate **off-site** gathering, typically at a rented cottage. The confirmed 2027 start is February 5, 2027, at 09:00 America/Toronto (14:00 UTC).
 When changing the gathering, update the visible dates and `datetime` values
 on both pages, the sharing descriptions, the calendar file, and the
 completion message in `assembly.mjs` together.
@@ -48,13 +53,15 @@ desktop and phone widths. Check navigation, disclosure sections, cottage
 and area-map links, and the calendar download. Calendar clients may apply
 their own default duration to the start-only calendar reminder.
 
-Run the countdown and calendar regression checks:
+Run both event/date/calendar regression suites:
 
 ```
-node --test tests/assembly.test.mjs
+node --test tests/assembly.test.mjs tests/monthly.test.mjs
 ```
 
 ## Celebration of Life
+
+**January drafting:** The 2027 selections are normally made at the **January Stammtisch**. The current picks stay active until the actual draft, rather than automatically swapping on January 1. The **January 1–December 31 scoring year** is separately governed by the official rules. How an intervening January passing affects the new year's scores **has not yet been confirmed**; do not change the importer, yearly calculations or notifications until that interpretation is resolved and reviewed.
 
 The [official Celebration of Life rules](docs/celebration-of-life-rules.md)
 are the reference for scoring, diamonds, Birthday Buffet, prizes and drafting.
@@ -107,9 +114,9 @@ links on desktop and phone. Test all three pages after shared navigation changes
 
 ## Celebration of Life web notifications
 
-The site includes an **inactive-by-default** web-push integration prepared for a future OneSignal pilot. After the confirmed iPhone pilot and explicit public activation approval (Android testing was waived), subscribers may opt in from the CoL website; the intended audience is **any visitor who opts in**, not a private six-person list. No SMS numbers or additional app-store downloads are required. iPhone users must open Stammtisch from its Home Screen icon.
+The site includes an opt-in OneSignal web-push integration, **activated for public subscription on October 8, 2026**, following a successful iPhone pilot and owner approval (physical Android delivery testing was waived and remains unverified). The intended audience is **any visitor who explicitly opts in**, not just six members. No SMS numbers or additional app-store downloads are required; iPhone users must open Stammtisch from its Home Screen icon.
 
-Notification sending is separate from the existing verified CoL data publication, and is restricted to genuinely new, independently confirmed passings with reconciled awarded points for every recipient. Ordinary edits, corrections, historical records and redeployments are silent. The pilot can send only to explicitly supplied test subscription identifiers. Public delivery requires a separate OneSignal configuration and two GitHub approval variables. **The existing OneSignal account is connected in pilot mode. Public notifications remain off; deploying this code does not send a message.**
+Notification sending is separate from the existing verified CoL data publication, and is restricted to genuinely new, independently confirmed passings with reconciled awarded points for every recipient. Ordinary edits, corrections, historical records and redeployments are silent. Public CoL notification delivery is separately guarded by OneSignal configuration and GitHub approval variables. The initial live ledger was seeded with pre-existing events to prevent historical alerts. Successful setup does **not** prove that every future real-world delivery or Android device will succeed. Do not send a fabricated death or a historical alert merely to test the feature.
 
 See [controlled notification rollout](docs/col-push-rollout.md) for configuration, test steps, safety gates, duplicate avoidance and manual activation.
 
