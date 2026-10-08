@@ -1,6 +1,8 @@
 # Annals of Stammtisch — private email-intake prototype runbook
 
-**As of 8 October 2026 | NOT ACTIVATED | Source-only and synthetic testing.**
+**As of 8 October 2026 | Processing NOT ACTIVATED | Source-only and synthetic testing.**
+
+**Routing update:** The owner has verified the free custom-domain forward, both test deliveries and an opened attachment; the dedicated inbox has two-step verification enabled. See issue #24. The owner then authorised preparation and execution of a private synthetic intake/preview pilot. Follow [the narrower manual synthetic setup](annals-synthetic-pilot-setup.md), deploying `PilotCore.js` + `SyntheticPilot.gs` only. No Google processing project or OAuth grant has been verified yet. Older future-setup descriptions below are historical prototype instructions, not a claim that routing remains unavailable or permission to activate broader inbox scanning.
 
 ## Custom-domain receiving address — not yet activated
 
