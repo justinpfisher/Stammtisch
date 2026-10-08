@@ -3,6 +3,14 @@
 Static website published through GitHub Pages at https://stammtischbrewery.com/.
 The publishing branch is `main`; there is no build step.
 
+
+## Club context and review
+
+- [Club context and institutional memory](docs/club-context-and-history.md) — six-person club identity, history, traditions, settled vs draft decisions, private-photo boundary, and source hierarchy. Read this before changing the club narrative.
+- [Website and opportunity review (8 October 2026)](docs/website-opportunity-review-2026-10-08.md) — functionality assessment, known limitations, risk-ranked recommendations and suggested tests. This is analysis, **not** authority to implement proposed features or change CoL rules.
+
+The context summary does not replace the official Celebration of Life rules, source spreadsheet, published event facts or the repository safeguards in `AGENTS.md`.
+
 ## Files
 
 - `index.html`: Club introduction and Assembly countdown.
