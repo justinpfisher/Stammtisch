@@ -150,11 +150,15 @@ def send(key, data):
         "Accept": "application/json", "User-Agent": "Stammtisch-CoL-Push/1.0"})
     with urlopen(req, timeout=25) as response:
         result = json.loads(response.read(1000000))
+    # OneSignal may return HTTP 200 with an empty id. Only its documented
+    # zero-recipient response is a benign no-send; never acknowledge arbitrary
+    # provider errors as though there were simply no subscribers.
     if result.get("id"):
-        return "accepted"
-    if result.get("errors"):
+        return "accepted_partial" if result.get("errors") else "accepted"
+    if (result.get("id") == "" and result.get("recipients") == 0
+            and result.get("errors") == ["All included players are not subscribed"]):
         return "no_recipients"
-    raise RuntimeError("No OneSignal message acknowledgement")
+    raise RuntimeError("Unexpected OneSignal response; review required")
 
 
 def historical(commit):
@@ -217,7 +221,12 @@ def main():
         recipients = json.loads(os.getenv("COL_PUSH_TEST_SUBSCRIPTION_IDS") or "[]")
         test = payload(app_id, "Stammtisch CoL pilot test. Public notifications are still off.",
                        str(uuid.uuid4()), recipients)
-        print("Pilot send status: " + send(secret, test))
+        result = send(secret, test)
+        # An HTTP 200 no-send or partial recipient failure is not a passed pilot.
+        # Physical reception and click-through still require device confirmation.
+        if result != "accepted":
+            raise RuntimeError("Pilot was not accepted for all test devices")
+        print("Pilot send status: " + result)
         return 0
     if os.getenv("COL_PUSH_LIVE_APPROVED") != "true" or args.action == "pilot-test":
         raise ValueError("Public CoL push has not been separately approved")
