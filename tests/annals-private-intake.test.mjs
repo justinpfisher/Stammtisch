@@ -132,6 +132,8 @@ test('attachment triage holds HEIC for conversion and rejects risky/oversized fi
   assert.equal(core.attachmentPolicy('image/jpeg', 9 * 1024 * 1024).accepted, false);
   assert.equal(core.planAttachments(Array(7).fill({ mime: 'text/plain', size: 10 })).held, true);
   assert.equal(core.planAttachments([{ mime: 'application/pdf', size: 100 }]).held, false);
+  assert.equal(core.planAttachments([null]).held, true);
+  assert.equal(core.planAttachments([{}]).held, true);
 });
 
 test('disabled pilot never opens inbox, Drive or a lock', () => {
