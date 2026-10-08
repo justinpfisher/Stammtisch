@@ -240,7 +240,13 @@ def public_material(data):
         for pick in member["picks"]:
             if not pick["counted"] and not pick["dateOfPassing"]:
                 pick.pop("ageText", None)
-                pick.pop("points", None)
+                # Volatile age-derived formulas can recalculate without an
+                # entered edit and do not need a new deployment. But a literal
+                # unawarded point value is still referenced by the site's
+                # source-difference note. Never silently discard a manual
+                # numeric edit to that value.
+                if pick.get("pointsFormula"):
+                    pick.pop("points", None)
     return result
 
 def verified_evidence(pick):
