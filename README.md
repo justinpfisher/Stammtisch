@@ -104,3 +104,17 @@ The site includes an **inactive-by-default** web-push integration prepared for a
 Notification sending is separate from the existing verified CoL data publication, and is restricted to material Celebration of Life register updates. The pilot can send only to explicitly supplied test subscription identifiers. Public delivery requires a separate OneSignal configuration and two GitHub approval variables. **No OneSignal account, live message or subscription is activated by this code alone.**
 
 See [controlled notification rollout](docs/col-push-rollout.md) for configuration, test steps, safety gates, duplicate avoidance and manual activation.
+
+## Home Screen icons (iPhone and Android)
+
+The approved six-person composite is `assets/stammtisch-app-icon-approved.png`.
+Only this approved composite is public; the original reference photographs and
+individual reference portraits remain private and are not committed here.
+`apple-touch-icon.png` is the 180 × 180 icon for iOS; the 192 × 192, 512 × 512,
+and maskable 512 × 512 PWA variants live in `assets/`.
+`site-manifest.json` supports the Club and Assembly pages, while
+`manifest.json` keeps the existing Celebration of Life app identity and
+start URL so that its optional notification pilot is not disturbed.
+Both use the short Home Screen name `Stammtisch`.
+Existing installed iPhone Home Screen shortcuts may retain cached icons and
+can be removed and re-added from Safari if they do not refresh.
