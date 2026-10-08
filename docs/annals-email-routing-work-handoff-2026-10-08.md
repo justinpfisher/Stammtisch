@@ -1,7 +1,7 @@
 # Annals: free custom-domain email routing — Work handoff
 
 **Date:** 8 October 2026  
-**Status:** Implementation handoff, **not** a record that the address or live automation has been activated.
+**Status update (8 October 2026):** The original setup procedure below is retained as a historical handoff. Its **receiving-only** outcome was subsequently completed: the owner confirmed two deliveries, an opened attachment and two-step verification on the dedicated account; see [issue #24](https://github.com/justinpfisher/Stammtisch/issues/24). A later narrowly labelled synthetic intake run staged one test item according to owner-provided logs. The private outputs still require acceptance checks. No paid AI, standing trigger, authenticated approval or public Annals publishing was enabled. Do not repeat account creation or change MX/DNS merely because the original instructions below are written as future steps.
 
 ## Practical objective
 
