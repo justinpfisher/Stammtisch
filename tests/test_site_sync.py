@@ -160,11 +160,19 @@ class SyncTests(unittest.TestCase):
     def test_derived_ageing_does_not_trigger_publish(self):
         before = sample()
         after = sample()
+        before["members"][0]["picks"][0]["pointsFormula"] = "ROUNDUP(100-DATEDIF(...))"
+        after["members"][0]["picks"][0]["pointsFormula"] = "ROUNDUP(100-DATEDIF(...))"
         after["capturedAt"] = "later"
         after["asOf"] = "2026-10-08"
         after["members"][0]["picks"][0]["points"] = 5
         after["members"][0]["picks"][0]["ageText"] = "86y"
         self.assertEqual(sync.public_material(before), sync.public_material(after))
+
+    def test_manual_unawarded_point_edit_triggers_public_update(self):
+        before, after = sample(), sample()
+        after["members"][0]["picks"][0]["points"] = 5
+        self.assertNotEqual(sync.public_material(before), sync.public_material(after))
+
 
     def test_failure_codes_disclose_no_private_sheet_details(self):
         examples = {
