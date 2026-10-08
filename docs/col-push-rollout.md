@@ -31,7 +31,7 @@
 3. Inspect the deployed service worker directly at https://stammtischbrewery.com/push/onesignal/OneSignalSDKWorker.js. It must serve JavaScript under this origin, without a redirect or login. The code's fixed worker path and scope must remain /push/onesignal/.
 4. Update the public config file with the real App ID and mode pilot, keeping the subscriber audience type unchanged. In pilot mode the panel is shown only for the special test URL:
    https://stammtischbrewery.com/celebration.html?colPushPilot=1
-   This query parameter is a **visibility aid, not security or an authentication secret**. It allows testing browser subscription only; it grants nobody permission to send a message.
+   This query parameter is a **visibility aid, not security or an authentication secret**. iPhone Home Screen apps can open the manifest's fixed start URL without retaining the pilot query; therefore the pilot panel also appears when a visitor opens the already-installed standalone Stammtisch web app. Public notifications are still impossible in pilot mode because the sender only supports a manual, individually allowlisted test.
 5. Create a GitHub Actions secret named COL_PUSH_ONESIGNAL_API_KEY containing the OneSignal app REST API key. Create another secret COL_PUSH_TEST_SUBSCRIPTION_IDS containing a JSON array of one or two confirmed pilot Subscription IDs from the OneSignal dashboard. These IDs are never committed to the repo or included in GitHub issues.
 6. Set GitHub repository variable COL_PUSH_DELIVERY_MODE to pilot. Leave COL_PUSH_LIVE_APPROVED absent or false.
 7. Have one iPhone and one Android participant subscribe through the test URL. Validate their devices appear subscribed in OneSignal and that the browser's native notification setting is enabled.
