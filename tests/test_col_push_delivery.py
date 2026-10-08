@@ -148,5 +148,65 @@ class CoLPushTests(unittest.TestCase):
                 sender.live(DATA, COMMIT, APP, "test", FakeLedger(state))
 
 
+    def test_onesignal_acknowledgements_fail_closed_on_unexpected_errors(self):
+        import io
+        key = "test-only-key"
+        packet = sender.payload(APP, "test-only message", "test-id", [APP])
+        cases = [
+            ({"id": APP}, "accepted"),
+            ({"id": APP, "errors": {"invalid_player_ids": [APP]}}, "accepted_partial"),
+            ({"id": "", "recipients": 0,
+              "errors": ["All included players are not subscribed"]}, "no_recipients"),
+        ]
+        for response, expected in cases:
+            with self.subTest(response=response), mock.patch.object(
+                    sender, "urlopen", return_value=io.BytesIO(
+                        json.dumps(response).encode("utf-8"))):
+                self.assertEqual(sender.send(key, packet), expected)
+        for response in [
+            {"id": "", "recipients": 0, "errors": ["Invalid targeting"]},
+            {"id": "", "recipients": 3,
+             "errors": ["All included players are not subscribed"]},
+            {"id": "", "errors": ["All included players are not subscribed"]},
+            {"errors": ["Other provider failure"]},
+            {"id": None},
+            {},
+        ]:
+            with self.subTest(response=response), mock.patch.object(
+                    sender, "urlopen", return_value=io.BytesIO(
+                        json.dumps(response).encode("utf-8"))):
+                with self.assertRaisesRegex(RuntimeError, "Unexpected OneSignal response"):
+                    sender.send(key, packet)
+
+    def test_pilot_does_not_report_success_without_subscribed_devices(self):
+        import os
+        import sys
+        with mock.patch.dict(os.environ, {
+                "COL_PUSH_DELIVERY_MODE": "pilot",
+                "COL_PUSH_ONESIGNAL_API_KEY": "test-only-key",
+                "COL_PUSH_TEST_SUBSCRIPTION_IDS": json.dumps([APP]),
+                }, clear=True), mock.patch.object(
+                sender, "configuration", return_value=APP), mock.patch.object(
+                sender, "send", return_value="no_recipients"), mock.patch.object(
+                sys, "argv", ["col-push-delivery.py", "--action", "pilot-test"]):
+            with self.assertRaisesRegex(RuntimeError, "not accepted for all test devices"):
+                sender.main()
+
+    def test_pilot_does_not_report_success_on_partial_acceptance(self):
+        import os
+        import sys
+        with mock.patch.dict(os.environ, {
+                "COL_PUSH_DELIVERY_MODE": "pilot",
+                "COL_PUSH_ONESIGNAL_API_KEY": "test-only-key",
+                "COL_PUSH_TEST_SUBSCRIPTION_IDS": json.dumps([APP]),
+                }, clear=True), mock.patch.object(
+                sender, "configuration", return_value=APP), mock.patch.object(
+                sender, "send", return_value="accepted_partial"), mock.patch.object(
+                sys, "argv", ["col-push-delivery.py", "--action", "pilot-test"]):
+            with self.assertRaisesRegex(RuntimeError, "not accepted for all test devices"):
+                sender.main()
+
+
+
 if __name__ == "__main__":
     unittest.main()

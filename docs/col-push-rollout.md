@@ -16,7 +16,7 @@
 
 ## Prepared code
 
-- /manifest.json: installable CoL start page, standalone display, site branding. Currently reuses the existing Stammtisch PNG crest. Inspect Home Screen icon cropping/quality in the pilot; purpose-made 192/512 PNG icons can be added if needed.
+- /manifest.json: installable CoL start page with its existing `/celebration.html` identity. The approved Stammtisch Home Screen artwork is already deployed as 180/192/512-pixel icons (including Android maskable). `/site-manifest.json` supports installs from the Club homepage; preserve both app identities.
 - /push/onesignal/OneSignalSDKWorker.js: dedicated permanent service worker at /push/onesignal/ with no root-scope caching or interception of unrelated pages.
 - /col-push.mjs: one optional subscription panel on celebration.html. It is completely hidden in off mode. The iOS Home Screen instructions appear before permission is attempted.
 - /data/col-push-config.json: public, non-secret mode and OneSignal app ID; initially mode off with an empty app ID.
@@ -36,7 +36,7 @@
 6. Set GitHub repository variable COL_PUSH_DELIVERY_MODE to pilot. Leave COL_PUSH_LIVE_APPROVED absent or false.
 7. Have one iPhone and one Android participant subscribe through the test URL. Validate their devices appear subscribed in OneSignal and that the browser's native notification setting is enabled.
 8. In GitHub Actions, manually dispatch Celebration of Life web push with pilot_test=true. This sends a **test-only message** to the protected test Subscription IDs. It never addresses the public subscriber segment, even if other people discovered the test URL.
-9. Test locked-screen reception, click-to-CoL behaviour, opt-out, opt-in, Safari Home Screen steps, Android browser permissions and multiple manual pilot sends. A OneSignal API acceptance is not equivalent to proof that every phone displayed a notification.
+9. Test locked-screen reception on at least one iPhone Home Screen app and one Android browser, click-to-CoL behaviour, opt-out, opt-in and multiple manually initiated sends. The sender now fails the pilot when OneSignal reports no subscribed recipients, partial acceptance, or an unexpected error response. Even a fully accepted API request is not proof that either device displayed a notification; confirm delivery on both physical devices.
 10. Confirm the main website publishing workflow still succeeds independently and that its public-data verification catches stale pages. The push notification workflow is a separate non-blocking integration.
 
 ## Explicit public activation after successful pilot
@@ -67,7 +67,7 @@ Two independent changes are required, and neither is performed in this PR:
 - The site itself is public, and public-mode subscribers may exceed six. No member-identification or login is required. A visitor can unsubscribe on their device.
 - OneSignal necessarily processes subscription identifiers and browser/device information. The website links to OneSignal's privacy policy and does not initiate the SDK before voluntary setup consent.
 - The GitHub scheduler is an hourly polling fallback, not a real-time guarantee. The primary signal is successful publication of the monitored CoL register.
-- The initial crest PNG referenced by the manifest is a pilot placeholder; verify iOS and Android Home Screen icon behaviour and add 192/512 pixel assets if required.
+- The approved Stammtisch crest icon is already installed in both app manifests; confirm it appears correctly with notifications on iPhone and Android during the device pilot.
 - If GitHub Actions runs are paused, disabled, or out of retention/permission scope, investigate and recover manually; the public site itself can continue to operate without notifications.
 
 ## Source references
