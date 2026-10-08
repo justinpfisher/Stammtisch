@@ -3,7 +3,7 @@
 **Audit date:** October 7, 2026  
 **Scope:** Current 2026 season and six existing Stammtisch participants  
 **Source authority:** The established Google Sheet, read-only through the repository's existing service account; reviewed independent confirmations are additive death-date evidence.  
-**Publishing target:** GitHub Pages from repository \`main\`, custom domain \`stammtischbrewery.com\`.
+**Publishing target:** GitHub Pages from repository `main`, custom domain `stammtischbrewery.com`.
 
 ## Operating conclusion
 
@@ -15,15 +15,15 @@ The present published register has 6 members, 300 numbered picks, 1 additional B
 
 | Source location | Website data | Consumer and checks |
 | --- | --- | --- |
-| \`LEADERBOARD!A1\` | \`year\` | Published season, unchanged unless annual rollover is explicitly reviewed |
-| \`LEADERBOARD!B2:G2\` | Member ordering and total cross-check | Each of six formulas must identify one established member; values reconcile to that member's \`E1\` |
-| \`LEADERBOARD\` pick rows | \`leaderboardName\` / marker cross-check | Compare selection names by rank; no silent reassignment of a person's picks |
-| Each six member tabs, \`A1\` | \`asOf\` | Same valid snapshot date across all tabs, never in the future |
-| Member \`B1\` | Member name | Verified against the known six identities, even if the tab title is unchanged |
-| Member \`E1\` | \`score\`, source formula | Supported explicit score references only; no duplicate or missing source rows |
-| Member \`A3:E...\` | \`pick\`, \`name\`, \`born\`, \`dateOfPassing\`, \`points\`, \`counted\`, source row/formula | Exactly fifty unique numbered positions per member plus supported \`BB\`; validated dates, totals and uniqueness |
-| \`buttons!A:C\` | \`distinctions\` | Published button names/notes; existing confirmed award definitions still take precedence |
-| \`data/celebration-confirmations.json\` | \`actualDeathDate\`, sources, group-approved exceptions | Additive independent evidence; does not silently change group discovery dates or allocate points |
+| `LEADERBOARD!A1` | `year` | Published season, unchanged unless annual rollover is explicitly reviewed |
+| `LEADERBOARD!B2:G2` | Member ordering and total cross-check | Each of six formulas must identify one established member; values reconcile to that member's `E1` |
+| `LEADERBOARD` pick rows | `leaderboardName` / marker cross-check | Compare selection names by rank; no silent reassignment of a person's picks |
+| Each six member tabs, `A1` | `asOf` | Same valid snapshot date across all tabs, never in the future |
+| Member `B1` | Member name | Verified against the known six identities, even if the tab title is unchanged |
+| Member `E1` | `score`, source formula | Supported explicit score references only; no duplicate or missing source rows |
+| Member `A3:E...` | `pick`, `name`, `born`, `dateOfPassing`, `points`, `counted`, source row/formula | Exactly fifty unique numbered positions per member plus supported `BB`; validated dates, totals and uniqueness |
+| `buttons!A:C` | `distinctions` | Published button names/notes; existing confirmed award definitions still take precedence |
+| `data/celebration-confirmations.json` | `actualDeathDate`, sources, group-approved exceptions | Additive independent evidence; does not silently change group discovery dates or allocate points |
 
 The register is the public data source for standings, player lists, searching, commemorations, award previews, point calculations, and draft previews. The webpage views use the same published JSON, not separate hand-maintained lists.
 
