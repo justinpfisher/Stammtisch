@@ -14,6 +14,13 @@ on:
       - 'push/**'
       - 'celebration.html'
       - 'celebration.css'
+      - 'index.html'
+      - 'styles.css'
+      - 'monthly.mjs'
+      - 'stammtisch-monthly.ics'
+      - 'assembly.mjs'
+      - 'assembly-2027.ics'
+      - 'location.html'
       - 'tests/**'
   workflow_dispatch:
 

@@ -19,6 +19,7 @@
   <link rel="manifest" href="/site-manifest.json?v=crest2">
   <link rel="stylesheet" href="styles.css">
   <script type="module" src="assembly.mjs"></script>
+  <script type="module" src="monthly.mjs"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -50,12 +51,27 @@
         <p class="crest-caption">A select company. A shared table.</p>
       </div>
     </section>
+    <section class="monthly-notice" aria-labelledby="monthly-gathering-title" data-monthly-gathering>
+      <div class="shell monthly-inner">
+        <div class="monthly-copy">
+          <p class="eyebrow">Third Friday of every month</p>
+          <h2 id="monthly-gathering-title">The next Stammtisch</h2>
+          <p><time data-monthly-date>Third Friday of every month</time> <span aria-hidden="true">·</span> Monthly gatherings are often held at headquarters; the time and venue are confirmed within the group.</p>
+          <a class="text-link" href="stammtisch-monthly.ics" download="stammtisch-monthly.ics">Add monthly dates to calendar <span aria-hidden="true">↓</span></a>
+          <p class="monthly-calendar-note">Date-only calendar reminder. Meeting time and location are arranged privately.</p>
+        </div>
+        <div class="monthly-days" aria-label="Days until the next third Friday">
+          <strong data-monthly-days>—</strong>
+          <span data-monthly-caption>days until the next third Friday</span>
+        </div>
+      </div>
+    </section>
     <section class="assembly-notice" aria-labelledby="next-assembly-title">
       <div class="shell notice-inner">
         <div class="notice-event">
           <div class="date-seal" aria-hidden="true"><span>February</span><strong>05</strong><span>2027</span></div>
           <div class="notice-copy">
-            <p class="eyebrow">The next gathering</p>
+            <p class="eyebrow">The annual gathering</p>
             <h2 id="next-assembly-title">The Annual Gentlemen’s Assembly</h2>
             <p><time data-assembly-start datetime="2027-02-05T09:00:00-05:00">Friday, February 5, 2027 · 9 a.m. Eastern</time><br>Huntsville, Ontario</p>
             <a class="text-link light" href="location.html">View the particulars <span aria-hidden="true">→</span></a>
