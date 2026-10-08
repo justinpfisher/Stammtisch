@@ -31,6 +31,7 @@ test('pilot is visible only with the explicit pilot URL; it is not an access-con
   assert.equal(PILOT_QUERY, 'colPushPilot');
   assert.equal(pushConfigReady({ ...ready, mode: 'pilot' }, ''), false);
   assert.equal(pushConfigReady({ ...ready, mode: 'pilot' }, '?colPushPilot=1'), true);
+  assert.equal(pushConfigReady({ ...ready, mode: 'pilot' }, '', true), true); // iOS standalone launch
   assert.equal(pushConfigReady(ready, ''), true);
 });
 
