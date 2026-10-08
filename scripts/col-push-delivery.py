@@ -169,7 +169,10 @@ def live(current, commit, app_id, api_key, ledger):
     current_hash = digest(current)
     issue = ledger.find()
     if issue is None:
-        # First live run seeds the current register, never sends historic news.
+        # First live run seeds the current public register, never sends historic news.
+        # Do not seed from an unpublished commit during a Pages deploy.
+        if not verify.same_public_register(current, commit, attempts=2, pause=4):
+            raise RuntimeError("Cannot seed push checkpoint until public CoL data matches")
         ledger.create({"version": 1, "mode": "live", "last_digest": current_hash,
                        "last_commit": commit, "pending": None, "last_result": "seeded"})
         return "seeded_without_sending"
