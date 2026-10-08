@@ -264,7 +264,7 @@ details[open]>summary>.disclosure-icon { transform:rotate(45deg)!important; }
 .col-push-card .eyebrow { font-size: 10px; }
 .col-push-card .col-push-rollout { font-size: 11px; color: var(--muted); }
 .col-push-help { margin-top: .65rem; font-size: 12px; }
-.col-push-help summary { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; min-height: 44px; display: flex; align-items: center; }
+.col-push-help summary { font: 12px/1.4 var(--sans); padding: 0; gap: .4rem; justify-content: flex-start; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; min-height: 44px; display: flex; align-items: center; }
 .col-push-help summary::before { content: "+"; margin-right: .5rem; }
 .col-push-help[open] summary::before { content: "−"; }
 .col-push-help p { font-size: 12px; }
