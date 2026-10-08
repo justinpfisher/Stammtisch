@@ -35,6 +35,10 @@ export function matchesPick(pick, query = '', status = 'all') {
   return true;
 }
 
+export function commemorationAnchor(person) {
+  return `commemoration-${normalizeSearch(person.name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${person.born}`;
+}
+
 export function groupedCommemorations(members) {
   const groups = new Map();
   for (const member of members) {
@@ -181,9 +185,15 @@ export async function mountCelebration() {
       ? '<p class="record-source">Independently verified; the club register has not yet recorded this passing or awarded the resulting points.</p>' : '';
     const sourceLink = source?.sourceUrl
       ? `<a class="verified-date" href="${safeSourceUrl(source.sourceUrl)}" target="_blank" rel="noopener noreferrer">${e(source.sourceLabel || 'Supporting source')} ↗</a>` : '';
-    return `<article class="commemoration-card"><div class="commemoration-topline"><span>${e(person.born?.slice(0, 4))}—${e(displayed.slice(0, 4))}</span><span>Aged ${ageAt(person.born, displayed)}</span></div><h3>${e(person.name)}</h3><p class="commemoration-date">${e(timing)}</p>${note}<div class="commemoration-members">${memberLinks}</div>${sourceLink}</article>`;
+    return `<article class="commemoration-card" id="${e(commemorationAnchor(person))}" tabindex="-1"><div class="commemoration-topline"><span>${e(person.born?.slice(0, 4))}—${e(displayed.slice(0, 4))}</span><span>Aged ${ageAt(person.born, displayed)}</span></div><h3>${e(person.name)}</h3><p class="commemoration-date">${e(timing)}</p>${note}<div class="commemoration-members">${memberLinks}</div>${sourceLink}</article>`;
   }).join('') || '<p>No commemorations have been recorded yet.</p>';
+  if (window.location.hash.startsWith('#commemoration-')) {
+    const target = document.getElementById(window.location.hash.slice(1));
+    target?.scrollIntoView({ block: 'start' });
+    target?.focus({ preventScroll: true });
+  }
   document.querySelector('#distinctions').innerHTML = data.distinctions.map(item => `<article><h3>${e(readableSentence(item.name))}</h3><p>${e(readableSentence(distinctionReason(item)))}</p>${item.imageIdea ? `<details><summary>Button illustration idea <span aria-hidden="true">+</span></summary><p>${e(readableSentence(item.imageIdea))}</p></details>` : ''}</article>`).join('');
 }
 
 if (typeof document !== 'undefined') mountCelebration();
+

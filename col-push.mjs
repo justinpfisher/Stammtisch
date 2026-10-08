@@ -58,26 +58,39 @@ export async function mountColPush() {
   let config;
   try {
     const response = await fetch('/data/col-push-config.json', { cache: 'no-store' });
-    if (!response.ok) return;
+    if (!response.ok) throw new Error('Configuration unavailable');
     config = await response.json();
-  } catch { return; }
-  if (!pushConfigReady(config, window.location.search, inHomeScreen(navigator, window.matchMedia?.bind(window)))) return;
+  } catch {
+    panel.querySelector('[data-col-push-status]').textContent = 'Notification preferences are temporarily unavailable. Please try again later.';
+    return;
+  }
+  const allowed = pushConfigReady(config, window.location.search, inHomeScreen(navigator, window.matchMedia?.bind(window)));
+  const valid = pushConfigReady(config, '?colPushPilot=1', true);
 
   const status = panel.querySelector('[data-col-push-status]');
   const prepare = panel.querySelector('[data-col-push-prepare]');
   const toggle = panel.querySelector('[data-col-push-toggle]');
   const help = panel.querySelector('[data-col-push-ios-help]');
-  const explanation = panel.querySelector('[data-col-push-explanation]');
+  const rollout = panel.querySelector('[data-col-push-rollout]');
   const prerequisites = pushPrerequisite(
     navigator, window.matchMedia?.bind(window), 'Notification' in window, 'serviceWorker' in navigator
   );
 
   panel.hidden = false;
-  if (config.mode === 'pilot') explanation.textContent =
-    'Pilot only. No public notifications are enabled. Only selected test devices can receive the trial message.';
+  rollout.hidden = config.mode === 'public';
+  if (!valid) {
+    status.textContent = 'Notifications are not open for subscription yet.';
+    return;
+  }
+  if (!allowed) {
+    status.textContent = 'The notification pilot is in progress. Public subscription will open after approval.';
+    if (prerequisites === 'ios-install') help.open = true;
+    return;
+  }
+  prepare.disabled = false;
   if (prerequisites === 'ios-install') {
     status.textContent = 'On iPhone or iPad, save this page to your Home Screen first.';
-    help.hidden = false;
+    help.open = true;
     prepare.hidden = true;
     return;
   }
@@ -96,16 +109,16 @@ export async function mountColPush() {
     prepare.hidden = true;
     toggle.hidden = false;
     toggle.disabled = false;
-    toggle.textContent = optedIn ? 'Stop CoL notifications' : 'Enable CoL notifications';
+    toggle.textContent = optedIn ? 'Disable notifications' : 'Enable notifications';
     if (optedIn) {
-      status.textContent = 'CoL notifications are enabled on this device.';
+      status.textContent = 'Notifications are enabled on this device. Choose Disable notifications to unsubscribe.';
     } else if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
       status.textContent = 'Notifications are blocked. Enable them in this device’s browser or website settings.';
       toggle.hidden = true;
     } else if (permission) {
       status.textContent = 'Notifications are off for this browser. You can enable them again.';
     } else {
-      status.textContent = 'Notifications are ready to set up. Your device will ask for permission.';
+      status.textContent = 'Setup is ready. Choose Enable notifications once more, then allow notifications when your device asks.';
     }
   };
 
@@ -168,9 +181,10 @@ export async function mountColPush() {
     // Reopen existing notification preferences without re-prompting permission.
     await prepareSdk();
   } else {
-    status.textContent = 'Choose Set up to review the privacy notice, then enable notifications.';
+    status.textContent = 'Notifications are off on this device. Choose Enable notifications to get started.';
     prepare.hidden = false;
   }
 }
 
 if (typeof document !== 'undefined') mountColPush();
+

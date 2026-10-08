@@ -10,6 +10,9 @@ import re
 import subprocess
 import sys
 import uuid
+import math
+import unicodedata
+from zoneinfo import ZoneInfo
 from urllib.request import Request, urlopen
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -37,26 +40,116 @@ def digest(data):
     return hashlib.sha256(raw).hexdigest()
 
 
-def summary(before, after):
-    previous = {m["id"]: m for m in before.get("members", [])} if before else {}
-    scored, newly_dated = [], []
-    for member in after["members"]:
-        old = previous.get(member["id"])
-        if not old:
-            continue
-        if member["score"] != old["score"]:
-            scored.append(f"{member['name']}: {old['score']} to {member['score']}")
-        old_picks = {p["id"]: p for p in old["picks"]}
+def identity(pick):
+    name = unicodedata.normalize("NFD", pick["name"])
+    name = "".join(c for c in name if not unicodedata.combining(c)).lower()
+    name = name.replace("’", "'").replace("‘", "'").strip()
+    return name + ":" + pick["born"]
+
+
+def anchor(pick):
+    name = identity(pick).rsplit(":", 1)[0]
+    return "commemoration-" + re.sub(r"[^a-z0-9]+", "-", name).strip("-") + "-" + pick["born"]
+
+
+def groups(data):
+    result = {}
+    for member in data["members"]:
         for pick in member["picks"]:
-            if pick.get("dateOfPassing") and not old_picks.get(pick["id"], {}).get("dateOfPassing"):
-                newly_dated.append(pick["name"])
-    parts = []
-    if newly_dated:
-        names = list(dict.fromkeys(newly_dated))
-        parts.append(", ".join(names[:2]) + (" and others" if len(names) > 2 else "") + " recorded")
-    if scored:
-        parts.append("; ".join(scored[:3]) + (" and more" if len(scored) > 3 else ""))
-    return (". ".join(parts) if parts else "CoL register updated")[:210] + ". View updated standings."
+            result.setdefault(identity(pick), []).append((member, pick))
+    return result
+
+
+def reported(pick):
+    return bool(pick.get("dateOfPassing") or pick.get("actualDeathDate")
+                or (pick.get("dateSource") or {}).get("dateOfPassing") or pick.get("counted"))
+
+
+def known_passings(data):
+    return sorted(key for key, entries in groups(data).items()
+                  if any(reported(p) for _, p in entries))
+
+
+def event_notifications(before, after, seen, not_before):
+    """One packet per newly recorded person, never score deltas or estimated values.
+
+    Counted source rows are the Sheet's actual allocations, already reconciled
+    by the publisher. Repeat that reconciliation and arithmetic check here.
+    Unknown, disputed, partial allocations remain unsent for review.
+    """
+    if not before or before.get("year") != after.get("year"):
+        raise RuntimeError("Missing baseline or changed season; review required")
+    prior = groups(before)
+    events = []
+    for key, entries in groups(after).items():
+        if key in seen or key not in prior:
+            continue  # new list insertions are not proof of a new passing
+        # An independently confirmed passing already present in the baseline
+        # is historical, even if somebody adds its points or discovery date now.
+        if any(reported(p) for _, p in prior[key]):
+            continue
+        dates = {p.get("dateOfPassing") for _, p in entries if p.get("dateOfPassing")}
+        if not dates:
+            continue
+        if len(dates) != 1:
+            continue
+        discovered = next(iter(dates))
+        if discovered < not_before or discovered > after["asOf"]:
+            continue
+        evidence = [sync.verified_evidence(p) for _, p in entries]
+        evidence = [e for e in evidence if e]
+        deaths = {e["actualDeathDate"] for e in evidence}
+        if len(deaths) != 1:
+            continue
+        death = next(iter(deaths))
+        # Backfilled historical deaths and inconsistent discovery dates do not
+        # generate news. A verified passing must be within the active window.
+        if death < not_before or death > discovered:
+            continue
+        recipients, valid = {}, True
+        for member, pick in entries:
+            if (pick.get("needsReview") or pick.get("disputed") or
+                    pick.get("pointsConfirmed") is False or not pick.get("dateOfPassing")):
+                valid = False
+                break
+            points = pick.get("points")
+            if isinstance(points, bool) or not isinstance(points, (int, float)) or not math.isfinite(points):
+                valid = False
+                break
+            if not pick.get("counted"):
+                # An unawarded list entry may indicate unfinished Birthday
+                # Buffet allocation. Require a reviewed explicit allocation.
+                if not pick.get("allocationDecision"):
+                    valid = False
+                    break
+                continue
+            if sum(p["points"] for p in member["picks"] if p.get("counted")) != member["score"]:
+                valid = False
+                break
+            born, died = dt.date.fromisoformat(pick["born"]), dt.date.fromisoformat(death)
+            age = died.year - born.year - ((died.month, died.day) < (born.month, born.day))
+            base = 10 if age == 100 else 100 - age
+            expected = base * (2 if pick["pick"] in (1, 50) or pick.get("marker") in ("diamond", "orange") else 1)
+            if points != expected and not pick.get("allocationDecision"):
+                valid = False
+                break
+            recipients.setdefault(member["id"], {"name": member["name"], "points": 0})["points"] += points
+        if not valid or not recipients:
+            continue
+        person = entries[0][1]
+        allocations = sorted(recipients.values(), key=lambda r: r["name"])
+        signed = lambda value: format(value, "+g")
+        if len(allocations) == 1:
+            r = allocations[0]
+            message = f"{r['name']} receives {signed(r['points'])} points."
+        else:
+            message = "; ".join(f"{r['name']} {signed(r['points'])}" for r in allocations) + " points."
+        # Never truncate away a recipient or their signed points.
+        if len(message) > 240:
+            continue
+        events.append({"event_id": key, "title": "Celebration of Life: " + person["name"],
+                       "message": message, "url": LINK + "#" + anchor(person)})
+    return events
 
 
 def key_is_fresh(date_text, now=None):
@@ -75,7 +168,7 @@ def parse(text):
     if MARKER not in (text or ""):
         raise ValueError("Missing checkpoint marker")
     state = json.loads(text.split(MARKER, 1)[1].split("\n", 2)[2])
-    if state.get("version") != 1 or state.get("mode") != "live" or not re.fullmatch(
+    if state.get("version") not in (1, 2) or state.get("mode") != "live" or not re.fullmatch(
             r"[0-9a-f]{64}", state.get("last_digest", "")):
         raise ValueError("Invalid checkpoint")
     return state
@@ -127,11 +220,11 @@ def configuration(cfg, mode):
     return cfg["oneSignalAppId"]
 
 
-def payload(app_id, text, key, recipients="public"):
+def payload(app_id, text, key, recipients="public", title="Stammtisch CoL pilot test", url=LINK):
     data = {"app_id": app_id, "target_channel": "push", "idempotency_key": key,
             "name": "Stammtisch CoL published update",
-            "headings": {"en": "Stammtisch CoL updated"},
-            "contents": {"en": text}, "url": LINK, "ttl": 86400}
+            "headings": {"en": title},
+            "contents": {"en": text}, "url": url, "ttl": 86400}
     if recipients == "public":
         data["included_segments"] = ["Subscribed Users"]
     else:
@@ -169,18 +262,27 @@ def historical(commit):
     return json.loads(p.stdout) if p.returncode == 0 else None
 
 
+def seed_state(current, commit):
+    return {"version": 2, "mode": "live", "last_digest": digest(current),
+            "last_commit": commit, "pending": None, "seen_events": known_passings(current),
+            "not_before": dt.datetime.now(ZoneInfo("America/Toronto")).date().isoformat(),
+            "last_result": "seeded"}
+
+
 def live(current, commit, app_id, api_key, ledger):
     current_hash = digest(current)
     issue = ledger.find()
-    if issue is None:
-        # First live run seeds the current public register, never sends historic news.
-        # Do not seed from an unpublished commit during a Pages deploy.
+    state = parse(issue["body"]) if issue else None
+    if state and state["version"] == 1 and state.get("pending"):
+        raise RuntimeError("Legacy pending notification requires review; no broadcast")
+    if state is None or state["version"] == 1:
         if not verify.same_public_register(current, commit, attempts=2, pause=4):
             raise RuntimeError("Cannot seed push checkpoint until public CoL data matches")
-        ledger.create({"version": 1, "mode": "live", "last_digest": current_hash,
-                       "last_commit": commit, "pending": None, "last_result": "seeded"})
+        seeded = seed_state(current, commit)
+        ledger.update(issue, seeded) if issue else ledger.create(seeded)
         return "seeded_without_sending"
-    state = parse(issue["body"])
+    if not isinstance(state.get("seen_events"), list) or not state.get("not_before"):
+        raise RuntimeError("Invalid event checkpoint")
     if state["last_digest"] == current_hash and state.get("pending") is None:
         return "no_change"
     if not verify.same_public_register(current, commit, attempts=2, pause=4):
@@ -189,18 +291,38 @@ def live(current, commit, app_id, api_key, ledger):
     if pending and pending["digest"] != current_hash:
         raise RuntimeError("New publication superseded an unacknowledged push; review before retry")
     if pending is None:
-        pending = {"digest": current_hash, "commit": commit, "idempotency_key": str(uuid.uuid4()),
+        previous = historical(state.get("last_commit"))
+        events = event_notifications(previous, current, set(state["seen_events"]), state["not_before"])
+        if not events:
+            # Keep undecided new events eligible when their allocations become
+            # confirmed. Do not advance the baseline past an unfinished event.
+            # Ordinary corrections of already-known deaths remain suppressed by
+            # the permanent seen set and the previous baseline.
+            return "no_confirmed_new_events"
+        pending = {"digest": current_hash, "commit": commit,
                    "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-                   "message": summary(historical(state.get("last_commit")), current)}
+                   "events": [{**event, "idempotency_key": str(uuid.uuid4()), "result": None}
+                              for event in events]}
         state["pending"] = pending
-        ledger.update(issue, state)  # persist stable UUIDv4 BEFORE sending
+        ledger.update(issue, state)  # stable UUID per event BEFORE any send
     if not key_is_fresh(pending["created_at"]):
         raise RuntimeError("Pending push older than safe idempotency retry window")
-    result = send(api_key, payload(app_id, pending["message"], pending["idempotency_key"]))
-    state.update({"last_digest": current_hash, "last_commit": commit, "pending": None,
-                  "last_result": result})
+    results = []
+    for event in pending["events"]:
+        if not event.get("result"):
+            result = send(api_key, payload(app_id, event["message"], event["idempotency_key"],
+                                           title=event["title"], url=event["url"]))
+            if result == "accepted_partial":
+                raise RuntimeError("Partial event delivery requires review")
+            event["result"] = result
+            ledger.update(issue, state)
+        results.append(event["result"])
+        state["seen_events"] = sorted(set(state["seen_events"]) | {event["event_id"]})
+    # Keep the original baseline: multiple outstanding deaths can be confirmed
+    # in separate imports without losing the event whose points are still pending.
+    state.update({"last_digest": current_hash, "pending": None, "last_result": results[-1]})
     ledger.update(issue, state)
-    return result
+    return results[-1]
 
 
 def main():
@@ -243,3 +365,4 @@ if __name__ == "__main__":
     except Exception as exc:
         print("CoL push stopped safely: " + type(exc).__name__, file=sys.stderr)
         sys.exit(1)
+

@@ -247,18 +247,29 @@ details[open]>summary>.disclosure-icon { transform:rotate(45deg)!important; }
 .badge-preview { border-top:1px solid var(--line); margin-top:30px; }
 .badge-preview .awards-grid { padding-bottom:15px; }
 
-/* Optional CoL push subscriptions. Hidden on the live site until configured. */
+/* Voluntary CoL subscriptions; delivery remains separately gated. */
 .col-push-section[hidden],
 .col-push-actions button[hidden],
 [data-col-push-ios-help][hidden] { display: none !important; }
-.col-push-section { margin-block: 1.5rem 2rem; }
+.col-push-section { margin-block: 1.5rem; scroll-margin-top: 6rem; }
 .col-push-card {
   display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
   border: 1px solid rgba(25,61,50,.24); border-radius: 14px;
-  background: #f4f5ef; color: #193d32; padding: 1.25rem 1.5rem;
+  background: #f4f5ef; color: var(--forest); padding: 1.25rem 1.5rem;
+  border-top: 3px solid var(--gold);
 }
 .col-push-card h2 { margin: .2rem 0 .6rem; font-size: clamp(1.2rem,2vw,1.65rem); }
-.col-push-card p { max-width: 68ch; margin: .35rem 0; line-height: 1.55; }
+.col-push-card p { max-width: 68ch; margin: .35rem 0; line-height: 1.5; font-size: 13px; }
+.col-push-copy { min-width: 0; }
+.col-push-card .eyebrow { font-size: 10px; }
+.col-push-card .col-push-rollout { font-size: 11px; color: var(--muted); }
+.col-push-help { margin-top: .65rem; font-size: 12px; }
+.col-push-help summary { cursor: pointer; text-decoration: underline; text-underline-offset: 3px; min-height: 44px; display: flex; align-items: center; }
+.col-push-help summary::before { content: "+"; margin-right: .5rem; }
+.col-push-help[open] summary::before { content: "−"; }
+.col-push-help p { font-size: 12px; }
+.col-push-actions .col-push-action-note { font-size: 10px; text-align: center; margin-top: .5rem; }
+.notification-jump { font-size: 12px; }
 .col-push-status { font-weight: 650; }
 .col-push-privacy { font-size: .82rem; opacity: .85; }
 .col-push-privacy a { color: inherit; text-decoration: underline; }
@@ -273,3 +284,7 @@ details[open]>summary>.disclosure-icon { transform:rotate(45deg)!important; }
   .col-push-card { flex-direction: column; align-items: stretch; }
   .col-push-actions button { width: 100%; }
 }
+
+
+.commemoration-card { scroll-margin-top: 6rem; }
+.commemoration-card:target { outline: 2px solid var(--gold); outline-offset: 4px; }

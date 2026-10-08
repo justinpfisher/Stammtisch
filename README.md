@@ -99,9 +99,9 @@ links on desktop and phone. Test all three pages after shared navigation changes
 
 ## Celebration of Life web notifications
 
-The site includes an **inactive-by-default** web-push integration prepared for a future OneSignal pilot. After a successful iPhone and Android pilot, subscribers may opt in from the CoL website; the intended audience is **any visitor who opts in**, not a private six-person list. No SMS numbers or additional app-store downloads are required. iPhone users must open Stammtisch from its Home Screen icon.
+The site includes an **inactive-by-default** web-push integration prepared for a future OneSignal pilot. After the confirmed iPhone pilot and explicit public activation approval (Android testing was waived), subscribers may opt in from the CoL website; the intended audience is **any visitor who opts in**, not a private six-person list. No SMS numbers or additional app-store downloads are required. iPhone users must open Stammtisch from its Home Screen icon.
 
-Notification sending is separate from the existing verified CoL data publication, and is restricted to material Celebration of Life register updates. The pilot can send only to explicitly supplied test subscription identifiers. Public delivery requires a separate OneSignal configuration and two GitHub approval variables. **No OneSignal account, live message or subscription is activated by this code alone.**
+Notification sending is separate from the existing verified CoL data publication, and is restricted to genuinely new, independently confirmed passings with reconciled awarded points for every recipient. Ordinary edits, corrections, historical records and redeployments are silent. The pilot can send only to explicitly supplied test subscription identifiers. Public delivery requires a separate OneSignal configuration and two GitHub approval variables. **The existing OneSignal account is connected in pilot mode. Public notifications remain off; deploying this code does not send a message.**
 
 See [controlled notification rollout](docs/col-push-rollout.md) for configuration, test steps, safety gates, duplicate avoidance and manual activation.
 
@@ -118,3 +118,4 @@ start URL so that its optional notification pilot is not disturbed.
 Both use the short Home Screen name `Stammtisch`.
 Existing installed iPhone Home Screen shortcuts may retain cached icons and
 can be removed and re-added from Safari if they do not refresh.
+
