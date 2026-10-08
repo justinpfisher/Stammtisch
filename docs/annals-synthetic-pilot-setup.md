@@ -1,6 +1,6 @@
 # Annals synthetic private pilot
 
-**8 October 2026: owner authorised preparation and a private synthetic intake/preview pilot. Not yet deployed or verified against Google.**
+**Status (8 October 2026):** The owner authorised this private synthetic pilot and later supplied Google Apps Script execution logs showing preflight enabled with production switches off, followed by `staged:1`, `held:0`, `duplicates:0`, `skipped:0`. Treat this as **owner-reported account-side execution**, not independent verification of Google permissions, staged files, previews, retry behaviour or triggers. No real-member or production intake is authorised.
 
 Receiving-only `annals@stammtischbrewery.com` forwarding is working: the owner verified two deliveries and a usable attachment, with two-step verification enabled on the dedicated private Gmail account. See issue #24. This does not authorise paid AI, real member processing, scheduled triggers, acknowledgement emails, public publication or notification changes.
 
@@ -53,14 +53,14 @@ From the privately allowlisted separate sending account, email the working publi
 
 In the destination inbox apply `Annals-Pilot` to this test thread. After the owner approves the actual access grant and test-message reads, set both synthetic properties to `true`; leave both production properties `false`. Manually run `runAnnalsSyntheticPilot`.
 
-First run should report one staged case. Inspect the owner-only hash-named subfolder: generic attachment filename, `preview-private.html`, and `manifest-private.json`. Download/open the HTML locally if Drive does not render it; do not host it or enable link sharing. Confirm original quantities remain unchanged, category is only a suggestion, review caveats are visible and `publishable` remains false.
+The owner has reported one staged case, but the outputs below still require **private inspection**. Inspect the owner-only hash-named subfolder: generic attachment filename, `preview-private.html`, and `manifest-private.json`. Download/open the HTML locally if Drive does not render it; do not host it or enable link sharing. Confirm original quantities remain unchanged, category is only a suggestion, review caveats are visible and `publishable` remains false.
 
-Repeat the same run: expect one duplicate and no new source folder or output files. Send an ordinary reply without the test prefix: it must be skipped even if it shares the labelled thread. Do not use fabricated member history or death notifications as test content.
+Repeat the same run: expect **one duplicate**, with no new source folder, output file or second media copy. The supplied first-run `duplicates:0` is expected and does **not** verify this idempotency test. Send an ordinary reply without the test prefix: it must be skipped even if it shares the labelled thread. Do not use fabricated member history or death notifications as test content.
 
 After checking results, set both synthetic properties back to `false`. There is no unattended trigger. Record only non-sensitive counts/pass-fail results in issue #24; the actual preview and account evidence remain private.
 
 ## Verification limits and next steps
 
-Local tests simulate Google services; they do not prove actual OAuth, Drive sharing, forwarding sender headers, Gmail labels or provider execution work. Those must be verified in the dedicated account before claiming activation. The allowlist is triage, not authentication, and no approval command exists here. Use a separate test sender that the owner controls and verify its actual forwarded From header privately.
+Local tests simulate Google services; they do not prove actual OAuth, Drive sharing, forwarding sender headers, Gmail labels, repeat idempotence or trigger state. The owner-reported first staged run confirms only that a manually invoked process returned the stated counts. Before declaring the **manual synthetic pilot accepted**, privately confirm permissions, artefact contents, expected duplicate-run result and both synthetic switches returned to `false`; never publish private account evidence. The allowlist is triage, not authentication, and no approval command exists here. Use a separate test sender that the owner controls and verify its actual forwarded From header privately.
 
 Next separately reviewed work: robust real-message authentication/backlog processing, consented image/handwriting interpretation and conversion, cost controls, authenticated exact-content approvals and approved-only publishing. These remain inactive. Website, CoL, OneSignal and shared runners are outside this pilot.
