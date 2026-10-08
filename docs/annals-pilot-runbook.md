@@ -2,6 +2,10 @@
 
 **As of 8 October 2026 | NOT ACTIVATED | Source-only and synthetic testing.**
 
+## Custom-domain receiving address — not yet activated
+
+The current **first operational task** is to verify whether the previously used Porkbun registrar can supply free `annals@stammtischbrewery.com` forwarding to a newly created **dedicated private Gmail** account, without disrupting pre-existing MX/email or GitHub Pages. Follow [the Work execution handoff](annals-email-routing-work-handoff-2026-10-08.md). This step can be handled in ChatGPT Work with the owner securely signing in. After actual routing is verified, the remaining private-processing implementation belongs in Codex and requires separate approvals. **The Google Apps Script gates remain disabled** until real consented pilot testing.
+
 ## Outcome and current scope
 
 This package is the **first functioning, safe engineering layer** beneath the [email-to-Annals design](annals-email-publishing-proposal-2026-10-08.md). It is not yet the finished email → AI → approval → website system.
