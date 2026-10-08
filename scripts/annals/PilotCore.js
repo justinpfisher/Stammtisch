@@ -79,7 +79,7 @@ var AnnalsPilot = (function () {
       if (!policy.accepted || policy.conversionNeeded) held = true;
       return {
         index: index + 1,
-        mime: typeof attachment.mime === 'string' ? attachment.mime.slice(0, 100) : '',
+        mime: attachment && typeof attachment.mime === 'string' ? attachment.mime.slice(0, 100) : '',
         size: size,
         storageName: policy.extension ? ('attachment-' + String(index + 1).padStart(2, '0') + policy.extension) : null,
         accepted: policy.accepted,
