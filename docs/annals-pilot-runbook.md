@@ -41,6 +41,16 @@ A private *synthetic* preview can be prepared without calling a model:
 2. Call `node scripts/annals/private-preview-cli.mjs /private/source.json /private/candidate.json /private/preview.html`. The destination must already be a directory outside the public repo, and an existing preview will not be replaced.
 3. Open the private HTML locally; it shows a prominent **not approved for publication** banner. Do not email or upload it without authorising the actual sender/recipient and content.
 
+## Approved-only public page generator (additional offline component)
+
+- `scripts/annals/ApprovedRenderer.mjs` can compose a text-first, mobile-readable Annals HTML **string** from explicitly approved public entries. It has **no** Gmail, Drive, OpenAI or GitHub publishing connection, does not write an `annals.html` file, and is not linked from the live website.
+- `tests/annals-approved-renderer.test.mjs` uses **clearly invented** drinks, quotations and reviewers to verify dates, quotes, recipes, HTML escaping, sorting, duplicate suppression and the privacy boundary.
+- The renderer refuses photographs entirely in its first iteration. Publication data allows only a narrow whitelist of public fields (category, title, date/summary, quote or creator-verified recipe, selected credit); a raw email, private source field or unrecognised category fails.
+- It will not render a nonempty batch without **a private per-entry approval receipt**, bound cryptographically to the exact normalised content (SHA-256 and HMAC-SHA-256). Separate confirmation is required for quote publication, recipe accuracy and named attribution.
+- **The signer and authentication service are not implemented.** The future approval system must authenticate the nominated publisher, obtain specific creator/affected-person consents, bind those approvals to exact final content and sign privately using a secret never stored in this repository. A string saying `approved: true`, or an AI-generated "consent", must never satisfy the gate.
+- A successful test of a synthetic signature is not real publication authority; no live Pages build should use invented receipts or a test-only HMAC key.
+- Only after a successful real pilot and exact human approval should a future publisher write validated output to the existing GitHub Pages source, request a Pages build, and compare the actual visitor-facing result. The existing CoL and OneSignal pathways must not be touched.
+
 ## Google Apps Script setup — future owner-authorised work ONLY
 
 **The following has not been performed. It requires the owner to obtain/authorise a dedicated Gmail account and review account permissions and ongoing costs.**
