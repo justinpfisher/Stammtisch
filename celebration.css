@@ -296,3 +296,9 @@ details[open]>summary>.disclosure-icon { transform:rotate(45deg)!important; }
 .col-push-disclosure > summary > span { font: 22px/1 var(--sans); }
 .col-push-disclosure[open] > summary { border-bottom: 1px solid var(--line); }
 .col-push-disclosure .col-push-card { border: 0; border-radius: 0; background: transparent; padding: 16px 18px; }
+
+/* Keep optional subscriptions out of the main reading flow. */
+.col-push-section { margin-block: 12px 20px; }
+.col-push-disclosure > summary { padding: 8px 12px; min-height: 44px; }
+.col-push-disclosure > summary h2 { font: 15px/1.3 var(--sans); }
+.col-push-disclosure > summary > span { font-size: 18px; }

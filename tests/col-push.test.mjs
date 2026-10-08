@@ -76,9 +76,10 @@ test('delivery has two public gating variables, avoids failed source publication
 });
 
 
-test('subscription preview sits after standings and before selections with an introductory jump link', () => {
+test('subscription accordion sits below the content with an introductory jump link', () => {
   assert.ok(html.indexOf('id="standings"') < html.indexOf('id="notifications"'));
-  assert.ok(html.indexOf('id="notifications"') < html.indexOf('id="the-lists"'));
+  assert.ok(html.indexOf('class="shell register-source"') < html.indexOf('id="notifications"'));
+  assert.ok(html.indexOf('id="notifications"') < html.indexOf('</main>'));
   assert.match(html, /href="#notifications">Get notifications/);
   assert.match(html, /Stay in the loop/);
   assert.match(html, /Find out who passed, who receives the points, and how many/);
