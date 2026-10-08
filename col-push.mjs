@@ -5,12 +5,12 @@
 export const ONESIGNAL_SCRIPT = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
 export const PILOT_QUERY = 'colPushPilot';
 
-export function pushConfigReady(config, search = '') {
+export function pushConfigReady(config, search = '', standalone = false) {
   if (!config || config.schemaVersion !== 1) return false;
   if (!['pilot', 'public'].includes(config.mode)) return false;
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(config.oneSignalAppId || '')) return false;
   if (config.audience !== 'any_visitor_who_opts_in' || config.source !== 'celebration_of_life_only') return false;
-  if (config.mode === 'pilot' && new URLSearchParams(search).get(PILOT_QUERY) !== '1') return false;
+  if (config.mode === 'pilot' && !standalone && new URLSearchParams(search).get(PILOT_QUERY) !== '1') return false;
   return true;
 }
 
@@ -61,7 +61,7 @@ export async function mountColPush() {
     if (!response.ok) return;
     config = await response.json();
   } catch { return; }
-  if (!pushConfigReady(config, window.location.search)) return;
+  if (!pushConfigReady(config, window.location.search, inHomeScreen(navigator, window.matchMedia?.bind(window)))) return;
 
   const status = panel.querySelector('[data-col-push-status]');
   const prepare = panel.querySelector('[data-col-push-prepare]');
