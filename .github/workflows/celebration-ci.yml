@@ -22,6 +22,7 @@ permissions:
 
 jobs:
   tests:
+    # Keep CI on GitHub-hosted runners; this is a public repository.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,10 +32,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Python source and publication safety checks
-        run: python -m unittest discover -s tests -p 'test_*.py'
-      - name: Site and award calculations
-        run: node --test tests/*.test.mjs
+      - name: Local-equivalent Python and Node regression checks
+        run: node scripts/local-dev.mjs check
       - name: Confirm existing public site register is readable
         # The current committed data is already published. This is a bounded
         # connectivity smoke to validate the publication guard before rollout.

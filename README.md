@@ -119,3 +119,15 @@ Both use the short Home Screen name `Stammtisch`.
 Existing installed iPhone Home Screen shortcuts may retain cached icons and
 can be removed and re-added from Safari if they do not refresh.
 
+## GMKtec local development
+
+The **GMKtec M6 Ultra** is the preferred Windows development and local test machine
+for Stammtisch. From a verified local checkout run `node scripts/local-dev.mjs doctor`,
+`node scripts/local-dev.mjs check`, or `node scripts/local-dev.mjs preview`.
+See [GMKtec setup and verification](docs/gmktec-local-development.md).
+
+The public repository deliberately **does not enrol the GMKtec as a GitHub Actions
+self-hosted runner**. The hourly spreadsheet monitor, verified website publishing,
+GitHub Pages, notifications, and independent PR checks stay GitHub-hosted so they
+continue while the GMKtec is unavailable. Repository setup does not itself verify
+that the Stammtisch checkout is present or working on the physical machine.
