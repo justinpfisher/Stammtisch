@@ -17,9 +17,9 @@
   <meta name="apple-mobile-web-app-title" content="Stammtisch">
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="celebration.css?v=col-events-20261008-2">
-  <script type="module" src="celebration.mjs?v=col-events-20261008-2"></script>
-  <script type="module" src="col-push.mjs?v=col-events-20261008-2"></script>
+  <link rel="stylesheet" href="celebration.css?v=col-accordion-20261008">
+  <script type="module" src="celebration.mjs?v=col-accordion-20261008"></script>
+  <script type="module" src="col-push.mjs?v=col-accordion-20261008"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -39,10 +39,11 @@
       </div>
     </section>
     <section class="shell col-push-section" id="notifications" data-col-push aria-labelledby="col-push-heading">
-      <div class="col-push-card">
+      <details class="col-push-disclosure">
+        <summary><h2 id="col-push-heading">Stay in the loop</h2><span aria-hidden="true">+</span></summary>
+        <div class="col-push-card">
         <div class="col-push-copy">
           <p class="eyebrow">Optional notifications</p>
-          <h2 id="col-push-heading">Stay in the loop</h2>
           <p data-col-push-explanation>Get notified when someone on our Celebration of Life lists passes away. Find out who passed, who receives the points, and how many.</p>
           <p class="col-push-rollout" data-col-push-rollout>Pilot only. Public notifications are off; only selected test devices receive messages.</p>
           <p class="col-push-status" data-col-push-status role="status" aria-live="polite">Checking notification availability…</p>
@@ -59,7 +60,8 @@
           <button type="button" data-col-push-toggle hidden>Enable notifications</button>
           <p class="col-push-action-note">Your choice. No club login.</p>
         </div>
-      </div>
+        </div>
+      </details>
     </section>
     <div class="register-nav-wrap"><nav class="shell register-nav" aria-label="Celebration of Life sections"><a href="#the-lists">Everyone’s lists <span aria-hidden="true">↓</span></a><a href="#commemorations">Commemorations <span aria-hidden="true">↓</span></a><a href="#how-it-works">The tradition &amp; scoring <span aria-hidden="true">↓</span></a><a href="#awards">Awards &amp; draft <span aria-hidden="true">↓</span></a><a href="#official-rules">Official rules <span aria-hidden="true">↓</span></a></nav></div>
     <section class="shell register-section" id="the-lists" aria-labelledby="lists-title">

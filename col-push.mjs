@@ -55,6 +55,13 @@ function loadSdk() {
 export async function mountColPush() {
   const panel = document.querySelector('[data-col-push]');
   if (!panel) return;
+  const disclosure = panel.querySelector('.col-push-disclosure');
+  if (disclosure) {
+    document.querySelector('.notification-jump')?.addEventListener('click', () => {
+      disclosure.open = true;
+    });
+    if (window.location.hash === '#notifications') disclosure.open = true;
+  }
   let config;
   try {
     const response = await fetch('/data/col-push-config.json', { cache: 'no-store' });
@@ -84,13 +91,11 @@ export async function mountColPush() {
   }
   if (!allowed) {
     status.textContent = 'The notification pilot is in progress. Public subscription will open after approval.';
-    if (prerequisites === 'ios-install') help.open = true;
     return;
   }
   prepare.disabled = false;
   if (prerequisites === 'ios-install') {
     status.textContent = 'On iPhone or iPad, save this page to your Home Screen first.';
-    help.open = true;
     prepare.hidden = true;
     return;
   }
