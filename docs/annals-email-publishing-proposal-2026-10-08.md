@@ -6,6 +6,12 @@
 
 See `AGENTS.md`, `docs/club-context-and-history.md`, `docs/annals-publication-guidelines.md`, and `docs/website-opportunity-review-2026-10-08.md`. These remain authoritative for club context and privacy constraints.
 
+## Update: custom-domain forwarding first (8 October 2026)
+
+The user prefers to establish **`annals@stammtischbrewery.com` immediately**, rather than share a temporary Gmail address with members. Historical domain-registration context points to **Porkbun**, whose current free service provides **20 custom-domain forwarding aliases**. Before using it, confirm live Porkbun account ownership, nameservers, existing MX records and any currently used domain mail service. The practical plan is **Work for secure, user-approved account/domain setup**, then **Codex for the already-started private processing system**. The preferred dedicated Gmail inbox is the private forwarding destination; members see only the custom address. Porkbun forwarding receives mail but does **not** give the club branded outbound mail. Do not rely on Gmail's third-party `Send as` after its scheduled January 2027 withdrawal.
+
+See [the Porkbun-first Work handoff](annals-email-routing-work-handoff-2026-10-08.md) for exact actions, safety checks and stop conditions. This supersedes the earlier assumption that a third-party forwarding service might be needed. This is **still not an activation record**; no nameservers, MX, email accounts, paid services, AI processing or public publishing were changed.
+
 ## Outcome first
 
 A member should be able to use the normal iPhone/Android Mail/Share menu to email a cocktail photo, handwritten syrup recipe, actual club quote, photograph of a keepsake, or recollection to **one address**, with no app download, account creation, template or categorisation task. The automation:
