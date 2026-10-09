@@ -1,9 +1,5 @@
 # Stammtisch Social Club
 
-## Autonomous advancement
-
-[Execution modes and usage controls v1.1](docs/universal-autonomous-advancement-v1.1.md) govern autonomous advancement launches and recovery. Recording this policy does not activate a window or schedule; select a mode at launch and verify any authorised Work/Codex settings.
-
 Static website published through GitHub Pages at https://stammtischbrewery.com/.
 The publishing branch is `main`; there is no build step.
 
