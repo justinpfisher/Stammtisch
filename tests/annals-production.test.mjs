@@ -58,6 +58,13 @@ test('AI and public contracts retain literal fractions and match approved render
   for (const extra of ['sender','publicationApproved','media']) assert.throws(()=>core.publicEntry({...entry(),[extra]:'private'}));
   assert.throws(()=>core.candidate({...candidate(),publicationApproved:true}));
 });
+test('review UI never silently converts uncategorised AI output into club history', () => {
+  const ui = readFileSync(new URL('../scripts/annals/ReviewUi.html', import.meta.url), 'utf8');
+  assert.match(ui, /<option value="" selected>Choose a category<\/option>/);
+  assert.match(ui, /includes\(d\.category\)\?d\.category:''/);
+  assert.match(ui, /if\(!val\('category'\)\)throw new Error\('Choose a category/);
+  assert.doesNotMatch(ui, /d\.category==='uncategorised'\?'club_history'/);
+});
 test('budget admits at most fifty ten-cent attempts, never refunds uncertainty, rolls month safely', () => {
   let ledger={schemaVersion:1,month:'2026-10',reservedCents:0};
   for(let i=0;i<50;i++) ledger=core.reserve(ledger,'2026-10');
