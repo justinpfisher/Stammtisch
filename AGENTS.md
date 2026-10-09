@@ -1,5 +1,14 @@
 # Stammtisch repository working instructions
 
+## Autonomous advancement execution and usage controls
+
+Before starting or recovering an autonomous advancement window, read and apply [Universal Autonomous Advancement — Execution Mode and Usage Controls v1.3](docs/universal-autonomous-advancement-v1.3.md). Ask for the execution mode unless the owner already selected it; Mode 1 (ChatGPT only) is the default ceiling. Work requires GPT-6 Luna / High / Standard, with a current owner attestation accepted when Work's own UI is inaccessible under v1.3; separately authorised Codex retains its prior Luna / Low / Standard ceiling where available. No automatic model substitution. No automatic stronger-model escalation, purchased-credit use, or parallel agentic execution without the separate authorisation required by that policy.
+
+For these windows, v1.3 with its unchanged v1.2 base constrains older general routing, model-map and delegation permissions. Preserve required quality by pausing an unsuitable task and seeking the necessary decision, never by silently increasing usage or weakening validation. Existing project scope, source/service approvals, privacy, review, attempt and budget gates remain in force. Recording the policy does not activate a window, schedule, product setting or billing control.
+
+These rules apply to website, Celebration of Life, and notification work.
+
+
 ## Club identity and institutional memory
 
 - Before changing club-facing narrative, membership descriptions, the Annual Assembly, image choices, or club traditions, consult `docs/club-context-and-history.md`. It consolidates relevant prior conversations **without** converting unapproved draft governance into adopted rules.
