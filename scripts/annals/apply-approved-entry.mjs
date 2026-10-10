@@ -33,7 +33,7 @@ function approvedPhoto(entry, base64) {
 }
 
 export async function applyApprovedEntry({ event, data, secret }) {
-  const actions = ['annals-approved-entry', 'annals-correct-entry', 'annals-remove-entry'];
+  const actions = ['annals-approved-entry', 'annals-auto-entry', 'annals-correct-entry', 'annals-remove-entry'];
   if (!event || !actions.includes(event.action) || !event.client_payload) throw new Error('Invalid dispatch event');
   if (!data || data.schemaVersion !== 1 || !Array.isArray(data.entries) || !Array.isArray(data.approvals) ||
       Object.keys(data).some(k => !['schemaVersion', 'entries', 'approvals'].includes(k))) throw new Error('Invalid public archive');
@@ -56,9 +56,15 @@ export async function applyApprovedEntry({ event, data, secret }) {
     if (keys !== 'approval,entry' && keys !== 'approval,entry,imageBase64') throw new Error('Invalid entry payload');
     const entry = validatePublicTextEntry(event.client_payload.entry), approval = event.client_payload.approval;
     if (!verifyPublicApproval(entry, approval, secret)) throw new Error('Missing exact public approval');
+    if (event.action === 'annals-auto-entry') {
+      if (approval.mode !== 'standing-consent-text-v1' || entry.photo || event.client_payload.imageBase64 !== undefined)
+        throw new Error('Automated publication requires signed text-only standing-consent proof');
+    } else if (approval.mode !== undefined) {
+      throw new Error('Standing-consent proof cannot be reused for manual publication or correction');
+    }
     const imageBytes = approvedPhoto(entry, event.client_payload.imageBase64);
     const index = entries.findIndex(item => item.id === entry.id);
-    if (event.action === 'annals-approved-entry') {
+    if (event.action === 'annals-approved-entry' || event.action === 'annals-auto-entry') {
       if (index >= 0 || approvals.some(item => item.entryId === entry.id)) throw new Error('Entry already exists; no duplicate publication');
       entries.push(entry); approvals.push(approval);
     } else {
