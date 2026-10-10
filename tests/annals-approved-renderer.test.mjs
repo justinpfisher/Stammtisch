@@ -61,6 +61,9 @@ test('a text-only fictional cocktail with explicit review and signed receipt can
   assert.ok(result.html.includes('The Annals of Stammtisch'));
   assert.ok(result.html.includes('1/2 oz test syrup'));
   assert.ok(result.html.includes('Homemade syrup'));
+  assert.ok(result.html.includes('id="collection-cocktail"'));
+  assert.ok(!result.html.includes('id="collection-quotation"'));
+  assert.doesNotMatch(result.html, /class="annal-collections"/);
   assert.ok(!result.html.includes('<script'));
 });
 
@@ -168,16 +171,20 @@ test('a mixed set of fictional entries sorts newest year first with existing nav
   assert.ok(html.includes('width=device-width'));
   assert.ok(html.includes('id="sample-cocktail-01"'));
   assert.ok(html.includes('id="sample-quotation-01"'));
+  assert.match(html, /href="#collection-cocktail"/);
+  assert.match(html, /href="#collection-quotation"/);
+  assert.doesNotMatch(html, /(?:id|href)="(?:#)?collection-(?:monthly-gathering|assembly|club-history|artefact)"/);
 });
 
 test('empty publication has no accidental test entry or sender data', () => {
   const result = buildApprovedAnnals([], [], '');
   assert.equal(result.entryCount, 0);
-  assert.ok(result.html.includes('No approved entries in this collection yet.'));
+  assert.ok(result.html.includes('The record awaits an approved contribution.'));
+  assert.doesNotMatch(result.html, /class="annal-collections"|class="annal-collection"/);
   assert.ok(result.html.includes('href="mailto:annals@stammtischbrewery.com"'));
   for (const label of ['The Cocktail Register', 'Quotations of Questionable Wisdom',
     'Monthly Proceedings', 'Annual Assemblies', 'Club History', 'Club Artefacts']) {
-    assert.ok(result.html.includes(label));
+    assert.ok(!result.html.includes(label));
   }
   assert.ok(!result.html.includes('synthetic-test'));
   assert.ok(!result.html.includes('example.test'));
