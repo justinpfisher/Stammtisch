@@ -222,41 +222,41 @@ test('approved named member credits use their own Annals portraits without ident
   }
 });
 
-test('Register of Remarks shows a verified speaker instead of the contributor beside the exact quote', () => {
-  const record = {...baseQuote,credit:'anonymous',speakerPortrait:'ken'};
-  const bad = signedTestReceipt(record,{quotePublication:true});
-  assert.equal(verifyApproval(record,bad,TEST_SECRET),false);
-  const approved = signedTestReceipt(record,{quotePublication:true,namedAttribution:true});
-  assert.equal(verifyApproval(record,approved,TEST_SECRET),true);
-  const html = buildApprovedAnnals([record],[approved],TEST_SECRET).html;
-  assert.match(html,/The Register of Remarks/);
-  assert.match(html,/id="collection-quotation"/);
-  assert.match(html,/class="annal-remark-card"/);
-  assert.match(html,/class="annal-speaker-portrait"/);
-  assert.match(html,/src="assets\/members\/annals\/ken-annals\.webp"/);
-  assert.match(html,/alt="Illustrated portrait of Ken, the speaker"/);
-  assert.match(html,/This is an invented test quotation/);
-  assert.doesNotMatch(html,/class="annal-contributor-portrait"|Recorded by/);
-  assert.match(html,/\.annal-speaker-portrait\{width:48px/); // iPhone size
-  assert.equal(contentDigest(record)===contentDigest({...record,speakerPortrait:'marc'}),false);
-  assert.equal(verifyApproval({...record,speakerPortrait:'marc'},approved,TEST_SECRET),false);
-});
-test('quotation cannot use sender portrait or unsafe speaker metadata', () => {
-  const base={...baseQuote,credit:'anonymous'};
-  assert.throws(()=>validatePublicTextEntry({...base,contributorPortrait:'fish'}),/quotation/i);
-  assert.throws(()=>validatePublicTextEntry({...base,contributorPortrait:'fish',speakerPortrait:'ken'}),/speaker|quotation/i);
-  assert.throws(()=>validatePublicTextEntry({...baseDrink,speakerPortrait:'ken'}),/quotation/i);
-  for (const bad of ['Ken','../private','fish.webp','https://bad.test/fish.png','',
-    '__proto__','ken@example.test']) {
-    assert.throws(()=>validatePublicTextEntry({...base,speakerPortrait:bad}),/portrait/i);
-  }
-});
-test('anonymous quotation archive does not infer a speaker or display a name', () => {
-  const q={...baseQuote,credit:'anonymous'};
-  const approved=signedTestReceipt(q,{quotePublication:true});
-  const html=buildApprovedAnnals([q],[approved],TEST_SECRET).html;
-  assert.match(html,/The Register of Remarks/);
-  assert.doesNotMatch(html,/class="annal-speaker-portrait"/);
-  assert.doesNotMatch(html,/class="annal-contributor-portrait"/);
-});
+test('Register of Remarks shows a verified speaker instead of the contributor beside the exact quote', () => {
+  const record = {...baseQuote,credit:'anonymous',speakerPortrait:'ken'};
+  const bad = signedTestReceipt(record,{quotePublication:true});
+  assert.equal(verifyApproval(record,bad,TEST_SECRET),false);
+  const approved = signedTestReceipt(record,{quotePublication:true,namedAttribution:true});
+  assert.equal(verifyApproval(record,approved,TEST_SECRET),true);
+  const html = buildApprovedAnnals([record],[approved],TEST_SECRET).html;
+  assert.match(html,/The Register of Remarks/);
+  assert.match(html,/id="collection-quotation"/);
+  assert.match(html,/class="annal-remark-card"/);
+  assert.match(html,/class="annal-speaker-portrait"/);
+  assert.match(html,/src="assets\/members\/annals\/ken-annals\.webp"/);
+  assert.match(html,/alt="Illustrated portrait of Ken, the speaker"/);
+  assert.match(html,/This is an invented test quotation/);
+  assert.doesNotMatch(html,/class="annal-contributor-portrait"|Recorded by/);
+  assert.match(html,/\.annal-speaker-portrait\{width:48px/); // iPhone size
+  assert.equal(contentDigest(record)===contentDigest({...record,speakerPortrait:'marc'}),false);
+  assert.equal(verifyApproval({...record,speakerPortrait:'marc'},approved,TEST_SECRET),false);
+});
+test('quotation cannot use sender portrait or unsafe speaker metadata', () => {
+  const base={...baseQuote,credit:'anonymous'};
+  assert.throws(()=>validatePublicTextEntry({...base,contributorPortrait:'fish'}),/Unexpected public entry field/);
+  assert.throws(()=>validatePublicTextEntry({...base,contributorPortrait:'fish',speakerPortrait:'ken'}),/Unexpected public entry field/);
+  assert.throws(()=>validatePublicTextEntry({...baseDrink,speakerPortrait:'ken'}),/quotation/i);
+  for (const bad of ['Ken','../private','fish.webp','https://bad.test/fish.png','',
+    '__proto__','ken@example.test']) {
+    assert.throws(()=>validatePublicTextEntry({...base,speakerPortrait:bad}),/portrait/i);
+  }
+});
+test('anonymous quotation archive does not infer a speaker or display a name', () => {
+  const q={...baseQuote,credit:'anonymous'};
+  const approved=signedTestReceipt(q,{quotePublication:true});
+  const html=buildApprovedAnnals([q],[approved],TEST_SECRET).html;
+  assert.match(html,/The Register of Remarks/);
+  assert.doesNotMatch(html,/class="annal-speaker-portrait"/);
+  assert.doesNotMatch(html,/class="annal-contributor-portrait"/);
+});
 
