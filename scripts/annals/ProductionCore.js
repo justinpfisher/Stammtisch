@@ -22,8 +22,14 @@ var AnnalsProduction = (function () {
     return value.map(function (v) { return text(v, 220, true); });
   }
   function recipe(value) {
-    keys(value, ['drinkIngredients', 'syrupIngredients', 'steps']);
-    return { drinkIngredients: lines(value.drinkIngredients), syrupIngredients: lines(value.syrupIngredients), steps: lines(value.steps) };
+    keys(value, ['drinkIngredients', 'syrupIngredients', 'steps', 'suggestedSteps']);
+    var result = { drinkIngredients: lines(value.drinkIngredients), syrupIngredients: lines(value.syrupIngredients), steps: lines(value.steps) };
+    if (value.suggestedSteps !== undefined) {
+      var suggestions = lines(value.suggestedSteps);
+      if (suggestions.length > 3) throw new Error('Too many editorial suggestions');
+      if (suggestions.length) result.suggestedSteps = suggestions;
+    }
+    return result;
   }
   function canonical(value) {
     if (Array.isArray(value)) return value.map(canonical);
