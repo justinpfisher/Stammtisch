@@ -17,7 +17,7 @@ const TYPES = Object.freeze({
 
 const PUBLIC_KEYS = new Set([
   'id', 'category', 'title', 'summary', 'year', 'dateLabel',
-  'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo', 'speakerPortrait'
+  'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo', 'speakerPortrait', 'contributorPortrait'
 ]);
 const RECIPE_KEYS = new Set(['drinkIngredients', 'syrupIngredients', 'steps', 'suggestedSteps']);
 // Already-public illustrated portraits used in Celebration of Life; no private images.
@@ -91,6 +91,14 @@ export function validatePublicTextEntry(input) {
     year, dateLabel, sortDate, quoteVerbatim, recipe: outputRecipe,
     credit: limited(input.credit || 'anonymous', 'credit', 70, true),
   };
+  // A verified sender is shown without publishing their email address or name.
+  if (input.contributorPortrait !== undefined && input.contributorPortrait !== null) {
+    if (typeof input.contributorPortrait !== 'string' ||
+        !Object.hasOwn(CONTRIBUTOR_PORTRAITS, input.contributorPortrait) ||
+        input.category === 'quotation' || output.credit !== 'anonymous')
+      throw new Error('Invalid contributor portrait for this entry');
+    output.contributorPortrait = input.contributorPortrait;
+  }
   if (input.speakerPortrait !== undefined && input.speakerPortrait !== null) {
     if (typeof input.speakerPortrait !== 'string' ||
         !Object.hasOwn(CONTRIBUTOR_PORTRAITS, input.speakerPortrait) ||
@@ -139,7 +147,7 @@ export function verifyApproval(publicEntry, receipt, secret) {
     if (entry.category === 'quotation' && receipt.consents.quotePublication !== true) return false;
     if (entry.category === 'cocktail' && receipt.consents.recipeVerified !== true) return false;
     if (!!entry.photo !== (receipt.consents.photoPublication === true)) return false;
-    if ((entry.credit !== 'anonymous' && entry.credit !== 'a club member' || entry.speakerPortrait) &&
+    if ((entry.credit !== 'anonymous' && entry.credit !== 'a club member' || entry.speakerPortrait || entry.contributorPortrait) &&
         receipt.consents.namedAttribution !== true) return false;
     const digest = contentDigest(entry);
     if (receipt.contentSha256 !== digest ||
@@ -175,9 +183,10 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
     if (automated && (entry.credit !== 'anonymous' ||
         approval.consents.quotePublication !== (entry.category === 'quotation') ||
         (automatedRemark && (entry.category !== 'quotation' || !entry.speakerPortrait ||
+          entry.contributorPortrait ||
           entry.photo || approval.consents.namedAttribution !== true ||
           approval.consents.photoPublication !== false)) ||
-        (!automatedRemark && (entry.speakerPortrait || approval.consents.namedAttribution !== false)) ||
+        (!automatedRemark && (entry.speakerPortrait || approval.consents.namedAttribution !== !!entry.contributorPortrait)) ||
         (automatedText && (entry.photo || approval.consents.photoPublication !== false)) ||
         (automatedImage && (entry.category === 'quotation' || !entry.photo || approval.consents.photoPublication !== true)))) return false;
     if (approval.entryId !== entry.id || !/^\d{4}-\d{2}-\d{2}T/.test(approval.approvedAt ?? '') ||
@@ -185,7 +194,7 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
         (entry.category === 'quotation' && approval.consents.quotePublication !== true) ||
         (entry.category === 'cocktail' && approval.consents.recipeVerified !== true) ||
         (!!entry.photo !== (approval.consents.photoPublication === true)) ||
-        ((entry.credit !== 'anonymous' && entry.credit !== 'a club member' || entry.speakerPortrait) && approval.consents.namedAttribution !== true)) return false;
+        ((entry.credit !== 'anonymous' && entry.credit !== 'a club member' || entry.speakerPortrait || entry.contributorPortrait) && approval.consents.namedAttribution !== true)) return false;
     if (approval.contentSha256 !== contentDigest(entry) || !/^[a-f0-9]{64}$/.test(approval.signature ?? '')) return false;
     const signedMaterial = JSON.stringify(canonical({
       entry,
@@ -259,7 +268,12 @@ function approvedEntryMarkup(entry) {
       (entry.recipe.suggestedSteps?.length ? '<p class="annal-reconstruction-flag">Editorial reconstruction: suggested quantities or methods below are not the original recorded recipe.</p>' : '') +
       section('Editorial suggestions — NOT part of the original recipe',
         entry.recipe.suggestedSteps || []) + '</div>' : '') +
-    (entry.category === 'quotation' ? '' : contributorCreditMarkup(entry.credit)) +
+    (entry.category === 'quotation' ? '' : entry.contributorPortrait ?
+      '<div class="annal-credited-illustration"><img class="annal-contributor-portrait" src="assets/members/annals/' +
+      esc(entry.contributorPortrait) + '-annals.webp" alt="Illustrated portrait of ' +
+      esc(CONTRIBUTOR_PORTRAITS[entry.contributorPortrait]) +
+      ', who contributed this entry" width="48" height="48" loading="lazy" decoding="async"></div>' :
+      contributorCreditMarkup(entry.credit)) +
     '</article>';
 }
 
@@ -343,6 +357,7 @@ function buildAnnals(entries, receipts, verifyReceipt) {
 .annal-date,.annal-credit{color:#64685e;font-size:12px;margin-top:7px}
 .annal-credit{display:flex;align-items:center;gap:10px}
 .annal-contributor-portrait{display:block;width:48px;height:48px;flex:0 0 48px;object-fit:cover;border-radius:3px}
+.annal-credited-illustration{margin-top:13px;display:flex;align-items:center;min-height:48px}
 .annal-summary{margin-top:18px;line-height:1.8;font-size:15px}
 .annal-photo{margin:22px 0 0}.annal-photo img{display:block;width:100%;max-width:760px;max-height:70vh;object-fit:contain;background:#eae5d8}
 .annal-entry blockquote{border-left:3px solid #846329;padding-left:18px;margin:22px 0;font:italic 22px/1.5 Georgia,serif}
