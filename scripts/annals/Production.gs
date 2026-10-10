@@ -151,13 +151,13 @@ function annalsContributorPortrait_(source) {
     JSON.parse(p.getProperty('ANNALS_SPEAKER_IDENTITIES') || 'null')); }
   catch (ignored) { return null; }
   var member = annalsConsentRegistry_().members[sender],
-    grant = member && member.quoteAttribution;
+    grant = member && member.contributorPortraitPublication;
   var grantedAt = Date.parse(grant && grant.consentedAt), receivedAt = Date.parse(received);
-  // An owner-verified, separately revocable attribution grant is necessary;
+  // A distinct owner-verified, separately revocable contributor portrait grant is necessary;
   // knowing the email address or having generic text consent is insufficient.
   if (!mapping[sender] || !member || member.portraitAttributionDisabled === true ||
       !grant || grant.status !== 'active' || grant.revokedAt ||
-      grant.scope !== 'future_attributed_member_quotation_publication' ||
+      grant.scope !== 'future_illustrated_contributor_identification' ||
       !Number.isFinite(grantedAt) || !Number.isFinite(receivedAt) ||
       grantedAt > receivedAt) return null;
   return mapping[sender];
@@ -186,6 +186,61 @@ function annalsQuoteSpeakerPermission_(source, draft) {
       grant.revokedAt || !Number.isFinite(date) || !Number.isFinite(grantedAt) ||
       date < grantedAt) return null;
   return { speakerPortrait: portrait };
+}
+/** Consent for illustrated credits on NON-quotation Annals entries, separate
+ * from permissions to attribute quotes spoken by other people.
+ */
+function annalsRecordVerifiedContributorPortraitPermissions(nonce, confirmed, evidenceNote) {
+  return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
+    if (confirmed !== true || typeof evidenceNote !== 'string' ||
+        evidenceNote.trim().length < 18 || evidenceNote.length > 1000)
+      throw new Error('Evidence of six explicit illustrated contributor permissions required');
+    var p = annalsProps_();
+    if (p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED') === 'true' ||
+        p.getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') === 'true' ||
+        p.getProperty('ANNALS_AI_ENABLED') === 'true' ||
+        p.getProperty('ANNALS_AUTO_MEDIA_ENABLED') === 'true')
+      throw new Error('Stop all Annals automation before recording illustration rights');
+    var allowed = AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '');
+    if (allowed.length !== 6) throw new Error('Six exact allowed contributor addresses required');
+    AnnalsProduction.portraitMap(allowed,
+      JSON.parse(p.getProperty('ANNALS_SPEAKER_IDENTITIES') || 'null'));
+    var root = annalsRoot_(), registry = annalsConsentRegistry_();
+    if (annalsFile_(root,'verified-contributor-portraits-private.json'))
+      throw new Error('Prior private contributor portrait registration exists; inspect before retrying');
+    allowed.forEach(function (address) {
+      var member = registry.members[address];
+      if (!member || member.status !== 'active' || member.revokedAt ||
+          !member.autoPublication || member.autoPublication.status !== 'active' ||
+          member.autoPublication.revokedAt || member.portraitAttributionDisabled ||
+          member.contributorPortraitPublication &&
+            (member.contributorPortraitPublication.status === 'revoked' ||
+             member.contributorPortraitPublication.revokedAt))
+        throw new Error('Revoked or unverified member permission cannot be overridden');
+    });
+    var now = new Date().toISOString(), marker = {
+      state:'attempt_reserved',at:now,memberCount:6,
+      method:'owner_attested_existing_individual_contributor_portrait_permission',
+      scope:'future_illustrated_contributor_identification',
+      evidenceNote:evidenceNote.trim()
+    };
+    annalsWriteOnce_(root,'verified-contributor-portraits-private.json',marker);
+    allowed.forEach(function (address) {
+      registry.members[address].contributorPortraitPublication = {
+        status:'active',scope:'future_illustrated_contributor_identification',
+        consentedAt:now,source:'owner_attested_prior_direct_permission'
+      };
+    });
+    annalsSavePrivate_(root,'consent-registry-private.json',registry);
+    marker.state='consents_recorded';
+    annalsFile_(root,'verified-contributor-portraits-private.json').setContent(JSON.stringify(marker));
+    allowed.forEach(function (address) {
+      try { MailApp.sendEmail(address,'Stammtisch Annals — illustrated contributor credit',
+        'The Club owner has recorded your earlier permission for the approved illustrated likeness to identify your eligible future Annals contributions without displaying your email address or visible name. This is separate from your quotation-speaker permission. To hide future portraits, email HIDE MY ANNALS PORTRAIT. Public GitHub history can retain earlier copies; contact the Club owner for corrections or withdrawal.'); }
+      catch (ignored) { /* Never fabricate delivery evidence. */ }
+    });
+    return {recorded:true,memberCount:6,privateOnly:true,automationActivated:false};
+  }); });
 }
 function annalsRecordVerifiedQuotePermissions(nonce, confirmed, evidenceNote) {
   return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
@@ -232,7 +287,7 @@ function annalsRecordVerifiedQuotePermissions(nonce, confirmed, evidenceNote) {
       try { MailApp.sendEmail(address, 'Stammtisch Register of Remarks — speaker permission',
         'The Club owner has recorded your previously confirmed permission for your attributed quotations ' +
         'to be published when another approved member submits the exact wording. ' +
-        'Your already-approved illustration may appear beside the quote or your own Annals contribution, without showing your email. Public GitHub history may ' +
+        'Your already-approved illustration may appear beside the quote. A separate contributor-portrait permission covers other entries. Public GitHub history may ' +
         'retain copies after corrections. To stop future attributed quote publication email ' +
         'REVOKE ANNALS QUOTE ATTRIBUTION. To opt out of the artwork separately, email HIDE MY ANNALS PORTRAIT. Contact the Club owner to request corrections or removal.'); }
       catch (ignored) { /* Never fabricate a delivered notice. */ }
@@ -252,8 +307,11 @@ function annalsHandleConsentReply_(sender, body) {
   }
   if (member && text === 'SHOW MY ANNALS PORTRAIT' &&
       annalsStandingPublicationActive_(sender,new Date().toISOString()) &&
-      member.quoteAttribution && member.quoteAttribution.status === 'active' &&
-      !member.quoteAttribution.revokedAt) {
+      ((member.quoteAttribution && member.quoteAttribution.status === 'active' &&
+        !member.quoteAttribution.revokedAt) ||
+       (member.contributorPortraitPublication &&
+        member.contributorPortraitPublication.status === 'active' &&
+        !member.contributorPortraitPublication.revokedAt))) {
     member.portraitAttributionDisabled = false;
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
     MailApp.sendEmail(sender, 'Annals portrait attribution enabled',
@@ -384,6 +442,14 @@ function annalsProductionPreflight() {
         return list.length===6&&list.every(function (a) {
           var q=members[a]&&members[a].quoteAttribution;
           return q && q.status==='active'&&!q.revokedAt;
+        });}catch(ignored){return false;}
+    })(),
+    contributorPortraitConsentsRecorded: (function () {
+      try {var list=AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || ''),
+        members=annalsConsentRegistry_().members;
+        return list.length===6&&list.every(function (a) {
+          var q=members[a]&&members[a].contributorPortraitPublication;
+          return !!q&&q.status==='active'&&!q.revokedAt;
         });}catch(ignored){return false;}
     })(),
     sendsAcknowledgements: true };
