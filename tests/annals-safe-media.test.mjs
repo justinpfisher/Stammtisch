@@ -121,3 +121,35 @@ test('suggestions are visibly distinguished from preserved measurement-free sour
   assert.match(html,/about 45 mL|start at 15 mL/);
   assert.match(html,/gin/);
 });
+
+test('non-identifying Assembly scenery can be published as a signed photograph',async()=>{
+  const bytes=Buffer.from(media.sanitize([...photo()]).bytes);
+  const digest=createHash('sha256').update(bytes).digest('hex');
+  const item=source();item.source.subject='Annual Assembly lake photograph';
+  item.source.excerpt='Photo from the Annual Assembly.';
+  const candidate={...draft('assembly'),title:'Annual Assembly lake photograph',
+    imageSafety:{kind:'scenery',safeToPublish:true,altText:'A quiet lake'}};
+  const result=policy.enrich(item,candidate,id,base.propose(item,candidate,id),
+    {sha256:digest,size:bytes.length});
+  assert.equal(result.eligible,true);
+  assert.equal(result.entry.category,'assembly');
+  assert.equal(result.entry.photo.alt,'Contributor-submitted scenic photograph');
+  const signed=sign(result.entry);
+  assert.equal(verifyPublicApproval(result.entry,signed,secret),true);
+  const applied=await applyApprovedEntry({event:{action:'annals-auto-entry',
+    client_payload:{entry:result.entry,approval:signed,imageBase64:bytes.toString('base64')}},
+    data:{schemaVersion:1,entries:[],approvals:[]},secret});
+  assert.match(applied.html,/Annual Assemblies/);
+  assert.match(applied.html,/scenic photograph/);
+  assert.equal(applied.assetsToWrite.length,1);
+});
+test('long suggested quantity guidance stays within the 220-character public line limit',()=>{
+  const recipe={drinkIngredients:[
+    'gin made from a fictional ingredient','lime juice fresh',
+    'homemade syrup with a fictional herb infusion','tonic water chilled',
+    'extra garnish with a fictional fragrant ingredient'],
+    syrupIngredients:[],steps:[]};
+  const parts=policy.suggestedQuantities(recipe,'homemade syrup');
+  assert.ok(parts.length>=1&&parts.length<=2);
+  for(const part of parts)assert.ok(part.length<=220,'suggestion too long');
+});
