@@ -70,7 +70,13 @@ var AnnalsProduction = (function () {
     if (result.category !== 'quotation' && result.quoteVerbatim) throw new Error('Unexpected quotation');
     if (result.category === 'cocktail' && !result.recipe.drinkIngredients.length && !result.recipe.steps.length) throw new Error('Missing recipe');
     if (result.category !== 'cocktail' && Object.values(result.recipe).some(function (v) { return v.length; })) throw new Error('Unexpected recipe');
+    if ([result.title, result.summary, result.dateLabel, result.credit, result.quoteVerbatim]
+      .concat(result.recipe.drinkIngredients, result.recipe.syrupIngredients, result.recipe.steps)
+      .some(uncensoredStrong)) throw new Error('Apply conspicuous editorial censorship before public approval');
     return result;
+  }
+  function uncensoredStrong(value) {
+    return /\b(?:motherfucker|motherfucking|fucking|fucked|fucker|fuck|bullshit|shitty|shit|asshole|bastard|bitch|cunt|dickhead)\b/i.test(value);
   }
   function consents(entry, value) {
     keys(value, ['publication', 'quotePublication', 'recipeVerified', 'namedAttribution', 'photoPublication']);
