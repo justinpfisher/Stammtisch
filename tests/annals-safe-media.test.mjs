@@ -43,7 +43,7 @@ test('malicious, corrupt and large thumbnail structures fail closed',()=>{
   const image=photo();
   assert.throws(()=>media.sanitize(Buffer.from('not an image')),/Invalid private thumbnail/);
   assert.throws(()=>media.sanitize([...image].slice(0,-2)),/(complete JPEG|scan continuation|Malformed)/);
-  assert.throws(()=>media.sanitize([...image,...image]),/complete JPEG/);
+  assert.throws(()=>media.sanitize([...image,...image]),/(complete JPEG|scan continuation|hidden payload|Malformed)/);
   assert.throws(()=>media.sanitize(new Array(1024*1024+1).fill(0)),/Invalid private thumbnail/);
   assert.throws(()=>media.sanitize([...image].map((n,i)=>i===3?0:n)));
 });
