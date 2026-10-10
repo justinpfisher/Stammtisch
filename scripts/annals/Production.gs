@@ -290,7 +290,7 @@ function annalsResumeConsentedDrafts_(limit) {
     }
     if (annalsFile_(folder, 'ai-attempt-private.json') || source.senderAuthenticated !== true ||
         source.aiConsentActive !== true || !annalsConsentActive_(source.source.sender) ||
-        (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + source.source.excerpt)) || source.source.excerptTruncated ||
+        (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt))) || source.source.excerptTruncated ||
         !annalsSafeTextForAutoAi_(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt))) continue;
     try { if (annalsProcessConsentedText_(id)) done++; }
     catch (e) {
@@ -515,7 +515,7 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
 function annalsProcessConsentedText_(id) {
   var source = annalsRead_(annalsFolder_(id), 'source-private.json');
   if (!source || source.senderAuthenticated !== true || source.aiConsentActive !== true || !annalsConsentActive_(source.source.sender) ||
-      (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + source.source.excerpt)) || source.source.excerptTruncated ||
+      (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt))) || source.source.excerptTruncated ||
       !annalsSafeTextForAutoAi_(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) ||
       annalsProps_().getProperty('ANNALS_AI_ENABLED') !== 'true') return false;
   var fullText = source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt);
