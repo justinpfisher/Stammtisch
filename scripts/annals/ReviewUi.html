@@ -12,6 +12,17 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 <label><input type="checkbox" id="verifiedExistingConfirmed">I have personally verified each contributor's existing explicit, revocable consent for AI processing and public text and screened-image publication.</label>
 <button id="recordVerifiedConsents">Record previously obtained permissions for all six</button>
 </details></fieldset>
+<fieldset><legend>The Register of Remarks — one-time speaker setup</legend>
+<p class="muted">Privately match each allowed member email address to the approved 256-pixel Annals illustration. The public quote shows only the actual speaker's portrait, never the email submitter or an email address. Confirm all six identities before saving.</p>
+<div id="speakerAssignments"></div>
+<label><input type="checkbox" id="speakerMapVerified">I checked all six email-to-speaker illustration assignments.</label>
+<button id="loadSpeakerMap">Reload speaker assignments</button><button id="saveSpeakerMap">Save private speaker assignments</button>
+<p class="muted">A separate, revocable permission is needed before quoting someone based on another member's email. The Club owner may record existing permission only if individually verified.</p>
+<label>Private evidence: how/when each speaker granted permission for quotes and their likeness<textarea id="quoteEvidence" maxlength="1000"></textarea></label>
+<label><input type="checkbox" id="quotesVerified">I personally verified each of the six members granted permission to publish their exact remarks attributed to them when another member submits them, with their approved portrait.</label>
+<button id="recordQuotePermissions">Record previously verified speaker permissions</button>
+<p class="muted">Each speaker may revoke future quote attribution by emailing <strong>REVOKE ANNALS QUOTE ATTRIBUTION</strong> from their authenticated address. No settings here activate publication.</p>
+</fieldset>
 <section id="queue"><h2>Contributions</h2><ul id="items"></ul><button id="more" hidden>More contributions</button></section>
 <section id="detail" hidden><button id="back">Back to contributions</button><h2 id="subject"></h2>
 <p><a id="original" target="_blank" rel="noopener">Open private originals in Drive</a></p>
@@ -26,7 +37,7 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 <label>Public alternative text describing only the drink, ingredients or object<input id="photoAlt" type="text" maxlength="180"></label></fieldset>
 <p id="flags"></p>
 <fieldset><legend>Edit the proposed public text</legend>
-<label>Category<select id="category"><option value="" selected>Choose a category</option><option value="cocktail">Cocktail</option><option value="quotation">Quotation</option><option value="monthly_gathering">Monthly gathering</option><option value="assembly">Annual Assembly</option><option value="club_history">Club history</option><option value="artefact">Club artefact</option></select></label>
+<label>Category<select id="category"><option value="" selected>Choose a category</option><option value="cocktail">Cocktail</option><option value="quotation">The Register of Remarks</option><option value="monthly_gathering">Monthly gathering</option><option value="assembly">Annual Assembly</option><option value="club_history">Club history</option><option value="artefact">Club artefact</option></select></label>
 <label>Title<input id="title" type="text" maxlength="160"></label>
 <label>Summary<textarea id="summary" maxlength="1800"></textarea></label>
 <label>Confirmed year<input id="year" type="number" min="1990" max="2100"></label>
@@ -34,6 +45,12 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 <label>Exact event date, only if confirmed (YYYY-MM-DD)<input id="sortDate" type="text" maxlength="10"></label>
 <label>Credit chosen by the contributor<input id="credit" type="text" maxlength="70" value="anonymous"></label>
 <label>Quotation text, for quotation entries only (censored quotations will be labelled non-verbatim)<textarea id="quoteVerbatim" maxlength="1500"></textarea></label>
+<label>Actual speaker (for quotations only)<select id="speakerPortrait">
+<option value="">Unidentified speaker — no portrait</option><option value="fish">Justin (Fish)</option>
+<option value="marc">Marc</option><option value="matt">Matt</option><option value="ken">Ken</option>
+<option value="jamie">Jamie</option><option value="jerome">Jerome</option>
+</select></label>
+<p class="muted">Only choose a speaker whose identity and specific quote publication permission are verified privately. The email sender is recorded privately, not displayed next to a quotation.</p>
 <label>Drink ingredients — one per line<textarea id="drinkIngredients"></textarea></label>
 <label>Syrup ingredients — one per line<textarea id="syrupIngredients"></textarea></label>
 <label>Preparation from original — one step per line<textarea id="steps"></textarea></label><label>Suggested preparation — clearly labelled as reconstructed, not historically recorded<textarea id="suggestedSteps"></textarea></label>
@@ -43,7 +60,7 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 <label><input type="checkbox" id="publication">The contributor and anyone identified have approved this exact text for the public website and public GitHub history.</label>
 <label><input type="checkbox" id="recipeVerified">For a recipe: its creator verified the quantities, units and syrup instructions.</label>
 <label><input type="checkbox" id="quotePublication">For a quotation: the exact quotation and its public use are approved.</label>
-<label><input type="checkbox" id="namedAttribution">For named credit: the contributor approved this attribution.</label>
+<label><input type="checkbox" id="namedAttribution">For visible named credit or a speaker portrait: the identified person approved the exact public attribution.</label>
 <label><input type="checkbox" id="photoPublication">The photographer and anyone identifiable approved this exact image and context for public use; I checked for faces, reflections, location clues and private details.</label>
 <label><input type="checkbox" id="reviewed">I resolved the uncertainties and checked for private details against the originals.</label>
 <label>Private consent record — who approved what, when, and where the evidence is kept<textarea id="evidence" maxlength="2000"></textarea></label>
@@ -66,6 +83,22 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 <script>
 let nonce, current, continuation, review, pendingPhotoBase64=null, photoPreviewUrl=null;
 const el=id=>document.getElementById(id), val=id=>el(id).value, say=text=>{el('status').textContent=text};
+const speakerChoices=[{id:'fish',label:'Justin (Fish)'},{id:'marc',label:'Marc'},
+  {id:'matt',label:'Matt'},{id:'ken',label:'Ken'},{id:'jamie',label:'Jamie'},{id:'jerome',label:'Jerome'}];
+async function loadSpeakerMap(){
+  const state=await call('annalsReviewSpeakerIdentities',nonce);
+  el('speakerAssignments').replaceChildren();
+  state.assignments.forEach(item=>{
+    const wrap=document.createElement('label'),select=document.createElement('select');
+    select.className='speakerIdentity';select.dataset.address=item.address;wrap.textContent=item.address+' — ';
+    const blank=document.createElement('option');blank.value='';blank.textContent='Select verified illustration';select.append(blank);
+    (state.options||speakerChoices).forEach(p=>{const opt=document.createElement('option');
+      opt.value=p.id;opt.textContent=p.label;select.append(opt)});
+    select.value=item.portrait||'';wrap.append(select);el('speakerAssignments').append(wrap)
+  });
+  el('speakerMapVerified').checked=false;
+  say(state.configured?'Verified private speaker assignments loaded.':'Select and verify all six member illustrations before saving.')
+}
 function censorForPublic(s){return String(s).replace(/\b(?:tastes?|smells?)\s+like\s+shit\b/gi,v=>v.replace(/\bshit\b/i,'[POOP]')).replace(/\b(?:motherfucker|motherfucking|fucking|fucked|fucker|fuck|bullshit|shitty|shit|asshole|bastard|bitch|cunt|dickhead)\b/gi,'[EXPLETIVE]')}
 function call(name,...args){return new Promise((resolve,reject)=>google.script.run.withSuccessHandler(resolve).withFailureHandler(()=>reject(new Error('Operation held. Check the private configuration or reload this page.')))[name](...args));}
 function attemptMessage(outcome){const messages={network_error:'The request could not reach the AI provider.',provider_response_error:'The provider response could not be read.',invalid_response:'The provider response did not pass validation.',private_storage_error:'The private draft could not be saved.'};let message=messages[outcome&&outcome.reason]||'The AI attempt was interrupted or held.';if(outcome&&outcome.reason==='provider_http_error')message='The AI provider returned HTTP '+(Number.isInteger(outcome.httpStatus)?outcome.httpStatus:'error')+'.';return message+' No automatic retry will spend more.';}
@@ -74,7 +107,7 @@ async function list(reset){if(reset){el('items').replaceChildren();continuation=
 async function open(id){current=await call('annalsReviewItem',nonce,id);review=null;pendingPhotoBase64=null;el('queue').hidden=true;el('detail').hidden=false;el('subject').textContent=current.subject;el('source').value=current.text.slice(0,12000);el('original').href=current.folderUrl;el('attachments').replaceChildren();current.attachments.forEach(a=>{const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.value=a.name;check.className='media';check.disabled=!['image/jpeg','image/png'].includes(a.mime)||a.size>4194304;label.append(check,document.createTextNode(a.name));el('attachments').append(label)});
 ['aiConsent','publication','recipeVerified','quotePublication','namedAttribution','photoPublication','reviewed','correctionPhotoPublication'].forEach(id=>el(id).checked=false);el('evidence').value='';el('photoFile').value='';el('includePhoto').checked=false;el('photoAlt').value='';
 if(photoPreviewUrl)URL.revokeObjectURL(photoPreviewUrl);photoPreviewUrl=null;el('photoPreview').hidden=!current.photoDerivative;if(current.photoDerivative){el('photoPreview').src='data:image/jpeg;base64,'+current.photoDerivative.base64;el('includePhoto').checked=!!(current.correctionReview?.entry?.photo||current.publishedEntry?.photo||current.review?.entry?.photo);el('photoAlt').value=(current.correctionReview?.entry?.photo||current.publishedEntry?.photo||current.review?.entry?.photo||{}).alt||'';}
-const d=current.correctionReview?.entry||current.publishedEntry||current.review?.entry||current.draft||{};['title','summary','quoteVerbatim'].forEach(id=>el(id).value=d[id]||'');el('category').value=['cocktail','quotation','monthly_gathering','assembly','club_history','artefact'].includes(d.category)?d.category:'';el('year').value=d.year||'';el('dateLabel').value=d.dateLabel||'';el('sortDate').value=d.sortDate||'';el('credit').value=d.credit||'anonymous';['drinkIngredients','syrupIngredients','steps','suggestedSteps'].forEach(id=>el(id).value=(d.recipe?.[id]||[]).join('\n'));
+const d=current.correctionReview?.entry||current.publishedEntry||current.review?.entry||current.draft||{};['title','summary','quoteVerbatim'].forEach(id=>el(id).value=d[id]||'');el('category').value=['cocktail','quotation','monthly_gathering','assembly','club_history','artefact'].includes(d.category)?d.category:'';el('year').value=d.year||'';el('dateLabel').value=d.dateLabel||'';el('sortDate').value=d.sortDate||'';el('credit').value=d.credit||'anonymous';el('speakerPortrait').value=d.speakerPortrait||current.speakerPortrait||'';['drinkIngredients','syrupIngredients','steps','suggestedSteps'].forEach(id=>el(id).value=(d.recipe?.[id]||[]).join('\n'));
 el('flags').textContent='Review flags: '+(d.riskFlags||[]).join(', ');el('approval').hidden=true;el('save').disabled=current.approved;
 el('publish').hidden=!current.approved||current.publicationState==='dispatch_accepted'||current.dispatchAttempted;
 el('publishedActions').hidden=!current.approved;el('correctionApproval').hidden=true;el('saveCorrection').hidden=!current.approved;review=current.correctionReview||null;
@@ -83,7 +116,7 @@ el('removalBox').hidden=!current.approved||!!current.removal||current.publicatio
 el('startCorrection').hidden=!current.approved||!!current.correctionApproval||!!current.removal;el('saveCorrection').hidden=!current.approved||!!current.correctionApproval||!!current.removal;el('removalConfirmed').checked=false;el('removalReason').value='';
 if(review&&!current.correctionApproval&&!current.removal){el('correctionExact').textContent=JSON.stringify(review.entry,null,2);el('correctionApproval').hidden=false;['correctionPublication','correctionReviewed'].forEach(id=>el(id).checked=false);}
 say(current.approved?(current.publicationState==='dispatch_accepted'?'Exact approval recorded; publishing workflow accepted the entry. Check the public page after the deployment finishes.':current.dispatchAttempted?'The publishing request has an uncertain or rejected result. Check GitHub Actions before taking any further action.':'Exact approval is recorded privately. Send it to the publishing workflow when configuration is ready.') :current.attempted&&!current.draft?attemptMessage(current.outcome):current.truncated?'The original exceeds the preview limit. Review the full email before selecting source text.':current.draft?'Private AI draft ready. Review every field against the original before saving.':'Review the original and choose the material to process.');}
-function entry(){const split=id=>val(id).split('\n').map(s=>s.trim()).filter(Boolean),value={id:'annal-'+current.id.slice(0,24),category:val('category'),title:val('title'),summary:val('summary'),year:Number(val('year')),dateLabel:val('dateLabel'),sortDate:val('sortDate'),credit:val('credit'),quoteVerbatim:val('quoteVerbatim'),recipe:{drinkIngredients:split('drinkIngredients'),syrupIngredients:split('syrupIngredients'),steps:split('steps'),...(split('suggestedSteps').length?{suggestedSteps:split('suggestedSteps')}:{})}};if(el('includePhoto').checked){if(!current.photoDerivative)throw new Error('Save the private photo derivative first.');value.photo={sha256:current.photoDerivative.sha256,alt:val('photoAlt')};}return value;}
+function entry(){const split=id=>val(id).split('\n').map(s=>s.trim()).filter(Boolean),isQuote=val('category')==='quotation',value={id:'annal-'+current.id.slice(0,24),category:val('category'),title:val('title'),summary:val('summary'),year:Number(val('year')),dateLabel:val('dateLabel'),sortDate:val('sortDate'),credit:isQuote?'anonymous':val('credit'),quoteVerbatim:val('quoteVerbatim'),recipe:{drinkIngredients:split('drinkIngredients'),syrupIngredients:split('syrupIngredients'),steps:split('steps'),...(split('suggestedSteps').length?{suggestedSteps:split('suggestedSteps')}:{})}};if(isQuote&&val('speakerPortrait'))value.speakerPortrait=val('speakerPortrait');if(el('includePhoto').checked){if(!current.photoDerivative)throw new Error('Save the private photo derivative first.');value.photo={sha256:current.photoDerivative.sha256,alt:val('photoAlt')};}return value;}
 async function savePendingPhoto(){if(el('includePhoto').checked&&pendingPhotoBase64){current.photoDerivative=await call('annalsSavePhotoDerivative',nonce,current.id,pendingPhotoBase64);current.photoDerivative.base64=pendingPhotoBase64;pendingPhotoBase64=null;}if(el('includePhoto').checked&&!current.photoDerivative)throw new Error('Choose and save the private photo derivative first.');}
 function canvasJpeg(canvas,quality){return new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',quality));}
 el('photoFile').onchange=()=>act(async()=>{const file=el('photoFile').files[0];if(!file)return;if(!['image/jpeg','image/png'].includes(file.type)||file.size>20*1024*1024)throw new Error('Choose a JPEG or PNG under 20 MB. HEIC and PDF remain held privately.');const bitmap=await createImageBitmap(file);let scale=Math.min(1,1000/Math.max(bitmap.width,bitmap.height)),blob=null,canvas=document.createElement('canvas');for(let resize=0;resize<3&&!blob;resize++){canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));const ctx=canvas.getContext('2d',{alpha:false});ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);for(const q of [.82,.76,.7,.64,.58]){const candidate=await canvasJpeg(canvas,q);if(candidate&&candidate.size<=32768){blob=candidate;break;}}scale*=.78;}bitmap.close();if(!blob)throw new Error('This image cannot be reduced safely below 32 KB. Keep it private and use text-only publication.');pendingPhotoBase64=btoa(String.fromCharCode(...new Uint8Array(await blob.arrayBuffer())));if(photoPreviewUrl)URL.revokeObjectURL(photoPreviewUrl);photoPreviewUrl=URL.createObjectURL(blob);el('photoPreview').src=photoPreviewUrl;el('photoPreview').hidden=false;el('includePhoto').checked=true;current.photoDerivative=null;say('Metadata-stripped JPEG preview ready. Save the exact review to keep this derivative privately.');});
@@ -94,12 +127,26 @@ el('approve').onclick=()=>act(async()=>{if(!review)throw new Error('Save the exa
 const normalize=x=>JSON.stringify(Object.keys(x).sort().map(k=>[k,x[k]]));if(normalize(entry())!==normalize(review.entry))throw new Error('The form changed. Save and review it again.');}
 const c={};['publication','quotePublication','recipeVerified','namedAttribution','photoPublication'].forEach(id=>c[id]=el(id).checked);const result=await call('annalsApproveReview',nonce,current.id,review.hash,c,val('evidence'),el('reviewed').checked);await open(current.id);say(result.dispatchAccepted?'Exact approval saved; publishing request accepted. Verify the public entry after GitHub Actions and Pages finish.':'Exact approval saved privately, but publication was not accepted. Check owner-only configuration before retrying.');});
 el('publish').onclick=()=>act(async()=>{const result=await call('annalsPublishApproved',nonce,current.id);await open(current.id);say(result.dispatchAccepted?'GitHub accepted the signed approved entry. Verify the workflow and public page after deployment completes.':'No new dispatch was confirmed. Check configuration and GitHub Actions before any retry.')});
-function fillEntry(e){el('category').value=e.category;el('title').value=e.title;el('summary').value=e.summary;el('year').value=e.year;el('dateLabel').value=e.dateLabel;el('sortDate').value=e.sortDate;el('credit').value=e.credit;el('quoteVerbatim').value=e.quoteVerbatim||'';['drinkIngredients','syrupIngredients','steps','suggestedSteps'].forEach(k=>el(k).value=(e.recipe?.[k]||[]).join('\n'));}
+function fillEntry(e){el('category').value=e.category;el('title').value=e.title;el('summary').value=e.summary;el('year').value=e.year;el('dateLabel').value=e.dateLabel;el('sortDate').value=e.sortDate;el('credit').value=e.credit;el('quoteVerbatim').value=e.quoteVerbatim||'';el('speakerPortrait').value=e.speakerPortrait||'';['drinkIngredients','syrupIngredients','steps','suggestedSteps'].forEach(k=>el(k).value=(e.recipe?.[k]||[]).join('\n'));}
 el('startCorrection').onclick=()=>act(async()=>{if(!current.publishedEntry||current.publicationState!=='dispatch_accepted')throw new Error('The public dispatch must be accepted before correcting.');fillEntry(current.correctionReview?.entry||current.publishedEntry);say('Edit the exact public fields above, then save and review the correction.')});
 el('saveCorrection').onclick=()=>act(async()=>{if(!current.publishedEntry||current.publicationState!=='dispatch_accepted')throw new Error('The public dispatch must be accepted before correcting.');await savePendingPhoto();review=await call('annalsSaveCorrection',nonce,current.id,entry());el('correctionExact').textContent=JSON.stringify(review.entry,null,2);el('correctionApproval').hidden=false;['correctionPublication','correctionReviewed','correctionPhotoPublication'].forEach(id=>el(id).checked=false);el('correctionEvidence').value='';say('Review the exact changed text and photo derivative, then record private correction evidence.')});
-el('approveCorrection').onclick=()=>act(async()=>{if(!review||!el('correctionPublication').checked||!el('correctionReviewed').checked)throw new Error('Exact correction review and approval are required.');const normalize=x=>JSON.stringify(Object.keys(x).sort().map(k=>[k,x[k]]));if(normalize(entry())!==normalize(review.entry))throw new Error('The form changed. Save and review the correction again.');const c={};['quotePublication','recipeVerified','namedAttribution'].forEach(id=>c[id]=el(id).checked);c.photoPublication=el('correctionPhotoPublication').checked;const result=await call('annalsApproveCorrection',nonce,current.id,review.hash,c,val('correctionEvidence'),true);await open(current.id);say(result.dispatchAccepted?'Correction approved and accepted for publishing. Verify the public page after deployment.':'Correction approval was saved, but dispatch was not confirmed. Check GitHub Actions before any retry.')});
+el('approveCorrection').onclick=()=>act(async()=>{if(!review||!el('correctionPublication').checked||!el('correctionReviewed').checked)throw new Error('Exact correction review and approval are required.');const normalize=x=>JSON.stringify(Object.keys(x).sort().map(k=>[k,x[k]]));if(normalize(entry())!==normalize(review.entry))throw new Error('The form changed. Save and review the correction again.');const c={publication:true};['quotePublication','recipeVerified','namedAttribution'].forEach(id=>c[id]=el(id).checked);c.photoPublication=el('correctionPhotoPublication').checked;const result=await call('annalsApproveCorrection',nonce,current.id,review.hash,c,val('correctionEvidence'),true);await open(current.id);say(result.dispatchAccepted?'Correction approved and accepted for publishing. Verify the public page after deployment.':'Correction approval was saved, but dispatch was not confirmed. Check GitHub Actions before any retry.')});
 el('approveRemoval').onclick=()=>act(async()=>{if(!current.publishedEntry||current.publicationState!=='dispatch_accepted'||!el('removalConfirmed').checked)throw new Error('Review and confirm the exact currently published entry first.');const result=await call('annalsApproveRemoval',nonce,current.id,current.publishedEntryHash,val('removalReason'),true);await open(current.id);say(result.dispatchAccepted?'Removal approved and accepted for publishing. Verify the public page after deployment.':'Removal approval was saved, but dispatch was not confirmed. Check GitHub Actions before any retry.')});
 el('more').onclick=()=>act(()=>list(false));el('back').onclick=()=>act(async()=>{current=null;el('detail').hidden=true;el('queue').hidden=false;await list(true)});
+el('loadSpeakerMap').onclick=()=>act(loadSpeakerMap);
+el('saveSpeakerMap').onclick=()=>act(async()=>{
+  if(!el('speakerMapVerified').checked)throw new Error('Verify all six identities before saving.');
+  const assignments=[...document.querySelectorAll('select.speakerIdentity')].map(x=>({address:x.dataset.address,portrait:x.value}));
+  const saved=await call('annalsSaveSpeakerIdentities',nonce,assignments,true);
+  el('speakerMapVerified').checked=false;
+  say('Private speaker assignments recorded for '+saved.speakerCount+' members. No public email addresses.');
+});
+el('recordQuotePermissions').onclick=()=>act(async()=>{
+  if(!el('quotesVerified').checked)throw new Error('Verify individual speaker permissions before recording them.');
+  const saved=await call('annalsRecordVerifiedQuotePermissions',nonce,true,val('quoteEvidence'));
+  el('quotesVerified').checked=false;el('quoteEvidence').value='';
+  say('Quote attribution permission recorded privately for '+saved.speakerCount+' members. No publication settings changed.');
+});
 el('inviteConsent').onclick=()=>act(async()=>{await call('annalsInviteProcessingConsent',nonce,val('consentEmail'));say('Private AI-processing invitation sent. Only that member can activate consent with their unique reply.')});
 el('recordVerifiedConsents').onclick=()=>act(async()=>{
   if(!el('verifiedExistingConfirmed').checked)throw new Error('Confirm only permissions you actually verified for each contributor.');
@@ -113,11 +160,11 @@ el('inviteAutoConsent').onclick=()=>act(async()=>{await call('annalsInviteAutoPu
 
 el('refreshConsent').onclick=()=>act(async()=>{const members=await call('annalsReviewConsentStatus',nonce);el('consents').replaceChildren();members.forEach(m=>{
   const li=document.createElement('li');
-  li.textContent=m.address+' — AI: '+m.status+'; automatic public text: '+m.autoStatus+'; screened public image: '+m.imageStatus;
+  li.textContent=m.address+' — AI: '+m.status+'; automatic public text: '+m.autoStatus+'; screened public image: '+m.imageStatus+'; quote attribution: '+m.quoteAttributionStatus;
   if(m.status==='active'){const b=document.createElement('button');b.textContent='Revoke AI';b.onclick=()=>act(async()=>{await call('annalsRevokeProcessingConsent',nonce,m.address);await el('refreshConsent').onclick()});li.append(' ',b)}
   if(m.autoStatus==='active'){const b=document.createElement('button');b.textContent='Revoke automatic publication';b.onclick=()=>act(async()=>{await call('annalsRevokeAutoPublicationConsent',nonce,m.address);await el('refreshConsent').onclick()});li.append(' ',b)}
   if(m.imageStatus==='active'&&m.imageSeparatelyRevocable){const b=document.createElement('button');b.textContent='Revoke image publication';b.onclick=()=>act(async()=>{await call('annalsRevokeImagePublicationConsent',nonce,m.address);await el('refreshConsent').onclick()});li.append(' ',b)}
   el('consents').append(li)
 });say('Private standing-consent statuses refreshed.')});
-act(async()=>{nonce=(await call('annalsReviewSession')).nonce;await list(true);await el('refreshConsent').onclick();const item=new URLSearchParams(location.search).get('item');if(/^[a-f0-9]{64}$/.test(item||''))await open(item)});
+act(async()=>{nonce=(await call('annalsReviewSession')).nonce;await list(true);await el('refreshConsent').onclick();await loadSpeakerMap();const item=new URLSearchParams(location.search).get('item');if(/^[a-f0-9]{64}$/.test(item||''))await open(item)});
 </script></body></html>
