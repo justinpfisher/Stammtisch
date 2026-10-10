@@ -4,7 +4,7 @@
 var AnnalsProduction = (function () {
   'use strict';
   var MODEL = 'gpt-4.1-mini-2025-04-14';
-  var CATEGORIES = ['cocktail', 'quotation', 'monthly_gathering', 'assembly', 'club_history', 'uncategorised'];
+  var CATEGORIES = ['cocktail', 'quotation', 'monthly_gathering', 'assembly', 'club_history', 'artefact', 'uncategorised'];
   var FLAGS = ['recipe_unverified', 'handwriting_ambiguous', 'possible_personal_identifier',
     'faces_or_reflections', 'location_or_home_context', 'date_unconfirmed',
     'attribution_unconfirmed', 'quote_consent_unconfirmed', 'private_context',
@@ -51,7 +51,7 @@ var AnnalsProduction = (function () {
   }
   function publicEntry(raw) {
     keys(raw, ['id', 'category', 'title', 'summary', 'year', 'dateLabel', 'sortDate', 'quoteVerbatim', 'recipe', 'credit']);
-    if (!/^[a-z0-9][a-z0-9-]{5,63}$/.test(raw.id || '') || CATEGORIES.slice(0, 5).indexOf(raw.category) < 0) throw new Error('Invalid public identity');
+    if (!/^[a-z0-9][a-z0-9-]{5,63}$/.test(raw.id || '') || CATEGORIES.slice(0, 6).indexOf(raw.category) < 0) throw new Error('Invalid public identity');
     if (!Number.isInteger(raw.year) || raw.year < 1990 || raw.year > 2100) throw new Error('Confirm the year');
     var date = text(raw.sortDate, 10);
     if (date) {

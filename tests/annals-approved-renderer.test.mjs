@@ -149,15 +149,35 @@ test('a mixed set of fictional entries sorts newest year first with existing nav
   const html = buildApprovedAnnals(
     [baseQuote, baseDrink], [qReceipt, dReceipt], TEST_SECRET,
   ).html;
-  assert.ok(html.indexOf('id="year-2026"') < html.indexOf('id="year-2025"'));
+  assert.ok(html.indexOf('id="year-cocktail-2026"') < html.indexOf('id="year-quotation-2025"'));
   assert.ok(html.includes('href="celebration.html"'));
   assert.ok(html.includes('href="location.html"'));
   assert.ok(html.includes('width=device-width'));
+  assert.ok(html.includes('id="sample-cocktail-01"'));
+  assert.ok(html.includes('id="sample-quotation-01"'));
 });
 
 test('empty publication has no accidental test entry or sender data', () => {
   const result = buildApprovedAnnals([], [], '');
   assert.equal(result.entryCount, 0);
-  assert.ok(result.html.includes('The first entry awaits its appointed occasion'));
+  assert.ok(result.html.includes('No approved entries in this collection yet.'));
+  assert.ok(result.html.includes('href="mailto:annals@stammtischbrewery.com"'));
+  for (const label of ['The Cocktail Register', 'Quotations of Questionable Wisdom',
+    'Monthly Proceedings', 'Annual Assemblies', 'Club History', 'Club Artefacts']) {
+    assert.ok(result.html.includes(label));
+  }
+  assert.ok(!result.html.includes('synthetic-test'));
   assert.ok(!result.html.includes('example.test'));
+});
+
+test('club artefacts are a supported text-only public category', () => {
+  const artefact = {
+    ...baseDrink, id: 'sample-artefact-01', category: 'artefact',
+    title: 'Fictional test keepsake', summary: 'This invented item exists only in a test.',
+    recipe: { drinkIngredients: [], syrupIngredients: [], steps: [] },
+  };
+  const receipt = signedTestReceipt(artefact);
+  const result = buildApprovedAnnals([artefact], [receipt], TEST_SECRET);
+  assert.ok(result.html.includes('Club Artefacts'));
+  assert.ok(result.html.includes('Fictional test keepsake'));
 });

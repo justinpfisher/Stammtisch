@@ -12,6 +12,7 @@ const TYPES = Object.freeze({
   monthly_gathering: 'Monthly Proceedings',
   assembly: 'Annual Assemblies',
   club_history: 'Club History',
+  artefact: 'Club Artefacts',
 });
 
 const PUBLIC_KEYS = new Set([
@@ -136,7 +137,7 @@ function approvedEntryMarkup(entry) {
       items.map(s => '<li>' + esc(s) + '</li>').join('') + '</ul>' : '';
   return '<article class="annal-entry" id="' + esc(entry.id) + '">' +
     '<p class="annal-type">' + esc(TYPES[entry.category]) + '</p>' +
-    '<h3>' + esc(entry.title) + '</h3>' +
+    '<h4>' + esc(entry.title) + '</h4>' +
     (entry.dateLabel ? '<p class="annal-date">' + esc(entry.dateLabel) + '</p>' : '') +
     '<p class="annal-summary">' + esc(entry.summary) + '</p>' +
     (entry.category === 'quotation' ? '<blockquote>' + esc(entry.quoteVerbatim) + '</blockquote>' : '') +
@@ -168,16 +169,24 @@ export function buildApprovedAnnals(entries, receipts, secret) {
   }
   accepted.sort((a, b) => b.year - a.year || b.sortDate.localeCompare(a.sortDate) ||
     a.title.localeCompare(b.title));
-  const years = new Map();
-  for (const item of accepted) {
-    if (!years.has(item.year)) years.set(item.year, []);
-    years.get(item.year).push(item);
-  }
-  const body = [...years].map(([year, items]) =>
-    '<section class="annal-year" aria-labelledby="year-' + year + '">' +
-    '<h2 id="year-' + year + '">' + year + '</h2>' +
-    items.map(approvedEntryMarkup).join('') + '</section>').join('') ||
-    '<p class="annal-empty">The first entry awaits its appointed occasion.</p>';
+  const collections = Object.entries(TYPES).map(([category, label]) => {
+    const items = accepted.filter(item => item.category === category);
+    const collectionId = 'collection-' + category.replaceAll('_', '-');
+    const byYear = new Map();
+    for (const item of items) {
+      if (!byYear.has(item.year)) byYear.set(item.year, []);
+      byYear.get(item.year).push(item);
+    }
+    const archive = [...byYear].map(([year, yearItems]) =>
+      '<section class="annal-year" aria-labelledby="year-' + category + '-' + year + '">' +
+      '<h3 id="year-' + category + '-' + year + '">' + year + '</h3>' +
+      yearItems.map(approvedEntryMarkup).join('') + '</section>').join('') ||
+      '<p class="annal-empty">No approved entries in this collection yet.</p>';
+    return '<section class="annal-collection" id="' + collectionId + '" aria-labelledby="heading-' + collectionId + '">' +
+      '<h2 id="heading-' + collectionId + '">' + escapeHtml(label) + '</h2>' + archive + '</section>';
+  }).join('');
+  const navigation = Object.entries(TYPES).map(([category, label]) =>
+    '<a href="#collection-' + category.replaceAll('_', '-') + '">' + escapeHtml(label) + '</a>').join('');
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -191,19 +200,25 @@ export function buildApprovedAnnals(entries, receipts, secret) {
 .annal-hero{padding-block:65px 45px;border-bottom:1px solid #d4d3c4}
 .annal-hero h1{font-size:clamp(44px,7vw,78px);line-height:1.1;margin-top:15px}
 .annal-hero p:last-child{max-width:560px;font-size:14px;color:#64685e;margin-top:18px}
-.annal-year{padding-block:38px;border-bottom:1px solid #d4d3c4}
-.annal-year h2{font-size:34px;color:#846329;margin-bottom:25px}
+.annal-collections{display:flex;flex-wrap:wrap;gap:8px 20px;padding-block:20px;border-bottom:1px solid #d4d3c4}
+.annal-collections a{display:inline-flex;align-items:center;min-height:44px;color:#193d32;font-size:12px}
+.annal-collection{padding-block:34px;border-bottom:1px solid #d4d3c4;scroll-margin-top:24px}
+.annal-collection>h2{font-size:34px;color:#846329;margin-bottom:15px}
+.annal-year{padding-top:18px}
+.annal-year h3{font:600 11px/1.5 Arial,sans-serif;color:#64685e;letter-spacing:.16em;text-transform:uppercase;margin-bottom:7px}
 .annal-entry{max-width:790px;padding-block:22px 30px;border-top:1px solid #d4d3c4}
 .annal-type{font:600 10px/1.6 Arial,sans-serif;color:#846329;text-transform:uppercase;letter-spacing:.17em}
-.annal-entry h3{font-size:clamp(27px,4vw,39px);line-height:1.2;margin-top:8px}
+.annal-entry h4{font:400 clamp(27px,4vw,39px)/1.2 Georgia,serif;margin-top:8px}
 .annal-date,.annal-credit{color:#64685e;font-size:12px;margin-top:7px}
 .annal-summary{margin-top:18px;line-height:1.8;font-size:15px}
 .annal-entry blockquote{border-left:3px solid #846329;padding-left:18px;margin:22px 0;font:italic 22px/1.5 Georgia,serif}
 .annal-recipe{margin-top:22px;padding:18px 22px;background:#eae5d8}
 .annal-recipe h4{font:600 12px/1.5 Arial,sans-serif;letter-spacing:.09em;text-transform:uppercase;margin:14px 0 8px}
 .annal-recipe ul{margin:0 0 15px;padding-left:20px;font-size:14px}
-.annal-empty{padding-block:50px;font-style:italic}
-@media(max-width:700px){.annal-hero{padding-block:38px 30px}.annal-entry{padding-block:18px 25px}}
+.annal-empty{padding-block:20px;color:#64685e;font-style:italic}
+.annal-contribute{display:inline-flex;align-items:center;min-height:48px;margin-top:18px;padding:10px 16px;background:#193d32;color:#f6f2e9;text-decoration:none;font-size:12px}
+.annal-note{margin-top:10px;color:#64685e;font-size:11px}
+@media(max-width:700px){.annal-hero{padding-block:38px 30px}.annal-collection{padding-block:27px}.annal-collection>h2{font-size:29px}.annal-entry{padding-block:18px 25px}}
 </style>
 </head>
 <body>
@@ -215,10 +230,13 @@ export function buildApprovedAnnals(entries, receipts, secret) {
 <main id="main" class="shell">
 <section class="annal-hero"><p class="eyebrow">The permanent record</p>
 <h1>The <em>Annals of Stammtisch.</em></h1>
-<p>A considered chronicle of shared occasions, extraordinary refreshments, and matters deemed worthy of posterity.</p></section>
-${body}
+<p>A considered chronicle of shared occasions, extraordinary refreshments, and matters deemed worthy of posterity. Only verified material approved for public use appears here.</p>
+<a class="annal-contribute" href="mailto:annals@stammtischbrewery.com">Contribute to the Annals <span aria-hidden="true">→</span></a>
+<p class="annal-note">A submission is considered privately; it is not by itself permission to publish.</p></section>
+<nav class="annal-collections" aria-label="Browse Annals collections">${navigation}</nav>
+${collections}
 </main>
-<footer class="site-footer"><div class="shell footer-inner"><p>The Stammtisch Social Club<span>A tradition of gathering.</span></p><nav aria-label="Footer navigation"><a href="index.html">The Club</a><a href="celebration.html">Celebration of Life</a></nav></div></footer>
+<footer class="site-footer"><div class="shell footer-inner"><p>The Stammtisch Social Club<span>A tradition of gathering.</span></p><nav aria-label="Footer navigation"><a href="index.html">The Club</a><a href="annals.html" aria-current="page">The Annals</a><a href="celebration.html">Celebration of Life</a><a href="location.html">The Annual Assembly</a></nav></div></footer>
 </body></html>`;
   return { html, entryCount: accepted.length };
 }

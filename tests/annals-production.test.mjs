@@ -58,6 +58,15 @@ test('AI and public contracts retain literal fractions and match approved render
   for (const extra of ['sender','publicationApproved','media']) assert.throws(()=>core.publicEntry({...entry(),[extra]:'private'}));
   assert.throws(()=>core.candidate({...candidate(),publicationApproved:true}));
 });
+test('the production review model and public renderer support artefacts without treating them as recipes', () => {
+  const artefact = { id: 'annal-' + 'b'.repeat(24), category: 'artefact', title: 'A test keepsake',
+    summary: 'A fictional keepsake for validation.', year: 2026, dateLabel: '', sortDate: '',
+    credit: 'anonymous', quoteVerbatim: '', recipe: { drinkIngredients: [], syrupIngredients: [], steps: [] } };
+  assert.equal(core.publicEntry(artefact).category, 'artefact');
+  assert.throws(() => core.publicEntry({ ...artefact, recipe: entry().recipe }), /Unexpected recipe/);
+  const ui = readFileSync(new URL('../scripts/annals/ReviewUi.html', import.meta.url), 'utf8');
+  assert.match(ui, /option value="artefact"/);
+});
 test('review UI never silently converts uncategorised AI output into club history', () => {
   const ui = readFileSync(new URL('../scripts/annals/ReviewUi.html', import.meta.url), 'utf8');
   assert.match(ui, /<option value="" selected>Choose a category<\/option>/);
