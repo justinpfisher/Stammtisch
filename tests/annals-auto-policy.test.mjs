@@ -254,3 +254,29 @@ test('distinct quote signature mode cannot be reused for cocktails, photos or se
   assert.equal(verifyPublicApproval({...e,contributorPortrait:'fish'},proofQuote,secret),false);
   assert.equal(verifyPublicApproval({...e,photo:{sha256:'f'.repeat(64),alt:'x'}},proofQuote,secret),false);
 });
+
+test('speaker-specific signed quote passes actual public publisher, excludes submitter, rejects mode confusion',async()=>{
+  const msg=sample();msg.source.subject='Register of Remarks';
+  msg.source.excerpt='Ken said: "One imaginary demonstration line."';
+  const draftQuote={...draft(),category:'quotation',title:'Register of Remarks',
+    quoteVerbatim:'One imaginary demonstration line.',recipe:{
+      drinkIngredients:[],syrupIngredients:[],steps:[]},riskFlags:['quote_consent_unconfirmed']};
+  const decision=policy.propose(msg,draftQuote,id,{speakerPortrait:'ken'});
+  assert.equal(decision.eligible,true);
+  const item=decision.entry,approval=proof(item);
+  assert.equal(approval.mode,policy.QUOTE_MODE);
+  const event={action:'annals-auto-entry',client_payload:{entry:item,approval}};
+  const empty={schemaVersion:1,entries:[],approvals:[]};
+  const published=await applyApprovedEntry({event,data:empty,secret});
+  assert.equal(published.data.entries.length,1);
+  assert.equal(published.data.approvals.length,1);
+  assert.match(published.html,/The Register of Remarks/);
+  assert.match(published.html,/assets\/members\/annals\/ken-annals\.webp/);
+  assert.doesNotMatch(JSON.stringify(published.data),/member[1-6]@example|senderEmail|private.*evidence/i);
+  await assert.rejects(applyApprovedEntry({event,data:published.data,secret}),/already exists/);
+  await assert.rejects(applyApprovedEntry({event:{action:'annals-approved-entry',client_payload:{entry:item,approval}},data:empty,secret}),/reused/);
+  await assert.rejects(applyApprovedEntry({event:{action:'annals-auto-entry',client_payload:{entry:item,approval,imageBase64:'AAAA'}},data:empty,secret}));
+  const wrong={...approval,mode:policy.MODE};
+  await assert.rejects(applyApprovedEntry({event:{action:'annals-auto-entry',client_payload:{entry:item,approval:wrong}},data:empty,secret}),/approval/);
+  assert.deepEqual(published.assetsToWrite,[]);
+});
