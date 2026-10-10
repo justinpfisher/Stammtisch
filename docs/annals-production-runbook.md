@@ -86,6 +86,7 @@ Publication integration remains a separate implementation step: preserve existin
 
 - Run `annalsStopProduction` under the owner account: disables intake and AI and removes only this project's intake handler trigger. Receiving mail continues. No files or approvals are deleted.
 - An AI attempt without a draft remains held, with the 10-cent reservation intact. Inspect privately; never delete the attempt record and rerun blindly. A deliberate retry mechanism with a fresh reservation is not implemented in this candidate.
+- After the sanitized attempt-diagnostics update, the private review page may show only a fixed failure category and an HTTP status code. It never displays or stores provider response bodies or exception text. Older held attempts have no diagnostic record and remain unknown; do not retry their source item.
 - If owner identity or folder checks fail, fix access privately; never bypass them. If ledger initialization was interrupted, preserve the marker and reconcile the private ledger instead of starting over.
 - An approved entry is immutable in this interface. Corrections/revocations require a private operator review and new exact approval, then replacement/removal of public derivatives. Public Git history and caches may retain earlier copies. Do not silently rewrite the approval record.
 - No automatic retention/deletion policy is active. Gmail/Drive storage is finite; monitor it privately. Original records and consent evidence remain until the owner approves a retention policy.
@@ -98,3 +99,4 @@ node scripts/local-dev.mjs check
 ```
 
 Tests cover account denial, source limits, fixed model/no tools, budget exhaustion/rollover, unknown outcomes, private storage, exact-version approval, receipt interoperability, preservation of existing public entries, and absence of private approval fields from public output. Record the actual environment and results. Live API/Google tests, UI provider checks, automatic publishing and first real publication remain open until observed.
+
