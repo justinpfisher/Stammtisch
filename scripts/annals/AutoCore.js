@@ -6,6 +6,7 @@
 var AnnalsAuto = (function () {
   'use strict';
   var MODE = 'standing-consent-text-v1';
+  var QUOTE_MODE = 'standing-consent-quote-v1';
   var NOTICE = 'The Editorial Committee reserves the right to replace particularly spirited language with conspicuous euphemisms. Historical accuracy is otherwise maintained.';
   var CATEGORIES = ['cocktail', 'quotation', 'monthly_gathering', 'assembly', 'club_history', 'artefact'];
   // Specific hard stops. Generic club language ("home", "family", "history",
@@ -44,9 +45,53 @@ var AnnalsAuto = (function () {
     return PRIVATE_DATA.test(text) || ALLEGATION.test(text) ||
       IDENTIFYING.test(text) || THIRD_PARTY.test(text) || NAMED_PERSON.test(text);
   }
-  function selfQuotation(text, quote) {
-    var match = text.match(/\b(?:my quote|i said|i wrote)\s*:\s*["“]([^"”]+)["”]/i);
-    return !!match && norm(match[1]) === norm(quote);
+  // Extract quotation and speaker from a whole, explicit source line. Never
+  // trust an AI-generated attribution or infer a speaker from the sender.
+  // Actual speaker permissions are checked separately in private Apps Script.
+  function quotationEvidence(text, aiQuote) {
+    if (typeof aiQuote !== 'string' || !aiQuote.trim()) return null;
+    var original = cleanText(text);
+    var self = original.match(/^(?:my quote|i said|i wrote)\s*:\s*(?:"([^"\r\n]+)"|“([^”\r\n]+)”)\s*$/i);
+    var speaker = original.match(/^(?:(?:quote\s+(?:from|by))\s+)?(Justin|Fish|Marc|Matt|Ken|Jamie|Jerome)(?:\s+(?:said|remarked))?\s*:\s*(?:"([^"\r\n]+)"|“([^”\r\n]+)”)\s*$/i);
+    var suffix = original.match(/^(?:"([^"\r\n]+)"|“([^”\r\n]+)”)\s*[—–-]\s*(Justin|Fish|Marc|Matt|Ken|Jamie|Jerome)\s*$/i);
+    var line = self ? self[1] || self[2] : speaker ? speaker[2] || speaker[3] :
+      suffix ? suffix[1] || suffix[2] : '';
+    // Wording, case and punctuation must be copied exactly by the AI.
+    if (!line || line.trim() !== aiQuote.trim()) return null;
+    var name = speaker ? speaker[1] : suffix ? suffix[3] : '';
+    var identity = name ? (name.toLowerCase() === 'justin' ? 'fish' : name.toLowerCase()) : '';
+    return { speakerPortrait: identity || null, self: !!self, quote: line.trim() };
+  }
+  function proposeRemark(s, source, full, candidate, id, speakerPermission) {
+    var evidence = quotationEvidence(source, candidate.quoteVerbatim);
+    if (!evidence) return held('quotation_not_verbatim_or_speaker_unknown');
+    if (PRIVATE_DATA.test(full) || ALLEGATION.test(full) || THIRD_PARTY.test(full) ||
+        NAMED_PERSON.test(full) || IDENTIFYING.test(evidence.quote) ||
+        IDENTIFYING.test(s.subject) || protectedText(evidence.quote))
+      return held('private_personal_or_sensitive_content');
+    var granted = speakerPermission && speakerPermission.speakerPortrait;
+    if (evidence.speakerPortrait && granted !== evidence.speakerPortrait)
+      return held('speaker_specific_publication_permission_missing');
+    // Private verified permission can decorate the actual speaker with their
+    // portrait. Without it, an explicitly self-authored quote stays anonymous.
+    if (evidence.self && granted && !/^(?:fish|marc|matt|ken|jamie|jerome)$/.test(granted))
+      return held('invalid_speaker_permission');
+    if (!Array.isArray(candidate.riskFlags) ||
+        candidate.riskFlags.some(function (flag) {
+          return HARD_FLAGS.indexOf(flag) >= 0 &&
+            !(flag === 'quote_consent_unconfirmed' && (evidence.self || evidence.speakerPortrait && granted === evidence.speakerPortrait));
+        })) return held('material_uncertainty');
+    if (!independentText(full)) return held('media_context_required');
+    var stamp = new Date(s.receivedAt);
+    if (isNaN(stamp.getTime()) || stamp.getUTCFullYear() < 1990 || stamp.getUTCFullYear() > 2100)
+      return held('invalid_receipt_date');
+    var entry = { id:'annal-' + id.slice(0,24), category:'quotation',
+      title:'Recorded remark', summary:'An authenticated contribution to the Register of Remarks.',
+      year:stamp.getUTCFullYear(),dateLabel:'Submitted ' + stamp.toISOString().slice(0,7),
+      sortDate:'',quoteVerbatim:censor(evidence.quote),
+      recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]},credit:'anonymous' };
+    if (granted) entry.speakerPortrait = granted;
+    return {eligible:true,entry:entry,mode:granted ? QUOTE_MODE : MODE};
   }
   function reasonableCategory(category, source) {
     // The AI picks the best existing category. Uncertainty over which of two
@@ -93,7 +138,7 @@ var AnnalsAuto = (function () {
     }
     return ['Suggested method (not provided in the original): Combine the recorded drink ingredients, chill if appropriate and serve.'];
   }
-  function propose(privateSource, candidate, id) {
+  function propose(privateSource, candidate, id, speakerPermission) {
     if (!privateSource || !privateSource.source || !candidate ||
         !/^[a-f0-9]{64}$/.test(id || '') ||
         privateSource.senderAuthenticated !== true ||
@@ -105,6 +150,12 @@ var AnnalsAuto = (function () {
     var source = cleanText(s.excerpt);
     if (!source || source.length > 1800) return held('source_incomplete');
     var full = (s.subject.trim() + '\n' + source).trim();
+    if (candidate.category === 'quotation') {
+      if (!privateSource.attachmentManifest ||
+          !Array.isArray(privateSource.attachmentManifest.items) ||
+          privateSource.attachmentManifest.items.length) return held('quotation_requires_text_only');
+      return proposeRemark(s, source, full, candidate, id, speakerPermission);
+    }
     if (protectedText(full)) return held('private_personal_or_sensitive_content');
     var media = privateSource.attachmentManifest;
     if (!media || !Array.isArray(media.items) || !independentText(full)) return held('media_context_required');
@@ -147,6 +198,6 @@ var AnnalsAuto = (function () {
       credit: 'anonymous' };
     return { eligible: true, entry: entry, mode: MODE };
   }
-  return Object.freeze({ MODE: MODE, NOTICE: NOTICE, censor: censor, cleanText: cleanText, independentText: independentText, suggestedMethod: suggestedMethod, propose: propose });
+  return Object.freeze({ MODE: MODE, QUOTE_MODE: QUOTE_MODE, NOTICE: NOTICE, censor: censor, cleanText: cleanText, quotationEvidence: quotationEvidence, independentText: independentText, suggestedMethod: suggestedMethod, propose: propose });
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = AnnalsAuto;
