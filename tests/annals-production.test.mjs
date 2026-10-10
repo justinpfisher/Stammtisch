@@ -484,3 +484,95 @@ test('owner-attested prior permissions cannot override revocation, missing allow
   assert.throws(()=>c.context.annalsRecordVerifiedExistingConsents('valid',true,evidence),/Operation held/);
   assert.equal(c.files.has('consent-registry-private.json'),false);
 });
+
+
+test('a six-person private contributor portrait map is exact, unique and never a public email field', () => {
+  const approved=Array.from({length:6},(_,i)=>'member'+(i+1)+'@example.test');
+  const portraits=['fish','marc','matt','ken','jamie','jerome'];
+  const mapping=Object.fromEntries(approved.map((address,i)=>[address,portraits[i]]));
+  assert.deepEqual(core.portraitMap(approved,mapping),mapping);
+  assert.deepEqual(core.publicEntry({...entry(),contributorPortrait:'fish'}),
+    validatePublicTextEntry({...entry(),contributorPortrait:'fish'}));
+  assert.equal(contentDigest({...entry(),contributorPortrait:'fish'}) === contentDigest(entry()),false);
+  for(const invalid of [
+    {...mapping,[approved[0]]:'marc'}, {...mapping,[approved[0]]:'../fish.webp'},
+    Object.fromEntries(approved.slice(0,5).map((address,i)=>[address,portraits[i]])),
+    {...mapping,'other@example.test':'fish'}
+  ]) assert.throws(()=>core.portraitMap(approved,invalid),/portrait|six|approved/i);
+  assert.throws(()=>core.publicEntry({...entry(),contributorPortrait:'other'}),/portrait/i);
+  assert.throws(()=>core.publicEntry({...entry(),senderEmail:approved[0]}),/Unexpected fields/);
+});
+test('private desk records the six exact member portraits once, and an authenticated sender is not inferred from a title', () => {
+  const x=mock(), names=['fish','marc','matt','ken','jamie','jerome'],
+    addresses=names.map((name,i)=>'member'+(i+1)+'@example.test');
+  const assignments=addresses.map((address,i)=>({address,portrait:names[i]}));
+  x.props.ANNALS_ALLOWED_SENDERS=addresses.join(',');
+  x.props.ANNALS_AI_ENABLED='false';
+  const registry={schemaVersion:1,members:{}};
+  addresses.forEach((address,i)=>{registry.members[address]={
+    status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T00:00:00Z',
+    autoPublication:{status:'active',scope:'future_source_grounded_text_and_screened_image_publication',
+      consentedAt:'2026-10-08T00:00:00Z'}
+  }});
+  x.folder.createFile('consent-registry-private.json',JSON.stringify(registry));
+  assert.throws(()=>x.context.annalsSaveContributorPortraits('valid',assignments,false),/Operation held/);
+  assert.equal(x.context.annalsReviewContributorPortraits('valid').configured,false);
+  const saved=x.context.annalsSaveContributorPortraits('valid',assignments,true);
+  assert.equal(saved.configured,true);assert.equal(saved.portraitCount,6);
+  assert.equal(saved.publicAddressesSaved,false);
+  const config=JSON.parse(x.props.ANNALS_CONTRIBUTOR_PORTRAITS);
+  assert.equal(config[addresses[0]],'fish');
+  assert.equal(x.context.annalsReviewContributorPortraits('valid').configured,true);
+  const source={senderAuthenticated:true,source:{
+    sender:addresses[0],receivedAt:'2026-10-09T00:30:00Z'}};
+  assert.equal(x.context.annalsContributorPortrait_(source),'fish');
+  assert.equal(x.context.annalsContributorPortrait_({...source,senderAuthenticated:false}),null);
+  assert.equal(x.context.annalsContributorPortrait_({...source,source:{...source.source,sender:'unknown@example.test'}}),null);
+  x.props.ANNALS_CONTRIBUTOR_PORTRAITS=JSON.stringify({...config,[addresses[0]]:'marc'});
+  assert.equal(x.context.annalsContributorPortrait_(source),null); // bad mapping never misattributes
+  x.props.ANNALS_CONTRIBUTOR_PORTRAITS=JSON.stringify(config);
+  x.props.ANNALS_PRODUCTION_INTAKE_ENABLED='true';
+  assert.throws(()=>x.context.annalsSaveContributorPortraits('valid',assignments,true),/Operation held/);
+  assert.equal(x.context.annalsContributorPortrait_(source),'fish'); // reading stays safe during intake
+});
+test('a member can disable and restore future portrait attribution by authenticated mail command', () => {
+  const x=mock(),addresses=Array.from({length:6},(_,i)=>'member'+(i+1)+'@example.test'),
+    portraits=['fish','marc','matt','ken','jamie','jerome'],sender=addresses[0],emails=[];
+  x.props.ANNALS_ALLOWED_SENDERS=addresses.join(',');
+  x.props.ANNALS_CONTRIBUTOR_PORTRAITS=JSON.stringify(
+    Object.fromEntries(addresses.map((a,i)=>[a,portraits[i]])));
+  x.context.MailApp={sendEmail:(...args)=>emails.push(args)};
+  x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{
+    [sender]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T00:00:00Z',
+      autoPublication:{status:'active',scope:'future_source_grounded_text_publication',
+        consentedAt:'2026-10-08T00:00:00Z'}}
+  }}));
+  const source={senderAuthenticated:true,source:{sender,receivedAt:'2026-10-09T00:30:00Z'}};
+  assert.equal(x.context.annalsContributorPortrait_(source),'fish');
+  assert.equal(x.context.annalsHandleConsentReply_(sender,'HIDE MY ANNALS PORTRAIT'),'portrait_hidden');
+  assert.equal(x.context.annalsContributorPortrait_(source),null);
+  assert.equal(x.context.annalsReviewConsentStatus('valid')[0].portraitHidden,true);
+  assert.equal(x.context.annalsHandleConsentReply_(sender,'SHOW MY ANNALS PORTRAIT'),'portrait_enabled');
+  assert.equal(x.context.annalsContributorPortrait_(source),'fish');
+  assert.equal(emails.length,2);
+});
+test('manual exception preview cannot attach another member’s portrait', () => {
+  const x=mock(),addresses=Array.from({length:6},(_,i)=>'member'+(i+1)+'@example.test'),
+    portraits=['fish','marc','matt','ken','jamie','jerome'],sender=addresses[0],id='a'.repeat(64);
+  x.props.ANNALS_ALLOWED_SENDERS=addresses.join(',');
+  x.props.ANNALS_CONTRIBUTOR_PORTRAITS=JSON.stringify(
+    Object.fromEntries(addresses.map((a,i)=>[a,portraits[i]])));
+  x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{
+    [sender]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T00:00:00Z',
+      autoPublication:{status:'active',scope:'future_source_grounded_text_publication',
+        consentedAt:'2026-10-08T00:00:00Z'}}
+  }}));
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,source:{
+    sender,subject:'Synthetic',excerpt:'Synthetic',receivedAt:'2026-10-09T00:30:00Z'},
+    attachmentManifest:{items:[]}}));
+  assert.throws(()=>x.context.annalsSaveReview('valid',id,{...entry(),contributorPortrait:'ken'}),/Operation held/);
+  const saved=x.context.annalsSaveReview('valid',id,{...entry(),contributorPortrait:'fish'});
+  assert.equal(saved.entry.contributorPortrait,'fish');
+  assert.equal(saved.entry.credit,'anonymous');
+  assert.equal(x.context.annalsReviewItem('valid',id).contributorPortrait,'fish');
+});
