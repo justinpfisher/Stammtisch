@@ -43,6 +43,16 @@ Before each new Annals item is published:
 5. Keep a simple approval note **outside** the public site/repo for sensitive source material. Don't copy conversations or private consent records into GitHub.
 6. Publish the final approved material with accessible captions/alt text, and provide a reasonable removal-request route; explain that public caches may persist.
 
+## The Register of Remarks — approved title and layout, 10 October 2026
+
+**The Register of Remarks** is the dedicated quotation collection within the public Annals. Like all other categories it appears **only after a real, verified and signed quotation has been published**. Do not add demonstration quotes or invent club sayings.
+
+A quotation card shows the words next to the small illustration of the **person who said them**. The authenticated email sender may be a different member and must not be credited as the speaker. Speaker identity is a separate, privately verified right, not an AI assumption or an email-address inference. All six owner-approved 256-pixel illustrated Annals portraits already in `assets/members/annals/` may be reused; do not upload private source headshots.
+
+Automatic attributed quotations require: original source explicitly identifying a member, exact source-matched quoted wording, authenticated allowed sender with separate standing AI/publication consent, and a **distinct affirmative, revocable attribution-and-portrait grant from the quoted speaker** documented privately before the receipt. The owner can privately record already verified individual grants, without manufacturing member replies or reviving a revocation. Where verification, attribution or material rights are uncertain, **hold privately**; a generic warning or unnamed portrait does not cure the uncertainty. Unidentified self-authored quotes may use the existing safe anonymous quotation path.
+
+The approved strong-profanity overlay remains: label a censored quotation as *editorially censored, not verbatim* and keep the original unchanged in private storage. Maintain private correction, withdrawal and revocation paths; existing public Git history may persist. Public entries, PRs and workflows never contain sender emails, consent evidence or raw messages.
+
 ## Cocktail tradition — a possible recurring Annals feature
 
 At many Stammtisch gatherings, **one or two members prepare a special cocktail** for the company. Preparation can include **homemade syrups and other bespoke components**. The effort, recipes and results are significant parts of the monthly ritual and should be eligible for the Annals, without assuming that every cocktail or member wants publicity.

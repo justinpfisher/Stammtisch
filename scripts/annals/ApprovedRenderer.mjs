@@ -8,7 +8,7 @@ import { escapeHtml } from './PrivatePreview.mjs';
 
 const TYPES = Object.freeze({
   cocktail: 'The Cocktail Register',
-  quotation: 'Quotations of Questionable Wisdom',
+  quotation: 'The Register of Remarks',
   monthly_gathering: 'Monthly Proceedings',
   assembly: 'Annual Assemblies',
   club_history: 'Club History',
@@ -17,9 +17,14 @@ const TYPES = Object.freeze({
 
 const PUBLIC_KEYS = new Set([
   'id', 'category', 'title', 'summary', 'year', 'dateLabel',
-  'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo'
+  'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo', 'speakerPortrait'
 ]);
 const RECIPE_KEYS = new Set(['drinkIngredients', 'syrupIngredients', 'steps', 'suggestedSteps']);
+// Already-public illustrated portraits used in Celebration of Life; no private images.
+const CONTRIBUTOR_PORTRAITS = Object.freeze({
+  fish: 'Justin', marc: 'Marc', matt: 'Matt',
+  ken: 'Ken', jamie: 'Jamie', jerome: 'Jerome',
+});
 const RECEIPT_KEYS = new Set([
   'entryId', 'approvedAt', 'reviewedBy', 'consents', 'contentSha256', 'signature'
 ]);
@@ -86,6 +91,12 @@ export function validatePublicTextEntry(input) {
     year, dateLabel, sortDate, quoteVerbatim, recipe: outputRecipe,
     credit: limited(input.credit || 'anonymous', 'credit', 70, true),
   };
+  if (input.speakerPortrait !== undefined && input.speakerPortrait !== null) {
+    if (typeof input.speakerPortrait !== 'string' ||
+        !Object.hasOwn(CONTRIBUTOR_PORTRAITS, input.speakerPortrait) ||
+        input.category !== 'quotation' || output.credit !== 'anonymous') throw new Error('Invalid quotation speaker portrait');
+    output.speakerPortrait = input.speakerPortrait;
+  }
   if (input.photo !== undefined && input.photo !== null) {
     allowedKeys(input.photo, new Set(['sha256', 'alt']), 'photo');
     if (input.category === 'quotation' || !/^[a-f0-9]{64}$/.test(input.photo.sha256 ?? '')) throw new Error('Invalid cocktail photo');
@@ -128,7 +139,7 @@ export function verifyApproval(publicEntry, receipt, secret) {
     if (entry.category === 'quotation' && receipt.consents.quotePublication !== true) return false;
     if (entry.category === 'cocktail' && receipt.consents.recipeVerified !== true) return false;
     if (!!entry.photo !== (receipt.consents.photoPublication === true)) return false;
-    if (entry.credit !== 'anonymous' && entry.credit !== 'a club member' &&
+    if ((entry.credit !== 'anonymous' && entry.credit !== 'a club member' || entry.speakerPortrait) &&
         receipt.consents.namedAttribution !== true) return false;
     const digest = contentDigest(entry);
     if (receipt.contentSha256 !== digest ||
@@ -157,13 +168,16 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
     allowedKeys(approval.consents, CONSENT_KEYS, 'consent');
     const automatedText = approval.mode === 'standing-consent-text-v1';
     const automatedImage = approval.mode === 'standing-consent-image-v1';
-    const automated = automatedText || automatedImage;
+    const automatedRemark = approval.mode === 'standing-consent-quote-v1';
+    const automated = automatedText || automatedImage || automatedRemark;
     if (approval.mode !== undefined && !automated) return false;
-    // Automated proof must be separately domain-tagged, with no photos,
-    // third-party quotations or named attribution.
+    // A distinct signed mode is required for an identified quotation speaker.
     if (automated && (entry.credit !== 'anonymous' ||
         approval.consents.quotePublication !== (entry.category === 'quotation') ||
-        approval.consents.namedAttribution !== false ||
+        (automatedRemark && (entry.category !== 'quotation' || !entry.speakerPortrait ||
+          entry.photo || approval.consents.namedAttribution !== true ||
+          approval.consents.photoPublication !== false)) ||
+        (!automatedRemark && (entry.speakerPortrait || approval.consents.namedAttribution !== false)) ||
         (automatedText && (entry.photo || approval.consents.photoPublication !== false)) ||
         (automatedImage && (entry.category === 'quotation' || !entry.photo || approval.consents.photoPublication !== true)))) return false;
     if (approval.entryId !== entry.id || !/^\d{4}-\d{2}-\d{2}T/.test(approval.approvedAt ?? '') ||
@@ -171,7 +185,7 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
         (entry.category === 'quotation' && approval.consents.quotePublication !== true) ||
         (entry.category === 'cocktail' && approval.consents.recipeVerified !== true) ||
         (!!entry.photo !== (approval.consents.photoPublication === true)) ||
-        (entry.credit !== 'anonymous' && entry.credit !== 'a club member' && approval.consents.namedAttribution !== true)) return false;
+        ((entry.credit !== 'anonymous' && entry.credit !== 'a club member' || entry.speakerPortrait) && approval.consents.namedAttribution !== true)) return false;
     if (approval.contentSha256 !== contentDigest(entry) || !/^[a-f0-9]{64}$/.test(approval.signature ?? '')) return false;
     const signedMaterial = JSON.stringify(canonical({
       entry,
@@ -199,7 +213,6 @@ export function verifyPublicRemoval(publicEntry, removal, secret) {
   } catch { return false; }
 }
 
-
 // Owner visually approved these six public derivatives on 10 October 2026.
 // Resolve only an exact public credit; never infer identity from private intake.
 const MEMBER_PORTRAITS = Object.freeze({
@@ -220,14 +233,25 @@ function approvedEntryMarkup(entry) {
   const section = (label, items) => items.length
     ? '<h4>' + label + '</h4><ul>' +
       items.map(s => '<li>' + esc(s) + '</li>').join('') + '</ul>' : '';
-  return '<article class="annal-entry" id="' + esc(entry.id) + '">' +
+  const speaker = entry.speakerPortrait;
+  const speakerMarkup = speaker
+    ? '<img class="annal-speaker-portrait" src="assets/members/annals/' +
+      esc(speaker) + '-annals.webp" alt="Illustrated portrait of ' +
+      esc(CONTRIBUTOR_PORTRAITS[speaker]) +
+      ', the speaker" width="64" height="64" loading="lazy" decoding="async">'
+    : '';
+  const quoteCard = '<div class="annal-remark-card">' + speakerMarkup +
+    '<div class="annal-remark-words"><blockquote>' + esc(entry.quoteVerbatim) + '</blockquote>' +
+      (/\[(?:EXPLETIVE|POOP)\]/.test(entry.quoteVerbatim)
+        ? '<p class="annal-quote-note">Editorially censored quotation — not verbatim.</p>' : '') +
+    '</div></div>';
+  return '<article class="annal-entry' + (entry.category === 'quotation' ? ' annal-remark' : '') + '" id="' + esc(entry.id) + '">' +
     '<p class="annal-type">' + esc(TYPES[entry.category]) + '</p>' +
-    '<h4>' + esc(entry.title) + '</h4>' +
+    (entry.category === 'quotation' ? '' : '<h4>' + esc(entry.title) + '</h4>') +
     (entry.dateLabel ? '<p class="annal-date">' + esc(entry.dateLabel) + '</p>' : '') +
-    '<p class="annal-summary">' + esc(entry.summary) + '</p>' +
+    (entry.category === 'quotation' ? '' : '<p class="annal-summary">' + esc(entry.summary) + '</p>') +
     (entry.photo ? '<figure class="annal-photo"><img src="assets/annals/' + esc(entry.id) + '.jpg" alt="' + esc(entry.photo.alt) + '" loading="lazy" decoding="async"></figure>' : '') +
-    (entry.category === 'quotation' ? '<blockquote>' + esc(entry.quoteVerbatim) + '</blockquote>' +
-      (/\[(?:EXPLETIVE|POOP)\]/.test(entry.quoteVerbatim) ? '<p class="annal-quote-note">Editorially censored quotation — not verbatim.</p>' : '') : '') +
+    (entry.category === 'quotation' ? quoteCard : '') +
     (entry.category === 'cocktail' ? '<div class="annal-recipe">' +
       section('Ingredients', entry.recipe.drinkIngredients) +
       section('Homemade syrup', entry.recipe.syrupIngredients) +
@@ -235,7 +259,7 @@ function approvedEntryMarkup(entry) {
       (entry.recipe.suggestedSteps?.length ? '<p class="annal-reconstruction-flag">Editorial reconstruction: suggested quantities or methods below are not the original recorded recipe.</p>' : '') +
       section('Editorial suggestions — NOT part of the original recipe',
         entry.recipe.suggestedSteps || []) + '</div>' : '') +
-    contributorCreditMarkup(entry.credit) +
+    (entry.category === 'quotation' ? '' : contributorCreditMarkup(entry.credit)) +
     '</article>';
 }
 
@@ -322,6 +346,13 @@ function buildAnnals(entries, receipts, verifyReceipt) {
 .annal-summary{margin-top:18px;line-height:1.8;font-size:15px}
 .annal-photo{margin:22px 0 0}.annal-photo img{display:block;width:100%;max-width:760px;max-height:70vh;object-fit:contain;background:#eae5d8}
 .annal-entry blockquote{border-left:3px solid #846329;padding-left:18px;margin:22px 0;font:italic 22px/1.5 Georgia,serif}
+.annal-remark-card{display:flex;gap:18px;align-items:flex-start;max-width:790px;padding:20px;border:1px solid #d4d3c4;border-radius:9px;background:#f4f0e5}
+.annal-remark-words{flex:1;min-width:0}
+.annal-remark .annal-type{margin-bottom:10px}
+.annal-remark blockquote{border:0;margin:0;padding:0;font:italic clamp(19px,3.5vw,25px)/1.45 Georgia,serif;color:#193d32;overflow-wrap:anywhere}
+.annal-speaker-portrait{width:64px;height:64px;flex:0 0 64px;border:2px solid #846329;border-radius:50%;object-fit:cover;background:#eae5d8}
+.annal-remark .annal-date{margin-bottom:8px}
+.annal-remark .annal-quote-note{margin-top:12px}
 .annal-recipe{margin-top:22px;padding:18px 22px;background:#eae5d8}
 .annal-recipe h4{font:600 12px/1.5 Arial,sans-serif;letter-spacing:.09em;text-transform:uppercase;margin:14px 0 8px}
 .annal-recipe ul{margin:0 0 15px;padding-left:20px;font-size:14px}
@@ -331,7 +362,7 @@ function buildAnnals(entries, receipts, verifyReceipt) {
 .annal-editorial-notice{margin:24px 0 38px;padding-top:16px;border-top:1px solid #d4d3c4;color:#64685e;font:italic 12px/1.7 Georgia,serif;max-width:790px}
 .annal-quote-note{font:italic 12px/1.6 Georgia,serif;color:#64685e}
 .annal-reconstruction-flag{padding:10px 12px;margin-block:16px;border-left:3px solid #846329;background:#eee9de;color:#5f4c2f;font-size:12px}
-@media(max-width:700px){.annal-hero{padding-block:38px 30px}.annal-collection{padding-block:27px}.annal-collection>h2{font-size:29px}.annal-entry{padding-block:18px 25px}}
+@media(max-width:700px){.annal-hero{padding-block:38px 30px}.annal-collection{padding-block:27px}.annal-collection>h2{font-size:29px}.annal-entry{padding-block:18px 25px}.annal-remark-card{gap:12px;padding:14px}.annal-speaker-portrait{width:48px;height:48px;flex-basis:48px}}
 </style>
 </head>
 <body>
