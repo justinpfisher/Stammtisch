@@ -1,0 +1,35 @@
+name: Publish explicitly approved Annals entry
+
+on:
+  repository_dispatch:
+    types: [annals-approved-entry]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: annals-approved-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact signed approval and render the public archive
+        env:
+          ANNALS_PUBLISH_SIGNING_KEY: ${{ secrets.ANNALS_PUBLISH_SIGNING_KEY }}
+        run: node scripts/annals/apply-approved-entry.mjs
+      - name: Commit approved public entry
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add annals.html data/annals-approved.json
+          git diff --cached --quiet && exit 1
+          git commit -m "Publish approved Annals entry"
+          git push origin HEAD:main
