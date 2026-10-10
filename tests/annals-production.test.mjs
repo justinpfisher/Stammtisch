@@ -426,3 +426,48 @@ test('stale unverified publication privately alerts once and never re-dispatches
   assert.equal(JSON.parse(x.files.get('auto-publication-delay-private.json').getBlob().getDataAsString()).state,
     'unverified_after_24h');
 });
+
+test('combined publication consent privately permits safe thumbnail preparation but never public original storage',()=>{
+  const x=mock(),sender='member1@example.test',id='a'.repeat(64);
+  const photoBytes=Buffer.from(
+    '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABsSFBcUERsXFhce' +
+    'HBsgKEIrKCUlKFE6PTBCYFVlZF9VXVtqeJmBanGQc1tdhbWG' +
+    'kJ6jq62rZ4C8ybqmx5moq6T/2wBDARweHigjKE4rK06kbl1u' +
+    'pKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSk' +
+    'pKSkpKSkpKSkpKT/wAARCAABAAEDASIAAhEBAxEB/8QA' +
+    'FQABAQAAAAAAAAAAAAAAAAAAAAL/xAAUEAEAAAAAAAAAAAAA' +
+    'AAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAgP/xAAUEQEA' +
+    'AAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCgEQf/2Q==',
+    'base64');
+  const list=['member1','member2','member3','member4','member5','member6'].map(x=>x+'@example.test');
+  x.props.ANNALS_ALLOWED_SENDERS=list.join(',');
+  x.props.ANNALS_AUTO_MEDIA_ENABLED='true';
+  x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{
+    [sender]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-07T00:00:00Z',
+      autoPublication:{status:'active',scope:'future_source_grounded_text_and_screened_image_publication',
+        consentedAt:'2026-10-08T00:00:00Z'}}
+  }}));
+  const source={imageConsentAtReceipt:true,autoConsentAtReceipt:true,senderAuthenticated:true,
+    source:{sender,subject:'Invented picture',excerpt:'Photo attached.',receivedAt:'2026-10-09T00:00:00Z'},
+    attachmentManifest:{held:false,items:[{accepted:true,mime:'image/jpeg',size:photoBytes.length,
+      storageName:'attachment-01.jpg'}]}};
+  const privateMethods={getSharingAccess:()=> 'PRIVATE',getEditors:()=>[],getViewers:()=>[],
+    getOwner:()=>({getEmail:()=> 'owner@example.test'})};
+  x.files.set('attachment-01.jpg',{...privateMethods,getSize:()=>photoBytes.length,
+    getThumbnail:()=>({getBytes:()=>[...photoBytes]})});
+  assert.equal(x.context.annalsImageConsentActive_(sender,source.source.receivedAt),true);
+  const ready=x.context.annalsAutoThumbnail_(id,source);
+  assert.ok(ready);
+  assert.ok(ready.size<=32768);
+  assert.match(ready.sha256,/^[a-f0-9]{64}$/);
+  assert.deepEqual(x.context.annalsAutoThumbnail_(id,source).sha256,ready.sha256);
+  const saved=JSON.parse(x.files.get('photo-derivative-private.json').getBlob().getDataAsString());
+  assert.equal(saved.source,'automated_drive_thumbnail');
+  assert.equal(Buffer.from(ready.base64,'base64').includes(Buffer.from('JFIF')),false);
+  assert.equal(Buffer.from(ready.base64,'base64').includes(Buffer.from('Exif')),false);
+  source.imageConsentAtReceipt=false;
+  assert.equal(x.context.annalsAutoThumbnail_(id,source),null);
+  x.props.ANNALS_AUTO_MEDIA_ENABLED='false';
+  source.imageConsentAtReceipt=true;
+  assert.equal(x.context.annalsAutoThumbnail_(id,source),null);
+});
