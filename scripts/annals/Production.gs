@@ -789,6 +789,18 @@ function annalsVerifyAutomaticPublications_(limit) {
     if (!/^[a-f0-9]{64}$/.test(id) || annalsFile_(folder, 'auto-live-verification-private.json')) continue;
     var saved = annalsRead_(folder, 'approval-private.json');
     if (!saved || saved.approvalMode !== AnnalsAuto.MODE || saved.publicationState !== 'dispatch_accepted') continue;
+    // A queued/failed Pages run must not remain invisible indefinitely.
+    // Private reminder only; never re-dispatch an uncertain publication.
+    var approvedAt = Date.parse(saved.receipt && saved.receipt.approvedAt);
+    if (Number.isFinite(approvedAt) && Date.now() - approvedAt > 86400000 &&
+        !annalsFile_(folder, 'auto-publication-delay-private.json')) {
+      annalsWriteOnce_(folder, 'auto-publication-delay-private.json',
+        { state: 'unverified_after_24h', at: new Date().toISOString() });
+      try { MailApp.sendEmail(p.getProperty('ANNALS_OWNER_EMAIL'), 'Annals publication still unverified',
+        'A signed automatic submission remains unverified after 24 hours. Check the existing Annals GitHub Actions and Pages runs. Do not resend blindly.\n\n' +
+        p.getProperty('ANNALS_REVIEW_URL') + '?item=' + encodeURIComponent(id)); }
+      catch (ignored) {}
+    }
     try {
       var query = '?checked=' + encodeURIComponent(id.slice(0, 16)) + '-' + String(Date.now());
       var archiveResponse = UrlFetchApp.fetch('https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/annals-approved.json' + query,
