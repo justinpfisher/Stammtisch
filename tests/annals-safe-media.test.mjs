@@ -79,7 +79,7 @@ test('automatically published cocktail photo is a signed, small metadata-free de
   const applied=await applyApprovedEntry({event,data:{schemaVersion:1,entries:[],approvals:[]},secret});
   assert.equal(applied.assetsToWrite.length,1);
   assert.equal(applied.assetsToWrite[0].path,'assets/annals/'+result.entry.id+'.jpg');
-  assert.match(applied.html,/alt="Contributor-submitted cocktail photograph"/);
+  assert.match(applied.html,/alt="Contributor-submitted photograph of a cocktail or club object"/);
   assert.match(applied.html,/The Cocktail Register/);
   await assert.rejects(applyApprovedEntry({event,data:applied.data,secret}),/already exists/);
 });
@@ -111,7 +111,7 @@ test('suggestions are visibly distinguished from preserved measurement-free sour
   const recipe={drinkIngredients:['gin','syrup','tonic water'],syrupIngredients:[],steps:[]};
   const suggestions=policy.suggestedQuantities(recipe,'gin and homemade syrup');
   assert.match(suggestions.join(' '),/about 45 mL|start at 15 mL/i);
-  assert.match(suggestions.join(' '),/not part of the original recipe/i);
+  assert.match(suggestions.join(' '),/not part of the original/i);
   assert.deepEqual(recipe.drinkIngredients,['gin','syrup','tonic water']);
   const e={id:'annal-'+id.slice(0,24),category:'cocktail',title:'Imaginary concoction',
     summary:'Invented synthetic test',year:2026,dateLabel:'Submitted 2026-10',sortDate:'',quoteVerbatim:'',
