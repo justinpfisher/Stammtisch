@@ -251,7 +251,7 @@ function buildAnnals(entries, receipts, verifyReceipt) {
       '</nav>'
     : '';
   const emptyState = accepted.length === 0
-    ? '<p class="annal-empty">The first approved contribution will appear here.</p>'
+    ? '<p class="annal-empty">The record awaits an approved contribution.</p>'
     : '';
   const html = `<!doctype html>
 <html lang="en">
@@ -298,8 +298,8 @@ function buildAnnals(entries, receipts, verifyReceipt) {
 <section class="annal-hero"><p class="eyebrow">The permanent record</p>
 <h1>The <em>Annals of Stammtisch.</em></h1>
 <p>A considered chronicle of shared occasions, extraordinary refreshments, and matters deemed worthy of posterity. Only verified material approved for public use appears here.</p>
-<a class="annal-contribute" href="mailto:annals@stammtischbrewery.com">Contribute to the Annals <span aria-hidden="true">→</span></a>
-<p class="annal-note">A submission is considered privately; it is not by itself permission to publish.</p></section>
+<a class="annal-contribute" href="mailto:annals@stammtischbrewery.com">Members: contribute to the Annals <span aria-hidden="true">→</span></a>
+<p class="annal-note">Members only. A submission is considered privately; it is not by itself permission to publish.</p></section>
 ${navigation}
 ${collections}${emptyState}
 </main>
