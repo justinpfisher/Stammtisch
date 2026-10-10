@@ -53,6 +53,18 @@ test('source-grounded, no-risk fictional cocktail can be assembled anonymously w
   assert.equal(decision.entry.summary,sample().source.excerpt);
   assert.doesNotMatch(JSON.stringify(decision.entry),/example\.test|signed|token|sourceId|reviewer/);
 });
+test('ordinary mobile and sign-off signatures stay private without blocking an otherwise publishable submission', () => {
+  const base=sample();
+  const original=base.source.excerpt;
+  for(const sig of ['\n\nSent from my iPhone','\n\nGet Outlook for iOS',
+    '\n--\nPrivate telephone signature', '\n\nCheers,\nFish']) {
+    const s=sample();s.source.excerpt+=sig;
+    const result=policy.propose(s,draft(),id);
+    assert.equal(result.eligible,true,sig);
+    assert.equal(result.entry.summary,original);
+    assert.equal(s.source.excerpt,original+sig); // immutable original remains private
+  }
+});
 test('publication is forbidden without both consent assertions and authenticated source', () => {
   for (const key of ['senderAuthenticated','aiConsentActive','autoConsentAtReceipt']) {
     const s=sample();s[key]=false;
