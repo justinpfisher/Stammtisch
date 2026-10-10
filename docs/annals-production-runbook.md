@@ -12,7 +12,7 @@ The adapter is pinned to `gpt-4.1-mini-2025-04-14`, uses structured output with 
 
 On exact approval, Apps Script signs a public-safe attestation that contains no reviewer address or private evidence and sends only the approved entry and attestation in a GitHub `repository_dispatch` event. The event is accepted only by `.github/workflows/annals-publish.yml`; it verifies the signature, rejects duplicates and private fields, renders the Annals page and commits the approved public entry and page to `main`. No GitHub token capable of dispatching other Actions workflows is needed. The token must be limited to this repository and the `Contents: write` permission required by GitHub's repository-dispatch API. Public source history permanently records approved content; corrections/removals require a separately approved update and do not erase old Git history or caches.
 
-The current release does not publish photographs, process PDF/HEIC, provide correction/removal controls, or confirm successful Pages completion back into Apps Script. Attachments are stored privately and held. These are not enabled by this text workflow. A dispatch acceptance response means the request entered GitHub, not that its workflow or Pages deployment succeeded. The owner must verify the completed run and live URL for the first publication.
+The current release does not publish photographs, process PDF/HEIC, or confirm successful Pages completion back into Apps Script. Attachments are stored privately and held from automatic drafting; the private desk's manual draft flow accepts only explicitly selected JPEG/PNG files after per-item confirmation. Text corrections and removals can be separately signed and sent through the approved publishing workflow. A dispatch acceptance response means the request entered GitHub, not that its workflow or Pages deployment succeeded. The owner must verify the completed run and live URL for each publication change.
 
 ## Required private properties
 
@@ -55,6 +55,8 @@ If any property, authentication result, account identity, folder access, budget,
 
 Once all installation checks pass, choose one member who has explicitly consented to private AI drafting and ask for one genuine cocktail text submission. The member's email must pass aligned DKIM/DMARC authentication. Confirm the acknowledgement, private staged source, single private AI draft and owner notification. In the owner-only desk, verify the exact recipe against the source, correct the draft, record actual recipe/publication consent and save the exact preview. Approve only that exact preview. Verify that the matching `annals-approved-entry` Actions run succeeded, the public commit contains only the approved entry/page and no private receipt, and the live `/annals.html#ENTRY_ID` page shows the approved content. Do not publish any synthetic content. Stop on a failed, duplicate or uncertain run; inspect GitHub Actions before any manual retry.
 
+For a published text correction, open the already published item in the private desk, select **Prepare an exact text correction**, edit and save the corrected fields, compare the exact preview to the private source, record the correction evidence, confirm the applicable contributor/quotation/recipe/attribution permissions, and approve it. Verify the `annals-correct-entry` Actions run and live page. For withdrawal, use **Remove published entry**, review the exact current entry and private reason, confirm removal, then verify the `annals-remove-entry` run and live page. The public site and current index remove the entry, but the repository's prior commit history, caches and copies may persist. If the dispatch or deployment result is uncertain, stop and inspect Actions before attempting anything again.
+
 ## Local verification
 
 ```text
@@ -63,3 +65,4 @@ node scripts/local-dev.mjs check
 ```
 
 These offline checks validate the consent parser, sender-authentication gate, one-attempt budget reservation, approval signature, dispatch payload validation, duplicate protection and public rendering. They do not authenticate a live Gmail header, inspect Google's sharing state, run the Apps Script project, test the GitHub secret or prove the live website has updated.
+
