@@ -76,13 +76,18 @@ function annalsStandingPublicationActive_(sender, receivedAt) {
   var permission = member && member.autoPublication;
   var activated = Date.parse(permission && permission.consentedAt);
   var received = Date.parse(receivedAt);
-  return !!permission && permission.status === 'active' && permission.scope === 'future_source_grounded_text_publication' &&
+  return !!permission && permission.status === 'active' &&
+    ['future_source_grounded_text_publication','future_source_grounded_text_and_screened_image_publication'].indexOf(permission.scope) >= 0 &&
     !permission.revokedAt && Number.isFinite(activated) && Number.isFinite(received) && received >= activated;
 }
 function annalsImageConsentActive_(sender, receivedAt) {
   sender = String(sender || '').toLowerCase();
   if (!annalsStandingPublicationActive_(sender, receivedAt)) return false;
   var member = annalsConsentRegistry_().members[sender];
+  var textGrant = member && member.autoPublication;
+  if (textGrant && textGrant.scope === 'future_source_grounded_text_and_screened_image_publication' &&
+      textGrant.status === 'active' && !textGrant.revokedAt) return true;
+  // Existing text-only members can add image permission without renewing AI consent.
   var permission = member && member.imagePublication;
   var granted = Date.parse(permission && permission.consentedAt);
   var received = Date.parse(receivedAt);
@@ -115,9 +120,12 @@ function annalsHandleConsentReply_(sender, body) {
     return 'image_consent_revoked';
   }
   if (member && member.autoPublication && member.autoPublication.status === 'pending' &&
-      text === 'I CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT PUBLICATION. CODE: ' + member.autoPublication.challenge) {
+      text === (member.autoPublication.scope === 'future_source_grounded_text_and_screened_image_publication'
+        ? 'I CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT AND SCREENED PHOTO PUBLICATION. CODE: '
+        : 'I CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT PUBLICATION. CODE: ') + member.autoPublication.challenge) {
     member.autoPublication.status = 'active';
-    member.autoPublication.scope = 'future_source_grounded_text_publication';
+    member.autoPublication.scope = member.autoPublication.scope === 'future_source_grounded_text_and_screened_image_publication'
+      ? 'future_source_grounded_text_and_screened_image_publication' : 'future_source_grounded_text_publication';
     member.autoPublication.consentedAt = new Date().toISOString();
     delete member.autoPublication.challenge;
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
@@ -390,12 +398,12 @@ function annalsInviteAutoPublicationConsent(nonce, email) {
     var root = annalsRoot_(), registry = annalsConsentRegistry_(), member = registry.members[address];
     if (member.autoPublication && member.autoPublication.status === 'active') throw new Error('Standing consent is already active');
     var challenge = Utilities.getUuid() + Utilities.getUuid();
-    member.autoPublication = { status: 'pending', scope: 'future_source_grounded_text_publication',
+    member.autoPublication = { status: 'pending', scope: 'future_source_grounded_text_and_screened_image_publication',
       invitedAt: new Date().toISOString(), challenge: challenge };
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
-    MailApp.sendEmail(address, 'Choose whether future Annals text can publish automatically',
-      'This is an OPTIONAL, separate, revocable authorisation. If you agree, original text and recipes you personally have the right to publish may automatically appear on the PUBLIC Stammtisch website and in PUBLIC permanent GitHub history without per-entry review. The system may visibly censor strong profanity and may use anonymous attribution. Photos, other people\'s words, personal details, uncertain recipes and unsafe material will be held for private review. You affirm you will not submit third-party content without the necessary permissions. Your original email stays private. Withdrawal from the current website cannot erase copies or Git history.\n\nTo opt in, reply with this exact sentence:\n\nI CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT PUBLICATION. CODE: ' + challenge +
-      '\n\nTo revoke at any time, send: REVOKE ANNALS AUTOMATIC PUBLICATION. AI processing consent remains separate.');
+    MailApp.sendEmail(address, 'One-time choice: automatic Annals text and safe photographs',
+      'This is a separate, optional and revocable authorisation. If you agree, your original text and safe photographs that you own or are permitted to share can publish automatically on the PUBLIC Stammtisch website and in permanent PUBLIC GitHub history without per-entry review. A private AI service may analyse submitted images, and only a screened, metadata-stripped small image derivative can be public. The Club owner confirms that the six members have agreed to photos, but any guests or other identifiable people still need their own permission. Strong profanity may be visibly censored; attribution defaults to anonymous. If the content is unsafe, it stays private. You affirm that you hold the rights needed for the content you send. Withdrawal cannot erase previous GitHub history.\\n\\nTo opt in, reply with this exact sentence:\\n\\nI CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT AND SCREENED PHOTO PUBLICATION. CODE: ' + challenge +
+      '\\n\\nTo revoke, send: REVOKE ANNALS AUTOMATIC PUBLICATION. Your private AI-processing consent is separate.');
     return { invited: true };
   }); });
 }
