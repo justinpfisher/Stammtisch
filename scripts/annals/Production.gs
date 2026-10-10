@@ -324,7 +324,7 @@ function annalsResumeConsentedDrafts_(limit) {
     }
     if (annalsFile_(folder, 'ai-attempt-private.json') || source.senderAuthenticated !== true ||
         source.aiConsentActive !== true || !annalsConsentActive_(source.source.sender) ||
-        (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt))) || source.source.excerptTruncated ||
+        (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) && !source.imageConsentAtReceipt) || source.source.excerptTruncated ||
         !annalsSafeTextForAutoAi_(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt))) continue;
     try { if (annalsProcessConsentedText_(id)) done++; }
     catch (e) {
@@ -517,10 +517,43 @@ function annalsPhotoDerivative_(folder) {
   if (bytes.length !== metadata.size || annalsHash_(bytes) !== metadata.sha256 || !annalsJpegDerivativeSafe_(bytes)) throw new Error('Private photo derivative integrity failed');
   return { sha256: metadata.sha256, size: metadata.size, base64: Utilities.base64Encode(bytes) };
 }
+/** Produce a small metadata-free thumbnail privately. Original media is never
+ * sent to GitHub or used as the public derivative. Holds when Drive has no
+ * suitable JPEG thumbnail, the image is too large, or consent is missing.
+ */
+function annalsAutoThumbnail_(id, source) {
+  if (!source || !source.source || !source.imageConsentAtReceipt ||
+      annalsProps_().getProperty('ANNALS_AUTO_MEDIA_ENABLED') !== 'true' ||
+      !annalsImageConsentActive_(source.source.sender, source.source.receivedAt)) return null;
+  var items = source.attachmentManifest && source.attachmentManifest.items;
+  if (!Array.isArray(items)) return null;
+  var selected = items.filter(function (item) {
+    return item.accepted && ['image/jpeg','image/png'].indexOf(item.mime) >= 0 &&
+      item.size > 0 && item.size <= 4 * 1024 * 1024;
+  });
+  if (selected.length !== 1 || items.length !== 1) return null; // no multi-photo inference
+  var folder = annalsFolder_(id), photo = annalsFile_(folder, selected[0].storageName);
+  if (!photo || photo.getSize() > 4 * 1024 * 1024) return null;
+  var old = annalsRead_(folder,'photo-derivative-private.json');
+  if (old && old.source === 'automated_drive_thumbnail') return annalsPhotoDerivative_(folder);
+  if (old) return null; // never replace an owner's manually reviewed derivative
+  var thumb = photo.getThumbnail();
+  if (!thumb) return null;
+  var sanitised = AnnalsMedia.sanitize(thumb.getBytes());
+  var hash = annalsHash_(sanitised.bytes);
+  var metadata = { sha256:hash,size:sanitised.bytes.length,width:sanitised.width,
+    height:sanitised.height,source:'automated_drive_thumbnail',savedAt:new Date().toISOString() };
+  var img = annalsPrivate_(folder.createFile(
+    Utilities.newBlob(sanitised.bytes,'image/jpeg','photo-derivative-private.jpg')));
+  if (!img) throw new Error('Private thumbnail storage unavailable');
+  annalsWriteOnce_(folder,'photo-derivative-private.json',metadata);
+  return { sha256:hash,size:sanitised.bytes.length,
+    base64:Utilities.base64Encode(sanitised.bytes) };
+}
 function annalsPrepareDraft(nonce, id, text, selectedNames, consent) {
   return annalsUiCall_(nonce, function () { return annalsPrepareDraftCore_(id, text, selectedNames, consent); });
 }
-function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHeld) {
+function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHeld, derivedImages) {
   var process = function () {
     if (consent !== true) throw new Error('Processing consent required');
     var p = annalsProps_(), f = annalsFolder_(id);
@@ -536,6 +569,11 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
       if (!file || file.getSize() > 4 * 1024 * 1024) throw new Error('Attachment changed');
       return { mime: item.mime, base64: Utilities.base64Encode(file.getBlob().getBytes()) };
     });
+    if (derivedImages !== undefined) {
+      if (selectedNames.length || !Array.isArray(derivedImages) || derivedImages.length > 1)
+        throw new Error('Invalid automated image selection');
+      images = derivedImages;
+    }
     var request = AnnalsProduction.request(text, images);
     var month = Utilities.formatDate(new Date(), 'America/Toronto', 'yyyy-MM');
     var ledger = AnnalsProduction.reserve(JSON.parse(p.getProperty('ANNALS_BUDGET_LEDGER') || 'null'), month);
@@ -580,11 +618,17 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
 function annalsProcessConsentedText_(id) {
   var source = annalsRead_(annalsFolder_(id), 'source-private.json');
   if (!source || source.senderAuthenticated !== true || source.aiConsentActive !== true || !annalsConsentActive_(source.source.sender) ||
-      (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt))) || source.source.excerptTruncated ||
+      (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) && !source.imageConsentAtReceipt) || source.source.excerptTruncated ||
       !annalsSafeTextForAutoAi_(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) ||
       annalsProps_().getProperty('ANNALS_AI_ENABLED') !== 'true') return false;
   var fullText = source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt);
-  annalsPrepareDraftCore_(id, fullText, [], true, true); // caller already holds intake lock
+  var derived = null;
+  if (source.imageConsentAtReceipt && annalsProps_().getProperty('ANNALS_AUTO_MEDIA_ENABLED') === 'true') {
+    try { derived = annalsAutoThumbnail_(id, source); }
+    catch (ignored) { /* private media stays held; safe text may proceed */ }
+  }
+  var images = derived ? [{mime:'image/jpeg',base64:derived.base64}] : [];
+  annalsPrepareDraftCore_(id, fullText, [], true, true, images); // caller already holds intake lock
   var dispatched = annalsAutoAttemptSafe_(annalsFolder_(id), id);
   if (!dispatched) annalsNotifyDraftReady_(annalsFolder_(id));
   return true;
@@ -647,6 +691,7 @@ function annalsPublicApproval_(entry, receipt, key) {
   if (key.length < 32 || key === (annalsProps_().getProperty('ANNALS_APPROVAL_KEY') || '')) return null;
   var proof = { entryId: entry.id, approvedAt: receipt.approvedAt, consents: receipt.consents, contentSha256: receipt.contentSha256 };
   if (receipt.reviewedBy === 'standing-consent-automation-v1') proof.mode = AnnalsAuto.MODE;
+  if (receipt.reviewedBy === 'standing-consent-image-automation-v1') proof.mode = AnnalsMediaPolicy.MODE;
   proof.signature = annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial({ entry: entry, approval: proof }), key, Utilities.Charset.UTF_8));
   return proof;
 }
@@ -802,14 +847,22 @@ function annalsAutoPublishCandidate_(id) {
       p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') === p.getProperty('ANNALS_APPROVAL_KEY') ||
       AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '').length !== 6) return false;
   var folder = annalsFolder_(id), previous = annalsRead_(folder, 'approval-private.json');
-  if (previous) return previous.approvalMode === AnnalsAuto.MODE && previous.publicationState === 'dispatch_accepted';
+  if (previous) return [AnnalsAuto.MODE,AnnalsMediaPolicy.MODE].indexOf(previous.approvalMode) >= 0 && previous.publicationState === 'dispatch_accepted';
   if (annalsFile_(folder, 'auto-decision-private.json')) return false; // no silent retries
   var source = annalsRead_(folder, 'source-private.json'), draft = annalsRead_(folder, 'draft-private.json');
   if (!source || !draft || !source.source || !source.senderAuthenticated || !source.aiConsentActive ||
       !source.autoConsentAtReceipt || !annalsStandingPublicationActive_(source.source.sender, source.source.receivedAt) ||
       source.source.excerptTruncated ||
       Date.parse(source.source.receivedAt) < Date.parse(p.getProperty('ANNALS_ACTIVATED_AT'))) return false;
-  var decision = AnnalsAuto.propose(source, draft, id);
+  var originalDecision = AnnalsAuto.propose(source, draft, id), derivative = null;
+  if (p.getProperty('ANNALS_AUTO_MEDIA_ENABLED') === 'true' && source.imageConsentAtReceipt &&
+      annalsImageConsentActive_(source.source.sender, source.source.receivedAt)) {
+    try { derivative = annalsPhotoDerivative_(folder); }
+    catch (ignored) { derivative = null; }
+    var metadata = annalsRead_(folder,'photo-derivative-private.json');
+    if (!metadata || metadata.source !== 'automated_drive_thumbnail') derivative = null;
+  }
+  var decision = AnnalsMediaPolicy.enrich(source,draft,id,originalDecision,derivative);
   if (!decision.eligible) {
     annalsWriteOnce_(folder, 'auto-decision-private.json', { state: 'held', reason: decision.reason, at: new Date().toISOString() });
     return false;
@@ -817,21 +870,21 @@ function annalsAutoPublishCandidate_(id) {
   var entry = AnnalsProduction.publicEntry(decision.entry);
   var hash = annalsHash_(AnnalsProduction.serial(entry));
   var receipt = { entryId: entry.id, approvedAt: new Date().toISOString(),
-    reviewedBy: 'standing-consent-automation-v1',
+    reviewedBy: decision.mode === AnnalsMediaPolicy.MODE ? 'standing-consent-image-automation-v1' : 'standing-consent-automation-v1',
     consents: AnnalsProduction.consents(entry, {
       publication: true, quotePublication: entry.category === 'quotation', recipeVerified: entry.category === 'cocktail',
-      namedAttribution: false, photoPublication: false
+      namedAttribution: false, photoPublication: !!entry.photo
     }), contentSha256: hash };
   receipt.signature = annalsHex_(Utilities.computeHmacSha256Signature(
     AnnalsProduction.serial({ entry: entry, receipt: receipt }), p.getProperty('ANNALS_APPROVAL_KEY'), Utilities.Charset.UTF_8));
   var publication = annalsPublicApproval_(entry, receipt, p.getProperty('ANNALS_PUBLISH_SIGNING_KEY'));
-  if (!publication || publication.mode !== AnnalsAuto.MODE) return false;
+  if (!publication || publication.mode !== decision.mode) return false;
   // Both consent records and the accuracy/eligibility reason stay private.
   annalsWriteOnce_(folder, 'auto-decision-private.json', {
-    state: 'eligible', policy: AnnalsAuto.MODE, sourceDigest: annalsHash_(source.source.excerpt),
+    state: 'eligible', policy: decision.mode, sourceDigest: annalsHash_(source.source.excerpt),
     contentSha256: hash, consentCheckedAt: new Date().toISOString()
   });
-  var saved = { entry: entry, receipt: receipt, publication: publication, approvalMode: AnnalsAuto.MODE,
+  var saved = { entry: entry, receipt: receipt, publication: publication, approvalMode: decision.mode,
     evidenceNote: 'Contributor authenticated; separate standing consents active at receipt and signing; deterministic source-grounded policy accepted.',
     uncertaintiesReviewed: true, publicationState: 'approved_private_pending_publish' };
   annalsWriteOnce_(folder, 'approval-private.json', saved);
@@ -853,7 +906,7 @@ function annalsVerifyAutomaticPublications_(limit) {
     var folder = annalsPrivate_(folders.next()), id = folder.getName();
     if (!/^[a-f0-9]{64}$/.test(id) || annalsFile_(folder, 'auto-live-verification-private.json')) continue;
     var saved = annalsRead_(folder, 'approval-private.json');
-    if (!saved || saved.approvalMode !== AnnalsAuto.MODE || saved.publicationState !== 'dispatch_accepted') continue;
+    if (!saved || [AnnalsAuto.MODE,AnnalsMediaPolicy.MODE].indexOf(saved.approvalMode) < 0 || saved.publicationState !== 'dispatch_accepted') continue;
     // A queued/failed Pages run must not remain invisible indefinitely.
     // Private reminder only; never re-dispatch an uncertain publication.
     var approvedAt = Date.parse(saved.receipt && saved.receipt.approvedAt);
@@ -877,7 +930,7 @@ function annalsVerifyAutomaticPublications_(limit) {
       if (!archive || !Array.isArray(archive.entries) || !Array.isArray(archive.approvals)) continue;
       var entry = archive.entries.find(function (item) { return item.id === saved.entry.id; });
       var signature = archive.approvals.find(function (item) { return item.entryId === saved.entry.id; });
-      if (!entry || !signature || signature.mode !== AnnalsAuto.MODE ||
+      if (!entry || !signature || signature.mode !== saved.approvalMode ||
           annalsHash_(AnnalsProduction.serial(entry)) !== saved.receipt.contentSha256 ||
           signature.signature !== saved.publication.signature) continue;
       var pageResponse = UrlFetchApp.fetch('https://stammtischbrewery.com/annals.html' + query,
