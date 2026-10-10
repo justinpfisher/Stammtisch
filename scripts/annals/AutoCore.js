@@ -80,6 +80,19 @@ var AnnalsAuto = (function () {
         !recipe.syrupIngredients.length && !recipe.steps.some(function (step) { return /syrup/i.test(step); })) return false;
     return true;
   }
+  // This is explicitly an optional editorial suggestion, never asserted to be a
+  // recovered historical instruction or a verified homemade syrup recipe.
+  function suggestedMethod(recipe, source) {
+    if (recipe.steps.length || !recipe.drinkIngredients.length) return [];
+    var joined = recipe.drinkIngredients.join(' ').toLowerCase();
+    if (/\b(?:lemon|lime|citrus|orange juice|grapefruit|egg white)\b/.test(joined)) {
+      return ['Suggested method (not provided in the original): Shake the recorded drink ingredients with ice and strain; adjust serving to preference.'];
+    }
+    if (/\b(?:hot|warm|coffee|tea)\b/.test(joined) && !/\b(?:ice|cold|chilled)\b/.test(source)) {
+      return ['Suggested method (not provided in the original): Combine the recorded drink ingredients carefully and serve at a suitable temperature.'];
+    }
+    return ['Suggested method (not provided in the original): Combine the recorded drink ingredients, chill if appropriate and serve.'];
+  }
   function propose(privateSource, candidate, id) {
     if (!privateSource || !privateSource.source || !candidate ||
         !/^[a-f0-9]{64}$/.test(id || '') ||
@@ -129,10 +142,11 @@ var AnnalsAuto = (function () {
       dateLabel: 'Submitted ' + stamp.toISOString().slice(0,7), sortDate: '',
       quoteVerbatim: quote,
       recipe: { drinkIngredients: recipe.drinkIngredients.map(censor),
-        syrupIngredients: recipe.syrupIngredients.map(censor), steps: recipe.steps.map(censor) },
+        syrupIngredients: recipe.syrupIngredients.map(censor), steps: recipe.steps.map(censor),
+        ...(candidate.category === 'cocktail' && !recipe.steps.length ? { suggestedSteps: suggestedMethod(recipe, source) } : {}) },
       credit: 'anonymous' };
     return { eligible: true, entry: entry, mode: MODE };
   }
-  return Object.freeze({ MODE: MODE, NOTICE: NOTICE, censor: censor, cleanText: cleanText, independentText: independentText, propose: propose });
+  return Object.freeze({ MODE: MODE, NOTICE: NOTICE, censor: censor, cleanText: cleanText, independentText: independentText, suggestedMethod: suggestedMethod, propose: propose });
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = AnnalsAuto;
