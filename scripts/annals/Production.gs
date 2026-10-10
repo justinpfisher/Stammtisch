@@ -318,17 +318,20 @@ function annalsReviewItem(nonce, id) {
   return annalsUiCall_(nonce, function () {
     var f = annalsFolder_(id), source = annalsRead_(f, 'source-private.json');
     if (!source) throw new Error('Incomplete source');
+    var originalApproval = annalsRead_(f, 'approval-private.json'), correction = annalsRead_(f, 'correction-approval-private.json');
+    var published = correction && correction.publicationState === 'dispatch_accepted' ? correction : originalApproval;
+    var publicationState = correction && correction.publicationState !== 'dispatch_accepted' ? 'correction_result_uncertain' : (published || {}).publicationState || null;
     var names = source.attachmentManifest.items.filter(function (a) { return a.accepted && annalsFile_(f, a.storageName); })
       .map(function (a) { return { name: a.storageName, mime: a.mime, size: a.size }; });
     return { id: id, subject: source.source.subject, text: source.source.excerpt, receivedAt: source.source.receivedAt,
       truncated: source.source.excerptTruncated, attachments: names, folderUrl: f.getUrl(),
       draft: annalsRead_(f, 'draft-private.json'), review: annalsRead_(f, 'review-private.json'),
       outcome: annalsRead_(f, 'ai-outcome-private.json'), correctionReview: annalsRead_(f, 'correction-review-private.json'),
-      correctionApproval: annalsRead_(f, 'correction-approval-private.json'), removal: annalsRead_(f, 'removal-private.json'),
-      publishedEntry: (annalsRead_(f, 'approval-private.json') || {}).entry || null,
-      publishedEntryHash: (function () { var published = annalsRead_(f, 'approval-private.json'); return published && published.entry ? annalsHash_(AnnalsProduction.serial(published.entry)) : null; })(),
+      correctionApproval: correction, removal: annalsRead_(f, 'removal-private.json'),
+      publishedEntry: (published || {}).entry || null,
+      publishedEntryHash: (published || {}).entry ? annalsHash_(AnnalsProduction.serial(published.entry)) : null,
       attempted: !!annalsFile_(f, 'ai-attempt-private.json'), approved: !!annalsFile_(f, 'approval-private.json'),
-      publicationState: (annalsRead_(f, 'approval-private.json') || {}).publicationState || null,
+      publicationState: publicationState,
       dispatchAttempted: !!annalsFile_(f, 'publication-dispatch-private.json') };
   });
 }
@@ -557,15 +560,16 @@ function annalsApproveCorrection(nonce, id, expectedHash, consents, evidenceNote
 }
 function annalsApproveRemoval(nonce, id, expectedHash, reason, confirmed) {
   return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
-    var folder = annalsFolder_(id), original = annalsRead_(folder, 'approval-private.json');
-    if (!original || original.publicationState !== 'dispatch_accepted' || !annalsPrivateReceiptValid_(original.entry, original.receipt) ||
-        annalsFile_(folder, 'removal-private.json') || annalsFile_(folder, 'correction-approval-private.json') ||
-        expectedHash !== annalsHash_(AnnalsProduction.serial(original.entry)) || confirmed !== true ||
+    var folder = annalsFolder_(id), original = annalsRead_(folder, 'approval-private.json'), correction = annalsRead_(folder, 'correction-approval-private.json');
+    var current = correction && correction.publicationState === 'dispatch_accepted' ? correction : original;
+    if (!current || (correction && correction.publicationState !== 'dispatch_accepted') || current.publicationState !== 'dispatch_accepted' || !annalsPrivateReceiptValid_(current.entry, current.receipt) ||
+        annalsFile_(folder, 'removal-private.json') ||
+        expectedHash !== annalsHash_(AnnalsProduction.serial(current.entry)) || confirmed !== true ||
         typeof reason !== 'string' || reason.trim().length < 10 || reason.length > 2000) throw new Error('Exact public entry and private removal reason required');
     var key = annalsProps_().getProperty('ANNALS_PUBLISH_SIGNING_KEY') || '', approvedAt = new Date().toISOString();
-    var proof = annalsPublicRemoval_(original.entry, approvedAt, key);
+    var proof = annalsPublicRemoval_(current.entry, approvedAt, key);
     if (!proof) throw new Error('Separate public signing configuration required');
-    var record = { entry: original.entry, proof: proof, reason: reason, reviewedBy: annalsOwner_(), approvedAt: approvedAt, state: 'approved_removal_pending' };
+    var record = { entry: current.entry, proof: proof, reason: reason, reviewedBy: annalsOwner_(), approvedAt: approvedAt, state: 'approved_removal_pending' };
     annalsWriteOnce_(folder, 'removal-private.json', record);
     var sent = annalsDispatchRemoval_(folder, original.entry.id, proof);
     record.state = sent ? 'dispatch_accepted' : 'dispatch_not_configured_or_held';
