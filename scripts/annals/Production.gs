@@ -290,7 +290,7 @@ function annalsResumeConsentedDrafts_(limit) {
     }
     if (annalsFile_(folder, 'ai-attempt-private.json') || source.senderAuthenticated !== true ||
         source.aiConsentActive !== true || !annalsConsentActive_(source.source.sender) ||
-        source.requiresClarification || source.source.excerptTruncated ||
+        (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + source.source.excerpt)) || source.source.excerptTruncated ||
         !annalsSafeTextForAutoAi_(source.source.subject + '\n' + source.source.excerpt)) continue;
     try { if (annalsProcessConsentedText_(id)) done++; }
     catch (e) {
@@ -515,7 +515,7 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
 function annalsProcessConsentedText_(id) {
   var source = annalsRead_(annalsFolder_(id), 'source-private.json');
   if (!source || source.senderAuthenticated !== true || source.aiConsentActive !== true || !annalsConsentActive_(source.source.sender) ||
-      source.requiresClarification || source.source.excerptTruncated ||
+      (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + source.source.excerpt)) || source.source.excerptTruncated ||
       !annalsSafeTextForAutoAi_(source.source.subject + '\n' + source.source.excerpt) ||
       annalsProps_().getProperty('ANNALS_AI_ENABLED') !== 'true') return false;
   var fullText = source.source.subject + '\n' + source.source.excerpt;
@@ -726,7 +726,7 @@ function annalsAutoPublishCandidate_(id) {
   var source = annalsRead_(folder, 'source-private.json'), draft = annalsRead_(folder, 'draft-private.json');
   if (!source || !draft || !source.source || !source.senderAuthenticated || !source.aiConsentActive ||
       !source.autoConsentAtReceipt || !annalsStandingPublicationActive_(source.source.sender, source.source.receivedAt) ||
-      source.requiresClarification || source.source.excerptTruncated ||
+      source.source.excerptTruncated ||
       Date.parse(source.source.receivedAt) < Date.parse(p.getProperty('ANNALS_ACTIVATED_AT'))) return false;
   var decision = AnnalsAuto.propose(source, draft, id);
   if (!decision.eligible) {
@@ -738,7 +738,7 @@ function annalsAutoPublishCandidate_(id) {
   var receipt = { entryId: entry.id, approvedAt: new Date().toISOString(),
     reviewedBy: 'standing-consent-automation-v1',
     consents: AnnalsProduction.consents(entry, {
-      publication: true, quotePublication: false, recipeVerified: entry.category === 'cocktail',
+      publication: true, quotePublication: entry.category === 'quotation', recipeVerified: entry.category === 'cocktail',
       namedAttribution: false, photoPublication: false
     }), contentSha256: hash };
   receipt.signature = annalsHex_(Utilities.computeHmacSha256Signature(
