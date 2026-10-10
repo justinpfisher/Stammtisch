@@ -57,7 +57,7 @@ test('preserves prior approved entries and rejects forged or missing approval si
 
 test('publisher workflow is reachable only through the dedicated repository dispatch and writes only Annals files', async () => {
   const workflow = await readFile(new URL('../.github/workflows/annals-publish.yml', import.meta.url), 'utf8');
-  assert.match(workflow, /repository_dispatch:\s*\n\s*types:\s*\[annals-approved-entry, annals-correct-entry, annals-remove-entry\]/);
+  assert.match(workflow, /repository_dispatch:\s*\n\s*types:\s*\[annals-approved-entry, annals-auto-entry, annals-correct-entry, annals-remove-entry\]/);
   assert.match(workflow, /permissions:\s*\n\s*contents:\s*write/);
   assert.doesNotMatch(workflow, /actions:\s*write|workflow_dispatch|pull_request|schedule:/);
   assert.match(workflow, /git add -A -- annals\.html data\/annals-approved\.json assets/);
