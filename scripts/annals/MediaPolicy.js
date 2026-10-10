@@ -4,6 +4,8 @@
  */
 var AnnalsMediaPolicy = (function () {
   'use strict';
+  var Auto = typeof AnnalsAuto !== 'undefined' ? AnnalsAuto :
+    (typeof module !== 'undefined' && module.exports ? require('./AutoCore.js') : null);
   var MODE = 'standing-consent-image-v1';
   var DANGEROUS = /\b(?:private|confidential|address|phone|password|allegedly|accused|fraud|assault|family|guest|child|children|home address|license plate|licence plate|reflection|face)\b|[\w.+-]+@[\w.-]+\.[a-z]{2,}|https?:\/\/|\b(?:Justin|Marc|Matt|Ken|Jamie|Jerome)\b/i;
   var IMAGE_RISKS = ['faces_or_reflections', 'possible_personal_identifier','location_or_home_context','private_context',
@@ -60,7 +62,7 @@ var AnnalsMediaPolicy = (function () {
       if (isNaN(received.getTime()) || received.getUTCFullYear() < 1990 || received.getUTCFullYear() > 2100)
         return {eligible:false,reason:'invalid_receipt_date'};
       var photoEntry = {
-        id:'annal-' + id.slice(0,24),category:candidate.category,title:AnnalsAuto.censor(subject),
+        id:'annal-' + id.slice(0,24),category:candidate.category,title:Auto.censor(subject),
         summary: 'A photograph contributed to the Annals. No recipe or additional historical details were supplied.',
         year:received.getUTCFullYear(),dateLabel:'Submitted '+received.toISOString().slice(0,7),
         sortDate:'',quoteVerbatim:'',recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]},
