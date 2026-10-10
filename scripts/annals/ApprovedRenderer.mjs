@@ -72,7 +72,7 @@ export function validatePublicTextEntry(input) {
   if (input.category === 'quotation' && !quoteVerbatim.trim()) throw new Error('Quotation requires verbatim text');
   if (input.category !== 'quotation' && quoteVerbatim) throw new Error('Unexpected quotation text');
   if (input.category === 'cocktail' &&
-      !outputRecipe.drinkIngredients.length && !outputRecipe.steps.length) {
+      !outputRecipe.drinkIngredients.length && !outputRecipe.steps.length && !input.photo) {
     throw new Error('Cocktail requires an actual approved recipe');
   }
   if (input.category !== 'cocktail' && Object.values(outputRecipe).some(a => a.length)) {
@@ -155,13 +155,17 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
     const entry = validatePublicTextEntry(publicEntry);
     allowedKeys(approval, PUBLIC_APPROVAL_KEYS, 'public approval');
     allowedKeys(approval.consents, CONSENT_KEYS, 'consent');
-    const automated = approval.mode === 'standing-consent-text-v1';
+    const automatedText = approval.mode === 'standing-consent-text-v1';
+    const automatedImage = approval.mode === 'standing-consent-image-v1';
+    const automated = automatedText || automatedImage;
     if (approval.mode !== undefined && !automated) return false;
     // Automated proof must be separately domain-tagged, with no photos,
     // third-party quotations or named attribution.
-    if (automated && (entry.photo || entry.credit !== 'anonymous' ||
-        approval.consents.quotePublication !== (entry.category === 'quotation') || approval.consents.namedAttribution !== false ||
-        approval.consents.photoPublication !== false)) return false;
+    if (automated && (entry.credit !== 'anonymous' ||
+        approval.consents.quotePublication !== (entry.category === 'quotation') ||
+        approval.consents.namedAttribution !== false ||
+        (automatedText && (entry.photo || approval.consents.photoPublication !== false)) ||
+        (automatedImage && (entry.category !== 'cocktail' || !entry.photo || approval.consents.photoPublication !== true)))) return false;
     if (approval.entryId !== entry.id || !/^\d{4}-\d{2}-\d{2}T/.test(approval.approvedAt ?? '') ||
         approval.consents.publication !== true ||
         (entry.category === 'quotation' && approval.consents.quotePublication !== true) ||
