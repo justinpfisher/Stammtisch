@@ -30,7 +30,7 @@ const canonical = obj => Array.isArray(obj) ? obj.map(canonical) :
 function proof(entry) {
   const approval = { entryId: entry.id, approvedAt: '2026-10-10T15:02:00Z',
     consents: { publication: true, quotePublication: entry.category === 'quotation', recipeVerified: entry.category === 'cocktail',
-      namedAttribution: !!entry.speakerPortrait, photoPublication: false }, contentSha256: contentDigest(entry), mode: entry.speakerPortrait?policy.QUOTE_MODE:policy.MODE };
+      namedAttribution: !!(entry.speakerPortrait || entry.contributorPortrait), photoPublication: false }, contentSha256: contentDigest(entry), mode: entry.speakerPortrait?policy.QUOTE_MODE:policy.MODE };
   const signature = createHmac('sha256', secret).update(JSON.stringify(canonical({entry,approval}))).digest('hex');
   return {...approval,signature};
 }
@@ -279,4 +279,30 @@ test('speaker-specific signed quote passes actual public publisher, excludes sub
   const wrong={...approval,mode:policy.MODE};
   await assert.rejects(applyApprovedEntry({event:{action:'annals-auto-entry',client_payload:{entry:item,approval:wrong}},data:empty,secret}),/approval/);
   assert.deepEqual(published.assetsToWrite,[]);
+});
+
+
+test('auto source-grounded submission can carry a signed anonymous sender likeness with no public email',async()=>{
+  const proposed=policy.propose(sample(),draft(),id);
+  assert.equal(proposed.eligible,true);
+  const submitted={...proposed.entry,contributorPortrait:'fish'};
+  const receipt=proof(submitted);
+  assert.equal(receipt.mode,policy.MODE);
+  assert.equal(receipt.consents.namedAttribution,true);
+  assert.equal(verifyPublicApproval(submitted,receipt,secret),true);
+  const empty={schemaVersion:1,entries:[],approvals:[]};
+  const result=await applyApprovedEntry({
+    event:{action:'annals-auto-entry',client_payload:{entry:submitted,approval:receipt}},
+    data:empty,secret
+  });
+  assert.match(result.html,/assets\/members\/annals\/fish-annals\.webp/);
+  assert.match(result.html,/who contributed this entry/);
+  assert.doesNotMatch(result.html,/Recorded by Justin|member\d+@example\.test/);
+  assert.doesNotMatch(JSON.stringify(result.data),/senderEmail|privateEvidence|example\.test/);
+  assert.equal(verifyPublicApproval({...submitted,contributorPortrait:'marc'},receipt,secret),false);
+  const incorrect={...receipt,consents:{...receipt.consents,namedAttribution:false}};
+  assert.equal(verifyPublicApproval(submitted,incorrect,secret),false);
+  const quoted={...submitted,category:'quotation',quoteVerbatim:'Synthetic',
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  assert.throws(()=>contentDigest(quoted),/contributor portrait/i);
 });
