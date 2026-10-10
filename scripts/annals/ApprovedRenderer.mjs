@@ -154,8 +154,8 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
     if (approval.mode !== undefined && !automated) return false;
     // Automated proof must be separately domain-tagged, with no photos,
     // third-party quotations or named attribution.
-    if (automated && (entry.photo || entry.category === 'quotation' || entry.credit !== 'anonymous' ||
-        approval.consents.quotePublication !== false || approval.consents.namedAttribution !== false ||
+    if (automated && (entry.photo || entry.credit !== 'anonymous' ||
+        approval.consents.quotePublication !== (entry.category === 'quotation') || approval.consents.namedAttribution !== false ||
         approval.consents.photoPublication !== false)) return false;
     if (approval.entryId !== entry.id || !/^\d{4}-\d{2}-\d{2}T/.test(approval.approvedAt ?? '') ||
         approval.consents.publication !== true ||
