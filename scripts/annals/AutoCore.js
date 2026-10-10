@@ -1,20 +1,23 @@
-/* Stammtisch Annals: conservative, source-grounded automatic text-publication policy.
- * No account, network, credentials, third-party evidence or publication rights.
- * The server MUST independently verify authenticated sender, both standing
- * consents, source age, activation state, budget, storage and signing.
- * Anything uncertain is held privately, never silently rewritten.
+/* Annals liberal publication policy: default to publishing eligible member text,
+ * not manual review. Hold ONLY for a concrete rights, safety or factual risk.
+ * This module never authenticates consent, calls AI or signs public content.
+ * Caller validates both consents, source freshness, permissions and budget.
  */
 var AnnalsAuto = (function () {
   'use strict';
   var MODE = 'standing-consent-text-v1';
   var NOTICE = 'The Editorial Committee reserves the right to replace particularly spirited language with conspicuous euphemisms. Historical accuracy is otherwise maintained.';
-  var CATEGORIES = ['cocktail', 'monthly_gathering', 'assembly', 'club_history', 'artefact'];
-  var UNSAFE = /(?:\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b|https?:\/\/|www\.|\b(?:\+?1[- .]?)?\(?[2-9]\d{2}\)?[- .][2-9]\d{2}[- .]\d{4}\b|\b\d{1,5}\s+[\w'-]+\s+(?:street|st\.|avenue|ave\.|road|rd\.|drive|lane|boulevard|blvd\.)\b|\b(?:address|postal code|password|phone|contact details|bank account|credit card|workplace|employer|family|wife|husband|girlfriend|boyfriend|children|child|daughter|son|neighbour|neighbor|guest|identifiable|private|confidential|secret|home|house|bedroom|illness|medical|accused|alleged|arrested|fraud|assault|crime|died|death|passed away|obituary|celebrity)\b|<[^>]+>|^\s*(?:from|sent|subject|to|cc|bcc)\s*:|^\s*>|^\s*--\s*$|\b(?:ignore previous instructions|system prompt|developer instructions|api key|publish this regardless|override safeguards)\b)/im;
-  var NAMED_MEMBERS = /\b(?:Justin|Marc|Matt|Ken|Jamie|Jerome)\b/i;
-  var DIRECT_QUOTATION = /["“”«»]/;
-  var DRINK_NAME = /\b(?:cocktail|martini|mule|spritz|negroni|old fashioned|sour|fizz|collins|tonic|highball|daiquiri|margarita|punch|sangria|mojito|manhattan|sidecar|swizzle|paloma|julep|shrub|mocktail|gimlet|cup)\b/i;
-  var MEDIA_DEPENDENT = /\b(?:attached|attachment|photograph|photo|pictured|image|picture|scan|see the file|look at the picture)\b/i;
-  var KNOWN_NONPERSON_PHRASES = ['Old Fashioned', 'Annual Assembly', 'Stammtisch Social Club', 'Cocktail Register'];
+  var CATEGORIES = ['cocktail', 'quotation', 'monthly_gathering', 'assembly', 'club_history', 'artefact'];
+  // Specific hard stops. Generic club language ("home", "family", "history",
+  // "photograph") is NOT inherently a reason to suppress innocent text.
+  var PRIVATE_DATA = /(?:\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b|https?:\/\/|www\.|\b(?:\+?1[- .]?)?\(?[2-9]\d{2}\)?[- .][2-9]\d{2}[- .]\d{4}\b|\b\d{1,5}\s+[\w'-]+\s+(?:street|st\.|avenue|ave\.|road|rd\.|drive|lane|boulevard|blvd\.)\b|\b(?:password|passcode|access code|door code|postal code|credit card|bank account|home address|private address|personal phone|private message|confidential|secret|medical diagnosis)\b|^\s*(?:from|sent|subject|to|cc|bcc)\s*:|^\s*>|^\s*--\s*$|<[^>]+>|\b(?:ignore previous instructions|system prompt|developer instructions|api key|publish this regardless|override safeguards)\b)/im;
+  var ALLEGATION = /\b(?:accused of|allegedly|arrested for|charged with|fraud|assault|abuse|crime|criminal|illegal activity|diagnosed with|passed away|died by suicide)\b/i;
+  var IDENTIFYING = /\b(?:Justin|Marc|Matt|Ken|Jamie|Jerome)\b/i;
+  var THIRD_PARTY = /\b(?:he said|she said|they said|according to|quoted from|overheard|guest named|colleague named|Mr\.|Mrs\.|Dr\.)\b/i;
+  var MEDIA_DEPENDENT = /\b(?:as pictured|in the photo|see (?:the )?(?:photo|image|picture|attachment|scan|file)|attached (?:photo|image|picture|recipe)|image says|photo shows|pictured here)\b/i;
+  var NAMED_PERSON = /\b(?:with|by|from|said|called|named|met)\s+[A-Z][a-z]+\s+[A-Z][a-z]+\b/;
+  var HARD_FLAGS = ['recipe_unverified','handwriting_ambiguous','possible_personal_identifier','location_or_home_context','private_context','quote_consent_unconfirmed'];
+  var MAY_IGNORE_MEDIA_FLAGS = ['faces_or_reflections','unknown_attachment','photo_transcription_unverified'];
   function censor(value) {
     if (typeof value !== 'string') throw new Error('Invalid editorial text');
     return value.replace(/\b(?:tastes?|smells?)\s+like\s+shit\b/gi, function (part) {
@@ -24,14 +27,43 @@ var AnnalsAuto = (function () {
   function norm(value) { return String(value).trim().replace(/^\s*[-*•]\s*/, '').replace(/\s+/g, ' ').toLowerCase(); }
   function held(reason) { return { eligible: false, reason: reason }; }
   function sourceGrounded(source, phrase) {
-    return norm(phrase).length > 0 && norm(source).indexOf(norm(phrase)) >= 0;
+    return !!norm(phrase) && norm(source).indexOf(norm(phrase)) >= 0;
   }
-  function simplePublicText(source) {
-    if (UNSAFE.test(source) || NAMED_MEMBERS.test(source) || DIRECT_QUOTATION.test(source)) return false;
-    // Catch unverified full names, while excluding a few established non-person terms.
-    var scrubbed = String(source);
-    KNOWN_NONPERSON_PHRASES.forEach(function (term) { scrubbed = scrubbed.split(term).join(''); });
-    return !/\b[A-Z][a-z]{2,}\s+[A-Z][a-z]{2,}\b/.test(scrubbed);
+  function independentText(text) { return !MEDIA_DEPENDENT.test(text); }
+  function protectedText(text) {
+    return PRIVATE_DATA.test(text) || ALLEGATION.test(text) ||
+      IDENTIFYING.test(text) || THIRD_PARTY.test(text) || NAMED_PERSON.test(text);
+  }
+  function selfQuotation(text, quote) {
+    var match = text.match(/\b(?:my quote|i said|i wrote)\s*:\s*["“]([^"”]+)["”]/i);
+    return !!match && norm(match[1]) === norm(quote);
+  }
+  function reasonableCategory(category, source) {
+    // The AI picks the best existing category. Uncertainty over which of two
+    // plausible categories to use is editorial, not a privacy stop.
+    if (CATEGORIES.indexOf(category) < 0) return false;
+    if (category === 'cocktail') return /\b(?:cocktail|drink|recipe|syrup|juice|garnish|mix|stir|shake|oz|ml|ounce)\b/i.test(source);
+    if (category === 'assembly') return /\b(?:assembly|cottage|retreat|annual gathering)\b/i.test(source);
+    if (category === 'quotation') return /\b(?:my quote|i said|i wrote)\b/i.test(source);
+    return true;
+  }
+  function sourceRecipeGrounded(source, recipe) {
+    if (!recipe || !Array.isArray(recipe.drinkIngredients) || !Array.isArray(recipe.syrupIngredients) ||
+        !Array.isArray(recipe.steps)) return false;
+    var all = recipe.drinkIngredients.concat(recipe.syrupIngredients, recipe.steps);
+    if (!recipe.drinkIngredients.length || all.length > 60 ||
+        all.some(function (line) { return typeof line !== 'string' || !sourceGrounded(source,line); })) return false;
+    // Every original measurement line must be retained. Editorial commentary,
+    // headings and informal banter do not have to be copied into the recipe.
+    var quantity = /(?:^|\s)(?:\d+(?:[./]\d+)?|[¼½¾])\s*(?:oz\b|ounces?\b|ml\b|mL\b|cl\b|g\b|grams?\b|cups?\b|tbsp\b|tsp\b|dash(?:es)?\b|drops?\b|parts?\b)/i;
+    var measurementLines = source.split(/\r?\n/).map(norm).filter(function (line) { return quantity.test(line); });
+    if (measurementLines.some(function (line) {
+      return !all.some(function (part) { return norm(part) === line; });
+    })) return false;
+    // A submitted syrup preparation is material, not an optional flourish.
+    if (/\b(?:homemade syrup|make (?:the )?syrup|simmer (?:the )?syrup)\b/i.test(source) &&
+        !recipe.syrupIngredients.length && !recipe.steps.some(function (step) { return /syrup/i.test(step); })) return false;
+    return true;
   }
   function propose(privateSource, candidate, id) {
     if (!privateSource || !privateSource.source || !candidate ||
@@ -43,61 +75,47 @@ var AnnalsAuto = (function () {
     if (typeof s.excerpt !== 'string' || !s.excerpt.trim() || s.excerptTruncated ||
         typeof s.subject !== 'string' || s.subject.length > 160 ||
         s.excerpt.length > 1800) return held('source_incomplete');
-    var sourceText = s.excerpt.trim();
-    var fullText = (s.subject.trim() + '\n' + sourceText).trim();
-    if (UNSAFE.test(fullText) || NAMED_MEMBERS.test(fullText) || DIRECT_QUOTATION.test(fullText)) return held('privacy_or_unverified_language');
-    if (!Array.isArray(candidate.riskFlags) || candidate.riskFlags.length ||
-        CATEGORIES.indexOf(candidate.category) < 0 || candidate.quoteVerbatim ||
-        candidate.eventDate) return held('classification_or_uncertainty');
-    if (!sourceGrounded(fullText, candidate.title) || candidate.title.length > 160 ||
-        /\b[A-Z][a-z]{2,}['’]s\b/.test(candidate.title) ||
-        (candidate.category === 'cocktail' && !DRINK_NAME.test(candidate.title) && !simplePublicText(candidate.title)) ||
-        (candidate.category !== 'cocktail' && !simplePublicText(candidate.title)) ||
-        !simplePublicText(fullText.split(candidate.title).join(''))) return held('unverified_title');
-    if (!Array.isArray(privateSource.attachmentManifest && privateSource.attachmentManifest.items) ||
-        privateSource.attachmentManifest.held ||
-        (privateSource.attachmentManifest.items.length && MEDIA_DEPENDENT.test(fullText))) {
-      return held('media_requires_review');
-    }
+    var source = s.excerpt.trim(), full = (s.subject.trim() + '\n' + source).trim();
+    if (protectedText(full)) return held('private_personal_or_sensitive_content');
+    var media = privateSource.attachmentManifest;
+    if (!media || !Array.isArray(media.items) || !independentText(full)) return held('media_context_required');
+    if (!Array.isArray(candidate.riskFlags) || candidate.riskFlags.some(function (flag) {
+      return HARD_FLAGS.indexOf(flag) >= 0 ||
+        (MAY_IGNORE_MEDIA_FLAGS.indexOf(flag) >= 0 && !independentText(full));
+    })) return held('material_uncertainty');
+    if (!reasonableCategory(candidate.category, full)) return held('classification_not_supported');
+    if (candidate.eventDate && !sourceGrounded(full,candidate.eventDate)) return held('date_claim_unverified');
+    if (typeof candidate.title !== 'string' || !candidate.title.trim() || candidate.title.length > 160 ||
+        protectedText(candidate.title)) return held('title_missing_or_sensitive');
+    // Model-created headlines are editorial labels, not historical evidence.
+    // Prefer an innocuous original subject to unsupported model-created claims.
+    var title = sourceGrounded(full,candidate.title) ? candidate.title.trim() : s.subject.trim();
+    if (!title || protectedText(title) || /(?:first ever|official record|unanimously decided|every member|all six were present)\b/i.test(title))
+      return held('title_asserts_unverified_fact');
     var recipe = candidate.recipe;
-    if (!recipe || !Array.isArray(recipe.drinkIngredients) ||
-        !Array.isArray(recipe.syrupIngredients) || !Array.isArray(recipe.steps)) return held('recipe_not_structured');
-    var allLines = recipe.drinkIngredients.concat(recipe.syrupIngredients, recipe.steps);
+    if (!recipe || !Array.isArray(recipe.drinkIngredients) || !Array.isArray(recipe.syrupIngredients) || !Array.isArray(recipe.steps))
+      return held('invalid_recipe');
+    var all = recipe.drinkIngredients.concat(recipe.syrupIngredients,recipe.steps);
     if (candidate.category === 'cocktail') {
-      if (!recipe.drinkIngredients.length || !recipe.steps.length || !allLines.length ||
-          allLines.length > 60 || allLines.some(function (line) { return typeof line !== 'string' || !sourceGrounded(sourceText, line); })) {
-        return held('recipe_not_verifiable');
-      }
-      // A line containing a quantity or method may not disappear from the
-      // public recipe, even if the model omitted it from structured output.
-      var material = sourceText.split(/\r?\n/).map(norm).filter(Boolean).filter(function (line) {
-        return line !== norm(candidate.title) && !/^(?:recipe|cocktail|ingredients|drink|syrup|homemade syrup|method|steps|preparation|instructions|garnish)\s*:?\s*$/.test(line);
-      });
-      if (!material.length || material.some(function (line) {
-        return !allLines.some(function (part) { return norm(part) === line; });
-      })) return held('recipe_line_omitted');
-      if (/\b(?:make|prepare|cook|boil|simmer)\b.{0,30}\bsyrup\b/i.test(sourceText) &&
-          !recipe.syrupIngredients.length) return held('syrup_method_unverified');
-    } else if (allLines.length) {
-      return held('unexpected_recipe');
-    }
+      if (!sourceRecipeGrounded(source, recipe)) return held('recipe_measure_or_step_uncertain');
+    } else if (all.length) return held('unexpected_recipe');
+    var quote = '';
+    if (candidate.category === 'quotation') {
+      if (typeof candidate.quoteVerbatim !== 'string' || !selfQuotation(source,candidate.quoteVerbatim) ||
+          /\b(?:he|she|they|someone|guest|member|friend)\s+said\b/i.test(source)) return held('third_party_quotation_permission');
+      quote = censor(candidate.quoteVerbatim);
+    } else if (candidate.quoteVerbatim) return held('uncategorised_quote');
     var stamp = new Date(s.receivedAt);
-    if (isNaN(stamp.getTime()) || stamp.getUTCFullYear() < 1990 || stamp.getUTCFullYear() > 2100) return held('date_not_verifiable');
-    var entry = {
-      id: 'annal-' + id.slice(0, 24),
-      category: candidate.category,
-      title: censor(candidate.title.trim()),
-      summary: censor(sourceText), // exact source wording, not an AI-invented story
-      year: stamp.getUTCFullYear(),
-      dateLabel: 'Submitted ' + stamp.toISOString().slice(0, 7),
-      sortDate: '',
-      quoteVerbatim: '',
+    if (isNaN(stamp.getTime()) || stamp.getUTCFullYear() < 1990 || stamp.getUTCFullYear() > 2100) return held('invalid_receipt_date');
+    var entry = { id: 'annal-' + id.slice(0,24), category: candidate.category, title: censor(title),
+      summary: censor(source), year: stamp.getUTCFullYear(),
+      dateLabel: 'Submitted ' + stamp.toISOString().slice(0,7), sortDate: '',
+      quoteVerbatim: quote,
       recipe: { drinkIngredients: recipe.drinkIngredients.map(censor),
         syrupIngredients: recipe.syrupIngredients.map(censor), steps: recipe.steps.map(censor) },
-      credit: 'anonymous'
-    };
+      credit: 'anonymous' };
     return { eligible: true, entry: entry, mode: MODE };
   }
-  return Object.freeze({ MODE: MODE, NOTICE: NOTICE, censor: censor, propose: propose });
+  return Object.freeze({ MODE: MODE, NOTICE: NOTICE, censor: censor, independentText: independentText, propose: propose });
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = AnnalsAuto;
