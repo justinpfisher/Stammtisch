@@ -1,9 +1,5 @@
 # Stammtisch Social Club
 
-## Autonomous advancement
-
-[Execution modes and usage controls v1.1](docs/universal-autonomous-advancement-v1.1.md) govern autonomous advancement launches and recovery. Recording this policy does not activate a window or schedule; select a mode at launch and verify any authorised Work/Codex settings.
-
 Static website published through GitHub Pages at https://stammtischbrewery.com/.
 The publishing branch is `main`; there is no build step.
 
@@ -13,11 +9,11 @@ The publishing branch is `main`; there is no build step.
 - [Club context and institutional memory](docs/club-context-and-history.md) — six-person club identity, third-Friday meetings, homemade cocktail tradition, Annual Assembly, January CoL draft continuity, settled vs draft decisions, private-photo boundary, and source hierarchy. Read this before changing the club narrative.
 - [The Annals: privacy and publication guide](docs/annals-publication-guidelines.md) — the owner's text-first public history preference; review and consent requirements for new personal photos/stories and contributed cocktail recipes.
 - [Free custom-domain forwarding — Work handoff](docs/annals-email-routing-work-handoff-2026-10-08.md) — Porkbun-first setup, live MX/DNS check, dedicated Gmail inbox, delivery tests and explicit approval gates. **The owner verified a working free receiving forward and dedicated private inbox; no paid mailbox or outbound alias was configured.**
-- [Annals email-to-website automation proposal](docs/annals-email-publishing-proposal-2026-10-08.md) — practical low-maintenance submission workflow, proposed mailbox/AI staging, approval gates, cost controls and test/rollout plan. **The AI drafting, authenticated approval and publishing portions remain proposals. Receiving-only email forwarding is already working.**
+- [Annals email-to-website automation proposal](docs/annals-email-publishing-proposal-2026-10-08.md) — historical design proposal; the current reviewed implementation and remaining owner-side installation steps are in the production runbook.
 - [Private Annals email-intake prototype and setup](docs/annals-pilot-runbook.md) — guarded Gmail-to-private-Drive script source, synthetic tests and private preview capability. **The owner reported a manual synthetic-only test that staged one item. Private outputs, duplicate handling and stop settings still need acceptance checks; no paid AI or live publication is enabled.**
 - [Narrow synthetic-only pilot setup](docs/annals-synthetic-pilot-setup.md) — labelled test email, private staging, expected duplicate-run check, and shutdown; **not a member submission or publishing service**.
-- [Text-first Annals production workflow](docs/annals-production-runbook.md) — authenticated email staging, one-time revocable AI consent, bounded private drafting, owner-only exact review and a signed approved-only GitHub publisher. **Code and offline tests are present; the private Apps Script installation and first live publication verification remain owner-side setup.** The owner reports a successful private synthetic AI draft, recharge disabled, and a successful empty-site deployment. No member submission or public contribution is approved by those checks.
-- `scripts/annals/ApprovedRenderer.mjs` and `.github/workflows/annals-publish.yml` — validate signed public-safe approval, preserve existing entries and render the public Annals page only after exact owner approval. Public history is permanent; correction/removal needs separate approved handling.
+- [Text-first Annals production workflow](docs/annals-production-runbook.md) — authenticated email staging, one-time revocable AI consent, bounded private drafting, owner-only exact review and signed approved-only publishing. **Code and offline tests are prepared; production Apps Script installation and first live publication verification remain owner-side steps.** The owner reports the private synthetic AI draft, recharge disabled and latest empty-site deployment succeeded. No member submission or public entry is approved by those checks.
+- `scripts/annals/ApprovedRenderer.mjs` and `.github/workflows/annals-publish.yml` — validate signed public-safe approval and render the public Annals page only after exact owner approval. Public history is permanent; correction/removal needs separately approved handling.
 - [Website and opportunity review (8 October 2026)](docs/website-opportunity-review-2026-10-08.md) — functionality assessment, known limitations, risk-ranked recommendations and suggested tests. This is analysis, **not** authority to implement proposed features or change CoL rules.
 
 The context summary does not replace the official Celebration of Life rules, source spreadsheet, published event facts or the repository safeguards in `AGENTS.md`.
