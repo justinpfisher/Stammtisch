@@ -16,7 +16,7 @@ var AnnalsAuto = (function () {
   var THIRD_PARTY = /\b(?:he said|she said|they said|he told me|she told me|they told me|according to|quoted from|overheard|guest named|colleague named|mr\.|mrs\.|dr\.)\b/i;
   var MEDIA_DEPENDENT = /\b(?:as pictured|in the photo|see (?:the )?(?:photo|image|picture|attachment|scan|file)|attached (?:photo|image|picture|recipe)|image says|photo shows|pictured here)\b/i;
   var NAMED_PERSON = /\b(?:with|by|from|said|called|named|met)\s+[A-Z][a-z]+\s+[A-Z][a-z]+\b/;
-  var HARD_FLAGS = ['recipe_unverified','handwriting_ambiguous','possible_personal_identifier','location_or_home_context','private_context','quote_consent_unconfirmed'];
+  var HARD_FLAGS = ['handwriting_ambiguous','possible_personal_identifier','location_or_home_context','private_context','quote_consent_unconfirmed'];
   var MAY_IGNORE_MEDIA_FLAGS = ['faces_or_reflections','unknown_attachment','photo_transcription_unverified'];
   function cleanText(value) {
     if (typeof value !== 'string') throw new Error('Invalid source text');
