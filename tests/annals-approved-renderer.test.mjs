@@ -201,3 +201,39 @@ test('club artefacts are a supported text-only public category', () => {
   assert.ok(result.html.includes('Club Artefacts'));
   assert.ok(result.html.includes('Fictional test keepsake'));
 });
+
+
+test('signed approved member illustration replaces visible name without exposing sender addresses', () => {
+  const entry = { ...baseDrink, contributorPortrait: 'fish' };
+  const receipt = signedTestReceipt(entry, {recipeVerified: true});
+  assert.equal(verifyApproval(entry, receipt, TEST_SECRET), true);
+  const result = buildApprovedAnnals([entry], [receipt], TEST_SECRET);
+  assert.match(result.html, /class="annal-title-row"/);
+  assert.match(result.html, /class="annal-contributor-portrait"/);
+  assert.match(result.html, /src="assets\/members\/fish\.webp"/);
+  assert.match(result.html, /alt="Illustrated portrait of Justin, who contributed this entry"/);
+  assert.doesNotMatch(result.html, /class="annal-credit"|owner@example|member@example|mailto:fish/i);
+  assert.doesNotMatch(result.html, />Recorded by Justin</);
+  assert.match(result.html, /max-width:700px/); // portrait remains compact on mobile
+});
+test('only the six approved public member illustrations may identify a contributor', () => {
+  for (const slug of ['fish','marc','matt','ken','jamie','jerome']) {
+    const entry = validatePublicTextEntry({ ...baseDrink, contributorPortrait: slug });
+    assert.equal(entry.contributorPortrait, slug);
+  }
+  for (const invalid of ['','Fish','justin','../../private','<img>','fish.webp',
+    'https://example.test/photo','anonymous','ken@example.test','__proto__']) {
+    assert.throws(() => validatePublicTextEntry({...baseDrink,contributorPortrait: invalid}), /portrait/i);
+  }
+  assert.throws(() => validatePublicTextEntry({
+    ...baseDrink, credit:'Named Person',contributorPortrait:'fish'
+  }), /portrait/i);
+  const signed = signedTestReceipt(baseDrink,{recipeVerified:true});
+  assert.equal(verifyApproval({...baseDrink,contributorPortrait:'fish'},signed,TEST_SECRET),false);
+});
+test('entries without opted-in portrait remain visually anonymous and older archive data stays valid', () => {
+  const approved=signedTestReceipt(baseDrink,{recipeVerified:true});
+  const result=buildApprovedAnnals([baseDrink],[approved],TEST_SECRET);
+  assert.doesNotMatch(result.html,/annal-contributor-portrait" src=/);
+  assert.doesNotMatch(result.html,/src="assets\/members\/fish\.webp"/);
+});
