@@ -226,7 +226,10 @@ function buildAnnals(entries, receipts, verifyReceipt) {
   }
   accepted.sort((a, b) => b.year - a.year || b.sortDate.localeCompare(a.sortDate) ||
     a.title.localeCompare(b.title));
-  const collections = Object.entries(TYPES).map(([category, label]) => {
+  // Public collection visibility follows actual approved, published entries only.
+  const populatedTypes = Object.entries(TYPES).filter(([category]) =>
+    accepted.some(item => item.category === category));
+  const collections = populatedTypes.map(([category, label]) => {
     const items = accepted.filter(item => item.category === category);
     const collectionId = 'collection-' + category.replaceAll('_', '-');
     const byYear = new Map();
@@ -237,13 +240,19 @@ function buildAnnals(entries, receipts, verifyReceipt) {
     const archive = [...byYear].map(([year, yearItems]) =>
       '<section class="annal-year" aria-labelledby="year-' + category + '-' + year + '">' +
       '<h3 id="year-' + category + '-' + year + '">' + year + '</h3>' +
-      yearItems.map(approvedEntryMarkup).join('') + '</section>').join('') ||
-      '<p class="annal-empty">No approved entries in this collection yet.</p>';
+      yearItems.map(approvedEntryMarkup).join('') + '</section>').join('');
     return '<section class="annal-collection" id="' + collectionId + '" aria-labelledby="heading-' + collectionId + '">' +
       '<h2 id="heading-' + collectionId + '">' + escapeHtml(label) + '</h2>' + archive + '</section>';
   }).join('');
-  const navigation = Object.entries(TYPES).map(([category, label]) =>
-    '<a href="#collection-' + category.replaceAll('_', '-') + '">' + escapeHtml(label) + '</a>').join('');
+  const navigation = populatedTypes.length > 1
+    ? '<nav class="annal-collections" aria-label="Browse Annals collections">' +
+      populatedTypes.map(([category, label]) =>
+        '<a href="#collection-' + category.replaceAll('_', '-') + '">' + escapeHtml(label) + '</a>').join('') +
+      '</nav>'
+    : '';
+  const emptyState = accepted.length === 0
+    ? '<p class="annal-empty">The first approved contribution will appear here.</p>'
+    : '';
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -291,8 +300,8 @@ function buildAnnals(entries, receipts, verifyReceipt) {
 <p>A considered chronicle of shared occasions, extraordinary refreshments, and matters deemed worthy of posterity. Only verified material approved for public use appears here.</p>
 <a class="annal-contribute" href="mailto:annals@stammtischbrewery.com">Contribute to the Annals <span aria-hidden="true">→</span></a>
 <p class="annal-note">A submission is considered privately; it is not by itself permission to publish.</p></section>
-<nav class="annal-collections" aria-label="Browse Annals collections">${navigation}</nav>
-${collections}
+${navigation}
+${collections}${emptyState}
 </main>
 <footer class="site-footer"><div class="shell footer-inner"><p>The Stammtisch Social Club<span>A tradition of gathering.</span></p><nav aria-label="Footer navigation"><a href="index.html">The Club</a><a href="annals.html" aria-current="page">The Annals</a><a href="celebration.html">Celebration of Life</a><a href="location.html">The Annual Assembly</a></nav></div></footer>
 </body></html>`;
