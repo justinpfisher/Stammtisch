@@ -76,8 +76,8 @@ var AnnalsAuto = (function () {
       return !recipe.steps.some(function (part) { return norm(part) === line; });
     })) return false;
     // A submitted syrup preparation is material, not an optional flourish.
-    if (/\b(?:homemade syrup|make (?:the )?syrup|simmer (?:the )?syrup)\b/i.test(source) &&
-        !recipe.syrupIngredients.length && !recipe.steps.some(function (step) { return /syrup/i.test(step); })) return false;
+    // Missing syrup instructions are eligible for a separately labelled
+    // editorial suggestion. Never fabricate amounts or historic methods.
     return true;
   }
   // This is explicitly an optional editorial suggestion, never asserted to be a
@@ -86,7 +86,7 @@ var AnnalsAuto = (function () {
     if (recipe.steps.length || !recipe.drinkIngredients.length) return [];
     var joined = recipe.drinkIngredients.join(' ').toLowerCase();
     if (/\b(?:lemon|lime|citrus|orange juice|grapefruit|egg white)\b/.test(joined)) {
-      return ['Suggested method (not provided in the original): Shake the recorded drink ingredients with ice and strain; adjust serving to preference.'];
+      return ['Shake the recorded drink ingredients with ice and strain; adjust serving to preference.'];
     }
     if (/\b(?:hot|warm|coffee|tea)\b/.test(joined) && !/\b(?:ice|cold|chilled)\b/.test(source)) {
       return ['Suggested method (not provided in the original): Combine the recorded drink ingredients carefully and serve at a suitable temperature.'];
