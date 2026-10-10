@@ -83,7 +83,7 @@ var AnnalsProduction = (function () {
     return Object.freeze(Object.assign({}, mapping));
   }
   function publicEntry(raw) {
-    keys(raw, ['id', 'category', 'title', 'summary', 'year', 'dateLabel', 'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo', 'speakerPortrait']);
+    keys(raw, ['id', 'category', 'title', 'summary', 'year', 'dateLabel', 'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo', 'speakerPortrait', 'contributorPortrait']);
     if (!/^[a-z0-9][a-z0-9-]{5,63}$/.test(raw.id || '') || CATEGORIES.slice(0, 6).indexOf(raw.category) < 0) throw new Error('Invalid public identity');
     if (!Number.isInteger(raw.year) || raw.year < 1990 || raw.year > 2100) throw new Error('Confirm the year');
     var date = text(raw.sortDate, 10);
@@ -94,6 +94,11 @@ var AnnalsProduction = (function () {
     var result = { id: raw.id, category: raw.category, title: text(raw.title, 160, true), summary: text(raw.summary, 1800, true),
       year: raw.year, dateLabel: text(raw.dateLabel, 80), sortDate: date,
       quoteVerbatim: text(raw.quoteVerbatim, 1500), recipe: recipe(raw.recipe), credit: text(raw.credit, 70, true) };
+    if (raw.contributorPortrait !== undefined && raw.contributorPortrait !== null) {
+      if (PORTRAITS.indexOf(raw.contributorPortrait) < 0 || raw.category === 'quotation' ||
+          result.credit !== 'anonymous') throw new Error('Invalid contributor portrait');
+      result.contributorPortrait = raw.contributorPortrait;
+    }
     if (raw.speakerPortrait !== undefined && raw.speakerPortrait !== null) {
       if (PORTRAITS.indexOf(raw.speakerPortrait) < 0 || raw.category !== 'quotation' ||
           result.credit !== 'anonymous')
@@ -123,7 +128,7 @@ var AnnalsProduction = (function () {
         value.publication !== true || (entry.category === 'quotation' && value.quotePublication !== true) ||
         (entry.category === 'cocktail' && value.recipeVerified !== true) ||
         (!!entry.photo !== (value.photoPublication === true)) ||
-        ((['anonymous', 'a club member'].indexOf(entry.credit) < 0 || entry.speakerPortrait) && value.namedAttribution !== true)) throw new Error('Required consent missing');
+        ((['anonymous', 'a club member'].indexOf(entry.credit) < 0 || entry.speakerPortrait || entry.contributorPortrait) && value.namedAttribution !== true)) throw new Error('Required consent missing');
     return value;
   }
   // Charge the entire conservative reservation permanently, even on timeout.
