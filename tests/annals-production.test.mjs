@@ -119,6 +119,25 @@ test('sender authentication requires an aligned Google-reported DKIM or DMARC pa
   assert.equal(x.context.annalsAuthentication_({getRawContent:()=> 'Authentication-Results: attacker.example; dkim=pass header.d=member.example\r\nAuthentication-Results: mx.google.com; dmarc=pass header.from=member.example\r\n\r\nbody'},'member@member.example'),false);
   assert.equal(x.context.annalsAuthentication_({},'member@member.example'),false);
 });
+test('Porkbun forwarding preserves unique aligned Google authentication and rejects ambiguous headers', () => {
+  const x=mock(), sender='member@member.example';
+  const route='Received: from fwd1.porkbun.com (fwd1.porkbun.com [192.0.2.1])\r\n\tby mx.google.com with ESMTPS; example';
+  const google='Authentication-Results: mx.google.com; dkim=pass header.d=member.example';
+  const forwarder='Authentication-Results: fwd1.porkbun.com; dkim=pass header.d=member.example';
+  const accepts=(headers)=>x.context.annalsAuthentication_({getRawContent:()=>headers.join('\r\n')+'\r\n\r\nbody'},sender);
+  assert.equal(accepts([route,google,forwarder]),true);
+  assert.equal(accepts([route,google.replace('; ', ';\r\n\t'),forwarder]),true);
+  assert.equal(accepts([google,forwarder]),false);
+  assert.equal(accepts([route.replace('from fwd1.porkbun.com','from attacker.example'),google,forwarder]),false);
+  assert.equal(accepts([route,forwarder,google]),false);
+  assert.equal(accepts([route,google,google]),false);
+  assert.equal(accepts([route,google,forwarder,forwarder]),false);
+  assert.equal(accepts([route,google,forwarder.replace('fwd1.porkbun.com','attacker.example')]),false);
+  assert.equal(accepts([route,google.replace('dkim=pass','dkim=fail'),forwarder]),false);
+  assert.equal(accepts([route,google.replace('member.example','attacker.example'),forwarder]),false);
+  assert.equal(accepts([google.replace('mx.google.com','attacker.example mx.google.com')]),false);
+  assert.equal(accepts([route.replace('from fwd1.porkbun.com','from attacker.example'),route,google,forwarder]),false);
+});
 test('one-time private consent challenge activates only on exact reply and can be revoked', () => {
   const x=mock(), sent=[];x.props.ANNALS_ALLOWED_SENDERS='member@example.test';x.context.MailApp={sendEmail:(...args)=>sent.push(args)};
   x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{'member@example.test':{status:'pending',scope:'future_text_ai_drafting',challenge:'opaque-token'}}}));

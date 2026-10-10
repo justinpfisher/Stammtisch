@@ -46,17 +46,22 @@ function annalsSavePrivate_(folder, name, value) {
   if (file) file.setContent(content); else annalsWriteOnce_(folder, name, value);
 }
 function annalsAuthentication_(message, sender) {
-  // Read raw headers and reject duplicates: a sender-supplied forged result must
-  // never be selected ambiguously alongside Gmail's own authentication result.
+  // Require one unambiguous Google result. The configured Porkbun forwarding
+  // hop adds its own result; it is never used to establish sender authenticity.
   if (typeof message.getRawContent !== 'function') return false;
   var raw = String(message.getRawContent() || ''), boundary = raw.search(/\r?\n\r?\n/);
   if (boundary < 0) return false;
   var lines = raw.slice(0, boundary).replace(/\r?\n[ \t]+/g, ' ').split(/\r?\n/), results = [];
   lines.forEach(function (line) { if (/^authentication-results:/i.test(line)) results.push(line.replace(/^authentication-results:\s*/i, '')); });
-  if (results.length !== 1) return false;
+  if (results.length === 2) {
+    var googleReceiver = lines.filter(function (line) { return /^received:/i.test(line) && /\bby mx\.google\.com(?:[\s;(]|$)/i.test(line); })[0] || '';
+    if (!/^mx\.google\.com(?:[\s;]|$)/i.test(results[0]) ||
+        !/^fwd1\.porkbun\.com(?:[\s;]|$)/i.test(results[1]) ||
+        !/^received:\s*from fwd1\.porkbun\.com(?:[\s(]|$)/i.test(googleReceiver)) return false;
+  } else if (results.length !== 1) return false;
   var header = results[0].toLowerCase();
   var domain = String(sender.split('@')[1] || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  if (!header || !/(^|[\s;])mx\.google\.com(?:[\s;]|$)/.test(header) || !domain) return false;
+  if (!header || !/^mx\.google\.com(?:[\s;]|$)/.test(header) || !domain) return false;
   var dkim = new RegExp('dkim=pass[^;]*(?:header\\.d=' + domain + '(?:[\\s;]|$)|header\\.i=[^;\\s]*@' + domain + '(?:[\\s;]|$))');
   var dmarc = new RegExp('dmarc=pass[^;]*header\\.from=' + domain + '(?:[\\s;]|$)');
   return dkim.test(header) || dmarc.test(header);
