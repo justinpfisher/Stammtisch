@@ -12,6 +12,7 @@ var AnnalsAuto = (function () {
   var UNSAFE = /(?:\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b|https?:\/\/|www\.|\b(?:\+?1[- .]?)?\(?[2-9]\d{2}\)?[- .][2-9]\d{2}[- .]\d{4}\b|\b\d{1,5}\s+[\w'-]+\s+(?:street|st\.|avenue|ave\.|road|rd\.|drive|lane|boulevard|blvd\.)\b|\b(?:address|postal code|password|phone|contact details|bank account|credit card|workplace|employer|family|wife|husband|girlfriend|boyfriend|children|child|daughter|son|neighbour|neighbor|guest|identifiable|private|confidential|secret|home|house|bedroom|illness|medical|accused|alleged|arrested|fraud|assault|crime|died|death|passed away|obituary|celebrity)\b|<[^>]+>|^\s*(?:from|sent|subject|to|cc|bcc)\s*:|^\s*>|^\s*--\s*$|\b(?:ignore previous instructions|system prompt|developer instructions|api key|publish this regardless|override safeguards)\b)/im;
   var NAMED_MEMBERS = /\b(?:Justin|Marc|Matt|Ken|Jamie|Jerome)\b/i;
   var DIRECT_QUOTATION = /["“”«»]/;
+  var DRINK_NAME = /\b(?:cocktail|martini|mule|spritz|negroni|old fashioned|sour|fizz|collins|tonic|highball|daiquiri|margarita|punch|sangria|mojito|manhattan|sidecar|swizzle|paloma|julep|shrub|mocktail|gimlet|cup)\b/i;
   var MEDIA_DEPENDENT = /\b(?:attached|attachment|photograph|photo|pictured|image|picture|scan|see the file|look at the picture)\b/i;
   var KNOWN_NONPERSON_PHRASES = ['Old Fashioned', 'Annual Assembly', 'Stammtisch Social Club', 'Cocktail Register'];
   function censor(value) {
@@ -44,12 +45,15 @@ var AnnalsAuto = (function () {
         s.excerpt.length > 1800) return held('source_incomplete');
     var sourceText = s.excerpt.trim();
     var fullText = (s.subject.trim() + '\n' + sourceText).trim();
-    if (!simplePublicText(fullText)) return held('privacy_or_unverified_language');
+    if (UNSAFE.test(fullText) || NAMED_MEMBERS.test(fullText) || DIRECT_QUOTATION.test(fullText)) return held('privacy_or_unverified_language');
     if (!Array.isArray(candidate.riskFlags) || candidate.riskFlags.length ||
         CATEGORIES.indexOf(candidate.category) < 0 || candidate.quoteVerbatim ||
         candidate.eventDate) return held('classification_or_uncertainty');
     if (!sourceGrounded(fullText, candidate.title) || candidate.title.length > 160 ||
-        !simplePublicText(candidate.title)) return held('unverified_title');
+        /\b[A-Z][a-z]{2,}['’]s\b/.test(candidate.title) ||
+        (candidate.category === 'cocktail' && !DRINK_NAME.test(candidate.title) && !simplePublicText(candidate.title)) ||
+        (candidate.category !== 'cocktail' && !simplePublicText(candidate.title)) ||
+        !simplePublicText(fullText.split(candidate.title).join(''))) return held('unverified_title');
     if (!Array.isArray(privateSource.attachmentManifest && privateSource.attachmentManifest.items) ||
         privateSource.attachmentManifest.held ||
         (privateSource.attachmentManifest.items.length && MEDIA_DEPENDENT.test(fullText))) {
