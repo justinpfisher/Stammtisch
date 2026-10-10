@@ -37,6 +37,13 @@ function annalsWriteOnce_(folder, name, value) {
   if (annalsFile_(folder, name)) throw new Error('Existing immutable record');
   return annalsPrivate_(folder.createFile(name, JSON.stringify(value), MimeType.PLAIN_TEXT));
 }
+function annalsRecordAttemptOutcome_(folder, reason, httpStatus) {
+  var outcome = { state: 'held', reason: reason, at: new Date().toISOString() };
+  if (Number.isInteger(httpStatus) && httpStatus >= 100 && httpStatus <= 599) outcome.httpStatus = httpStatus;
+  try {
+    if (!annalsFile_(folder, 'ai-outcome-private.json')) annalsWriteOnce_(folder, 'ai-outcome-private.json', outcome);
+  } catch (ignored) { /* Never replace the safe generic failure with private storage details. */ }
+}
 function annalsLocked_(fn) {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(1000)) throw new Error('Another operation is running; try again shortly');
@@ -157,6 +164,7 @@ function annalsReviewItem(nonce, id) {
     return { id: id, subject: source.source.subject, text: source.source.excerpt, receivedAt: source.source.receivedAt,
       truncated: source.source.excerptTruncated, attachments: names, folderUrl: f.getUrl(),
       draft: annalsRead_(f, 'draft-private.json'), review: annalsRead_(f, 'review-private.json'),
+      outcome: annalsRead_(f, 'ai-outcome-private.json'),
       attempted: !!annalsFile_(f, 'ai-attempt-private.json'), approved: !!annalsFile_(f, 'approval-private.json') };
   });
 }
@@ -183,18 +191,37 @@ function annalsPrepareDraft(nonce, id, text, selectedNames, consent) {
     annalsWriteOnce_(f, 'ai-attempt-private.json', { state: 'attempt_reserved', reservedCents: 10,
       at: new Date().toISOString(), owner: annalsOwner_(), model: AnnalsProduction.MODEL,
       processingConsent: true, submittedText: text, selectedNames: selectedNames });
+    var response;
     try {
-      var response = UrlFetchApp.fetch('https://api.openai.com/v1/responses', {
+      response = UrlFetchApp.fetch('https://api.openai.com/v1/responses', {
         method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + p.getProperty('ANNALS_OPENAI_API_KEY') },
         payload: JSON.stringify(request), muteHttpExceptions: true, followRedirects: false, validateHttpsCertificates: true });
-      if (response.getResponseCode() !== 200) throw new Error('AI provider held request');
-      var candidate = AnnalsProduction.response(JSON.parse(response.getContentText()));
-      annalsWriteOnce_(f, 'draft-private.json', candidate);
-      return { drafted: true };
     } catch (e) {
-      // Keep reservation and attempt marker. Never log provider responses.
+      annalsRecordAttemptOutcome_(f, 'network_error');
       throw new Error('AI attempt held; no automatic retry');
     }
+    var status;
+    try { status = response.getResponseCode(); }
+    catch (e) {
+      annalsRecordAttemptOutcome_(f, 'provider_response_error');
+      throw new Error('AI attempt held; no automatic retry');
+    }
+    if (status !== 200) {
+      annalsRecordAttemptOutcome_(f, 'provider_http_error', status);
+      throw new Error('AI attempt held; no automatic retry');
+    }
+    var candidate;
+    try { candidate = AnnalsProduction.response(JSON.parse(response.getContentText())); }
+    catch (e) {
+      annalsRecordAttemptOutcome_(f, 'invalid_response');
+      throw new Error('AI attempt held; no automatic retry');
+    }
+    try { annalsWriteOnce_(f, 'draft-private.json', candidate); }
+    catch (e) {
+      annalsRecordAttemptOutcome_(f, 'private_storage_error');
+      throw new Error('AI attempt held; no automatic retry');
+    }
+    return { drafted: true };
   }); });
 }
 function annalsSaveReview(nonce, id, rawEntry) {
@@ -256,3 +283,4 @@ function annalsStopProduction() {
     return { intakeEnabled: false, aiEnabled: false };
   });
 }
+
