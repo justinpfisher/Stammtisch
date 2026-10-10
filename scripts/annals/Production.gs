@@ -1374,4 +1374,3 @@ function annalsStopProduction() {
     return { intakeEnabled: false, aiEnabled: false };
   });
 }
-
