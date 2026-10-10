@@ -25,8 +25,8 @@ const canonical=value=>Array.isArray(value)?value.map(canonical):
 const sign=entry=>{
   const approval={entryId:entry.id,approvedAt:'2026-10-10T12:01:00Z',
     consents:{publication:true,quotePublication:false,recipeVerified:entry.category==='cocktail',
-      namedAttribution:false,photoPublication:true},
-    contentSha256:contentDigest(entry),mode:policy.MODE};
+      namedAttribution:false,photoPublication:!!entry.photo},
+    contentSha256:contentDigest(entry),mode:entry.photo?policy.MODE:base.MODE};
   const signature=createHmac('sha256',secret).update(JSON.stringify(canonical({entry,approval}))).digest('hex');
   return {...approval,signature};
 };
@@ -116,9 +116,8 @@ test('suggestions are visibly distinguished from preserved measurement-free sour
   const e={id:'annal-'+id.slice(0,24),category:'cocktail',title:'Imaginary concoction',
     summary:'Invented synthetic test',year:2026,dateLabel:'Submitted 2026-10',sortDate:'',quoteVerbatim:'',
     recipe:{...recipe,suggestedSteps:suggestions},credit:'anonymous'};
-  const html=buildPublishedAnnals([e],[{
-    ...sign(e),
-    consents:{...sign(e).consents,photoPublication:false}, // new proof below
-  }],secret);
-  assert.ok(html);
+  const html=buildPublishedAnnals([e],[sign(e)],secret).html;
+  assert.match(html,/Editorial suggestions — NOT part of the original recipe/);
+  assert.match(html,/about 45 mL|start at 15 mL/);
+  assert.match(html,/gin/);
 });
