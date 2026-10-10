@@ -241,7 +241,7 @@ function annalsStageProduction_(message, activation, allowed) {
     var firstLine = String(message.getPlainBody() || '').trim().split(/\r?\n/)[0] || '';
     if (/^(?:I CONSENT TO |REVOKE ANNALS )/.test(firstLine)) return 'held'; // invalid/stale challenges are not submissions
   }
-  var attachments = message.getAttachments({ includeInlineImages: false, includeAttachments: true });
+  var attachments = message.getAttachments({ includeInlineImages: true, includeAttachments: true });
   var source = AnnalsPilot.privateProposal({ sourceId: id, from: sender, subject: message.getSubject(),
     body: message.getPlainBody(), receivedAt: message.getDate().toISOString(),
     attachments: attachments.map(function (a) { return { mime: a.getContentType(), size: a.getSize() }; }) });
@@ -654,6 +654,11 @@ function annalsProcessConsentedText_(id) {
     try { derived = annalsAutoThumbnail_(id, source); }
     catch (ignored) { /* private media stays held; safe text may proceed */ }
   }
+  // Image-dependent emails must not consume their only paid AI attempt while
+  // Drive is still preparing a thumbnail; defer until a safe one exists.
+  var needsImage = !!(source.attachmentManifest && source.attachmentManifest.items.length &&
+    !AnnalsAuto.independentText(fullText));
+  if (needsImage && !derived) return false;
   var images = derived ? [{mime:'image/jpeg',base64:derived.base64}] : [];
   annalsPrepareDraftCore_(id, fullText, [], true, true, images); // caller already holds intake lock
   var dispatched = annalsAutoAttemptSafe_(annalsFolder_(id), id);
