@@ -61,13 +61,44 @@ function annalsConsentActive_(sender) {
   var record = annalsConsentRegistry_().members[sender.toLowerCase()];
   return !!record && record.status === 'active' && record.scope === 'future_text_ai_drafting' && record.consentedAt && !record.revokedAt;
 }
+function annalsStandingPublicationActive_(sender, receivedAt) {
+  sender = String(sender || '').toLowerCase();
+  if (AnnalsPilot.allowedSenders(annalsProps_().getProperty('ANNALS_ALLOWED_SENDERS') || '').indexOf(sender) < 0 ||
+      !annalsConsentActive_(sender)) return false;
+  var member = annalsConsentRegistry_().members[sender];
+  var permission = member && member.autoPublication;
+  var activated = Date.parse(permission && permission.consentedAt);
+  var received = Date.parse(receivedAt);
+  return !!permission && permission.status === 'active' && permission.scope === 'future_source_grounded_text_publication' &&
+    !permission.revokedAt && Number.isFinite(activated) && Number.isFinite(received) && received >= activated;
+}
 function annalsHandleConsentReply_(sender, body) {
   var root = annalsRoot_(), registry = annalsConsentRegistry_(), member = registry.members[sender.toLowerCase()];
   var text = String(body || '').split(/\r?\n/).map(function (line) { return line.trim(); }).filter(Boolean)[0] || '';
+  if (member && member.autoPublication && member.autoPublication.status === 'pending' &&
+      text === 'I CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT PUBLICATION. CODE: ' + member.autoPublication.challenge) {
+    member.autoPublication.status = 'active';
+    member.autoPublication.scope = 'future_source_grounded_text_publication';
+    member.autoPublication.consentedAt = new Date().toISOString();
+    delete member.autoPublication.challenge;
+    annalsSavePrivate_(root, 'consent-registry-private.json', registry);
+    MailApp.sendEmail(sender, 'Annals automatic publication consent recorded',
+      'Your separate standing permission for eligible future text submissions is active. The public website and GitHub history are accessible to everyone and old copies may remain after withdrawal. Unsafe or uncertain material stays private. You can revoke future automatic publication by emailing the exact line: REVOKE ANNALS AUTOMATIC PUBLICATION. You may also revoke private AI processing separately.');
+    return 'auto_consent_activated';
+  }
+  if (member && member.autoPublication && member.autoPublication.status === 'active' &&
+      text === 'REVOKE ANNALS AUTOMATIC PUBLICATION') {
+    member.autoPublication.status = 'revoked';
+    member.autoPublication.revokedAt = new Date().toISOString();
+    annalsSavePrivate_(root, 'consent-registry-private.json', registry);
+    MailApp.sendEmail(sender, 'Annals automatic publication consent revoked',
+      'Future automatic publication is disabled. Existing public entries and GitHub history are not erased. Contact the club owner to request a withdrawal.');
+    return 'auto_consent_revoked';
+  }
   if (member && member.status === 'pending' && text === 'I CONSENT TO PRIVATE AI DRAFTING FOR FUTURE TEXT SUBMISSIONS. CODE: ' + member.challenge) {
     member.status = 'active'; member.scope = 'future_text_ai_drafting'; member.consentedAt = new Date().toISOString(); delete member.challenge;
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
-    MailApp.sendEmail(sender, 'Annals processing consent recorded', 'Your one-time consent is recorded for private AI drafting of future text submissions. You may revoke it at any time by replying exactly: REVOKE ANNALS AI PROCESSING. Publication always requires separate exact-content approval.');
+    MailApp.sendEmail(sender, 'Annals processing consent recorded', 'Your one-time consent is recorded for private AI drafting of future text submissions. You may revoke it at any time by replying exactly: REVOKE ANNALS AI PROCESSING. Public publication requires either your separate standing automatic-publication consent for narrowly eligible text or separate exact owner approval.');
     return 'consent_activated';
   }
   if (member && member.status === 'active' && text === 'REVOKE ANNALS AI PROCESSING') {
@@ -119,13 +150,15 @@ function annalsProductionPreflight() {
     hasPublishToken: !!p.getProperty('ANNALS_GITHUB_TOKEN'), hasPublishSigningKey: (p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') || '').length >= 32,
     publishKeySeparate: !!p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') && p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') !== p.getProperty('ANNALS_APPROVAL_KEY'),
     hasPublishRepository: /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(p.getProperty('ANNALS_GITHUB_REPOSITORY') || ''),
-    publicationRequiresExactOwnerApproval: true, sendsAcknowledgements: true };
+    publicationRequiresExactOwnerApproval: p.getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') !== 'true',
+    autoPublicationEnabled: p.getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') === 'true',
+    standingPublicationRequiresContributorConsent: true, sendsAcknowledgements: true };
   console.log(JSON.stringify(result)); return result;
 }
 function annalsStampProductionActivation() {
   annalsOwner_();
   var p = annalsProps_();
-  if (p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED') === 'true' || p.getProperty('ANNALS_AI_ENABLED') === 'true') throw new Error('Disable intake and AI before recording the activation boundary');
+  if (p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED') === 'true' || p.getProperty('ANNALS_AI_ENABLED') === 'true' || p.getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') === 'true') throw new Error('Disable intake and AI before recording the activation boundary');
   if (!AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '').length || !p.getProperty('ANNALS_PRODUCTION_FOLDER_ID') ||
       !p.getProperty('ANNALS_OWNER_EMAIL') || (p.getProperty('ANNALS_APPROVAL_KEY') || '').length < 32) throw new Error('Private production preflight incomplete');
   var activatedAt = new Date().toISOString();
@@ -157,6 +190,8 @@ function annalsStageProduction_(message, activation, allowed) {
   if (authenticated) {
     var consentResult = annalsHandleConsentReply_(sender, message.getPlainBody());
     if (consentResult) return consentResult;
+    var firstLine = String(message.getPlainBody() || '').trim().split(/\r?\n/)[0] || '';
+    if (/^(?:I CONSENT TO |REVOKE ANNALS )/.test(firstLine)) return 'held'; // invalid/stale challenges are not submissions
   }
   var attachments = message.getAttachments({ includeInlineImages: false, includeAttachments: true });
   var source = AnnalsPilot.privateProposal({ sourceId: id, from: sender, subject: message.getSubject(),
@@ -169,6 +204,7 @@ function annalsStageProduction_(message, activation, allowed) {
   }
   source.senderAuthenticated = authenticated;
   source.aiConsentActive = source.senderAuthenticated && annalsConsentActive_(sender);
+  source.autoConsentAtReceipt = source.senderAuthenticated && annalsStandingPublicationActive_(sender, message.getDate().toISOString());
   annalsWriteOnce_(folder, 'source-private.json', source);
   if (!source.senderAuthenticated) return 'unverified';
   if (!source.aiConsentActive) { annalsAckOnce_(folder, sender, id, 'private_review_only'); return 'awaiting_consent'; }
@@ -276,14 +312,42 @@ function annalsInviteProcessingConsent(nonce, email) {
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
     MailApp.sendEmail(address, 'Choose whether to allow private Annals AI drafting',
       'You may explicitly opt in to private AI drafting for future text submissions. To opt in, reply to this message with this exact sentence:\n\nI CONSENT TO PRIVATE AI DRAFTING FOR FUTURE TEXT SUBMISSIONS. CODE: ' + challenge +
-      '\n\nThis does not authorize publication. Every public entry requires separate review and exact approval. To revoke after opting in, reply exactly: REVOKE ANNALS AI PROCESSING.');
+      '\n\nThis consent alone does not authorize publication. You may separately opt in to narrow automatic public text publication or seek individual approval. To revoke AI processing, reply exactly: REVOKE ANNALS AI PROCESSING.');
     return { invited: true };
+  }); });
+}
+function annalsInviteAutoPublicationConsent(nonce, email) {
+  return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
+    var address = String(email || '').trim().toLowerCase();
+    var allowed = AnnalsPilot.allowedSenders(annalsProps_().getProperty('ANNALS_ALLOWED_SENDERS') || '');
+    if (allowed.indexOf(address) < 0 || !annalsConsentActive_(address)) throw new Error('Private AI-processing consent must be active first');
+    var root = annalsRoot_(), registry = annalsConsentRegistry_(), member = registry.members[address];
+    if (member.autoPublication && member.autoPublication.status === 'active') throw new Error('Standing consent is already active');
+    var challenge = Utilities.getUuid() + Utilities.getUuid();
+    member.autoPublication = { status: 'pending', scope: 'future_source_grounded_text_publication',
+      invitedAt: new Date().toISOString(), challenge: challenge };
+    annalsSavePrivate_(root, 'consent-registry-private.json', registry);
+    MailApp.sendEmail(address, 'Choose whether future Annals text can publish automatically',
+      'This is an OPTIONAL, separate, revocable authorisation. If you agree, original text and recipes you personally have the right to publish may automatically appear on the PUBLIC Stammtisch website and in PUBLIC permanent GitHub history without per-entry review. The system may visibly censor strong profanity and may use anonymous attribution. Photos, other people\'s words, personal details, uncertain recipes and unsafe material will be held for private review. You affirm you will not submit third-party content without the necessary permissions. Your original email stays private. Withdrawal from the current website cannot erase copies or Git history.\n\nTo opt in, reply with this exact sentence:\n\nI CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT PUBLICATION. CODE: ' + challenge +
+      '\n\nTo revoke at any time, send: REVOKE ANNALS AUTOMATIC PUBLICATION. AI processing consent remains separate.');
+    return { invited: true };
+  }); });
+}
+function annalsRevokeAutoPublicationConsent(nonce, email) {
+  return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
+    var address = String(email || '').trim().toLowerCase();
+    var root = annalsRoot_(), registry = annalsConsentRegistry_(), member = registry.members[address];
+    if (!member || !member.autoPublication || member.autoPublication.status !== 'active') throw new Error('No active automatic-publication consent');
+    member.autoPublication.status = 'revoked';
+    member.autoPublication.revokedAt = new Date().toISOString();
+    annalsSavePrivate_(root, 'consent-registry-private.json', registry);
+    return { revoked: true };
   }); });
 }
 function annalsReviewConsentStatus(nonce) {
   return annalsUiCall_(nonce, function () {
     var members = annalsConsentRegistry_().members;
-    return Object.keys(members).map(function (address) { return { address: address, status: members[address].status, consentedAt: members[address].consentedAt || null, revokedAt: members[address].revokedAt || null }; });
+    return Object.keys(members).map(function (address) { return { address: address, status: members[address].status, consentedAt: members[address].consentedAt || null, revokedAt: members[address].revokedAt || null, autoStatus: (members[address].autoPublication || {}).status || 'not_invited', autoConsentedAt: (members[address].autoPublication || {}).consentedAt || null }; });
   });
 }
 function annalsRevokeProcessingConsent(nonce, email) {
@@ -646,6 +710,7 @@ function annalsStopProduction() {
     var p = annalsProps_();
     p.setProperty('ANNALS_PRODUCTION_INTAKE_ENABLED', 'false');
     p.setProperty('ANNALS_AI_ENABLED', 'false');
+    p.setProperty('ANNALS_AUTO_PUBLICATION_ENABLED', 'false');
     ScriptApp.getProjectTriggers().forEach(function (t) {
       if (t.getHandlerFunction() === 'runAnnalsProductionIntake') ScriptApp.deleteTrigger(t);
     });
