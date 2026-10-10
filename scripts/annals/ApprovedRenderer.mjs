@@ -1,4 +1,4 @@
-/* Public Annals HTML generator — approved TEXT ONLY, not an email processor.
+/* Public Annals HTML generator — approved public content only, not an email processor.
  * This module does not read Gmail, private Drive, API keys or external models.
  * It produces a string; callers must separately obtain authenticated human
  * approval and explicitly authorise a publish/deploy integration.
@@ -17,7 +17,7 @@ const TYPES = Object.freeze({
 
 const PUBLIC_KEYS = new Set([
   'id', 'category', 'title', 'summary', 'year', 'dateLabel',
-  'sortDate', 'quoteVerbatim', 'recipe', 'credit'
+  'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo'
 ]);
 const RECIPE_KEYS = new Set(['drinkIngredients', 'syrupIngredients', 'steps']);
 const RECEIPT_KEYS = new Set([
@@ -25,7 +25,7 @@ const RECEIPT_KEYS = new Set([
 ]);
 const PUBLIC_APPROVAL_KEYS = new Set(['entryId', 'approvedAt', 'consents', 'contentSha256', 'signature']);
 const PUBLIC_REMOVAL_KEYS = new Set(['entryId', 'approvedAt', 'contentSha256', 'signature']);
-const CONSENT_KEYS = new Set(['publication', 'quotePublication', 'recipeVerified', 'namedAttribution']);
+const CONSENT_KEYS = new Set(['publication', 'quotePublication', 'recipeVerified', 'namedAttribution', 'photoPublication']);
 
 const allowedKeys = (object, keys, context) => {
   if (!object || typeof object !== 'object' || Array.isArray(object) ||
@@ -72,14 +72,20 @@ export function validatePublicTextEntry(input) {
   if (input.category !== 'cocktail' && Object.values(outputRecipe).some(a => a.length)) {
     throw new Error('Unexpected recipe fields');
   }
-  return Object.freeze({
+  const output = {
     id: input.id,
     category: input.category,
     title: limited(input.title, 'title', 180, true),
     summary: limited(input.summary, 'summary', 2400, true),
     year, dateLabel, sortDate, quoteVerbatim, recipe: outputRecipe,
     credit: limited(input.credit || 'anonymous', 'credit', 70, true),
-  });
+  };
+  if (input.photo !== undefined && input.photo !== null) {
+    allowedKeys(input.photo, new Set(['sha256', 'alt']), 'photo');
+    if (input.category !== 'cocktail' || !/^[a-f0-9]{64}$/.test(input.photo.sha256 ?? '')) throw new Error('Invalid cocktail photo');
+    output.photo = { sha256: input.photo.sha256, alt: limited(input.photo.alt, 'photo alt text', 180, true) };
+  }
+  return Object.freeze(output);
 }
 
 function canonical(value) {
@@ -112,6 +118,7 @@ export function verifyApproval(publicEntry, receipt, secret) {
         receipt.consents.publication !== true) return false;
     if (entry.category === 'quotation' && receipt.consents.quotePublication !== true) return false;
     if (entry.category === 'cocktail' && receipt.consents.recipeVerified !== true) return false;
+    if (!!entry.photo !== (receipt.consents.photoPublication === true)) return false;
     if (entry.credit !== 'anonymous' && entry.credit !== 'a club member' &&
         receipt.consents.namedAttribution !== true) return false;
     const digest = contentDigest(entry);
@@ -143,6 +150,7 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
         approval.consents.publication !== true ||
         (entry.category === 'quotation' && approval.consents.quotePublication !== true) ||
         (entry.category === 'cocktail' && approval.consents.recipeVerified !== true) ||
+        (!!entry.photo !== (approval.consents.photoPublication === true)) ||
         (entry.credit !== 'anonymous' && entry.credit !== 'a club member' && approval.consents.namedAttribution !== true)) return false;
     if (approval.contentSha256 !== contentDigest(entry) || !/^[a-f0-9]{64}$/.test(approval.signature ?? '')) return false;
     const signedMaterial = JSON.stringify(canonical({
@@ -180,6 +188,7 @@ function approvedEntryMarkup(entry) {
     '<h4>' + esc(entry.title) + '</h4>' +
     (entry.dateLabel ? '<p class="annal-date">' + esc(entry.dateLabel) + '</p>' : '') +
     '<p class="annal-summary">' + esc(entry.summary) + '</p>' +
+    (entry.photo ? '<figure class="annal-photo"><img src="assets/annals/' + esc(entry.id) + '.jpg" alt="' + esc(entry.photo.alt) + '" loading="lazy" decoding="async"></figure>' : '') +
     (entry.category === 'quotation' ? '<blockquote>' + esc(entry.quoteVerbatim) + '</blockquote>' : '') +
     (entry.category === 'cocktail' ? '<div class="annal-recipe">' +
       section('Ingredients', entry.recipe.drinkIngredients) +
@@ -259,6 +268,7 @@ function buildAnnals(entries, receipts, verifyReceipt) {
 .annal-entry h4{font:400 clamp(27px,4vw,39px)/1.2 Georgia,serif;margin-top:8px}
 .annal-date,.annal-credit{color:#64685e;font-size:12px;margin-top:7px}
 .annal-summary{margin-top:18px;line-height:1.8;font-size:15px}
+.annal-photo{margin:22px 0 0}.annal-photo img{display:block;width:100%;max-width:760px;max-height:70vh;object-fit:contain;background:#eae5d8}
 .annal-entry blockquote{border-left:3px solid #846329;padding-left:18px;margin:22px 0;font:italic 22px/1.5 Georgia,serif}
 .annal-recipe{margin-top:22px;padding:18px 22px;background:#eae5d8}
 .annal-recipe h4{font:600 12px/1.5 Arial,sans-serif;letter-spacing:.09em;text-transform:uppercase;margin:14px 0 8px}
@@ -288,4 +298,3 @@ ${collections}
 </body></html>`;
   return { html, entryCount: accepted.length };
 }
-
