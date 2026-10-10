@@ -394,3 +394,35 @@ test('empty inbox still resumes one private AI draft with no nested script-lock 
   assert.equal(lockHeld,false);
   assert.equal(x.files.has('draft-private.json'),true);
 });
+
+
+test('one malformed private draft is held without blocking other intake or exposing an exception',()=>{
+  const x=mock(),id='a'.repeat(64);
+  x.context.annalsAutoPublishCandidate_=()=>{throw new Error('INVENTED private email content')};
+  assert.equal(x.context.annalsAutoAttemptSafe_(x.folder,id),false);
+  assert.equal(x.context.annalsAutoAttemptSafe_(x.folder,id),false);
+  const record=JSON.parse(x.files.get('auto-decision-private.json').getBlob().getDataAsString());
+  assert.equal(record.state,'held');
+  assert.equal(record.reason,'internal_validation_error');
+  assert.doesNotMatch(JSON.stringify(record),/INVENTED private email content/);
+});
+
+test('stale unverified publication privately alerts once and never re-dispatches',()=>{
+  const x=mock(),id='a'.repeat(64),sent=[];
+  x.context.MailApp={sendEmail:(...args)=>sent.push(args)};
+  x.props.ANNALS_AUTO_PUBLICATION_ENABLED='true';
+  x.props.ANNALS_REVIEW_URL='https://script.google.com/macros/s/invented/exec';
+  x.folder.getName=()=>id;
+  x.root.getFolders=()=>iter([x.folder]);
+  x.folder.createFile('approval-private.json',JSON.stringify({
+    entry:entry(),approvalMode:'standing-consent-text-v1',publicationState:'dispatch_accepted',
+    receipt:{approvedAt:'2026-10-07T00:00:00Z',contentSha256:'a'.repeat(64)}
+  }));
+  x.context.UrlFetchApp.fetch=()=>({getResponseCode:()=>404});
+  assert.equal(x.context.annalsVerifyAutomaticPublications_(3),0);
+  assert.equal(x.context.annalsVerifyAutomaticPublications_(3),0);
+  assert.equal(sent.length,1);
+  assert.equal(sent[0][0],'owner@example.test');
+  assert.equal(JSON.parse(x.files.get('auto-publication-delay-private.json').getBlob().getDataAsString()).state,
+    'unverified_after_24h');
+});
