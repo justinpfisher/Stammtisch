@@ -606,7 +606,7 @@ function annalsRecordVerifiedExistingConsents(nonce, confirmed, evidenceNote) {
 function annalsReviewConsentStatus(nonce) {
   return annalsUiCall_(nonce, function () {
     var members = annalsConsentRegistry_().members;
-    return Object.keys(members).map(function (address) { return { address: address, status: members[address].status, consentedAt: members[address].consentedAt || null, revokedAt: members[address].revokedAt || null, autoStatus: (members[address].autoPublication || {}).status || 'not_invited', autoConsentedAt: (members[address].autoPublication || {}).consentedAt || null, imageStatus: members[address].autoPublication && members[address].autoPublication.scope === 'future_source_grounded_text_and_screened_image_publication' && members[address].autoPublication.status === 'active' ? 'active' : (members[address].imagePublication || {}).status || 'not_invited', imageConsentedAt: (members[address].imagePublication || {}).consentedAt || (members[address].autoPublication || {}).consentedAt || null, imageSeparatelyRevocable: (members[address].imagePublication || {}).status === 'active' }; });
+    return Object.keys(members).map(function (address) { return { address: address, status: members[address].status, consentedAt: members[address].consentedAt || null, revokedAt: members[address].revokedAt || null, autoStatus: (members[address].autoPublication || {}).status || 'not_invited', autoConsentedAt: (members[address].autoPublication || {}).consentedAt || null, portraitHidden: members[address].portraitAttributionDisabled === true, imageStatus: members[address].autoPublication && members[address].autoPublication.scope === 'future_source_grounded_text_and_screened_image_publication' && members[address].autoPublication.status === 'active' ? 'active' : (members[address].imagePublication || {}).status || 'not_invited', imageConsentedAt: (members[address].imagePublication || {}).consentedAt || (members[address].autoPublication || {}).consentedAt || null, imageSeparatelyRevocable: (members[address].imagePublication || {}).status === 'active' }; });
   });
 }
 function annalsRevokeProcessingConsent(nonce, email) {
@@ -959,6 +959,9 @@ function annalsSaveCorrection(nonce, id, rawEntry) {
     if (!original || original.publicationState !== 'dispatch_accepted' || annalsFile_(folder, 'removal-private.json') ||
         annalsFile_(folder, 'correction-approval-private.json') || !annalsPrivateReceiptValid_(original.entry, original.receipt)) throw new Error('Only a verified published entry can be corrected');
     var entry = AnnalsProduction.publicEntry(rawEntry);
+    var source = annalsRead_(folder, 'source-private.json'), expectedPortrait = annalsContributorPortrait_(source);
+    if (entry.contributorPortrait && entry.contributorPortrait !== expectedPortrait)
+      throw new Error('Corrected contributor portrait does not match the authenticated member');
     if (entry.id !== original.entry.id || AnnalsProduction.serial(entry) === AnnalsProduction.serial(original.entry)) throw new Error('Correction must change this exact entry');
     var review = { entry: entry, hash: annalsHash_(AnnalsProduction.serial(entry)), savedAt: new Date().toISOString() };
     var prior = annalsFile_(folder, 'correction-review-private.json');
