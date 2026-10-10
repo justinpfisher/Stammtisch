@@ -9,6 +9,7 @@ test('empty Annals archive is discoverable and contains no invented entries', ()
   const annals = read('../annals.html');
   assert.equal(data.schemaVersion, 1);
   assert.deepEqual(data.entries, []);
+  assert.deepEqual(data.approvals, []);
   assert.match(annals, /The Annals of Stammtisch/);
   assert.match(annals, /No approved entries in this collection yet/);
   assert.match(annals, /mailto:annals@stammtischbrewery\.com/);
