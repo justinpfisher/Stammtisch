@@ -29,7 +29,7 @@ const canonical = obj => Array.isArray(obj) ? obj.map(canonical) :
     ? Object.fromEntries(Object.keys(obj).sort().map(k => [k, canonical(obj[k])])) : obj;
 function proof(entry) {
   const approval = { entryId: entry.id, approvedAt: '2026-10-10T15:02:00Z',
-    consents: { publication: true, quotePublication: false, recipeVerified: entry.category === 'cocktail',
+    consents: { publication: true, quotePublication: entry.category === 'quotation', recipeVerified: entry.category === 'cocktail',
       namedAttribution: false, photoPublication: false }, contentSha256: contentDigest(entry), mode: policy.MODE };
   const signature = createHmac('sha256', secret).update(JSON.stringify(canonical({entry,approval}))).digest('hex');
   return {...approval,signature};
@@ -73,13 +73,19 @@ test('quoted words, personal references, addresses, HTML, links and allegations 
     assert.equal(policy.propose(s,draft(),id).eligible,false,source);
   }
 });
-test('no hallucinated title, lost recipe line, changed unit, missing step or uncertainty is auto-approved',()=>{
+test('editorial uncertainty and invented AI headings default to safe publication, not a hold', () => {
+  const decision=policy.propose(sample(),{...draft(),title:'Invented Editorial Heading',
+    eventDate:'Friday the 13th',riskFlags:['date_unconfirmed','other_uncertainty','attribution_unconfirmed']},id);
+  assert.equal(decision.eligible,true);
+  assert.equal(decision.entry.title,sample().source.subject); // ignore unsupported model title
+  assert.equal(decision.entry.sortDate,''); // never invent a historic event date
+});
+test('material recipe uncertainty is still held instead of silently changing measures or method',()=>{
   const cases=[
-    { d:{...draft(),title:'Imaginary Cocktail'},reason:'unverified_title'},
-    { d:{...draft(),riskFlags:['recipe_unverified']},reason:'classification_or_uncertainty'},
-    { d:{...draft(),recipe:{...draft().recipe,drinkIngredients:['2 oz invented syrup','2 oz imaginary juice']}},reason:'recipe_not_verifiable'},
-    { d:{...draft(),recipe:{...draft().recipe,steps:[]}},reason:'recipe_not_verifiable'},
-    { d:{...draft(),recipe:{...draft().recipe,drinkIngredients:['1 oz invented syrup']}},reason:'recipe_line_omitted'}
+    {d:{...draft(),riskFlags:['recipe_unverified']},reason:'material_uncertainty'},
+    {d:{...draft(),recipe:{...draft().recipe,drinkIngredients:['2 oz invented syrup','2 oz imaginary juice']}},reason:'recipe_measure_or_step_uncertain'},
+    {d:{...draft(),recipe:{...draft().recipe,steps:[]}},reason:'recipe_measure_or_step_uncertain'},
+    {d:{...draft(),recipe:{...draft().recipe,drinkIngredients:['1 oz invented syrup']}},reason:'recipe_measure_or_step_uncertain'}
   ];
   for (const item of cases) {
     const result=policy.propose(sample(),item.d,id);
@@ -87,20 +93,37 @@ test('no hallucinated title, lost recipe line, changed unit, missing step or unc
     assert.equal(result.reason,item.reason);
   }
 });
-test('model cannot silently categorise quotation, unknown type or claim an unverified date',()=>{
-  for(const d of [
-    {...draft(),category:'quotation',quoteVerbatim:'someone else said something'},
-    {...draft(),category:'uncategorised'},
-    {...draft(),eventDate:'Friday'}
-  ]) assert.equal(policy.propose(sample(),d,id).eligible,false);
+test('unknown category and unattributed third-party quotation remain held',()=>{
+  const unsafe=[{...draft(),category:'quotation',quoteVerbatim:'someone else said something'},
+                {...draft(),category:'uncategorised'}];
+  for (const d of unsafe) assert.equal(policy.propose(sample(),d,id).eligible,false);
 });
-test('a text-only contribution can publish separately from a safe, unreferenced picture; unsupported media is held',()=>{
+test('self-authored quotation with standing consent can publish, with conspicuous nonverbatim censorship',()=>{
+  const s=sample();s.source.subject='Quotation for the Annals';s.source.excerpt='My quote: "What the fuck?"';
+  const d={...draft(),category:'quotation',title:'Quotation for the Annals',
+    quoteVerbatim:'What the fuck?',riskFlags:[],
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  const result=policy.propose(s,d,id);
+  assert.equal(result.eligible,true);
+  assert.equal(result.entry.quoteVerbatim,'What the [EXPLETIVE]?');
+  const signed=proof(result.entry);
+  assert.equal(verifyPublicApproval(result.entry,signed,secret),true);
+  const html=buildPublishedAnnals([result.entry],[signed],secret).html;
+  assert.match(html,/Editorially censored quotation — not verbatim/);
+});
+test('safe standalone text publishes even if an unrelated image is held privately',()=>{
   const s=sample();s.attachmentManifest.items=[{mime:'image/jpeg',size:1500}];
   assert.equal(policy.propose(s,draft(),id).eligible,true);
   s.source.excerpt += '\nSee attached photo.';
   assert.equal(policy.propose(s,draft(),id).eligible,false);
   const t=sample();t.attachmentManifest.held=true;
-  assert.equal(policy.propose(t,draft(),id).eligible,false);
+  assert.equal(policy.propose(t,draft(),id).eligible,true);
+});
+test('generic language about a club gathering is not a privacy veto',()=>{
+  const s=sample();s.source.subject='Club history';s.source.excerpt='We gathered at home and had a damn good laugh.';
+  const d={...draft(),category:'club_history',title:'Club history',
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  assert.equal(policy.propose(s,d,id).eligible,true);
 });
 test('non-cocktail, non-identifying plain-text category can be selected by AI but source remains literal',()=>{
   const s=sample();s.source.subject='Proceedings';s.source.excerpt='Proceedings\nThe chairs were set before the ceremony.';
@@ -127,12 +150,13 @@ test('signed automatic proof binds exact text, policy mode and no public sender 
   await assert.rejects(applyApprovedEntry({event:{action:'annals-approved-entry',client_payload:{entry,approval}},data:original,secret}),/reused/);
   await assert.rejects(applyApprovedEntry({event:{action:'annals-auto-entry',client_payload:{entry,approval,imageBase64:'AAAA'}},data:original,secret}));
 });
-test('an automatic signed proof cannot attach photographs, publish a quote or name a contributor',()=>{
+test('an automatic signed proof cannot attach photographs, forge quotation rights or name a contributor',()=>{
   const entry=policy.propose(sample(),draft(),id).entry, p=proof(entry);
   assert.equal(verifyPublicApproval({...entry,credit:'Test Member'},p,secret),false);
   assert.equal(verifyPublicApproval({...entry,photo:{sha256:'a'.repeat(64),alt:'photo'}},p,secret),false);
   const quote={...entry,category:'quotation',quoteVerbatim:'invented',recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
-  assert.equal(verifyPublicApproval(quote,proof(quote),secret),false);
+  const invalid=proof(quote);invalid.consents.quotePublication=false;
+  assert.equal(verifyPublicApproval(quote,invalid,secret),false);
 });
 test('empty public archive retains permanent censorship notice without any category',()=>{
   const html=buildPublishedAnnals([],[],secret).html;
