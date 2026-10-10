@@ -326,6 +326,7 @@ function annalsReviewItem(nonce, id) {
     return { id: id, subject: source.source.subject, text: source.source.excerpt, receivedAt: source.source.receivedAt,
       truncated: source.source.excerptTruncated, attachments: names, folderUrl: f.getUrl(),
       draft: annalsRead_(f, 'draft-private.json'), review: annalsRead_(f, 'review-private.json'),
+      photoDerivative: annalsRead_(f, 'photo-derivative-private.json') ? annalsPhotoDerivative_(f) : null,
       outcome: annalsRead_(f, 'ai-outcome-private.json'), correctionReview: annalsRead_(f, 'correction-review-private.json'),
       correctionApproval: correction, removal: annalsRead_(f, 'removal-private.json'),
       publishedEntry: (published || {}).entry || null,
@@ -334,6 +335,45 @@ function annalsReviewItem(nonce, id) {
       publicationState: publicationState,
       dispatchAttempted: !!annalsFile_(f, 'publication-dispatch-private.json') };
   });
+}
+function annalsJpegDerivativeSafe_(bytes) {
+  if (!bytes || bytes.length < 4 || (bytes[0] & 255) !== 255 || (bytes[1] & 255) !== 216 ||
+      (bytes[bytes.length - 2] & 255) !== 255 || (bytes[bytes.length - 1] & 255) !== 217) return false;
+  var i = 2, sawScan = false;
+  while (i < bytes.length - 2) {
+    if ((bytes[i] & 255) !== 255) return false;
+    while (i < bytes.length && (bytes[i] & 255) === 255) i++;
+    if (i >= bytes.length) return false;
+    var marker = bytes[i++] & 255;
+    if (marker === 0xda) { sawScan = true; break; }
+    if (marker === 0xd9 || marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) continue;
+    if (i + 1 >= bytes.length) return false;
+    var length = ((bytes[i] & 255) << 8) | (bytes[i + 1] & 255);
+    if (length < 2 || i + length > bytes.length || (marker >= 0xe1 && marker <= 0xef) || marker === 0xfe) return false;
+    i += length;
+  }
+  return sawScan;
+}
+function annalsSavePhotoDerivative(nonce, id, base64) {
+  return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
+    var folder = annalsFolder_(id), source = annalsRead_(folder, 'source-private.json');
+    if (!source || typeof base64 !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64) || base64.length > 44000) throw new Error('Invalid photo derivative');
+    var bytes = Utilities.base64Decode(base64);
+    if (bytes.length > 32768 || !annalsJpegDerivativeSafe_(bytes)) throw new Error('Photo derivative must be a small metadata-free JPEG');
+    var previous = annalsFile_(folder, 'photo-derivative-private.jpg');
+    if (previous) previous.setTrashed(true);
+    var file = annalsPrivate_(folder.createFile(Utilities.newBlob(bytes, 'image/jpeg', 'photo-derivative-private.jpg')));
+    var metadata = { sha256: annalsHash_(bytes), size: bytes.length, name: 'photo-derivative-private.jpg', savedAt: new Date().toISOString() };
+    annalsSavePrivate_(folder, 'photo-derivative-private.json', metadata);
+    return { saved: true, sha256: metadata.sha256, size: metadata.size };
+  }); });
+}
+function annalsPhotoDerivative_(folder) {
+  var metadata = annalsRead_(folder, 'photo-derivative-private.json'), file = annalsFile_(folder, 'photo-derivative-private.jpg');
+  if (!metadata || !file) return null;
+  var bytes = file.getBlob().getBytes();
+  if (bytes.length !== metadata.size || annalsHash_(bytes) !== metadata.sha256 || !annalsJpegDerivativeSafe_(bytes)) throw new Error('Private photo derivative integrity failed');
+  return { sha256: metadata.sha256, size: metadata.size, base64: Utilities.base64Encode(bytes) };
 }
 function annalsPrepareDraft(nonce, id, text, selectedNames, consent) {
   return annalsUiCall_(nonce, function () { return annalsPrepareDraftCore_(id, text, selectedNames, consent); });
@@ -484,12 +524,14 @@ function annalsDispatchEvent_(folder, eventType, clientPayload, markerName) {
       !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo || '') ||
       ['annals-approved-entry','annals-correct-entry','annals-remove-entry'].indexOf(eventType) < 0 || annalsFile_(folder, markerName)) return false;
   var marker = { state: 'attempt_reserved', at: new Date().toISOString() };
+  var requestBody = JSON.stringify({ event_type: eventType, client_payload: clientPayload });
+  if (Utilities.newBlob(requestBody, 'application/json').getBytes().length > 60000) return false;
   annalsWriteOnce_(folder, markerName, marker);
   var response;
   try {
     response = UrlFetchApp.fetch('https://api.github.com/repos/' + repo + '/dispatches', {
       method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
-      payload: JSON.stringify({ event_type: eventType, client_payload: clientPayload }),
+      payload: requestBody,
       muteHttpExceptions: true, followRedirects: false, validateHttpsCertificates: true });
   } catch (e) { marker.state = 'unknown_no_retry'; annalsFile_(folder, markerName).setContent(JSON.stringify(marker)); return false; }
   try { marker.state = response.getResponseCode() === 204 ? 'accepted' : 'rejected_no_retry'; }
@@ -500,7 +542,13 @@ function annalsDispatchEvent_(folder, eventType, clientPayload, markerName) {
 }
 function annalsDispatchApproved_(folder, entry, approval, eventType, markerName) {
   if (!approval) return false;
-  return annalsDispatchEvent_(folder, eventType, { entry: entry, approval: approval }, markerName);
+  var payload = { entry: entry, approval: approval };
+  if (entry.photo) {
+    var derivative = annalsPhotoDerivative_(folder);
+    if (!derivative || derivative.sha256 !== entry.photo.sha256 || derivative.size > 32768) return false;
+    payload.imageBase64 = derivative.base64;
+  }
+  return annalsDispatchEvent_(folder, eventType, payload, markerName);
 }
 function annalsDispatchRemoval_(folder, entryId, approval) {
   if (!approval) return false;
@@ -604,4 +652,3 @@ function annalsStopProduction() {
     return { intakeEnabled: false, aiEnabled: false };
   });
 }
-

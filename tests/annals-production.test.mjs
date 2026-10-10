@@ -13,7 +13,8 @@ const entry = () => ({ id: 'annal-' + 'a'.repeat(24), category: 'cocktail', titl
   recipe: { drinkIngredients: ['1/2 oz syrup', '1 oz water'], syrupIngredients: [], steps: ['Synthetic instruction only.'] } });
 const candidate = () => ({ category: 'cocktail', title: 'Invented', summary: 'Synthetic draft', eventDate: '', quoteVerbatim: '',
   recipe: entry().recipe, riskFlags: ['handwriting_ambiguous'] });
-const permissions = { publication: true, quotePublication: false, recipeVerified: true, namedAttribution: false };
+const permissions = { publication: true, quotePublication: false, recipeVerified: true, namedAttribution: false, photoPublication: false };
+const photoJpeg = () => Buffer.from([255,216,255,224,0,4,0,0,255,192,0,17,8,0,1,0,1,3,1,17,0,2,17,0,3,17,0,255,218,0,2,0,255,217]);
 const iter = items => { let i = 0; return { hasNext: () => i < items.length, next: () => items[i++] }; };
 function mock() {
   const owner = 'owner@example.test', files = new Map(), calls = { ai: 0 }, logs = [],
@@ -23,7 +24,9 @@ function mock() {
   const privateMethods = { getSharingAccess: () => 'PRIVATE', getEditors: () => [], getViewers: () => [], getOwner: () => ({ getEmail: () => owner }) };
   const folder = { ...privateMethods,
     getFilesByName: name => iter(files.has(name) ? [files.get(name)] : []),
-    createFile(name, data) { const f = { ...privateMethods, getBlob: () => ({ getDataAsString: () => data }), setContent: v => { data = v; } }; files.set(name, f); return f; } };
+    createFile(name, data) { if (name && typeof name === 'object' && name.getName) { data = name; name = data.getName(); }
+      const f = { ...privateMethods, getBlob: () => ({ getDataAsString: () => typeof data === 'string' ? data : '', getBytes: () => typeof data === 'string' ? [...Buffer.from(data)] : data.getBytes() }),
+        setContent: v => { data = v; }, setTrashed: () => {} }; files.set(name, f); return f; } };
   const root = { ...folder, getFoldersByName: () => iter([folder]) };
   class FixedDate extends Date { constructor(...args){super(...(args.length?args:['2026-10-09T00:30:00Z']));} static now(){return new Date('2026-10-09T00:30:00Z').getTime();} }
   const context = { Date: FixedDate, console: { log: x => logs.push(x) }, PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] ?? null, setProperty: (k,v) => {props[k]=v}, deleteProperty: k => { delete props[k] } }) },
@@ -32,7 +35,9 @@ function mock() {
     CacheService: { getUserCache: () => ({ get: k => k === 'annals.valid' ? '1' : null }) },
     DriveApp: { Access: { PRIVATE: 'PRIVATE' }, getFolderById: () => root },
     Utilities: { DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' }, formatDate: () => '2026-10',
-      computeDigest: (_,v) => [...createHash('sha256').update(v).digest()],
+      computeDigest: (_,v) => [...createHash('sha256').update(typeof v === 'string' ? v : Buffer.from(v)).digest()],
+      base64Decode: value => [...Buffer.from(value,'base64')], base64Encode: value => Buffer.from(value).toString('base64'),
+      newBlob: (value,type,name) => {const bytes=typeof value==='string'?Buffer.from(value):Buffer.from(value);return{getBytes:()=>[...bytes],getName:()=>name||'blob'};},
       computeHmacSha256Signature: (v,k) => [...createHmac('sha256',k).update(v).digest()] },
     MimeType: { PLAIN_TEXT: 'text/plain' },
     UrlFetchApp: { fetch(url, options) {
@@ -225,6 +230,21 @@ test('corrections and removals require the exact published entry and dispatch se
   assert.equal(verifyPublicRemoval(original.entry,removal.proof,'p'.repeat(40)),true);
   assert.equal(removalDispatches[1].event_type,'annals-remove-entry');
 });
+test('photo derivatives are revalidated in private storage and require separate exact publication consent', () => {
+  const x=mock(), id='a'.repeat(64), bytes=photoJpeg(), base64=bytes.toString('base64');
+  const stored=x.context.annalsSavePhotoDerivative('valid',id,base64);
+  assert.equal(stored.size,bytes.length);assert.equal(x.context.annalsPhotoDerivative_(x.folder).base64,base64);
+  const withPhoto={...entry(),photo:{sha256:stored.sha256,alt:'Synthetic cocktail only'}};
+  const review=x.context.annalsSaveReview('valid',id,withPhoto);
+  assert.throws(()=>x.context.annalsApproveReview('valid',id,review.hash,permissions,'Synthetic image consent evidence',true));
+  Object.assign(x.props,{ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_TOKEN:'private-token',ANNALS_GITHUB_REPOSITORY:'owner/repo'});
+  let payload;
+  x.context.UrlFetchApp.fetch=(url,options)=>{payload=JSON.parse(options.payload);return{getResponseCode:()=>204};};
+  const consent={...permissions,photoPublication:true};
+  assert.equal(x.context.annalsApproveReview('valid',id,review.hash,consent,'Synthetic photographer and exact image approval record',true).dispatchAccepted,true);
+  assert.equal(payload.event_type,'annals-approved-entry');assert.equal(payload.client_payload.imageBase64,base64);
+  const bad=mock();assert.throws(()=>bad.context.annalsSavePhotoDerivative('valid',id,Buffer.from('not a JPEG').toString('base64')));
+});
 test('production intake resumes a long thread and wraps without reading while disabled', () => {
   const x=mock(), handled=[], messages=Array.from({length:12},(_,id)=>({id}));
   const thread={getId:()=> 'private-thread', getMessages:()=>messages};
@@ -256,4 +276,3 @@ test('schedule installation is idempotent and stopping touches only the producti
   x.context.annalsStopProduction();assert.equal(triggers.length,1);assert.equal(triggers[0].getHandlerFunction(),'unrelatedHandler');
   assert.equal(x.props.ANNALS_AI_ENABLED,'false');assert.equal(x.props.ANNALS_PRODUCTION_INTAKE_ENABLED,'false');
 });
-

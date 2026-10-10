@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { applyApprovedEntry } from '../scripts/annals/apply-approved-entry.mjs';
 import { contentDigest, verifyPublicApproval } from '../scripts/annals/ApprovedRenderer.mjs';
 import { readFile } from 'node:fs/promises';
@@ -13,13 +13,14 @@ const canonical = value => Array.isArray(value) ? value.map(canonical) : value &
   ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
 const makeApproval = source => {
   const unsigned = { entryId: source.id, approvedAt: '2026-10-09T12:00:00.000Z',
-    consents: { publication: true, quotePublication: false, recipeVerified: true, namedAttribution: false },
+    consents: { publication: true, quotePublication: false, recipeVerified: true, namedAttribution: false, photoPublication: false },
     contentSha256: contentDigest(source) };
   return { ...unsigned, signature: createHmac('sha256', secret)
     .update(JSON.stringify(canonical({ entry: source, approval: unsigned }))).digest('hex') };
 };
 const eventFor = (source = entry, approval = makeApproval(source)) => ({ action: 'annals-approved-entry', client_payload: { entry: source, approval } });
 const emptyArchive = () => ({ schemaVersion: 1, entries: [], approvals: [] });
+const photoJpeg = () => Buffer.from([255,216,255,224,0,4,0,0,255,192,0,17,8,0,1,0,1,3,1,17,0,2,17,0,3,17,0,255,218,0,2,0,255,217]);
 const makeRemoval = source => {
   const unsigned={entryId:source.id,approvedAt:'2026-10-09T12:00:00.000Z',contentSha256:contentDigest(source)};
   return {...unsigned,signature:createHmac('sha256',secret).update(JSON.stringify(canonical({operation:'remove',removal:unsigned}))).digest('hex')};
@@ -59,7 +60,7 @@ test('publisher workflow is reachable only through the dedicated repository disp
   assert.match(workflow, /repository_dispatch:\s*\n\s*types:\s*\[annals-approved-entry, annals-correct-entry, annals-remove-entry\]/);
   assert.match(workflow, /permissions:\s*\n\s*contents:\s*write/);
   assert.doesNotMatch(workflow, /actions:\s*write|workflow_dispatch|pull_request|schedule:/);
-  assert.match(workflow, /git add annals\.html data\/annals-approved\.json/);
+  assert.match(workflow, /git add -A -- annals\.html data\/annals-approved\.json assets/);
   assert.match(workflow, /ANNALS_PUBLISH_SIGNING_KEY/);
 });
 
@@ -83,3 +84,18 @@ test('signed removal deletes only the requested currently approved entry', async
   await assert.rejects(applyApprovedEntry({event:{...event,client_payload:{...event.client_payload,approval:makeRemoval({...previous,summary:'Changed'})}},data:{schemaVersion:1,entries:[previous],approvals:[approval]},secret}));
 });
 
+test('a consented exact cocktail photo is digest-checked and staged only after signed approval', async () => {
+  const image=photoJpeg(), photoEntry={...entry,photo:{sha256:createHash('sha256').update(image).digest('hex'),alt:'A fictional cocktail in a glass'}};
+  const unsigned={entryId:photoEntry.id,approvedAt:'2026-10-09T12:00:00.000Z',consents:{publication:true,quotePublication:false,recipeVerified:true,namedAttribution:false,photoPublication:true},contentSha256:contentDigest(photoEntry)};
+  const approval={...unsigned,signature:createHmac('sha256',secret).update(JSON.stringify(canonical({entry:photoEntry,approval:unsigned}))).digest('hex')};
+  const event={action:'annals-approved-entry',client_payload:{entry:photoEntry,approval,imageBase64:image.toString('base64')}};
+  const result=await applyApprovedEntry({event,data:emptyArchive(),secret});
+  assert.equal(result.assetsToWrite[0].path,`assets/annals/${photoEntry.id}.jpg`);assert.deepEqual(result.assetsToWrite[0].bytes,image);
+  assert.match(result.html,/alt="A fictional cocktail in a glass"/);
+  await assert.rejects(applyApprovedEntry({event:{...event,client_payload:{...event.client_payload,imageBase64:Buffer.concat([image,Buffer.from([0])]).toString('base64')}},data:emptyArchive(),secret}));
+  const metadataImage=Buffer.concat([image.subarray(0,2),Buffer.from([255,225,0,4,1,2]),image.subarray(2)]);
+  const metadataEntry={...entry,photo:{sha256:createHash('sha256').update(metadataImage).digest('hex'),alt:'A drink'}};
+  const unsignedMetadata={...unsigned,entryId:metadataEntry.id,contentSha256:contentDigest(metadataEntry)};
+  const metadataApproval={...unsignedMetadata,signature:createHmac('sha256',secret).update(JSON.stringify(canonical({entry:metadataEntry,approval:unsignedMetadata}))).digest('hex')};
+  await assert.rejects(applyApprovedEntry({event:{action:'annals-approved-entry',client_payload:{entry:metadataEntry,approval:metadataApproval,imageBase64:metadataImage.toString('base64')}},data:emptyArchive(),secret}));
+});

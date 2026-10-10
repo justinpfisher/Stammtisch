@@ -50,7 +50,7 @@ var AnnalsProduction = (function () {
     return result;
   }
   function publicEntry(raw) {
-    keys(raw, ['id', 'category', 'title', 'summary', 'year', 'dateLabel', 'sortDate', 'quoteVerbatim', 'recipe', 'credit']);
+    keys(raw, ['id', 'category', 'title', 'summary', 'year', 'dateLabel', 'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo']);
     if (!/^[a-z0-9][a-z0-9-]{5,63}$/.test(raw.id || '') || CATEGORIES.slice(0, 6).indexOf(raw.category) < 0) throw new Error('Invalid public identity');
     if (!Number.isInteger(raw.year) || raw.year < 1990 || raw.year > 2100) throw new Error('Confirm the year');
     var date = text(raw.sortDate, 10);
@@ -61,6 +61,11 @@ var AnnalsProduction = (function () {
     var result = { id: raw.id, category: raw.category, title: text(raw.title, 160, true), summary: text(raw.summary, 1800, true),
       year: raw.year, dateLabel: text(raw.dateLabel, 80), sortDate: date,
       quoteVerbatim: text(raw.quoteVerbatim, 1500), recipe: recipe(raw.recipe), credit: text(raw.credit, 70, true) };
+    if (raw.photo !== undefined && raw.photo !== null) {
+      keys(raw.photo, ['sha256', 'alt']);
+      if (raw.category !== 'cocktail' || !/^[a-f0-9]{64}$/.test(raw.photo.sha256 || '')) throw new Error('Invalid cocktail photo');
+      result.photo = { sha256: raw.photo.sha256, alt: text(raw.photo.alt, 180, true) };
+    }
     if (result.category === 'quotation' && !result.quoteVerbatim.trim()) throw new Error('Missing quotation');
     if (result.category !== 'quotation' && result.quoteVerbatim) throw new Error('Unexpected quotation');
     if (result.category === 'cocktail' && !result.recipe.drinkIngredients.length && !result.recipe.steps.length) throw new Error('Missing recipe');
@@ -68,10 +73,11 @@ var AnnalsProduction = (function () {
     return result;
   }
   function consents(entry, value) {
-    keys(value, ['publication', 'quotePublication', 'recipeVerified', 'namedAttribution']);
-    if (Object.keys(value).length !== 4 || Object.values(value).some(function (v) { return typeof v !== 'boolean'; }) ||
+    keys(value, ['publication', 'quotePublication', 'recipeVerified', 'namedAttribution', 'photoPublication']);
+    if (Object.keys(value).length !== 5 || Object.values(value).some(function (v) { return typeof v !== 'boolean'; }) ||
         value.publication !== true || (entry.category === 'quotation' && value.quotePublication !== true) ||
         (entry.category === 'cocktail' && value.recipeVerified !== true) ||
+        (!!entry.photo !== (value.photoPublication === true)) ||
         (['anonymous', 'a club member'].indexOf(entry.credit) < 0 && value.namedAttribution !== true)) throw new Error('Required consent missing');
     return value;
   }

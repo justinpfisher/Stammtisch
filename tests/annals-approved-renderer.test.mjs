@@ -40,7 +40,7 @@ function signedTestReceipt(entry, consents = {}) {
     reviewedBy: 'synthetic-test-reviewer',
     consents: {
       publication: true, quotePublication: false, recipeVerified: false,
-      namedAttribution: false, ...consents,
+      namedAttribution: false, photoPublication: false, ...consents,
     },
     contentSha256: contentDigest(normalized),
   };
@@ -91,6 +91,19 @@ test('recipe verification and named attribution are separately consent-gated', (
     false);
   assert.equal(verifyApproval(named, signedTestReceipt(named,
     { recipeVerified: true, namedAttribution: true }), TEST_SECRET), true);
+});
+
+test('cocktail photo publication requires separate image consent and renders only its digest-bound alt text', () => {
+  const photo = { ...baseDrink, photo: { sha256: 'c'.repeat(64), alt: 'Synthetic drink <script>alert(1)</script>' } };
+  const withoutConsent = signedTestReceipt(photo, { recipeVerified: true });
+  assert.equal(verifyApproval(photo, withoutConsent, TEST_SECRET), false);
+  const approved = signedTestReceipt(photo, { recipeVerified: true, photoPublication: true });
+  assert.equal(verifyApproval(photo, approved, TEST_SECRET), true);
+  const html = buildApprovedAnnals([photo], [approved], TEST_SECRET).html;
+  assert.match(html, /assets\/annals\/sample-cocktail-01\.jpg/);
+  assert.match(html, /alt="Synthetic drink &lt;script&gt;alert\(1\)&lt;\/script&gt;"/);
+  assert.doesNotMatch(html, /<script>alert/);
+  assert.throws(() => validatePublicTextEntry({ ...baseDrink, photo: { sha256:'bad', alt:'x' } }));
 });
 
 test('raw emails, extra photograph properties and unknown categories are forbidden', () => {
