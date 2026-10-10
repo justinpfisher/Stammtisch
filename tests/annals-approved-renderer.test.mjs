@@ -179,7 +179,7 @@ test('a mixed set of fictional entries sorts newest year first with existing nav
 test('empty publication has no accidental test entry or sender data', () => {
   const result = buildApprovedAnnals([], [], '');
   assert.equal(result.entryCount, 0);
-  assert.ok(result.html.includes('The first approved contribution will appear here.'));
+  assert.ok(result.html.includes('The record awaits an approved contribution.'));
   assert.doesNotMatch(result.html, /class="annal-collections"|class="annal-collection"/);
   assert.ok(result.html.includes('href="mailto:annals@stammtischbrewery.com"'));
   for (const label of ['The Cocktail Register', 'Quotations of Questionable Wisdom',
