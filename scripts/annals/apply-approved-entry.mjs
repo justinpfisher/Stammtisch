@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { buildPublishedAnnals, validatePublicTextEntry, verifyPublicApproval } from './ApprovedRenderer.mjs';
 
 export async function applyApprovedEntry({ event, data, secret }) {
-  if (!event || event.event_type !== 'annals-approved-entry' || !event.client_payload ||
+  if (!event || event.action !== 'annals-approved-entry' || !event.client_payload ||
       Object.keys(event.client_payload).sort().join(',') !== 'approval,entry') throw new Error('Invalid dispatch event');
   const entry = validatePublicTextEntry(event.client_payload.entry);
   const approval = event.client_payload.approval;
