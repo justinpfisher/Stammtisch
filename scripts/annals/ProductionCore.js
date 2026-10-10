@@ -5,6 +5,8 @@ var AnnalsProduction = (function () {
   'use strict';
   var MODEL = 'gpt-4.1-mini-2025-04-14';
   var CATEGORIES = ['cocktail', 'quotation', 'monthly_gathering', 'assembly', 'club_history', 'artefact', 'uncategorised'];
+  // Existing APPROVED public Celebration of Life illustrations; not private reference photos.
+  var PORTRAITS = ['fish','marc','matt','ken','jamie','jerome'];
   var FLAGS = ['recipe_unverified', 'handwriting_ambiguous', 'possible_personal_identifier',
     'faces_or_reflections', 'location_or_home_context', 'date_unconfirmed',
     'attribution_unconfirmed', 'quote_consent_unconfirmed', 'private_context',
@@ -63,8 +65,25 @@ var AnnalsProduction = (function () {
     // Only actual uncertainty merits a risk flag; automation checks recipe lines.
     return result;
   }
+  // All email-to-portrait assignments are private Script Properties, never site data.
+  // Reject missing, duplicate or guessed identities instead of mislabelling entries.
+  function portraitMap(allowed, mapping) {
+    if (!Array.isArray(allowed) || allowed.length !== 6 ||
+        new Set(allowed).size !== 6 || !mapping || typeof mapping !== 'object' ||
+        Array.isArray(mapping)) throw new Error('Private contributor portrait mapping incomplete');
+    var addresses = Object.keys(mapping);
+    if (addresses.length !== 6 || addresses.some(function (a) {
+      return allowed.indexOf(a) < 0 || a !== a.toLowerCase();
+    }) || allowed.some(function (a) { return addresses.indexOf(a) < 0; }))
+      throw new Error('Portrait map must match only six approved senders');
+    var assigned = addresses.map(function (a) { return mapping[a]; });
+    if (new Set(assigned).size !== 6 ||
+        assigned.some(function (name) { return PORTRAITS.indexOf(name) < 0; }))
+      throw new Error('Portraits must uniquely identify the six approved illustrations');
+    return Object.freeze(Object.assign({}, mapping));
+  }
   function publicEntry(raw) {
-    keys(raw, ['id', 'category', 'title', 'summary', 'year', 'dateLabel', 'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo']);
+    keys(raw, ['id', 'category', 'title', 'summary', 'year', 'dateLabel', 'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo', 'contributorPortrait']);
     if (!/^[a-z0-9][a-z0-9-]{5,63}$/.test(raw.id || '') || CATEGORIES.slice(0, 6).indexOf(raw.category) < 0) throw new Error('Invalid public identity');
     if (!Number.isInteger(raw.year) || raw.year < 1990 || raw.year > 2100) throw new Error('Confirm the year');
     var date = text(raw.sortDate, 10);
@@ -75,6 +94,11 @@ var AnnalsProduction = (function () {
     var result = { id: raw.id, category: raw.category, title: text(raw.title, 160, true), summary: text(raw.summary, 1800, true),
       year: raw.year, dateLabel: text(raw.dateLabel, 80), sortDate: date,
       quoteVerbatim: text(raw.quoteVerbatim, 1500), recipe: recipe(raw.recipe), credit: text(raw.credit, 70, true) };
+    if (raw.contributorPortrait !== undefined && raw.contributorPortrait !== null) {
+      if (PORTRAITS.indexOf(raw.contributorPortrait) < 0 ||
+          result.credit !== 'anonymous') throw new Error('Invalid public contributor portrait');
+      result.contributorPortrait = raw.contributorPortrait;
+    }
     if (raw.photo !== undefined && raw.photo !== null) {
       keys(raw.photo, ['sha256', 'alt']);
       if (raw.category === 'quotation' || !/^[a-f0-9]{64}$/.test(raw.photo.sha256 || '')) throw new Error('Invalid cocktail photo');
@@ -157,7 +181,7 @@ var AnnalsProduction = (function () {
     if (outputs.length !== 1 || typeof outputs[0] !== 'string' || outputs[0].length > 30000) throw new Error('Invalid AI output');
     return candidate(JSON.parse(outputs[0]));
   }
-  return Object.freeze({ MODEL: MODEL, candidate: candidate, publicEntry: publicEntry, consents: consents,
+  return Object.freeze({ MODEL: MODEL, PORTRAITS: PORTRAITS, portraitMap: portraitMap, candidate: candidate, publicEntry: publicEntry, consents: consents,
     serial: serial, reserve: reserve, owner: owner, request: request, response: response });
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = AnnalsProduction;
