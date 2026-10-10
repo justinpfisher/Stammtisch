@@ -199,6 +199,22 @@ export function verifyPublicRemoval(publicEntry, removal, secret) {
   } catch { return false; }
 }
 
+
+// Owner visually approved these six public derivatives on 10 October 2026.
+// Resolve only an exact public credit; never infer identity from private intake.
+const MEMBER_PORTRAITS = Object.freeze({
+  fish: 'fish', justin: 'fish', 'justin (fish)': 'fish',
+  marc: 'marc', matt: 'matt', ken: 'ken', jamie: 'jamie', jerome: 'jerome',
+});
+function contributorCreditMarkup(credit) {
+  if (credit === 'anonymous') return '';
+  const key = credit.trim().toLowerCase();
+  const member = Object.hasOwn(MEMBER_PORTRAITS, key) ? MEMBER_PORTRAITS[key] : null;
+  const portrait = member ? '<img class="annal-contributor-portrait" src="assets/members/annals/' +
+    member + '-annals.webp" width="48" height="48" alt="" loading="lazy" decoding="async">' : '';
+  return '<p class="annal-credit">' + portrait + '<span>Recorded by ' + escapeHtml(credit) + '</span></p>';
+}
+
 function approvedEntryMarkup(entry) {
   const esc = escapeHtml;
   const section = (label, items) => items.length
@@ -219,7 +235,7 @@ function approvedEntryMarkup(entry) {
       (entry.recipe.suggestedSteps?.length ? '<p class="annal-reconstruction-flag">Editorial reconstruction: suggested quantities or methods below are not the original recorded recipe.</p>' : '') +
       section('Editorial suggestions — NOT part of the original recipe',
         entry.recipe.suggestedSteps || []) + '</div>' : '') +
-    (entry.credit === 'anonymous' ? '' : '<p class="annal-credit">Recorded by ' + esc(entry.credit) + '</p>') +
+    contributorCreditMarkup(entry.credit) +
     '</article>';
 }
 
@@ -301,6 +317,8 @@ function buildAnnals(entries, receipts, verifyReceipt) {
 .annal-type{font:600 10px/1.6 Arial,sans-serif;color:#846329;text-transform:uppercase;letter-spacing:.17em}
 .annal-entry h4{font:400 clamp(27px,4vw,39px)/1.2 Georgia,serif;margin-top:8px}
 .annal-date,.annal-credit{color:#64685e;font-size:12px;margin-top:7px}
+.annal-credit{display:flex;align-items:center;gap:10px}
+.annal-contributor-portrait{display:block;width:48px;height:48px;flex:0 0 48px;object-fit:cover;border-radius:3px}
 .annal-summary{margin-top:18px;line-height:1.8;font-size:15px}
 .annal-photo{margin:22px 0 0}.annal-photo img{display:block;width:100%;max-width:760px;max-height:70vh;object-fit:contain;background:#eae5d8}
 .annal-entry blockquote{border-left:3px solid #846329;padding-left:18px;margin:22px 0;font:italic 22px/1.5 Georgia,serif}
