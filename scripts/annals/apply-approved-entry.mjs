@@ -59,7 +59,10 @@ export async function applyApprovedEntry({ event, data, secret }) {
     if (event.action === 'annals-auto-entry') {
       if ((approval.mode === 'standing-consent-text-v1' && (entry.photo || event.client_payload.imageBase64 !== undefined)) ||
           (approval.mode === 'standing-consent-image-v1' && (!entry.photo || event.client_payload.imageBase64 === undefined)) ||
-          !['standing-consent-text-v1','standing-consent-image-v1'].includes(approval.mode))
+          (approval.mode === 'standing-consent-quote-v1' &&
+            (entry.category !== 'quotation' || !entry.speakerPortrait || entry.photo ||
+             event.client_payload.imageBase64 !== undefined)) ||
+          !['standing-consent-text-v1','standing-consent-image-v1','standing-consent-quote-v1'].includes(approval.mode))
         throw new Error('Automated publication requires signed standing-consent proof and bounded media');
     } else if (approval.mode !== undefined) {
       throw new Error('Standing-consent proof cannot be reused for manual publication or correction');
