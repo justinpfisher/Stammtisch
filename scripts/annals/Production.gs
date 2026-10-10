@@ -284,7 +284,7 @@ function annalsResumeConsentedDrafts_(limit) {
     var source = annalsRead_(folder, 'source-private.json');
     if (!source) continue;
     if (annalsFile_(folder, 'draft-private.json')) {
-      var dispatched = annalsAutoPublishCandidate_(id);
+      var dispatched = annalsAutoAttemptSafe_(folder, id);
       if (!dispatched && !annalsFile_(folder, 'draft-notice-private.json')) annalsNotifyDraftReady_(folder);
       continue;
     }
@@ -520,7 +520,7 @@ function annalsProcessConsentedText_(id) {
       annalsProps_().getProperty('ANNALS_AI_ENABLED') !== 'true') return false;
   var fullText = source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt);
   annalsPrepareDraftCore_(id, fullText, [], true, true); // caller already holds intake lock
-  var dispatched = annalsAutoPublishCandidate_(id);
+  var dispatched = annalsAutoAttemptSafe_(annalsFolder_(id), id);
   if (!dispatched) annalsNotifyDraftReady_(annalsFolder_(id));
   return true;
 }
@@ -706,6 +706,22 @@ function annalsApproveRemoval(nonce, id, expectedHash, reason, confirmed) {
     annalsFile_(folder, 'removal-private.json').setContent(JSON.stringify(record));
     return { approved: true, dispatchAccepted: sent };
   }); });
+}
+/** A malformed single draft must never stop the rest of the private intake.
+ * Never retry any attempted dispatch or provider request after uncertainty.
+ */
+function annalsAutoAttemptSafe_(folder, id) {
+  try { return annalsAutoPublishCandidate_(id); }
+  catch (ignored) {
+    try {
+      if (!annalsFile_(folder, 'auto-decision-private.json') && !annalsFile_(folder, 'approval-private.json')) {
+        annalsWriteOnce_(folder, 'auto-decision-private.json', {
+          state: 'held', reason: 'internal_validation_error', at: new Date().toISOString()
+        });
+      }
+    } catch (ignoredAgain) {}
+    return false;
+  }
 }
 /** No member submission is an instruction to publish. This is a fail-closed
  * server-side decision, guarded by private consent evidence and an exact
