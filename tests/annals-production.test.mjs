@@ -123,6 +123,20 @@ test('provider HTTP failure records only its numeric status in private staging',
   assert.doesNotMatch(JSON.stringify(outcome),/PRIVATE-KEY|provider response/);
   assert.equal(x.files.has('draft-private.json'),false);assert.equal(x.calls.ai,1);
 });
+test('one-time synthetic integration item writes fiction privately without Gmail or AI', () => {
+  const x=mock(), created=new Set();x.props.ANNALS_AI_ENABLED='false';x.files.delete('source-private.json');
+  x.root.getFoldersByName=name=>iter(created.has(name)?[x.folder]:[]);
+  x.root.createFolder=name=>{created.add(name);return x.folder;};
+  const result=x.context.annalsCreateSyntheticCheckItem();
+  assert.equal(result.created,true);assert.equal(result.automaticAi,false);assert.equal(result.publishesAnything,false);
+  assert.equal(x.calls.ai,0);
+  const source=JSON.parse(x.files.get('source-private.json').getBlob().getDataAsString());
+  assert.match(source.source.subject,/Synthetic production integration check/);
+  assert.match(source.source.excerpt,/not a real contribution and has no publication permission/);
+  assert.equal(source.senderAuthenticated,false);
+  assert.throws(()=>x.context.annalsCreateSyntheticCheckItem(),/already exists/);
+  assert.equal(x.calls.ai,0);
+});
 test('shared staging and exhausted budget stop before provider call', () => {
   const x=mock();x.root.getViewers=()=>['other'];assert.throws(()=>x.context.annalsPrepareDraft('valid','a'.repeat(64),'Synthetic',[],true));assert.equal(x.calls.ai,0);
   const y=mock();y.props.ANNALS_BUDGET_LEDGER=JSON.stringify({schemaVersion:1,month:'2026-10',reservedCents:500});assert.throws(()=>y.context.annalsPrepareDraft('valid','a'.repeat(64),'Synthetic',[],true));assert.equal(y.calls.ai,0);
