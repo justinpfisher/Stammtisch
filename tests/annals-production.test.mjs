@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { createHash, createHmac } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { contentDigest, validatePublicTextEntry, verifyApproval, verifyPublicApproval } from '../scripts/annals/ApprovedRenderer.mjs';
+import { contentDigest, validatePublicTextEntry, verifyApproval, verifyPublicApproval, verifyPublicRemoval } from '../scripts/annals/ApprovedRenderer.mjs';
 import { prepareApprovedBundle } from '../scripts/annals/prepare-publication.mjs';
 const require = createRequire(import.meta.url);
 const core = require('../scripts/annals/ProductionCore.js');
@@ -74,6 +74,12 @@ test('review UI never silently converts uncategorised AI output into club histor
   assert.match(ui, /if\(!val\('category'\)\)throw new Error\('Choose a category/);
   assert.doesNotMatch(ui, /d\.category==='uncategorised'\?'club_history'/);
 });
+test('review UI correction and removal buttons require exact review evidence and private backend gates', () => {
+  const ui = readFileSync(new URL('../scripts/annals/ReviewUi.html', import.meta.url), 'utf8');
+  for (const control of ['saveCorrection','approveCorrection','approveRemoval','correctionPublication','correctionReviewed','removalConfirmed']) assert.match(ui,new RegExp('id="'+control+'"'));
+  assert.match(ui,/call\('annalsSaveCorrection'/);assert.match(ui,/call\('annalsApproveCorrection'/);assert.match(ui,/call\('annalsApproveRemoval'/);
+  assert.match(ui,/GitHub's permanent commit history may still retain old content/);
+});
 test('budget admits at most fifty ten-cent attempts, never refunds uncertainty, rolls month safely', () => {
   let ledger={schemaVersion:1,month:'2026-10',reservedCents:0};
   for(let i=0;i<50;i++) ledger=core.reserve(ledger,'2026-10');
@@ -108,11 +114,13 @@ test('sender authentication requires an aligned Google-reported DKIM or DMARC pa
   assert.equal(x.context.annalsAuthentication_({},'member@member.example'),false);
 });
 test('one-time private consent challenge activates only on exact reply and can be revoked', () => {
-  const x=mock(), sent=[];x.context.MailApp={sendEmail:(...args)=>sent.push(args)};
+  const x=mock(), sent=[];x.props.ANNALS_ALLOWED_SENDERS='member@example.test';x.context.MailApp={sendEmail:(...args)=>sent.push(args)};
   x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{'member@example.test':{status:'pending',scope:'future_text_ai_drafting',challenge:'opaque-token'}}}));
   assert.equal(x.context.annalsHandleConsentReply_('member@example.test','I CONSENT TO PRIVATE AI DRAFTING FOR FUTURE TEXT SUBMISSIONS. CODE: wrong'),null);
   assert.equal(x.context.annalsHandleConsentReply_('member@example.test','I CONSENT TO PRIVATE AI DRAFTING FOR FUTURE TEXT SUBMISSIONS. CODE: opaque-token'),'consent_activated');
   assert.equal(x.context.annalsConsentActive_('member@example.test'),true);
+  x.props.ANNALS_ALLOWED_SENDERS='';assert.equal(x.context.annalsConsentActive_('member@example.test'),false);
+  x.props.ANNALS_ALLOWED_SENDERS='member@example.test';
   assert.equal(x.context.annalsHandleConsentReply_('member@example.test','REVOKE ANNALS AI PROCESSING'),'consent_revoked');
   assert.equal(x.context.annalsConsentActive_('member@example.test'),false);assert.equal(sent.length,2);
   assert.doesNotMatch(JSON.stringify(sent),/opaque-token/);
@@ -183,6 +191,36 @@ test('approval needs exact saved revision, recipe consent and evidence; private 
   const missing={...entry(),id:'missing-existing'};assert.throws(()=>prepareApprovedBundle(bundle,{entries:[missing]},x.props.ANNALS_APPROVAL_KEY));
   bundle.entries[0].summary='Changed after approval';assert.throws(()=>prepareApprovedBundle(bundle,{entries:[]},x.props.ANNALS_APPROVAL_KEY));
 });
+test('corrections and removals require the exact published entry and dispatch separately signed operations', () => {
+  const configurePublisher = x => {
+    Object.assign(x.props,{ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_TOKEN:'private-token',ANNALS_GITHUB_REPOSITORY:'owner/repo'});
+    const dispatches=[];
+    x.context.UrlFetchApp.fetch=(url,options)=>{assert.equal(url,'https://api.github.com/repos/owner/repo/dispatches');dispatches.push(JSON.parse(options.payload));return{getResponseCode:()=>204};};
+    return dispatches;
+  };
+  const x=mock(), dispatches=configurePublisher(x), id='a'.repeat(64);
+  let review=x.context.annalsSaveReview('valid',id,entry());
+  assert.equal(x.context.annalsApproveReview('valid',id,review.hash,permissions,'Synthetic original approval evidence',true).dispatchAccepted,true);
+  const published=JSON.parse(x.files.get('approval-private.json').getBlob().getDataAsString());
+  assert.equal(published.publicationState,'dispatch_accepted');
+  const corrected={...entry(),title:'Corrected synthetic title',summary:'Exact corrected synthetic text.'};
+  review=x.context.annalsSaveCorrection('valid',id,corrected);
+  assert.throws(()=>x.context.annalsApproveCorrection('valid',id,'0'.repeat(64),permissions,'Synthetic correction evidence',true));
+  assert.equal(x.context.annalsApproveCorrection('valid',id,review.hash,permissions,'Synthetic correction evidence',true).dispatchAccepted,true);
+  const correction=JSON.parse(x.files.get('correction-approval-private.json').getBlob().getBlob?.() || x.files.get('correction-approval-private.json').getBlob().getDataAsString());
+  assert.equal(verifyPublicApproval(correction.entry,correction.publication,'p'.repeat(40)),true);
+  assert.equal(dispatches[1].event_type,'annals-correct-entry');
+
+  const y=mock(), removalDispatches=configurePublisher(y), removalId='b'.repeat(64);
+  review=y.context.annalsSaveReview('valid',removalId,{...entry(),id:'annal-'+removalId.slice(0,24)});
+  assert.equal(y.context.annalsApproveReview('valid',removalId,review.hash,permissions,'Synthetic original approval evidence',true).dispatchAccepted,true);
+  const original=JSON.parse(y.files.get('approval-private.json').getBlob().getDataAsString());
+  assert.throws(()=>y.context.annalsApproveRemoval('valid',removalId,'0'.repeat(64),'Synthetic removal reason',true));
+  assert.equal(y.context.annalsApproveRemoval('valid',removalId,contentDigest(original.entry),'Synthetic removal reason',true).dispatchAccepted,true);
+  const removal=JSON.parse(y.files.get('removal-private.json').getBlob().getDataAsString());
+  assert.equal(verifyPublicRemoval(original.entry,removal.proof,'p'.repeat(40)),true);
+  assert.equal(removalDispatches[1].event_type,'annals-remove-entry');
+});
 test('production intake resumes a long thread and wraps without reading while disabled', () => {
   const x=mock(), handled=[], messages=Array.from({length:12},(_,id)=>({id}));
   const thread={getId:()=> 'private-thread', getMessages:()=>messages};
@@ -214,3 +252,4 @@ test('schedule installation is idempotent and stopping touches only the producti
   x.context.annalsStopProduction();assert.equal(triggers.length,1);assert.equal(triggers[0].getHandlerFunction(),'unrelatedHandler');
   assert.equal(x.props.ANNALS_AI_ENABLED,'false');assert.equal(x.props.ANNALS_PRODUCTION_INTAKE_ENABLED,'false');
 });
+
