@@ -201,3 +201,23 @@ test('club artefacts are a supported text-only public category', () => {
   assert.ok(result.html.includes('Club Artefacts'));
   assert.ok(result.html.includes('Fictional test keepsake'));
 });
+
+
+test('approved named member credits use their own Annals portraits without identifying anonymous entries', () => {
+  for (const [credit, slug] of [['Justin (Fish)', 'fish'], ['Fish', 'fish'], ['Justin', 'fish'],
+    ['Marc', 'marc'], ['Matt', 'matt'], ['Ken', 'ken'], ['Jamie', 'jamie'], ['Jerome', 'jerome']]) {
+    const entry = { ...baseDrink, credit };
+    const receipt = signedTestReceipt(entry, { recipeVerified: true, namedAttribution: true });
+    const html = buildApprovedAnnals([entry], [receipt], TEST_SECRET).html;
+    assert.ok(html.includes('src="assets/members/annals/' + slug + '-annals.webp"'));
+    assert.ok(html.includes('Recorded by ' + credit));
+    assert.throws(() => buildApprovedAnnals([entry], [signedTestReceipt(entry,
+      { recipeVerified: true })], TEST_SECRET), /Missing authenticated/);
+  }
+  for (const credit of ['anonymous', 'a club member', 'Unknown Contributor', 'Marc and Matt', 'constructor']) {
+    const entry = { ...baseDrink, credit };
+    const receipt = signedTestReceipt(entry, { recipeVerified: true, namedAttribution: true });
+    const html = buildApprovedAnnals([entry], [receipt], TEST_SECRET).html;
+    assert.doesNotMatch(html, /src="assets\/members\/annals\//);
+  }
+});
