@@ -17,9 +17,14 @@ const TYPES = Object.freeze({
 
 const PUBLIC_KEYS = new Set([
   'id', 'category', 'title', 'summary', 'year', 'dateLabel',
-  'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo'
+  'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo', 'contributorPortrait'
 ]);
 const RECIPE_KEYS = new Set(['drinkIngredients', 'syrupIngredients', 'steps', 'suggestedSteps']);
+// Already-public illustrated portraits used in Celebration of Life; no private images.
+const CONTRIBUTOR_PORTRAITS = Object.freeze({
+  fish: 'Justin', marc: 'Marc', matt: 'Matt',
+  ken: 'Ken', jamie: 'Jamie', jerome: 'Jerome',
+});
 const RECEIPT_KEYS = new Set([
   'entryId', 'approvedAt', 'reviewedBy', 'consents', 'contentSha256', 'signature'
 ]);
@@ -86,6 +91,13 @@ export function validatePublicTextEntry(input) {
     year, dateLabel, sortDate, quoteVerbatim, recipe: outputRecipe,
     credit: limited(input.credit || 'anonymous', 'credit', 70, true),
   };
+  if (input.contributorPortrait !== undefined && input.contributorPortrait !== null) {
+    if (typeof input.contributorPortrait !== 'string' ||
+        !Object.hasOwn(CONTRIBUTOR_PORTRAITS, input.contributorPortrait) ||
+        output.credit !== 'anonymous')
+      throw new Error('Invalid public contributor portrait');
+    output.contributorPortrait = input.contributorPortrait;
+  }
   if (input.photo !== undefined && input.photo !== null) {
     allowedKeys(input.photo, new Set(['sha256', 'alt']), 'photo');
     if (input.category === 'quotation' || !/^[a-f0-9]{64}$/.test(input.photo.sha256 ?? '')) throw new Error('Invalid cocktail photo');
@@ -206,7 +218,13 @@ function approvedEntryMarkup(entry) {
       items.map(s => '<li>' + esc(s) + '</li>').join('') + '</ul>' : '';
   return '<article class="annal-entry" id="' + esc(entry.id) + '">' +
     '<p class="annal-type">' + esc(TYPES[entry.category]) + '</p>' +
-    '<h4>' + esc(entry.title) + '</h4>' +
+    '<div class="annal-title-row"><h4>' + esc(entry.title) + '</h4>' +
+      (entry.contributorPortrait
+        ? '<img class="annal-contributor-portrait" src="assets/members/' +
+          esc(entry.contributorPortrait) + '.webp" alt="Illustrated portrait of ' +
+          esc(CONTRIBUTOR_PORTRAITS[entry.contributorPortrait]) +
+          ', who contributed this entry" width="44" height="44" loading="lazy" decoding="async">'
+        : '') + '</div>' +
     (entry.dateLabel ? '<p class="annal-date">' + esc(entry.dateLabel) + '</p>' : '') +
     '<p class="annal-summary">' + esc(entry.summary) + '</p>' +
     (entry.photo ? '<figure class="annal-photo"><img src="assets/annals/' + esc(entry.id) + '.jpg" alt="' + esc(entry.photo.alt) + '" loading="lazy" decoding="async"></figure>' : '') +
@@ -300,6 +318,9 @@ function buildAnnals(entries, receipts, verifyReceipt) {
 .annal-entry{max-width:790px;padding-block:22px 30px;border-top:1px solid #d4d3c4}
 .annal-type{font:600 10px/1.6 Arial,sans-serif;color:#846329;text-transform:uppercase;letter-spacing:.17em}
 .annal-entry h4{font:400 clamp(27px,4vw,39px)/1.2 Georgia,serif;margin-top:8px}
+.annal-title-row{display:flex;align-items:center;justify-content:space-between;gap:14px;max-width:790px}
+.annal-title-row h4{min-width:0}
+.annal-contributor-portrait{display:block;width:44px;height:44px;flex:0 0 44px;border:1px solid #846329;border-radius:50%;object-fit:cover;background:#eae5d8}
 .annal-date,.annal-credit{color:#64685e;font-size:12px;margin-top:7px}
 .annal-summary{margin-top:18px;line-height:1.8;font-size:15px}
 .annal-photo{margin:22px 0 0}.annal-photo img{display:block;width:100%;max-width:760px;max-height:70vh;object-fit:contain;background:#eae5d8}
@@ -313,7 +334,7 @@ function buildAnnals(entries, receipts, verifyReceipt) {
 .annal-editorial-notice{margin:24px 0 38px;padding-top:16px;border-top:1px solid #d4d3c4;color:#64685e;font:italic 12px/1.7 Georgia,serif;max-width:790px}
 .annal-quote-note{font:italic 12px/1.6 Georgia,serif;color:#64685e}
 .annal-reconstruction-flag{padding:10px 12px;margin-block:16px;border-left:3px solid #846329;background:#eee9de;color:#5f4c2f;font-size:12px}
-@media(max-width:700px){.annal-hero{padding-block:38px 30px}.annal-collection{padding-block:27px}.annal-collection>h2{font-size:29px}.annal-entry{padding-block:18px 25px}}
+@media(max-width:700px){.annal-hero{padding-block:38px 30px}.annal-collection{padding-block:27px}.annal-collection>h2{font-size:29px}.annal-entry{padding-block:18px 25px}.annal-contributor-portrait{width:40px;height:40px;flex-basis:40px}}
 </style>
 </head>
 <body>
