@@ -19,7 +19,7 @@ const PUBLIC_KEYS = new Set([
   'id', 'category', 'title', 'summary', 'year', 'dateLabel',
   'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo'
 ]);
-const RECIPE_KEYS = new Set(['drinkIngredients', 'syrupIngredients', 'steps']);
+const RECIPE_KEYS = new Set(['drinkIngredients', 'syrupIngredients', 'steps', 'suggestedSteps']);
 const RECEIPT_KEYS = new Set([
   'entryId', 'approvedAt', 'reviewedBy', 'consents', 'contentSha256', 'signature'
 ]);
@@ -63,6 +63,11 @@ export function validatePublicTextEntry(input) {
     syrupIngredients: arrayOfLines(recipe.syrupIngredients || [], 'syrup ingredients'),
     steps: arrayOfLines(recipe.steps || [], 'preparation'),
   };
+  const suggestedSteps = arrayOfLines(recipe.suggestedSteps || [], 'editorial suggested preparation');
+  if (suggestedSteps.length > 3 || (suggestedSteps.length && !outputRecipe.drinkIngredients.length)) {
+    throw new Error('Invalid suggested method');
+  }
+  if (suggestedSteps.length) outputRecipe.suggestedSteps = suggestedSteps;
   const quoteVerbatim = limited(input.quoteVerbatim || '', 'quote', 1800);
   if (input.category === 'quotation' && !quoteVerbatim.trim()) throw new Error('Quotation requires verbatim text');
   if (input.category !== 'quotation' && quoteVerbatim) throw new Error('Unexpected quotation text');
@@ -87,7 +92,7 @@ export function validatePublicTextEntry(input) {
     output.photo = { sha256: input.photo.sha256, alt: limited(input.photo.alt, 'photo alt text', 180, true) };
   }
   const publicTexts = [output.title, output.summary, output.dateLabel, output.credit, output.quoteVerbatim,
-    ...outputRecipe.drinkIngredients, ...outputRecipe.syrupIngredients, ...outputRecipe.steps];
+    ...outputRecipe.drinkIngredients, ...outputRecipe.syrupIngredients, ...outputRecipe.steps, ...(outputRecipe.suggestedSteps || [])];
   if (publicTexts.some(s => UNCENSORED_STRONG.test(s))) throw new Error('Uncensored strong profanity must not enter the public archive');
   return Object.freeze(output);
 }
@@ -206,7 +211,9 @@ function approvedEntryMarkup(entry) {
     (entry.category === 'cocktail' ? '<div class="annal-recipe">' +
       section('Ingredients', entry.recipe.drinkIngredients) +
       section('Homemade syrup', entry.recipe.syrupIngredients) +
-      section('Preparation', entry.recipe.steps) + '</div>' : '') +
+      section('Preparation recorded by contributor', entry.recipe.steps) +
+      section('Suggested preparation — editorial reconstruction, not an original instruction',
+        entry.recipe.suggestedSteps || []) + '</div>' : '') +
     (entry.credit === 'anonymous' ? '' : '<p class="annal-credit">Recorded by ' + esc(entry.credit) + '</p>') +
     '</article>';
 }
