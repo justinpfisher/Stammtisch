@@ -77,7 +77,7 @@ var AnnalsProduction = (function () {
       quoteVerbatim: text(raw.quoteVerbatim, 1500), recipe: recipe(raw.recipe), credit: text(raw.credit, 70, true) };
     if (raw.photo !== undefined && raw.photo !== null) {
       keys(raw.photo, ['sha256', 'alt']);
-      if (['cocktail','artefact'].indexOf(raw.category) < 0 || !/^[a-f0-9]{64}$/.test(raw.photo.sha256 || '')) throw new Error('Invalid cocktail photo');
+      if (raw.category === 'quotation' || !/^[a-f0-9]{64}$/.test(raw.photo.sha256 || '')) throw new Error('Invalid cocktail photo');
       result.photo = { sha256: raw.photo.sha256, alt: text(raw.photo.alt, 180, true) };
     }
     if (result.category === 'quotation' && !result.quoteVerbatim.trim()) throw new Error('Missing quotation');
