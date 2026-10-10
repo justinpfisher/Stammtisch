@@ -584,3 +584,65 @@ test('private source controls reject incorrect member speaker and only allow exa
   assert.equal(x.context.annalsQuoteSpeakerPermission_(source,d),null);
 });
 
+
+
+test('only a verified allowlisted sender with prior private attribution permission earns an Annals portrait',()=>{
+  const x=mock(),names=['fish','marc','matt','ken','jamie','jerome'];
+  const addresses=names.map((n,i)=>'person'+(i+1)+'@example.test');
+  const sender=addresses[0];
+  x.props.ANNALS_ALLOWED_SENDERS=addresses.join(',');
+  x.props.ANNALS_SPEAKER_IDENTITIES=JSON.stringify(Object.fromEntries(
+    addresses.map((addr,i)=>[addr,names[i]])));
+  const member={status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T00:00:00Z',
+    autoPublication:{status:'active',scope:'future_source_grounded_text_publication',
+      consentedAt:'2026-10-08T00:00:00Z'},
+    quoteAttribution:{status:'active',scope:'future_attributed_member_quotation_publication',
+      consentedAt:'2026-10-08T00:00:00Z'}};
+  x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{[sender]:member}}));
+  const original={senderAuthenticated:true,source:{sender,receivedAt:'2026-10-09T00:30:00Z',
+    excerpt:'1 oz water',subject:'Invented cocktail'}};
+  assert.equal(x.context.annalsContributorPortrait_(original),'fish');
+  assert.equal(x.context.annalsContributorPortrait_({...original,senderAuthenticated:false}),null);
+  assert.equal(x.context.annalsContributorPortrait_({...original,source:{...original.source,sender:addresses[1]}}),null);
+  assert.equal(x.context.annalsContributorPortrait_({...original,source:{...original.source,
+    receivedAt:'2026-10-07T00:30:00Z'}}),null);
+  const saved=JSON.parse(x.props.ANNALS_SPEAKER_IDENTITIES);
+  x.props.ANNALS_SPEAKER_IDENTITIES=JSON.stringify({...saved,[sender]:'marc'});
+  assert.equal(x.context.annalsContributorPortrait_(original),null);
+  x.props.ANNALS_SPEAKER_IDENTITIES=JSON.stringify(saved);
+  const notices=[];
+  x.context.MailApp={sendEmail:(...a)=>notices.push(a)};
+  assert.equal(x.context.annalsHandleConsentReply_(sender,'HIDE MY ANNALS PORTRAIT'),'portrait_hidden');
+  assert.equal(x.context.annalsContributorPortrait_(original),null);
+  assert.equal(x.context.annalsHandleConsentReply_(sender,'SHOW MY ANNALS PORTRAIT'),'portrait_enabled');
+  assert.equal(x.context.annalsContributorPortrait_(original),'fish');
+  assert.equal(x.context.annalsHandleConsentReply_(sender,'REVOKE ANNALS QUOTE ATTRIBUTION'),'quote_attribution_revoked');
+  assert.equal(x.context.annalsContributorPortrait_(original),null);
+  assert.equal(x.context.annalsHandleConsentReply_(sender,'SHOW MY ANNALS PORTRAIT'),null);
+  assert.equal(x.context.annalsContributorPortrait_(original),null);
+  assert.equal(notices.length,3);
+});
+test('manual review cannot forge an unrelated contributor likeness',()=>{
+  const x=mock(),names=['fish','marc','matt','ken','jamie','jerome'];
+  const addresses=names.map((n,i)=>'person'+(i+1)+'@example.test');
+  x.props.ANNALS_ALLOWED_SENDERS=addresses.join(',');
+  x.props.ANNALS_SPEAKER_IDENTITIES=JSON.stringify(Object.fromEntries(
+    addresses.map((addr,i)=>[addr,names[i]])));
+  x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{
+    [addresses[0]]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T00:00:00Z',
+      autoPublication:{status:'active',scope:'future_source_grounded_text_publication',
+        consentedAt:'2026-10-08T00:00:00Z'},
+      quoteAttribution:{status:'active',scope:'future_attributed_member_quotation_publication',
+        consentedAt:'2026-10-08T00:00:00Z'}}
+  }}));
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,
+    source:{sender:addresses[0],receivedAt:'2026-10-09T00:30:00Z',
+      excerpt:'Invented.',subject:'Test',excerptTruncated:false},
+    attachmentManifest:{items:[]}}));
+  const id='a'.repeat(64);
+  assert.throws(()=>x.context.annalsSaveReview('valid',id,{...entry(),contributorPortrait:'ken'}),/Operation held/);
+  const saved=x.context.annalsSaveReview('valid',id,{...entry(),contributorPortrait:'fish'});
+  assert.equal(saved.entry.contributorPortrait,'fish');
+  assert.equal(saved.entry.credit,'anonymous');
+  assert.equal(x.context.annalsReviewItem('valid',id).contributorPortrait,'fish');
+});
