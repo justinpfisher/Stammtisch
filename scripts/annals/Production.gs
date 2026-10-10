@@ -261,8 +261,8 @@ function annalsStageProduction_(message, activation, allowed) {
     var hasEligibleSinglePhoto = source.imageConsentAtReceipt &&
       attachments.length === 1 && source.attachmentManifest.items.length === 1 &&
       source.attachmentManifest.items[0].accepted &&
-      ['image/jpeg','image/png'].indexOf(source.attachmentManifest.items[0].mime) >= 0 &&
-      source.attachmentManifest.items[0].size > 0 && source.attachmentManifest.items[0].size <= 4*1024*1024;
+      ['image/jpeg','image/png','image/webp','image/heic','image/heif'].indexOf(source.attachmentManifest.items[0].mime) >= 0 &&
+      source.attachmentManifest.items[0].size > 0 && source.attachmentManifest.items[0].size <= 8*1024*1024;
     var completeStandaloneText = !!source.source.excerpt && !source.source.excerptTruncated &&
       annalsSafeTextForAutoAi_(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) &&
       AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt));
@@ -555,12 +555,12 @@ function annalsAutoThumbnail_(id, source) {
   var items = source.attachmentManifest && source.attachmentManifest.items;
   if (!Array.isArray(items)) return null;
   var selected = items.filter(function (item) {
-    return item.accepted && ['image/jpeg','image/png'].indexOf(item.mime) >= 0 &&
-      item.size > 0 && item.size <= 4 * 1024 * 1024;
+    return item.accepted && ['image/jpeg','image/png','image/webp','image/heic','image/heif'].indexOf(item.mime) >= 0 &&
+      item.size > 0 && item.size <= 8 * 1024 * 1024;
   });
   if (selected.length !== 1 || items.length !== 1) return null; // no multi-photo inference
   var folder = annalsFolder_(id), photo = annalsFile_(folder, selected[0].storageName);
-  if (!photo || photo.getSize() > 4 * 1024 * 1024) return null;
+  if (!photo || photo.getSize() > 8 * 1024 * 1024) return null;
   var old = annalsRead_(folder,'photo-derivative-private.json');
   if (old && old.source === 'automated_drive_thumbnail') return annalsPhotoDerivative_(folder);
   if (old) return null; // never replace an owner's manually reviewed derivative
