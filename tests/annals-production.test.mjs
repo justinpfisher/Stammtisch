@@ -210,6 +210,10 @@ test('corrections and removals require the exact published entry and dispatch se
   const correction=JSON.parse(x.files.get('correction-approval-private.json').getBlob().getBlob?.() || x.files.get('correction-approval-private.json').getBlob().getDataAsString());
   assert.equal(verifyPublicApproval(correction.entry,correction.publication,'p'.repeat(40)),true);
   assert.equal(dispatches[1].event_type,'annals-correct-entry');
+  assert.equal(x.context.annalsApproveRemoval('valid',id,contentDigest(correction.entry),'Synthetic withdrawal after correction',true).dispatchAccepted,true);
+  const correctedRemoval=JSON.parse(x.files.get('removal-private.json').getBlob().getDataAsString());
+  assert.equal(verifyPublicRemoval(correction.entry,correctedRemoval.proof,'p'.repeat(40)),true);
+  assert.equal(dispatches[2].event_type,'annals-remove-entry');
 
   const y=mock(), removalDispatches=configurePublisher(y), removalId='b'.repeat(64);
   review=y.context.annalsSaveReview('valid',removalId,{...entry(),id:'annal-'+removalId.slice(0,24)});
