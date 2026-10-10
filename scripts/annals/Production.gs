@@ -6,6 +6,13 @@ function annalsOwner_() {
   return AnnalsProduction.owner(Session.getActiveUser().getEmail(), Session.getEffectiveUser().getEmail(),
     annalsProps_().getProperty('ANNALS_OWNER_EMAIL'));
 }
+function annalsServiceOwner_() {
+  var owner = annalsProps_().getProperty('ANNALS_OWNER_EMAIL');
+  var effective = Session.getEffectiveUser().getEmail();
+  if (!owner || !effective || effective.toLowerCase() !== owner.toLowerCase())
+    throw new Error('Wrong private service owner');
+  return owner.toLowerCase();
+}
 function annalsPrivate_(item) {
   var expected = annalsProps_().getProperty('ANNALS_OWNER_EMAIL');
   if (!expected || item.getSharingAccess() !== DriveApp.Access.PRIVATE || item.getEditors().length || item.getViewers().length ||
@@ -243,7 +250,19 @@ function annalsStageProduction_(message, activation, allowed) {
   if (!source.senderAuthenticated) return 'unverified';
   if (!source.aiConsentActive) { annalsAckOnce_(folder, sender, id, 'private_review_only'); return 'awaiting_consent'; }
   if (source.requiresClarification || attachments.length || !source.source.excerpt || source.source.excerptTruncated) {
-    annalsAckOnce_(folder, sender, id, 'held_for_private_review'); return 'held';
+    var hasEligibleSinglePhoto = source.imageConsentAtReceipt &&
+      attachments.length === 1 && source.attachmentManifest.items.length === 1 &&
+      source.attachmentManifest.items[0].accepted &&
+      ['image/jpeg','image/png'].indexOf(source.attachmentManifest.items[0].mime) >= 0 &&
+      source.attachmentManifest.items[0].size > 0 && source.attachmentManifest.items[0].size <= 4*1024*1024;
+    var completeStandaloneText = !!source.source.excerpt && !source.source.excerptTruncated &&
+      annalsSafeTextForAutoAi_(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) &&
+      AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt));
+    if (!hasEligibleSinglePhoto && !completeStandaloneText) {
+      annalsAckOnce_(folder, sender, id, 'held_for_private_review'); return 'held';
+    }
+    annalsAckOnce_(folder, sender, id, hasEligibleSinglePhoto ? 'awaiting_private_photo_screening' : 'consented_private_text_drafting');
+    return 'staged';
   }
   annalsAckOnce_(folder, sender, id, 'consented_private_drafting');
   return 'staged';
@@ -579,7 +598,7 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
     var ledger = AnnalsProduction.reserve(JSON.parse(p.getProperty('ANNALS_BUDGET_LEDGER') || 'null'), month);
     p.setProperty('ANNALS_BUDGET_LEDGER', JSON.stringify(ledger)); // before any network request
     annalsWriteOnce_(f, 'ai-attempt-private.json', { state: 'attempt_reserved', reservedCents: 10,
-      at: new Date().toISOString(), owner: annalsOwner_(), model: AnnalsProduction.MODEL,
+      at: new Date().toISOString(), owner: intakeLockHeld === true ? annalsServiceOwner_() : annalsOwner_(), model: AnnalsProduction.MODEL,
       processingConsent: true, submittedText: text, selectedNames: selectedNames });
     var response;
     try {
