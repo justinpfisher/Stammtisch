@@ -130,6 +130,13 @@ test('safe standalone text publishes even if an unrelated image is held privatel
   assert.equal(policy.propose(s,draft(),id).eligible,false);
   const t=sample();t.attachmentManifest.held=true;
   assert.equal(policy.propose(t,draft(),id).eligible,true);
+  const u=sample();u.attachmentManifest.items=[{mime:'image/png',size:100}];
+  u.source.excerpt+='\nPhoto attached.';
+  const independent=policy.propose(u,draft(),id);
+  assert.equal(independent.eligible,true);
+  assert.equal(independent.entry.summary,sample().source.excerpt);
+  const imageOnly=sample();imageOnly.source.excerpt='See attached photo.';
+  assert.equal(policy.propose(imageOnly,draft(),id).eligible,false);
 });
 test('generic language about a club gathering is not a privacy veto',()=>{
   const s=sample();s.source.subject='Club history';s.source.excerpt='We gathered at home and had a damn good laugh.';
