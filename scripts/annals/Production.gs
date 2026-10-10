@@ -98,6 +98,24 @@ function annalsStageProduction_(message, activation, allowed) {
   annalsWriteOnce_(folder, 'source-private.json', source);
   return source.requiresClarification ? 'held' : 'staged';
 }
+/** Create one fixed, private synthetic item for a manual provider check; never reads Gmail or calls AI. */
+function annalsCreateSyntheticCheckItem() {
+  annalsOwner_();
+  return annalsLocked_(function () {
+    var root = annalsRoot_(), messageId = 'stammtisch-annals-production-check-v1';
+    var id = annalsHash_(messageId), existing = root.getFoldersByName(id);
+    if (existing.hasNext()) throw new Error('Synthetic integration item already exists; do not recreate it');
+    var sender = 'synthetic@invalid.example', received = new Date();
+    var message = { getId: function () { return messageId; }, getFrom: function () { return sender; },
+      getSubject: function () { return 'Synthetic production integration check — not club history'; },
+      getDate: function () { return received; },
+      getPlainBody: function () { return 'Fictional test only. Imaginary recipe: 1/2 oz imaginary syrup and 1 oz test juice. This is not a real contribution and has no publication permission.'; },
+      getAttachments: function () { return []; } };
+    var result = annalsStageProduction_(message, received.getTime() - 1000, [sender]);
+    if (result !== 'staged') throw new Error('Synthetic integration item could not be staged privately');
+    return { created: true, automaticAi: false, publishesAnything: false };
+  });
+}
 /** Bounded inbox traversal; no mail, labels or read/unread state is changed.
  * A saved thread/message position is resumed on the next run, then wraps.
  */
