@@ -57,7 +57,8 @@ function mock() {
 }
 test('AI and public contracts retain literal fractions and match approved renderer canonical digest', () => {
   assert.equal(core.candidate(candidate()).recipe.drinkIngredients[0], '1/2 oz syrup');
-  assert.ok(core.candidate(candidate()).riskFlags.includes('recipe_unverified'));
+  assert.ok(core.candidate(candidate()).riskFlags.includes('handwriting_ambiguous'));
+  assert.ok(!core.candidate(candidate()).riskFlags.includes('recipe_unverified'));
   assert.deepEqual(core.publicEntry(entry()), validatePublicTextEntry(entry()));
   assert.equal(createHash('sha256').update(core.serial(core.publicEntry(entry()))).digest('hex'), contentDigest(entry()));
   for (const extra of ['sender','publicationApproved','media']) assert.throws(()=>core.publicEntry({...entry(),[extra]:'private'}));
