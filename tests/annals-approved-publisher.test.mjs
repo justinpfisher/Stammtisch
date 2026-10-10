@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { applyApprovedEntry } from '../scripts/annals/apply-approved-entry.mjs';
 import { contentDigest, verifyPublicApproval } from '../scripts/annals/ApprovedRenderer.mjs';
+import { readFile } from 'node:fs/promises';
 
 const secret = 'synthetic-publication-test-key-not-a-real-secret';
 const entry = { id: 'annal-aaaaaaaaaaaaaaaaaaaaaaaa', category: 'cocktail', title: 'Synthetic cocktail',
@@ -17,7 +18,7 @@ const makeApproval = source => {
   return { ...unsigned, signature: createHmac('sha256', secret)
     .update(JSON.stringify(canonical({ entry: source, approval: unsigned }))).digest('hex') };
 };
-const eventFor = (source = entry, approval = makeApproval(source)) => ({ event_type: 'annals-approved-entry', client_payload: { entry: source, approval } });
+const eventFor = (source = entry, approval = makeApproval(source)) => ({ action: 'annals-approved-entry', client_payload: { entry: source, approval } });
 const emptyArchive = () => ({ schemaVersion: 1, entries: [], approvals: [] });
 
 test('only a valid exact public approval is added and rendered', async () => {
@@ -33,9 +34,9 @@ test('only a valid exact public approval is added and rendered', async () => {
 test('changed text, invalid event, duplicate identity and private fields fail closed', async () => {
   const approval = makeApproval(entry);
   await assert.rejects(applyApprovedEntry({ event: eventFor({ ...entry, summary: 'Changed.' }, approval), data: emptyArchive(), secret }));
-  await assert.rejects(applyApprovedEntry({ event: { ...eventFor(), event_type: 'workflow_dispatch' }, data: emptyArchive(), secret }));
+  await assert.rejects(applyApprovedEntry({ event: { ...eventFor(), action: 'workflow_dispatch' }, data: emptyArchive(), secret }));
   await assert.rejects(applyApprovedEntry({ event: eventFor(), data: { ...emptyArchive(), entries: [entry], approvals: [approval] }, secret }));
-  await assert.rejects(() => applyApprovedEntry({ event: { event_type: 'annals-approved-entry', client_payload: { entry: { ...entry, sender: 'member@example.test' }, approval: makeApproval(entry) } }, data: emptyArchive(), secret }));
+  await assert.rejects(() => applyApprovedEntry({ event: { action: 'annals-approved-entry', client_payload: { entry: { ...entry, sender: 'member@example.test' }, approval: makeApproval(entry) } }, data: emptyArchive(), secret }));
 });
 
 test('preserves prior approved entries and rejects forged or missing approval signatures', async () => {
@@ -47,4 +48,13 @@ test('preserves prior approved entries and rejects forged or missing approval si
   assert.match(result.html, /Existing approved item/);
   await assert.rejects(applyApprovedEntry({ event: eventFor(entry, { ...approval, signature: '0'.repeat(64) }), data: emptyArchive(), secret }));
   await assert.rejects(applyApprovedEntry({ event: eventFor(entry, { ...approval, reviewerEmail: 'private@example.test' }), data: emptyArchive(), secret }));
+});
+
+test('publisher workflow is reachable only through the dedicated repository dispatch and writes only Annals files', async () => {
+  const workflow = await readFile(new URL('../.github/workflows/annals-publish.yml', import.meta.url), 'utf8');
+  assert.match(workflow, /repository_dispatch:\s*\n\s*types:\s*\[annals-approved-entry\]/);
+  assert.match(workflow, /permissions:\s*\n\s*contents:\s*write/);
+  assert.doesNotMatch(workflow, /actions:\s*write|workflow_dispatch|pull_request|schedule:/);
+  assert.match(workflow, /git add annals\.html data\/annals-approved\.json/);
+  assert.match(workflow, /ANNALS_PUBLISH_SIGNING_KEY/);
 });
