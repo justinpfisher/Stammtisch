@@ -25,7 +25,7 @@ var AnnalsAuto = (function () {
     text = text.replace(/\n(?:\s*\n)*(?:sent from my (?:iphone|android|ipad)|get outlook for (?:ios|android))[^\n]*\s*$/i, '');
     text = text.replace(/\n--\s*\n[\s\S]*$/, '');
     text = text.replace(/\n(?:\s*\n)*(?:cheers|thanks|regards|best|sincerely),?\s*\n[A-Z][A-Za-z' -]{1,40}\s*$/i, '');
-    text = text.replace(/\n(?:\s*\n)*(?:photo attached\.?|see (?:the )?(?:attached )?(?:photo|image|picture)\.?|attached (?:photo|image|picture)\.?)\s*$/i, '');
+    text = text.replace(/\n(?:\s*\n)*(?:photo attached\.?|attached (?:photo|image|picture)\.?)\s*$/i, '');
     return text.trim();
   }
   function censor(value) {
