@@ -26,6 +26,7 @@ const RECEIPT_KEYS = new Set([
 const PUBLIC_APPROVAL_KEYS = new Set(['entryId', 'approvedAt', 'consents', 'contentSha256', 'signature', 'mode']);
 const PUBLIC_REMOVAL_KEYS = new Set(['entryId', 'approvedAt', 'contentSha256', 'signature']);
 const CONSENT_KEYS = new Set(['publication', 'quotePublication', 'recipeVerified', 'namedAttribution', 'photoPublication']);
+const UNCENSORED_STRONG = /\b(?:motherfucker|motherfucking|fucking|fucked|fucker|fuck|bullshit|shitty|shit|asshole|bastard|bitch|cunt|dickhead)\b/i;
 
 const allowedKeys = (object, keys, context) => {
   if (!object || typeof object !== 'object' || Array.isArray(object) ||
@@ -85,6 +86,9 @@ export function validatePublicTextEntry(input) {
     if (input.category !== 'cocktail' || !/^[a-f0-9]{64}$/.test(input.photo.sha256 ?? '')) throw new Error('Invalid cocktail photo');
     output.photo = { sha256: input.photo.sha256, alt: limited(input.photo.alt, 'photo alt text', 180, true) };
   }
+  const publicTexts = [output.title, output.summary, output.dateLabel, output.credit, output.quoteVerbatim,
+    ...outputRecipe.drinkIngredients, ...outputRecipe.syrupIngredients, ...outputRecipe.steps];
+  if (publicTexts.some(s => UNCENSORED_STRONG.test(s))) throw new Error('Uncensored strong profanity must not enter the public archive');
   return Object.freeze(output);
 }
 
@@ -197,7 +201,8 @@ function approvedEntryMarkup(entry) {
     (entry.dateLabel ? '<p class="annal-date">' + esc(entry.dateLabel) + '</p>' : '') +
     '<p class="annal-summary">' + esc(entry.summary) + '</p>' +
     (entry.photo ? '<figure class="annal-photo"><img src="assets/annals/' + esc(entry.id) + '.jpg" alt="' + esc(entry.photo.alt) + '" loading="lazy" decoding="async"></figure>' : '') +
-    (entry.category === 'quotation' ? '<blockquote>' + esc(entry.quoteVerbatim) + '</blockquote>' : '') +
+    (entry.category === 'quotation' ? '<blockquote>' + esc(entry.quoteVerbatim) + '</blockquote>' +
+      (/\[(?:EXPLETIVE|POOP)\]/.test(entry.quoteVerbatim) ? '<p class="annal-quote-note">Editorially censored quotation — not verbatim.</p>' : '') : '') +
     (entry.category === 'cocktail' ? '<div class="annal-recipe">' +
       section('Ingredients', entry.recipe.drinkIngredients) +
       section('Homemade syrup', entry.recipe.syrupIngredients) +
@@ -294,6 +299,7 @@ function buildAnnals(entries, receipts, verifyReceipt) {
 .annal-contribute{display:inline-flex;align-items:center;min-height:48px;margin-top:18px;padding:10px 16px;background:#193d32;color:#f6f2e9;text-decoration:none;font-size:12px}
 .annal-note{margin-top:10px;color:#64685e;font-size:11px}
 .annal-editorial-notice{margin:24px 0 38px;padding-top:16px;border-top:1px solid #d4d3c4;color:#64685e;font:italic 12px/1.7 Georgia,serif;max-width:790px}
+.annal-quote-note{font:italic 12px/1.6 Georgia,serif;color:#64685e}
 @media(max-width:700px){.annal-hero{padding-block:38px 30px}.annal-collection{padding-block:27px}.annal-collection>h2{font-size:29px}.annal-entry{padding-block:18px 25px}}
 </style>
 </head>
