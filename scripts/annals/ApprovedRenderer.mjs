@@ -23,7 +23,7 @@ const RECIPE_KEYS = new Set(['drinkIngredients', 'syrupIngredients', 'steps']);
 const RECEIPT_KEYS = new Set([
   'entryId', 'approvedAt', 'reviewedBy', 'consents', 'contentSha256', 'signature'
 ]);
-const PUBLIC_APPROVAL_KEYS = new Set(['entryId', 'approvedAt', 'consents', 'contentSha256', 'signature']);
+const PUBLIC_APPROVAL_KEYS = new Set(['entryId', 'approvedAt', 'consents', 'contentSha256', 'signature', 'mode']);
 const PUBLIC_REMOVAL_KEYS = new Set(['entryId', 'approvedAt', 'contentSha256', 'signature']);
 const CONSENT_KEYS = new Set(['publication', 'quotePublication', 'recipeVerified', 'namedAttribution', 'photoPublication']);
 
@@ -146,6 +146,13 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
     const entry = validatePublicTextEntry(publicEntry);
     allowedKeys(approval, PUBLIC_APPROVAL_KEYS, 'public approval');
     allowedKeys(approval.consents, CONSENT_KEYS, 'consent');
+    const automated = approval.mode === 'standing-consent-text-v1';
+    if (approval.mode !== undefined && !automated) return false;
+    // Automated proof must be separately domain-tagged, with no photos,
+    // third-party quotations or named attribution.
+    if (automated && (entry.photo || entry.category === 'quotation' || entry.credit !== 'anonymous' ||
+        approval.consents.quotePublication !== false || approval.consents.namedAttribution !== false ||
+        approval.consents.photoPublication !== false)) return false;
     if (approval.entryId !== entry.id || !/^\d{4}-\d{2}-\d{2}T/.test(approval.approvedAt ?? '') ||
         approval.consents.publication !== true ||
         (entry.category === 'quotation' && approval.consents.quotePublication !== true) ||
@@ -156,7 +163,8 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
     const signedMaterial = JSON.stringify(canonical({
       entry,
       approval: { entryId: approval.entryId, approvedAt: approval.approvedAt,
-        consents: approval.consents, contentSha256: approval.contentSha256 },
+        consents: approval.consents, contentSha256: approval.contentSha256,
+        ...(automated ? { mode: approval.mode } : {}) },
     }));
     const expected = createHmac('sha256', secret).update(signedMaterial).digest();
     return timingSafeEqual(expected, Buffer.from(approval.signature, 'hex'));
@@ -285,6 +293,7 @@ function buildAnnals(entries, receipts, verifyReceipt) {
 .annal-empty{padding-block:20px;color:#64685e;font-style:italic}
 .annal-contribute{display:inline-flex;align-items:center;min-height:48px;margin-top:18px;padding:10px 16px;background:#193d32;color:#f6f2e9;text-decoration:none;font-size:12px}
 .annal-note{margin-top:10px;color:#64685e;font-size:11px}
+.annal-editorial-notice{margin:24px 0 38px;padding-top:16px;border-top:1px solid #d4d3c4;color:#64685e;font:italic 12px/1.7 Georgia,serif;max-width:790px}
 @media(max-width:700px){.annal-hero{padding-block:38px 30px}.annal-collection{padding-block:27px}.annal-collection>h2{font-size:29px}.annal-entry{padding-block:18px 25px}}
 </style>
 </head>
@@ -302,6 +311,7 @@ function buildAnnals(entries, receipts, verifyReceipt) {
 <p class="annal-note">Members only. A submission is considered privately; it is not by itself permission to publish.</p></section>
 ${navigation}
 ${collections}${emptyState}
+<p class="annal-editorial-notice">The Editorial Committee reserves the right to replace particularly spirited language with conspicuous euphemisms. Historical accuracy is otherwise maintained.</p>
 </main>
 <footer class="site-footer"><div class="shell footer-inner"><p>The Stammtisch Social Club<span>A tradition of gathering.</span></p><nav aria-label="Footer navigation"><a href="index.html">The Club</a><a href="annals.html" aria-current="page">The Annals</a><a href="celebration.html">Celebration of Life</a><a href="location.html">The Annual Assembly</a></nav></div></footer>
 </body></html>`;
