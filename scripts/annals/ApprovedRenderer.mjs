@@ -88,7 +88,7 @@ export function validatePublicTextEntry(input) {
   };
   if (input.photo !== undefined && input.photo !== null) {
     allowedKeys(input.photo, new Set(['sha256', 'alt']), 'photo');
-    if (input.category !== 'cocktail' || !/^[a-f0-9]{64}$/.test(input.photo.sha256 ?? '')) throw new Error('Invalid cocktail photo');
+    if (!['cocktail','artefact'].includes(input.category) || !/^[a-f0-9]{64}$/.test(input.photo.sha256 ?? '')) throw new Error('Invalid cocktail photo');
     output.photo = { sha256: input.photo.sha256, alt: limited(input.photo.alt, 'photo alt text', 180, true) };
   }
   const publicTexts = [output.title, output.summary, output.dateLabel, output.credit, output.quoteVerbatim,
@@ -216,7 +216,7 @@ function approvedEntryMarkup(entry) {
       section('Ingredients', entry.recipe.drinkIngredients) +
       section('Homemade syrup', entry.recipe.syrupIngredients) +
       section('Preparation recorded by contributor', entry.recipe.steps) +
-      section('Suggested preparation — editorial reconstruction, not an original instruction',
+      section('Editorial suggestions — NOT part of the original recipe',
         entry.recipe.suggestedSteps || []) + '</div>' : '') +
     (entry.credit === 'anonymous' ? '' : '<p class="annal-credit">Recorded by ' + esc(entry.credit) + '</p>') +
     '</article>';
