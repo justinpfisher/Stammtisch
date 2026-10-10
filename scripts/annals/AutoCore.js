@@ -18,6 +18,15 @@ var AnnalsAuto = (function () {
   var NAMED_PERSON = /\b(?:with|by|from|said|called|named|met)\s+[A-Z][a-z]+\s+[A-Z][a-z]+\b/;
   var HARD_FLAGS = ['recipe_unverified','handwriting_ambiguous','possible_personal_identifier','location_or_home_context','private_context','quote_consent_unconfirmed'];
   var MAY_IGNORE_MEDIA_FLAGS = ['faces_or_reflections','unknown_attachment','photo_transcription_unverified'];
+  function cleanText(value) {
+    if (typeof value !== 'string') throw new Error('Invalid source text');
+    var text = value.replace(/\r\n/g, '\n').trim();
+    // Remove only recognised trailing device/mail signatures, not story text.
+    text = text.replace(/\n(?:\s*\n)*(?:sent from my (?:iphone|android|ipad)|get outlook for (?:ios|android))[^\n]*\s*$/i, '');
+    text = text.replace(/\n--\s*\n[\s\S]*$/, '');
+    text = text.replace(/\n(?:\s*\n)*(?:cheers|thanks|regards|best|sincerely),?\s*\n[A-Z][A-Za-z' -]{1,40}\s*$/i, '');
+    return text.trim();
+  }
   function censor(value) {
     if (typeof value !== 'string') throw new Error('Invalid editorial text');
     return value.replace(/\b(?:tastes?|smells?)\s+like\s+shit\b/gi, function (part) {
@@ -78,9 +87,10 @@ var AnnalsAuto = (function () {
         privateSource.autoConsentAtReceipt !== true) return held('consent_or_source_missing');
     var s = privateSource.source;
     if (typeof s.excerpt !== 'string' || !s.excerpt.trim() || s.excerptTruncated ||
-        typeof s.subject !== 'string' || s.subject.length > 160 ||
-        s.excerpt.length > 1800) return held('source_incomplete');
-    var source = s.excerpt.trim(), full = (s.subject.trim() + '\n' + source).trim();
+        typeof s.subject !== 'string' || s.subject.length > 160) return held('source_incomplete');
+    var source = cleanText(s.excerpt);
+    if (!source || source.length > 1800) return held('source_incomplete');
+    var full = (s.subject.trim() + '\n' + source).trim();
     if (protectedText(full)) return held('private_personal_or_sensitive_content');
     var media = privateSource.attachmentManifest;
     if (!media || !Array.isArray(media.items) || !independentText(full)) return held('media_context_required');
@@ -122,6 +132,6 @@ var AnnalsAuto = (function () {
       credit: 'anonymous' };
     return { eligible: true, entry: entry, mode: MODE };
   }
-  return Object.freeze({ MODE: MODE, NOTICE: NOTICE, censor: censor, independentText: independentText, propose: propose });
+  return Object.freeze({ MODE: MODE, NOTICE: NOTICE, censor: censor, cleanText: cleanText, independentText: independentText, propose: propose });
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = AnnalsAuto;
