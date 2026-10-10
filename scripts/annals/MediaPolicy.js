@@ -53,29 +53,30 @@ var AnnalsMediaPolicy = (function () {
       // cocktail; never use a photo to override any other privacy hold.
       var body = String(source.source.excerpt || '').trim();
       var subject = String(source.source.subject || '').trim();
-      if (!okay || body || candidate.category !== 'cocktail' || !subject || subject.length > 150 ||
+      if (!okay || (body && !/^(?:(?:here is|here's|attached is|photo of|picture of|see) )?(?:a |the |my |our )?(?:photo|picture|cocktail|drink|club artefact|artefact)(?: attached)?[.!]?$/i.test(body)) ||
+          ['cocktail','artefact'].indexOf(candidate.category) < 0 || !subject || subject.length > 150 ||
           DANGEROUS.test(subject) || candidate.riskFlags.length) return decision;
       var received = new Date(source.source.receivedAt);
       if (isNaN(received.getTime()) || received.getUTCFullYear() < 1990 || received.getUTCFullYear() > 2100)
         return {eligible:false,reason:'invalid_receipt_date'};
       var photoEntry = {
-        id:'annal-' + id.slice(0,24),category:'cocktail',title:AnnalsAuto.censor(subject),
-        summary: 'A photograph contributed to the Annals. No recipe details were supplied.',
+        id:'annal-' + id.slice(0,24),category:candidate.category,title:AnnalsAuto.censor(subject),
+        summary: 'A photograph contributed to the Annals. No recipe or additional historical details were supplied.',
         year:received.getUTCFullYear(),dateLabel:'Submitted '+received.toISOString().slice(0,7),
         sortDate:'',quoteVerbatim:'',recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]},
-        credit:'anonymous',photo:{sha256:photo.sha256,alt:'Contributor-submitted cocktail photograph'}
+        credit:'anonymous',photo:{sha256:photo.sha256,alt:candidate.category === 'artefact' ? 'Contributor-submitted photograph of a club artefact' : 'Contributor-submitted cocktail photograph'}
       };
       return {eligible:true,entry:photoEntry,mode:MODE};
     }
     // A safe recipe or story can be public with its companion image held.
     var entry = decision.entry;
-    if (entry.category === 'cocktail') {
+    if (['cocktail','artefact'].indexOf(entry.category) >= 0) {
       var original = (entry.recipe.suggestedSteps || []).slice();
       var ideas = suggestedQuantities(entry.recipe, source.source.excerpt || '');
       var suggested = original.concat(ideas).slice(0,3);
       if (suggested.length) entry.recipe.suggestedSteps = suggested;
       if (okay) {
-        entry.photo = {sha256:photo.sha256,alt:'Contributor-submitted cocktail photograph'};
+        entry.photo = {sha256:photo.sha256,alt:entry.category === 'artefact' ? 'Contributor-submitted photograph of a club artefact' : 'Contributor-submitted cocktail photograph'};
         return {eligible:true,entry:entry,mode:MODE};
       }
     }
