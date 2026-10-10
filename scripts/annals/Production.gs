@@ -95,9 +95,83 @@ function annalsImageConsentActive_(sender, receivedAt) {
     permission.scope === 'future_safe_original_image_ai_and_publication' &&
     !permission.revokedAt && Number.isFinite(granted) && Number.isFinite(received) && received >= granted;
 }
+/** Explicit email-to-approved-public-art assignments exist only in the
+ * dedicated private Apps Script properties, never the public repository.
+ * An invalid/missing map simply omits attribution; publication still proceeds.
+ */
+function annalsContributorPortrait_(source) {
+  if (!source || source.senderAuthenticated !== true || !source.source ||
+      typeof source.source.sender !== 'string' || !source.source.receivedAt) return null;
+  var sender = source.source.sender.toLowerCase();
+  if (!annalsStandingPublicationActive_(sender, source.source.receivedAt)) return null;
+  var member = annalsConsentRegistry_().members[sender];
+  if (!member || member.portraitAttributionDisabled === true) return null;
+  var raw = annalsProps_().getProperty('ANNALS_CONTRIBUTOR_PORTRAITS');
+  if (!raw) return null;
+  try {
+    var allowed = AnnalsPilot.allowedSenders(annalsProps_().getProperty('ANNALS_ALLOWED_SENDERS') || '');
+    return AnnalsProduction.portraitMap(allowed, JSON.parse(raw))[sender] || null;
+  } catch (ignored) {
+    // A misspelled member mapping must never show another person's portrait.
+    return null;
+  }
+}
+function annalsReviewContributorPortraits(nonce) {
+  return annalsUiCall_(nonce, function () {
+    var p = annalsProps_(), allowed = AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '');
+    var mapping = null;
+    try { mapping = AnnalsProduction.portraitMap(allowed, JSON.parse(p.getProperty('ANNALS_CONTRIBUTOR_PORTRAITS') || 'null')); }
+    catch (ignored) {}
+    return {
+      configured: !!mapping,
+      assignments: allowed.map(function (address) {
+        return { address: address, portrait: mapping ? mapping[address] : '' };
+      }),
+      options: [{ id:'fish', label:'Justin (Fish)' },{ id:'marc', label:'Marc' },
+        { id:'matt', label:'Matt' },{ id:'ken', label:'Ken' },
+        { id:'jamie', label:'Jamie' },{ id:'jerome', label:'Jerome' }]
+    };
+  });
+}
+function annalsSaveContributorPortraits(nonce, assignments, confirmed) {
+  return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
+    if (confirmed !== true) throw new Error('Verify all six illustrated portrait identities');
+    var p = annalsProps_();
+    if (p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED') === 'true')
+      throw new Error('Stop the Annals intake trigger before changing contributor portraits');
+    var allowed = AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '');
+    if (!Array.isArray(assignments) || assignments.length !== 6) throw new Error('Exactly six members required');
+    var mapping = {};
+    assignments.forEach(function (item) {
+      if (!item || typeof item.address !== 'string' || typeof item.portrait !== 'string' ||
+          Object.keys(item).some(function (key) { return ['address','portrait'].indexOf(key) < 0; }) ||
+          Object.prototype.hasOwnProperty.call(mapping,item.address))
+        throw new Error('Invalid or repeated member portrait assignment');
+      mapping[item.address] = item.portrait;
+    });
+    var validated = AnnalsProduction.portraitMap(allowed, mapping);
+    // Only approved portrait identifiers are saved; sender addresses stay in private configuration.
+    p.setProperty('ANNALS_CONTRIBUTOR_PORTRAITS', JSON.stringify(validated));
+    return { configured:true, portraitCount:6, publicAddressesSaved:false };
+  }); });
+}
 function annalsHandleConsentReply_(sender, body) {
   var root = annalsRoot_(), registry = annalsConsentRegistry_(), member = registry.members[sender.toLowerCase()];
   var text = String(body || '').split(/\r?\n/).map(function (line) { return line.trim(); }).filter(Boolean)[0] || '';
+  if (member && text === 'HIDE MY ANNALS PORTRAIT') {
+    member.portraitAttributionDisabled = true;
+    annalsSavePrivate_(root, 'consent-registry-private.json', registry);
+    MailApp.sendEmail(sender, 'Annals contributor portrait hidden',
+      'Future Annals entries will not identify you with an illustrated portrait. Existing published entries require a separate correction or withdrawal request.');
+    return 'portrait_hidden';
+  }
+  if (member && text === 'SHOW MY ANNALS PORTRAIT' && annalsStandingPublicationActive_(sender, new Date().toISOString())) {
+    member.portraitAttributionDisabled = false;
+    annalsSavePrivate_(root, 'consent-registry-private.json', registry);
+    MailApp.sendEmail(sender, 'Annals contributor portrait enabled',
+      'Your approved illustration may identify you on future eligible public Annals entries. To opt out, email HIDE MY ANNALS PORTRAIT.');
+    return 'portrait_enabled';
+  }
   if (member && member.imagePublication && member.imagePublication.status === 'pending' &&
       text === 'I CONSENT TO PRIVATE AI IMAGE SCREENING AND PUBLICATION OF MY SAFE ORIGINAL IMAGES. CODE: ' +
         member.imagePublication.challenge) {
@@ -200,7 +274,15 @@ function annalsProductionPreflight() {
     publicationRequiresExactOwnerApproval: true, // always true for manually held material
     autoPublicationEnabled: p.getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') === 'true',
     autoMediaEnabled: p.getProperty('ANNALS_AUTO_MEDIA_ENABLED') === 'true',
-    standingPublicationRequiresContributorConsent: true, sendsAcknowledgements: true };
+    standingPublicationRequiresContributorConsent: true,
+    contributorPortraitsConfigured: (function () {
+      try {
+        return !!AnnalsProduction.portraitMap(
+          AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || ''),
+          JSON.parse(p.getProperty('ANNALS_CONTRIBUTOR_PORTRAITS') || 'null'));
+      } catch (ignored) { return false; }
+    })(),
+    sendsAcknowledgements: true };
   console.log(JSON.stringify(result)); return result;
 }
 function annalsStampProductionActivation() {
@@ -239,7 +321,7 @@ function annalsStageProduction_(message, activation, allowed) {
     var consentResult = annalsHandleConsentReply_(sender, message.getPlainBody());
     if (consentResult) return consentResult;
     var firstLine = String(message.getPlainBody() || '').trim().split(/\r?\n/)[0] || '';
-    if (/^(?:I CONSENT TO |REVOKE ANNALS )/.test(firstLine)) return 'held'; // invalid/stale challenges are not submissions
+    if (/^(?:I CONSENT TO |REVOKE ANNALS |HIDE MY ANNALS PORTRAIT|SHOW MY ANNALS PORTRAIT)/.test(firstLine)) return 'held'; // invalid/stale challenges are not submissions
   }
   var attachments = message.getAttachments({ includeInlineImages: true, includeAttachments: true });
   var source = AnnalsPilot.privateProposal({ sourceId: id, from: sender, subject: message.getSubject(),
@@ -297,7 +379,7 @@ function annalsCreateSyntheticCheckItem() {
  * A saved thread/message position is resumed on the next run, then wraps.
  */
 function runAnnalsProductionIntake() {
-  var p = annalsProps_(), summary = { enabled: false, staged: 0, held: 0, duplicates: 0, skipped: 0, unverified: 0, awaiting_consent: 0, consent_activated: 0, consent_revoked: 0, auto_consent_activated: 0, auto_consent_revoked: 0, image_consent_activated: 0, image_consent_revoked: 0, drafted: 0, verified: 0 };
+  var p = annalsProps_(), summary = { enabled: false, staged: 0, held: 0, duplicates: 0, skipped: 0, unverified: 0, awaiting_consent: 0, consent_activated: 0, consent_revoked: 0, auto_consent_activated: 0, auto_consent_revoked: 0, portrait_hidden: 0, portrait_enabled: 0, image_consent_activated: 0, image_consent_revoked: 0, drafted: 0, verified: 0 };
   if (p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED') !== 'true') return summary;
   try {
     return annalsLocked_(function () {
@@ -572,6 +654,7 @@ function annalsReviewItem(nonce, id) {
       correctionApproval: correction, removal: annalsRead_(f, 'removal-private.json'),
       publishedEntry: (published || {}).entry || null,
       publishedEntryHash: (published || {}).entry ? annalsHash_(AnnalsProduction.serial(published.entry)) : null,
+      contributorPortrait: annalsContributorPortrait_(source),
       attempted: !!annalsFile_(f, 'ai-attempt-private.json'), approved: !!annalsFile_(f, 'approval-private.json'),
       publicationState: publicationState,
       dispatchAttempted: !!annalsFile_(f, 'publication-dispatch-private.json') };
@@ -760,6 +843,9 @@ function annalsSaveReview(nonce, id, rawEntry) {
     var f = annalsFolder_(id);
     if (!annalsRead_(f, 'source-private.json') || annalsFile_(f, 'approval-private.json')) throw new Error('Item cannot be edited here');
     var entry = AnnalsProduction.publicEntry(rawEntry);
+    var source = annalsRead_(f, 'source-private.json'), expectedPortrait = annalsContributorPortrait_(source);
+    if (entry.contributorPortrait && entry.contributorPortrait !== expectedPortrait)
+      throw new Error('Contributor portrait does not match the authenticated member');
     if (entry.id !== 'annal-' + id.slice(0, 24)) throw new Error('Entry mismatch');
     var review = { entry: entry, hash: annalsHash_(AnnalsProduction.serial(entry)), savedAt: new Date().toISOString() };
     var file = annalsFile_(f, 'review-private.json');
@@ -971,6 +1057,8 @@ function annalsAutoPublishCandidate_(id) {
     annalsWriteOnce_(folder, 'auto-decision-private.json', { state: 'held', reason: decision.reason, at: new Date().toISOString() });
     return false;
   }
+  var portrait = annalsContributorPortrait_(source);
+  if (portrait) decision.entry.contributorPortrait = portrait;
   var entry = AnnalsProduction.publicEntry(decision.entry);
   var hash = annalsHash_(AnnalsProduction.serial(entry));
   var receipt = { entryId: entry.id, approvedAt: new Date().toISOString(),
