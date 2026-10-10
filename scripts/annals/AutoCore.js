@@ -13,7 +13,7 @@ var AnnalsAuto = (function () {
   var PRIVATE_DATA = /(?:\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b|https?:\/\/|www\.|\b(?:\+?1[- .]?)?\(?[2-9]\d{2}\)?[- .][2-9]\d{2}[- .]\d{4}\b|\b\d{1,5}\s+[\w'-]+\s+(?:street|st\.|avenue|ave\.|road|rd\.|drive|lane|boulevard|blvd\.)\b|\b(?:password|passcode|access code|door code|postal code|credit card|bank account|home address|private address|personal phone|private message|confidential|secret|medical diagnosis)\b|^\s*(?:from|sent|subject|to|cc|bcc)\s*:|^\s*>|^\s*--\s*$|<[^>]+>|\b(?:ignore previous instructions|system prompt|developer instructions|api key|publish this regardless|override safeguards)\b)/im;
   var ALLEGATION = /\b(?:accused of|allegedly|arrested for|charged with|fraud|assault|abuse|crime|criminal|illegal activity|diagnosed with|passed away|died by suicide)\b/i;
   var IDENTIFYING = /\b(?:Justin|Marc|Matt|Ken|Jamie|Jerome)\b/i;
-  var THIRD_PARTY = /\b(?:he said|she said|they said|according to|quoted from|overheard|guest named|colleague named|Mr\.|Mrs\.|Dr\.)\b/i;
+  var THIRD_PARTY = /\b(?:he said|she said|they said|he told me|she told me|they told me|according to|quoted from|overheard|guest named|colleague named|mr\.|mrs\.|dr\.)\b/i;
   var MEDIA_DEPENDENT = /\b(?:as pictured|in the photo|see (?:the )?(?:photo|image|picture|attachment|scan|file)|attached (?:photo|image|picture|recipe)|image says|photo shows|pictured here)\b/i;
   var NAMED_PERSON = /\b(?:with|by|from|said|called|named|met)\s+[A-Z][a-z]+\s+[A-Z][a-z]+\b/;
   var HARD_FLAGS = ['recipe_unverified','handwriting_ambiguous','possible_personal_identifier','location_or_home_context','private_context','quote_consent_unconfirmed'];
@@ -60,6 +60,11 @@ var AnnalsAuto = (function () {
     if (measurementLines.some(function (line) {
       return !all.some(function (part) { return norm(part) === line; });
     })) return false;
+    var method = /^(?:stir|shake|strain|garnish|mix|pour|blend|muddle|simmer|boil|add|combine|chill|serve|heat|steep)\b/i;
+    var submittedSteps = source.split(/\r?\n/).map(norm).filter(function (line) { return method.test(line); });
+    if (submittedSteps.some(function (line) {
+      return !recipe.steps.some(function (part) { return norm(part) === line; });
+    })) return false;
     // A submitted syrup preparation is material, not an optional flourish.
     if (/\b(?:homemade syrup|make (?:the )?syrup|simmer (?:the )?syrup)\b/i.test(source) &&
         !recipe.syrupIngredients.length && !recipe.steps.some(function (step) { return /syrup/i.test(step); })) return false;
@@ -84,7 +89,7 @@ var AnnalsAuto = (function () {
         (MAY_IGNORE_MEDIA_FLAGS.indexOf(flag) >= 0 && !independentText(full));
     })) return held('material_uncertainty');
     if (!reasonableCategory(candidate.category, full)) return held('classification_not_supported');
-    if (candidate.eventDate && !sourceGrounded(full,candidate.eventDate)) return held('date_claim_unverified');
+    // Ignore unverified AI event dates; publish only the verified receipt period.
     if (typeof candidate.title !== 'string' || !candidate.title.trim() || candidate.title.length > 160 ||
         protectedText(candidate.title)) return held('title_missing_or_sensitive');
     // Model-created headlines are editorial labels, not historical evidence.
@@ -100,6 +105,7 @@ var AnnalsAuto = (function () {
       if (!sourceRecipeGrounded(source, recipe)) return held('recipe_measure_or_step_uncertain');
     } else if (all.length) return held('unexpected_recipe');
     var quote = '';
+    if (candidate.category !== 'quotation' && /[\"“”«»]/.test(full)) return held('third_party_quotation_permission');
     if (candidate.category === 'quotation') {
       if (typeof candidate.quoteVerbatim !== 'string' || !selfQuotation(source,candidate.quoteVerbatim) ||
           /\b(?:he|she|they|someone|guest|member|friend)\s+said\b/i.test(source)) return held('third_party_quotation_permission');
