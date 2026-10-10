@@ -119,7 +119,8 @@ function annalsSaveSpeakerIdentities(nonce, assignments, confirmed) {
     var p = annalsProps_();
     if (p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED') === 'true' ||
         p.getProperty('ANNALS_AI_ENABLED') === 'true' ||
-        p.getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') === 'true')
+        p.getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') === 'true' ||
+        p.getProperty('ANNALS_AUTO_MEDIA_ENABLED') === 'true')
       throw new Error('Stop Annals automation before changing speaker identities');
     var allowed = AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || ''), mapping = {};
     assignments.forEach(function (item) {
@@ -156,8 +157,8 @@ function annalsQuoteSpeakerPermission_(source, draft) {
   if (!speakerAddress) return null;
   var member = annalsConsentRegistry_().members[speakerAddress], grant = member && member.quoteAttribution;
   var date = Date.parse(source.source.receivedAt), grantedAt = Date.parse(grant && grant.consentedAt);
-  if (!member || member.portraitAttributionDisabled === true || !member.autoPublication ||
-      member.autoPublication.status !== 'active' || member.autoPublication.revokedAt || !grant ||
+  if (!member || member.portraitAttributionDisabled === true ||
+      !annalsStandingPublicationActive_(speakerAddress, source.source.receivedAt) || !grant ||
       grant.status !== 'active' || grant.scope !== 'future_attributed_member_quotation_publication' ||
       grant.revokedAt || !Number.isFinite(date) || !Number.isFinite(grantedAt) ||
       date < grantedAt) return null;
@@ -171,7 +172,8 @@ function annalsRecordVerifiedQuotePermissions(nonce, confirmed, evidenceNote) {
     var p = annalsProps_();
     if (p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED') === 'true' ||
         p.getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') === 'true' ||
-        p.getProperty('ANNALS_AI_ENABLED') === 'true')
+        p.getProperty('ANNALS_AI_ENABLED') === 'true' ||
+        p.getProperty('ANNALS_AUTO_MEDIA_ENABLED') === 'true')
       throw new Error('Disable Annals automation before recording speaker permissions');
     var allowed = AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '');
     if (allowed.length !== 6) throw new Error('Exactly six private contributors are required');
