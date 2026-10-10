@@ -1,6 +1,6 @@
 # Annals of Stammtisch — email-to-website publishing proposal
 
-**Status:** Proposed design only. **Date:** 2026-10-08. **Owner intent:** Almost zero manual website maintenance, one simple email submission process for the six friends, AI classification and editorial preparation, with controlled publishing.
+**Status:** Historical proposal from 2026-10-08; its original no-automatic-publication gate was superseded by the owner's 10 October 2026 decision for narrowly eligible, separately consented, source-grounded automatic text. **Current authority:** `docs/annals-production-runbook.md`. **Owner intent:** Almost zero manual website maintenance, one simple email submission process for the six friends, AI classification and editorial preparation, with controlled publishing.
 
 **Do not treat this design as permission to provision services, change DNS or MX records, connect personal inboxes, incur costs, create API keys, activate automated publishing, upload private images, or broaden OneSignal notifications.** This is a proposed workflow with phased deployment gates.
 
