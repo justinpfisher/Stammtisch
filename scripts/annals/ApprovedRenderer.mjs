@@ -23,6 +23,7 @@ const RECIPE_KEYS = new Set(['drinkIngredients', 'syrupIngredients', 'steps']);
 const RECEIPT_KEYS = new Set([
   'entryId', 'approvedAt', 'reviewedBy', 'consents', 'contentSha256', 'signature'
 ]);
+const PUBLIC_APPROVAL_KEYS = new Set(['entryId', 'approvedAt', 'consents', 'contentSha256', 'signature']);
 const CONSENT_KEYS = new Set(['publication', 'quotePublication', 'recipeVerified', 'namedAttribution']);
 
 const allowedKeys = (object, keys, context) => {
@@ -130,6 +131,29 @@ export function verifyApproval(publicEntry, receipt, secret) {
   }
 }
 
+/** Public attestation omits reviewer identity and private consent evidence. */
+export function verifyPublicApproval(publicEntry, approval, secret) {
+  if (typeof secret !== 'string' || secret.length < 32) return false;
+  try {
+    const entry = validatePublicTextEntry(publicEntry);
+    allowedKeys(approval, PUBLIC_APPROVAL_KEYS, 'public approval');
+    allowedKeys(approval.consents, CONSENT_KEYS, 'consent');
+    if (approval.entryId !== entry.id || !/^\d{4}-\d{2}-\d{2}T/.test(approval.approvedAt ?? '') ||
+        approval.consents.publication !== true ||
+        (entry.category === 'quotation' && approval.consents.quotePublication !== true) ||
+        (entry.category === 'cocktail' && approval.consents.recipeVerified !== true) ||
+        (entry.credit !== 'anonymous' && entry.credit !== 'a club member' && approval.consents.namedAttribution !== true)) return false;
+    if (approval.contentSha256 !== contentDigest(entry) || !/^[a-f0-9]{64}$/.test(approval.signature ?? '')) return false;
+    const signedMaterial = JSON.stringify(canonical({
+      entry,
+      approval: { entryId: approval.entryId, approvedAt: approval.approvedAt,
+        consents: approval.consents, contentSha256: approval.contentSha256 },
+    }));
+    const expected = createHmac('sha256', secret).update(signedMaterial).digest();
+    return timingSafeEqual(expected, Buffer.from(approval.signature, 'hex'));
+  } catch { return false; }
+}
+
 function approvedEntryMarkup(entry) {
   const esc = escapeHtml;
   const section = (label, items) => items.length
@@ -150,6 +174,14 @@ function approvedEntryMarkup(entry) {
 }
 
 export function buildApprovedAnnals(entries, receipts, secret) {
+  return buildAnnals(entries, receipts, (entry, receipt) => verifyApproval(entry, receipt, secret));
+}
+
+export function buildPublishedAnnals(entries, approvals, secret) {
+  return buildAnnals(entries, approvals, (entry, approval) => verifyPublicApproval(entry, approval, secret));
+}
+
+function buildAnnals(entries, receipts, verifyReceipt) {
   if (!Array.isArray(entries) || !Array.isArray(receipts) || entries.length !== receipts.length ||
       entries.length > 300) throw new Error('Invalid publication batch');
   const ids = new Set();
@@ -159,7 +191,7 @@ export function buildApprovedAnnals(entries, receipts, secret) {
     if (ids.has(item.id)) throw new Error('Duplicate entry');
     ids.add(item.id);
     const receipt = receipts.find(r => r && r.entryId === item.id);
-    if (!receipt || !verifyApproval(item, receipt, secret)) {
+    if (!receipt || !verifyReceipt(item, receipt)) {
       throw new Error('Missing authenticated exact-content approval');
     }
     accepted.push(item);
