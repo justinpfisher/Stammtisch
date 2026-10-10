@@ -435,8 +435,8 @@ test('owner can privately record six already-obtained member permissions without
   x.props.ANNALS_AI_ENABLED='false';
   x.context.MailApp={sendEmail:(...args)=>sent.push(args)};
   const evidence='I personally verified affirmative, revocable individual consent in a private conversation.';
-  assert.throws(()=>x.context.annalsRecordVerifiedExistingConsents('valid',false,evidence),/attest/);
-  assert.throws(()=>x.context.annalsRecordVerifiedExistingConsents('valid',true,'short'),/attest/);
+  assert.throws(()=>x.context.annalsRecordVerifiedExistingConsents('valid',false,evidence),/Operation held/);
+  assert.throws(()=>x.context.annalsRecordVerifiedExistingConsents('valid',true,'short'),/Operation held/);
   const outcome=x.context.annalsRecordVerifiedExistingConsents('valid',true,evidence);
   assert.equal(outcome.recorded,true);
   assert.equal(outcome.memberCount,6);
@@ -466,21 +466,21 @@ test('owner can privately record six already-obtained member permissions without
   assert.notEqual(x.props.ANNALS_PRODUCTION_INTAKE_ENABLED,'true');
   assert.notEqual(x.props.ANNALS_AUTO_PUBLICATION_ENABLED,'true');
   assert.notEqual(x.props.ANNALS_AUTO_MEDIA_ENABLED,'true');
-  assert.throws(()=>x.context.annalsRecordVerifiedExistingConsents('valid',true,evidence),/already attempted/);
+  assert.throws(()=>x.context.annalsRecordVerifiedExistingConsents('valid',true,evidence),/Operation held/);
 });
 test('owner-attested prior permissions cannot override revocation, missing allowlist or active intake',()=>{
   const addresses=Array.from({length:6},(_,i)=>'member'+(i+1)+'@example.test');
   const evidence='I personally verified direct consent from all six members without copying their messages.';
   const a=mock();a.props.ANNALS_AI_ENABLED='false';
   a.props.ANNALS_ALLOWED_SENDERS=addresses.slice(0,5).join(',');
-  assert.throws(()=>a.context.annalsRecordVerifiedExistingConsents('valid',true,evidence),/six/);
+  assert.throws(()=>a.context.annalsRecordVerifiedExistingConsents('valid',true,evidence),/Operation held/);
   const b=mock();b.props.ANNALS_AI_ENABLED='false';b.props.ANNALS_ALLOWED_SENDERS=addresses.join(',');
   b.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{
     [addresses[2]]:{status:'revoked',scope:'future_text_ai_drafting',revokedAt:'2026-10-08T21:00:00Z'}
   }}));
-  assert.throws(()=>b.context.annalsRecordVerifiedExistingConsents('valid',true,evidence),/revoked/);
+  assert.throws(()=>b.context.annalsRecordVerifiedExistingConsents('valid',true,evidence),/Operation held/);
   assert.equal(b.files.has('verified-existing-consents-private.json'),false);
   const c=mock();c.props.ANNALS_ALLOWED_SENDERS=addresses.join(',');
-  assert.throws(()=>c.context.annalsRecordVerifiedExistingConsents('valid',true,evidence),/Stop all/);
+  assert.throws(()=>c.context.annalsRecordVerifiedExistingConsents('valid',true,evidence),/Operation held/);
   assert.equal(c.files.has('consent-registry-private.json'),false);
 });
