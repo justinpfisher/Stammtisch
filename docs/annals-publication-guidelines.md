@@ -53,6 +53,12 @@ Automatic attributed quotations require: original source explicitly identifying 
 
 The approved strong-profanity overlay remains: label a censored quotation as *editorially censored, not verbatim* and keep the original unchanged in private storage. Maintain private correction, withdrawal and revocation paths; existing public Git history may persist. Public entries, PRs and workflows never contain sender emails, consent evidence or raw messages.
 
+## Illustrated contributor credits — approved option, 10 October 2026
+
+For an eligible non-quotation Annals entry, the **actual authenticated submitter** may be identified with their previously approved 48-pixel illustrated member portrait **instead of a displayed name or email address**. This is separate from the Register of Remarks, which always represents the **actual speaker**, not necessarily the person who emailed the quote.
+
+The same six-member email-to-illustration map is stored only in owner-controlled private Apps Script configuration. A distinct, affirmative, revocable individual permission for *illustrated contributor identification* is required, with a private owner-attested provenance record where permission was already obtained. The member may disable their likeness on all future entries by emailing HIDE MY ANNALS PORTRAIT from their authenticated account; a subsequent SHOW command cannot revive revoked underlying permissions. The owner-only exception desk also allows a particular entry to omit a contributor portrait. Unknown or unpermitted illustrations never appear, but safe plain text may still publish without identifying the contributor. Originals, emails and private permissions never enter public GitHub; removals cannot erase all historic caches.
+
 ## Cocktail tradition — a possible recurring Annals feature
 
 At many Stammtisch gatherings, **one or two members prepare a special cocktail** for the company. Preparation can include **homemade syrups and other bespoke components**. The effort, recipes and results are significant parts of the monthly ritual and should be eligible for the Annals, without assuming that every cocktail or member wants publicity.
