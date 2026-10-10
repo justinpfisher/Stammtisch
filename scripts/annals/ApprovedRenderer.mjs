@@ -88,7 +88,7 @@ export function validatePublicTextEntry(input) {
   };
   if (input.photo !== undefined && input.photo !== null) {
     allowedKeys(input.photo, new Set(['sha256', 'alt']), 'photo');
-    if (!['cocktail','artefact'].includes(input.category) || !/^[a-f0-9]{64}$/.test(input.photo.sha256 ?? '')) throw new Error('Invalid cocktail photo');
+    if (input.category === 'quotation' || !/^[a-f0-9]{64}$/.test(input.photo.sha256 ?? '')) throw new Error('Invalid cocktail photo');
     output.photo = { sha256: input.photo.sha256, alt: limited(input.photo.alt, 'photo alt text', 180, true) };
   }
   const publicTexts = [output.title, output.summary, output.dateLabel, output.credit, output.quoteVerbatim,
@@ -216,6 +216,7 @@ function approvedEntryMarkup(entry) {
       section('Ingredients', entry.recipe.drinkIngredients) +
       section('Homemade syrup', entry.recipe.syrupIngredients) +
       section('Preparation recorded by contributor', entry.recipe.steps) +
+      (entry.recipe.suggestedSteps?.length ? '<p class="annal-reconstruction-flag">Editorial reconstruction: suggested quantities or methods below are not the original recorded recipe.</p>' : '') +
       section('Editorial suggestions — NOT part of the original recipe',
         entry.recipe.suggestedSteps || []) + '</div>' : '') +
     (entry.credit === 'anonymous' ? '' : '<p class="annal-credit">Recorded by ' + esc(entry.credit) + '</p>') +
@@ -311,6 +312,7 @@ function buildAnnals(entries, receipts, verifyReceipt) {
 .annal-note{margin-top:10px;color:#64685e;font-size:11px}
 .annal-editorial-notice{margin:24px 0 38px;padding-top:16px;border-top:1px solid #d4d3c4;color:#64685e;font:italic 12px/1.7 Georgia,serif;max-width:790px}
 .annal-quote-note{font:italic 12px/1.6 Georgia,serif;color:#64685e}
+.annal-reconstruction-flag{padding:10px 12px;margin-block:16px;border-left:3px solid #846329;background:#eee9de;color:#5f4c2f;font-size:12px}
 @media(max-width:700px){.annal-hero{padding-block:38px 30px}.annal-collection{padding-block:27px}.annal-collection>h2{font-size:29px}.annal-entry{padding-block:18px 25px}}
 </style>
 </head>
