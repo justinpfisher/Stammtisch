@@ -165,7 +165,7 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
         approval.consents.quotePublication !== (entry.category === 'quotation') ||
         approval.consents.namedAttribution !== false ||
         (automatedText && (entry.photo || approval.consents.photoPublication !== false)) ||
-        (automatedImage && (entry.category !== 'cocktail' || !entry.photo || approval.consents.photoPublication !== true)))) return false;
+        (automatedImage && (entry.category === 'quotation' || !entry.photo || approval.consents.photoPublication !== true)))) return false;
     if (approval.entryId !== entry.id || !/^\d{4}-\d{2}-\d{2}T/.test(approval.approvedAt ?? '') ||
         approval.consents.publication !== true ||
         (entry.category === 'quotation' && approval.consents.quotePublication !== true) ||
