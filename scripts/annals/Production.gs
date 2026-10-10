@@ -6,6 +6,13 @@ function annalsOwner_() {
   return AnnalsProduction.owner(Session.getActiveUser().getEmail(), Session.getEffectiveUser().getEmail(),
     annalsProps_().getProperty('ANNALS_OWNER_EMAIL'));
 }
+function annalsServiceOwner_() {
+  var owner = annalsProps_().getProperty('ANNALS_OWNER_EMAIL');
+  var effective = Session.getEffectiveUser().getEmail();
+  if (!owner || !effective || effective.toLowerCase() !== owner.toLowerCase())
+    throw new Error('Wrong private service owner');
+  return owner.toLowerCase();
+}
 function annalsPrivate_(item) {
   var expected = annalsProps_().getProperty('ANNALS_OWNER_EMAIL');
   if (!expected || item.getSharingAccess() !== DriveApp.Access.PRIVATE || item.getEditors().length || item.getViewers().length ||
@@ -69,16 +76,56 @@ function annalsStandingPublicationActive_(sender, receivedAt) {
   var permission = member && member.autoPublication;
   var activated = Date.parse(permission && permission.consentedAt);
   var received = Date.parse(receivedAt);
-  return !!permission && permission.status === 'active' && permission.scope === 'future_source_grounded_text_publication' &&
+  return !!permission && permission.status === 'active' &&
+    ['future_source_grounded_text_publication','future_source_grounded_text_and_screened_image_publication'].indexOf(permission.scope) >= 0 &&
     !permission.revokedAt && Number.isFinite(activated) && Number.isFinite(received) && received >= activated;
+}
+function annalsImageConsentActive_(sender, receivedAt) {
+  sender = String(sender || '').toLowerCase();
+  if (!annalsStandingPublicationActive_(sender, receivedAt)) return false;
+  var member = annalsConsentRegistry_().members[sender];
+  var textGrant = member && member.autoPublication;
+  if (textGrant && textGrant.scope === 'future_source_grounded_text_and_screened_image_publication' &&
+      textGrant.status === 'active' && !textGrant.revokedAt) return true;
+  // Existing text-only members can add image permission without renewing AI consent.
+  var permission = member && member.imagePublication;
+  var granted = Date.parse(permission && permission.consentedAt);
+  var received = Date.parse(receivedAt);
+  return !!permission && permission.status === 'active' &&
+    permission.scope === 'future_safe_original_image_ai_and_publication' &&
+    !permission.revokedAt && Number.isFinite(granted) && Number.isFinite(received) && received >= granted;
 }
 function annalsHandleConsentReply_(sender, body) {
   var root = annalsRoot_(), registry = annalsConsentRegistry_(), member = registry.members[sender.toLowerCase()];
   var text = String(body || '').split(/\r?\n/).map(function (line) { return line.trim(); }).filter(Boolean)[0] || '';
+  if (member && member.imagePublication && member.imagePublication.status === 'pending' &&
+      text === 'I CONSENT TO PRIVATE AI IMAGE SCREENING AND PUBLICATION OF MY SAFE ORIGINAL IMAGES. CODE: ' +
+        member.imagePublication.challenge) {
+    member.imagePublication.status = 'active';
+    member.imagePublication.scope = 'future_safe_original_image_ai_and_publication';
+    member.imagePublication.consentedAt = new Date().toISOString();
+    delete member.imagePublication.challenge;
+    annalsSavePrivate_(root, 'consent-registry-private.json', registry);
+    MailApp.sendEmail(sender, 'Annals image consent recorded',
+      'Your optional standing permission for private AI image screening and automatic publication of safe, metadata-stripped derivatives is active. Images with people, private locations, third-party rights or uncertain details remain private. To revoke future image publication send the exact line: REVOKE ANNALS IMAGE PUBLICATION. Public history may persist after withdrawal.');
+    return 'image_consent_activated';
+  }
+  if (member && member.imagePublication && member.imagePublication.status === 'active' &&
+      text === 'REVOKE ANNALS IMAGE PUBLICATION') {
+    member.imagePublication.status = 'revoked';
+    member.imagePublication.revokedAt = new Date().toISOString();
+    annalsSavePrivate_(root, 'consent-registry-private.json', registry);
+    MailApp.sendEmail(sender, 'Annals image consent revoked',
+      'Future automatic image screening and publication are disabled. Contact the owner to request withdrawal of already published material.');
+    return 'image_consent_revoked';
+  }
   if (member && member.autoPublication && member.autoPublication.status === 'pending' &&
-      text === 'I CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT PUBLICATION. CODE: ' + member.autoPublication.challenge) {
+      text === (member.autoPublication.scope === 'future_source_grounded_text_and_screened_image_publication'
+        ? 'I CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT AND SCREENED PHOTO PUBLICATION. CODE: '
+        : 'I CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT PUBLICATION. CODE: ') + member.autoPublication.challenge) {
     member.autoPublication.status = 'active';
-    member.autoPublication.scope = 'future_source_grounded_text_publication';
+    member.autoPublication.scope = member.autoPublication.scope === 'future_source_grounded_text_and_screened_image_publication'
+      ? 'future_source_grounded_text_and_screened_image_publication' : 'future_source_grounded_text_publication';
     member.autoPublication.consentedAt = new Date().toISOString();
     delete member.autoPublication.challenge;
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
@@ -152,13 +199,14 @@ function annalsProductionPreflight() {
     hasPublishRepository: /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(p.getProperty('ANNALS_GITHUB_REPOSITORY') || ''),
     publicationRequiresExactOwnerApproval: true, // always true for manually held material
     autoPublicationEnabled: p.getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') === 'true',
+    autoMediaEnabled: p.getProperty('ANNALS_AUTO_MEDIA_ENABLED') === 'true',
     standingPublicationRequiresContributorConsent: true, sendsAcknowledgements: true };
   console.log(JSON.stringify(result)); return result;
 }
 function annalsStampProductionActivation() {
   annalsOwner_();
   var p = annalsProps_();
-  if (p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED') === 'true' || p.getProperty('ANNALS_AI_ENABLED') === 'true' || p.getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') === 'true') throw new Error('Disable intake and AI before recording the activation boundary');
+  if (p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED') === 'true' || p.getProperty('ANNALS_AI_ENABLED') === 'true' || p.getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') === 'true' || p.getProperty('ANNALS_AUTO_MEDIA_ENABLED') === 'true') throw new Error('Disable intake and AI before recording the activation boundary');
   if (!AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '').length || !p.getProperty('ANNALS_PRODUCTION_FOLDER_ID') ||
       !p.getProperty('ANNALS_OWNER_EMAIL') || (p.getProperty('ANNALS_APPROVAL_KEY') || '').length < 32) throw new Error('Private production preflight incomplete');
   var activatedAt = new Date().toISOString();
@@ -193,7 +241,7 @@ function annalsStageProduction_(message, activation, allowed) {
     var firstLine = String(message.getPlainBody() || '').trim().split(/\r?\n/)[0] || '';
     if (/^(?:I CONSENT TO |REVOKE ANNALS )/.test(firstLine)) return 'held'; // invalid/stale challenges are not submissions
   }
-  var attachments = message.getAttachments({ includeInlineImages: false, includeAttachments: true });
+  var attachments = message.getAttachments({ includeInlineImages: true, includeAttachments: true });
   var source = AnnalsPilot.privateProposal({ sourceId: id, from: sender, subject: message.getSubject(),
     body: message.getPlainBody(), receivedAt: message.getDate().toISOString(),
     attachments: attachments.map(function (a) { return { mime: a.getContentType(), size: a.getSize() }; }) });
@@ -205,11 +253,24 @@ function annalsStageProduction_(message, activation, allowed) {
   source.senderAuthenticated = authenticated;
   source.aiConsentActive = source.senderAuthenticated && annalsConsentActive_(sender);
   source.autoConsentAtReceipt = source.senderAuthenticated && annalsStandingPublicationActive_(sender, message.getDate().toISOString());
+  source.imageConsentAtReceipt = source.senderAuthenticated && annalsImageConsentActive_(sender, message.getDate().toISOString());
   annalsWriteOnce_(folder, 'source-private.json', source);
   if (!source.senderAuthenticated) return 'unverified';
   if (!source.aiConsentActive) { annalsAckOnce_(folder, sender, id, 'private_review_only'); return 'awaiting_consent'; }
   if (source.requiresClarification || attachments.length || !source.source.excerpt || source.source.excerptTruncated) {
-    annalsAckOnce_(folder, sender, id, 'held_for_private_review'); return 'held';
+    var hasEligibleSinglePhoto = source.imageConsentAtReceipt &&
+      attachments.length === 1 && source.attachmentManifest.items.length === 1 &&
+      source.attachmentManifest.items[0].accepted &&
+      ['image/jpeg','image/png','image/webp','image/heic','image/heif'].indexOf(source.attachmentManifest.items[0].mime) >= 0 &&
+      source.attachmentManifest.items[0].size > 0 && source.attachmentManifest.items[0].size <= 8*1024*1024;
+    var completeStandaloneText = !!source.source.excerpt && !source.source.excerptTruncated &&
+      annalsSafeTextForAutoAi_(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) &&
+      AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt));
+    if (!hasEligibleSinglePhoto && !completeStandaloneText) {
+      annalsAckOnce_(folder, sender, id, 'held_for_private_review'); return 'held';
+    }
+    annalsAckOnce_(folder, sender, id, hasEligibleSinglePhoto ? 'awaiting_private_photo_screening' : 'consented_private_text_drafting');
+    return 'staged';
   }
   annalsAckOnce_(folder, sender, id, 'consented_private_drafting');
   return 'staged';
@@ -236,7 +297,7 @@ function annalsCreateSyntheticCheckItem() {
  * A saved thread/message position is resumed on the next run, then wraps.
  */
 function runAnnalsProductionIntake() {
-  var p = annalsProps_(), summary = { enabled: false, staged: 0, held: 0, duplicates: 0, skipped: 0, unverified: 0, awaiting_consent: 0, consent_activated: 0, consent_revoked: 0, auto_consent_activated: 0, auto_consent_revoked: 0, drafted: 0, verified: 0 };
+  var p = annalsProps_(), summary = { enabled: false, staged: 0, held: 0, duplicates: 0, skipped: 0, unverified: 0, awaiting_consent: 0, consent_activated: 0, consent_revoked: 0, auto_consent_activated: 0, auto_consent_revoked: 0, image_consent_activated: 0, image_consent_revoked: 0, drafted: 0, verified: 0 };
   if (p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED') !== 'true') return summary;
   try {
     return annalsLocked_(function () {
@@ -290,7 +351,7 @@ function annalsResumeConsentedDrafts_(limit) {
     }
     if (annalsFile_(folder, 'ai-attempt-private.json') || source.senderAuthenticated !== true ||
         source.aiConsentActive !== true || !annalsConsentActive_(source.source.sender) ||
-        (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt))) || source.source.excerptTruncated ||
+        (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) && !source.imageConsentAtReceipt) || source.source.excerptTruncated ||
         !annalsSafeTextForAutoAi_(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt))) continue;
     try { if (annalsProcessConsentedText_(id)) done++; }
     catch (e) {
@@ -337,12 +398,12 @@ function annalsInviteAutoPublicationConsent(nonce, email) {
     var root = annalsRoot_(), registry = annalsConsentRegistry_(), member = registry.members[address];
     if (member.autoPublication && member.autoPublication.status === 'active') throw new Error('Standing consent is already active');
     var challenge = Utilities.getUuid() + Utilities.getUuid();
-    member.autoPublication = { status: 'pending', scope: 'future_source_grounded_text_publication',
+    member.autoPublication = { status: 'pending', scope: 'future_source_grounded_text_and_screened_image_publication',
       invitedAt: new Date().toISOString(), challenge: challenge };
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
-    MailApp.sendEmail(address, 'Choose whether future Annals text can publish automatically',
-      'This is an OPTIONAL, separate, revocable authorisation. If you agree, original text and recipes you personally have the right to publish may automatically appear on the PUBLIC Stammtisch website and in PUBLIC permanent GitHub history without per-entry review. The system may visibly censor strong profanity and may use anonymous attribution. Photos, other people\'s words, personal details, uncertain recipes and unsafe material will be held for private review. You affirm you will not submit third-party content without the necessary permissions. Your original email stays private. Withdrawal from the current website cannot erase copies or Git history.\n\nTo opt in, reply with this exact sentence:\n\nI CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT PUBLICATION. CODE: ' + challenge +
-      '\n\nTo revoke at any time, send: REVOKE ANNALS AUTOMATIC PUBLICATION. AI processing consent remains separate.');
+    MailApp.sendEmail(address, 'One-time choice: automatic Annals text and safe photographs',
+      'This is a separate, optional and revocable authorisation. If you agree, your original text and safe photographs that you own or are permitted to share can publish automatically on the PUBLIC Stammtisch website and in permanent PUBLIC GitHub history without per-entry review. A private AI service may analyse submitted images, and only a screened, metadata-stripped small image derivative can be public. The Club owner confirms that the six members have agreed to photos, but any guests or other identifiable people still need their own permission. Strong profanity may be visibly censored; attribution defaults to anonymous. If the content is unsafe, it stays private. You affirm that you hold the rights needed for the content you send. Withdrawal cannot erase previous GitHub history.\n\nTo opt in, reply with this exact sentence:\n\nI CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT AND SCREENED PHOTO PUBLICATION. CODE: ' + challenge +
+      '\n\nTo revoke, send: REVOKE ANNALS AUTOMATIC PUBLICATION. Your private AI-processing consent is separate.');
     return { invited: true };
   }); });
 }
@@ -357,10 +418,41 @@ function annalsRevokeAutoPublicationConsent(nonce, email) {
     return { revoked: true };
   }); });
 }
+function annalsInviteImagePublicationConsent(nonce, email) {
+  return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
+    var address = String(email || '').trim().toLowerCase();
+    var allowed = AnnalsPilot.allowedSenders(annalsProps_().getProperty('ANNALS_ALLOWED_SENDERS') || '');
+    if (allowed.indexOf(address) < 0 || !annalsConsentActive_(address) ||
+        !annalsStandingPublicationActive_(address, new Date().toISOString()))
+      throw new Error('Separate AI and text publication consent must be active first');
+    var root = annalsRoot_(), registry = annalsConsentRegistry_(), member = registry.members[address];
+    if (member.imagePublication && member.imagePublication.status === 'active')
+      throw new Error('Image consent is already active');
+    var challenge = Utilities.getUuid() + Utilities.getUuid();
+    member.imagePublication = {status:'pending',scope:'future_safe_original_image_ai_and_publication',
+      invitedAt:new Date().toISOString(),challenge:challenge};
+    annalsSavePrivate_(root,'consent-registry-private.json',registry);
+    MailApp.sendEmail(address,'Optional: allow safe Annals photographs to publish automatically',
+      'You can opt into private AI screening of your image attachments and automatic publication of a small metadata-stripped derivative when the image shows a non-identifying drink or object. You affirm that you own the images you submit or have actual permission from their photographer and anyone identifiable. This never authorises another private photo, identifiable guests, private interiors or personal information. Images that fail screening stay private. The public website and GitHub history may retain copies after withdrawal.\n\nTo opt in, reply exactly:\n\nI CONSENT TO PRIVATE AI IMAGE SCREENING AND PUBLICATION OF MY SAFE ORIGINAL IMAGES. CODE: ' +
+      challenge + '\n\nTo stop future image publication, reply: REVOKE ANNALS IMAGE PUBLICATION.');
+    return {invited:true};
+  }); });
+}
+function annalsRevokeImagePublicationConsent(nonce,email) {
+  return annalsUiCall_(nonce,function () { return annalsLocked_(function () {
+    var address=String(email||'').trim().toLowerCase(),root=annalsRoot_(),registry=annalsConsentRegistry_(),
+      member=registry.members[address];
+    if (!member || !member.imagePublication || member.imagePublication.status !== 'active')
+      throw new Error('No active image consent');
+    member.imagePublication.status='revoked'; member.imagePublication.revokedAt=new Date().toISOString();
+    annalsSavePrivate_(root,'consent-registry-private.json',registry);
+    return {revoked:true};
+  }); });
+}
 function annalsReviewConsentStatus(nonce) {
   return annalsUiCall_(nonce, function () {
     var members = annalsConsentRegistry_().members;
-    return Object.keys(members).map(function (address) { return { address: address, status: members[address].status, consentedAt: members[address].consentedAt || null, revokedAt: members[address].revokedAt || null, autoStatus: (members[address].autoPublication || {}).status || 'not_invited', autoConsentedAt: (members[address].autoPublication || {}).consentedAt || null }; });
+    return Object.keys(members).map(function (address) { return { address: address, status: members[address].status, consentedAt: members[address].consentedAt || null, revokedAt: members[address].revokedAt || null, autoStatus: (members[address].autoPublication || {}).status || 'not_invited', autoConsentedAt: (members[address].autoPublication || {}).consentedAt || null, imageStatus: members[address].autoPublication && members[address].autoPublication.scope === 'future_source_grounded_text_and_screened_image_publication' && members[address].autoPublication.status === 'active' ? 'active' : (members[address].imagePublication || {}).status || 'not_invited', imageConsentedAt: (members[address].imagePublication || {}).consentedAt || (members[address].autoPublication || {}).consentedAt || null, imageSeparatelyRevocable: (members[address].imagePublication || {}).status === 'active' }; });
   });
 }
 function annalsRevokeProcessingConsent(nonce, email) {
@@ -452,10 +544,43 @@ function annalsPhotoDerivative_(folder) {
   if (bytes.length !== metadata.size || annalsHash_(bytes) !== metadata.sha256 || !annalsJpegDerivativeSafe_(bytes)) throw new Error('Private photo derivative integrity failed');
   return { sha256: metadata.sha256, size: metadata.size, base64: Utilities.base64Encode(bytes) };
 }
+/** Produce a small metadata-free thumbnail privately. Original media is never
+ * sent to GitHub or used as the public derivative. Holds when Drive has no
+ * suitable JPEG thumbnail, the image is too large, or consent is missing.
+ */
+function annalsAutoThumbnail_(id, source) {
+  if (!source || !source.source || !source.imageConsentAtReceipt ||
+      annalsProps_().getProperty('ANNALS_AUTO_MEDIA_ENABLED') !== 'true' ||
+      !annalsImageConsentActive_(source.source.sender, source.source.receivedAt)) return null;
+  var items = source.attachmentManifest && source.attachmentManifest.items;
+  if (!Array.isArray(items)) return null;
+  var selected = items.filter(function (item) {
+    return item.accepted && ['image/jpeg','image/png','image/webp','image/heic','image/heif'].indexOf(item.mime) >= 0 &&
+      item.size > 0 && item.size <= 8 * 1024 * 1024;
+  });
+  if (selected.length !== 1 || items.length !== 1) return null; // no multi-photo inference
+  var folder = annalsFolder_(id), photo = annalsFile_(folder, selected[0].storageName);
+  if (!photo || photo.getSize() > 8 * 1024 * 1024) return null;
+  var old = annalsRead_(folder,'photo-derivative-private.json');
+  if (old && old.source === 'automated_drive_thumbnail') return annalsPhotoDerivative_(folder);
+  if (old) return null; // never replace an owner's manually reviewed derivative
+  var thumb = photo.getThumbnail();
+  if (!thumb) return null;
+  var sanitised = AnnalsMedia.sanitize(thumb.getBytes());
+  var hash = annalsHash_(sanitised.bytes);
+  var metadata = { sha256:hash,size:sanitised.bytes.length,width:sanitised.width,
+    height:sanitised.height,source:'automated_drive_thumbnail',savedAt:new Date().toISOString() };
+  var img = annalsPrivate_(folder.createFile(
+    Utilities.newBlob(sanitised.bytes,'image/jpeg','photo-derivative-private.jpg')));
+  if (!img) throw new Error('Private thumbnail storage unavailable');
+  annalsWriteOnce_(folder,'photo-derivative-private.json',metadata);
+  return { sha256:hash,size:sanitised.bytes.length,
+    base64:Utilities.base64Encode(sanitised.bytes) };
+}
 function annalsPrepareDraft(nonce, id, text, selectedNames, consent) {
   return annalsUiCall_(nonce, function () { return annalsPrepareDraftCore_(id, text, selectedNames, consent); });
 }
-function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHeld) {
+function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHeld, derivedImages) {
   var process = function () {
     if (consent !== true) throw new Error('Processing consent required');
     var p = annalsProps_(), f = annalsFolder_(id);
@@ -471,12 +596,17 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
       if (!file || file.getSize() > 4 * 1024 * 1024) throw new Error('Attachment changed');
       return { mime: item.mime, base64: Utilities.base64Encode(file.getBlob().getBytes()) };
     });
+    if (derivedImages !== undefined) {
+      if (selectedNames.length || !Array.isArray(derivedImages) || derivedImages.length > 1)
+        throw new Error('Invalid automated image selection');
+      images = derivedImages;
+    }
     var request = AnnalsProduction.request(text, images);
     var month = Utilities.formatDate(new Date(), 'America/Toronto', 'yyyy-MM');
     var ledger = AnnalsProduction.reserve(JSON.parse(p.getProperty('ANNALS_BUDGET_LEDGER') || 'null'), month);
     p.setProperty('ANNALS_BUDGET_LEDGER', JSON.stringify(ledger)); // before any network request
     annalsWriteOnce_(f, 'ai-attempt-private.json', { state: 'attempt_reserved', reservedCents: 10,
-      at: new Date().toISOString(), owner: annalsOwner_(), model: AnnalsProduction.MODEL,
+      at: new Date().toISOString(), owner: intakeLockHeld === true ? annalsServiceOwner_() : annalsOwner_(), model: AnnalsProduction.MODEL,
       processingConsent: true, submittedText: text, selectedNames: selectedNames });
     var response;
     try {
@@ -515,11 +645,22 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
 function annalsProcessConsentedText_(id) {
   var source = annalsRead_(annalsFolder_(id), 'source-private.json');
   if (!source || source.senderAuthenticated !== true || source.aiConsentActive !== true || !annalsConsentActive_(source.source.sender) ||
-      (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt))) || source.source.excerptTruncated ||
+      (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) && !source.imageConsentAtReceipt) || source.source.excerptTruncated ||
       !annalsSafeTextForAutoAi_(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) ||
       annalsProps_().getProperty('ANNALS_AI_ENABLED') !== 'true') return false;
   var fullText = source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt);
-  annalsPrepareDraftCore_(id, fullText, [], true, true); // caller already holds intake lock
+  var derived = null;
+  if (source.imageConsentAtReceipt && annalsProps_().getProperty('ANNALS_AUTO_MEDIA_ENABLED') === 'true') {
+    try { derived = annalsAutoThumbnail_(id, source); }
+    catch (ignored) { /* private media stays held; safe text may proceed */ }
+  }
+  // Image-dependent emails must not consume their only paid AI attempt while
+  // Drive is still preparing a thumbnail; defer until a safe one exists.
+  var needsImage = !!(source.attachmentManifest && source.attachmentManifest.items.length &&
+    !AnnalsAuto.independentText(fullText));
+  if (needsImage && !derived) return false;
+  var images = derived ? [{mime:'image/jpeg',base64:derived.base64}] : [];
+  annalsPrepareDraftCore_(id, fullText, [], true, true, images); // caller already holds intake lock
   var dispatched = annalsAutoAttemptSafe_(annalsFolder_(id), id);
   if (!dispatched) annalsNotifyDraftReady_(annalsFolder_(id));
   return true;
@@ -582,6 +723,7 @@ function annalsPublicApproval_(entry, receipt, key) {
   if (key.length < 32 || key === (annalsProps_().getProperty('ANNALS_APPROVAL_KEY') || '')) return null;
   var proof = { entryId: entry.id, approvedAt: receipt.approvedAt, consents: receipt.consents, contentSha256: receipt.contentSha256 };
   if (receipt.reviewedBy === 'standing-consent-automation-v1') proof.mode = AnnalsAuto.MODE;
+  if (receipt.reviewedBy === 'standing-consent-image-automation-v1') proof.mode = AnnalsMediaPolicy.MODE;
   proof.signature = annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial({ entry: entry, approval: proof }), key, Utilities.Charset.UTF_8));
   return proof;
 }
@@ -737,14 +879,22 @@ function annalsAutoPublishCandidate_(id) {
       p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') === p.getProperty('ANNALS_APPROVAL_KEY') ||
       AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '').length !== 6) return false;
   var folder = annalsFolder_(id), previous = annalsRead_(folder, 'approval-private.json');
-  if (previous) return previous.approvalMode === AnnalsAuto.MODE && previous.publicationState === 'dispatch_accepted';
+  if (previous) return [AnnalsAuto.MODE,AnnalsMediaPolicy.MODE].indexOf(previous.approvalMode) >= 0 && previous.publicationState === 'dispatch_accepted';
   if (annalsFile_(folder, 'auto-decision-private.json')) return false; // no silent retries
   var source = annalsRead_(folder, 'source-private.json'), draft = annalsRead_(folder, 'draft-private.json');
   if (!source || !draft || !source.source || !source.senderAuthenticated || !source.aiConsentActive ||
       !source.autoConsentAtReceipt || !annalsStandingPublicationActive_(source.source.sender, source.source.receivedAt) ||
       source.source.excerptTruncated ||
       Date.parse(source.source.receivedAt) < Date.parse(p.getProperty('ANNALS_ACTIVATED_AT'))) return false;
-  var decision = AnnalsAuto.propose(source, draft, id);
+  var originalDecision = AnnalsAuto.propose(source, draft, id), derivative = null;
+  if (p.getProperty('ANNALS_AUTO_MEDIA_ENABLED') === 'true' && source.imageConsentAtReceipt &&
+      annalsImageConsentActive_(source.source.sender, source.source.receivedAt)) {
+    try { derivative = annalsPhotoDerivative_(folder); }
+    catch (ignored) { derivative = null; }
+    var metadata = annalsRead_(folder,'photo-derivative-private.json');
+    if (!metadata || metadata.source !== 'automated_drive_thumbnail') derivative = null;
+  }
+  var decision = AnnalsMediaPolicy.enrich(source,draft,id,originalDecision,derivative);
   if (!decision.eligible) {
     annalsWriteOnce_(folder, 'auto-decision-private.json', { state: 'held', reason: decision.reason, at: new Date().toISOString() });
     return false;
@@ -752,21 +902,21 @@ function annalsAutoPublishCandidate_(id) {
   var entry = AnnalsProduction.publicEntry(decision.entry);
   var hash = annalsHash_(AnnalsProduction.serial(entry));
   var receipt = { entryId: entry.id, approvedAt: new Date().toISOString(),
-    reviewedBy: 'standing-consent-automation-v1',
+    reviewedBy: decision.mode === AnnalsMediaPolicy.MODE ? 'standing-consent-image-automation-v1' : 'standing-consent-automation-v1',
     consents: AnnalsProduction.consents(entry, {
       publication: true, quotePublication: entry.category === 'quotation', recipeVerified: entry.category === 'cocktail',
-      namedAttribution: false, photoPublication: false
+      namedAttribution: false, photoPublication: !!entry.photo
     }), contentSha256: hash };
   receipt.signature = annalsHex_(Utilities.computeHmacSha256Signature(
     AnnalsProduction.serial({ entry: entry, receipt: receipt }), p.getProperty('ANNALS_APPROVAL_KEY'), Utilities.Charset.UTF_8));
   var publication = annalsPublicApproval_(entry, receipt, p.getProperty('ANNALS_PUBLISH_SIGNING_KEY'));
-  if (!publication || publication.mode !== AnnalsAuto.MODE) return false;
+  if (!publication || publication.mode !== decision.mode) return false;
   // Both consent records and the accuracy/eligibility reason stay private.
   annalsWriteOnce_(folder, 'auto-decision-private.json', {
-    state: 'eligible', policy: AnnalsAuto.MODE, sourceDigest: annalsHash_(source.source.excerpt),
+    state: 'eligible', policy: decision.mode, sourceDigest: annalsHash_(source.source.excerpt),
     contentSha256: hash, consentCheckedAt: new Date().toISOString()
   });
-  var saved = { entry: entry, receipt: receipt, publication: publication, approvalMode: AnnalsAuto.MODE,
+  var saved = { entry: entry, receipt: receipt, publication: publication, approvalMode: decision.mode,
     evidenceNote: 'Contributor authenticated; separate standing consents active at receipt and signing; deterministic source-grounded policy accepted.',
     uncertaintiesReviewed: true, publicationState: 'approved_private_pending_publish' };
   annalsWriteOnce_(folder, 'approval-private.json', saved);
@@ -788,7 +938,7 @@ function annalsVerifyAutomaticPublications_(limit) {
     var folder = annalsPrivate_(folders.next()), id = folder.getName();
     if (!/^[a-f0-9]{64}$/.test(id) || annalsFile_(folder, 'auto-live-verification-private.json')) continue;
     var saved = annalsRead_(folder, 'approval-private.json');
-    if (!saved || saved.approvalMode !== AnnalsAuto.MODE || saved.publicationState !== 'dispatch_accepted') continue;
+    if (!saved || [AnnalsAuto.MODE,AnnalsMediaPolicy.MODE].indexOf(saved.approvalMode) < 0 || saved.publicationState !== 'dispatch_accepted') continue;
     // A queued/failed Pages run must not remain invisible indefinitely.
     // Private reminder only; never re-dispatch an uncertain publication.
     var approvedAt = Date.parse(saved.receipt && saved.receipt.approvedAt);
@@ -812,7 +962,7 @@ function annalsVerifyAutomaticPublications_(limit) {
       if (!archive || !Array.isArray(archive.entries) || !Array.isArray(archive.approvals)) continue;
       var entry = archive.entries.find(function (item) { return item.id === saved.entry.id; });
       var signature = archive.approvals.find(function (item) { return item.entryId === saved.entry.id; });
-      if (!entry || !signature || signature.mode !== AnnalsAuto.MODE ||
+      if (!entry || !signature || signature.mode !== saved.approvalMode ||
           annalsHash_(AnnalsProduction.serial(entry)) !== saved.receipt.contentSha256 ||
           signature.signature !== saved.publication.signature) continue;
       var pageResponse = UrlFetchApp.fetch('https://stammtischbrewery.com/annals.html' + query,
@@ -859,6 +1009,7 @@ function annalsStopProduction() {
     p.setProperty('ANNALS_PRODUCTION_INTAKE_ENABLED', 'false');
     p.setProperty('ANNALS_AI_ENABLED', 'false');
     p.setProperty('ANNALS_AUTO_PUBLICATION_ENABLED', 'false');
+    p.setProperty('ANNALS_AUTO_MEDIA_ENABLED', 'false');
     ScriptApp.getProjectTriggers().forEach(function (t) {
       if (t.getHandlerFunction() === 'runAnnalsProductionIntake') ScriptApp.deleteTrigger(t);
     });

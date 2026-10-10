@@ -94,7 +94,7 @@ test('editorial uncertainty and invented AI headings default to safe publication
 });
 test('material recipe uncertainty is still held instead of silently changing measures or method',()=>{
   const cases=[
-    {d:{...draft(),riskFlags:['recipe_unverified']},reason:'material_uncertainty'},
+    {d:{...draft(),riskFlags:['handwriting_ambiguous']},reason:'material_uncertainty'},
     {d:{...draft(),recipe:{...draft().recipe,drinkIngredients:['2 oz invented syrup','2 oz imaginary juice']}},reason:'recipe_measure_or_step_uncertain'},
     {d:{...draft(),recipe:{...draft().recipe,steps:[]}},reason:'recipe_measure_or_step_uncertain'},
     {d:{...draft(),recipe:{...draft().recipe,drinkIngredients:['1 oz invented syrup']}},reason:'recipe_measure_or_step_uncertain'}

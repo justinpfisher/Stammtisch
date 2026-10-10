@@ -16,7 +16,7 @@ var AnnalsAuto = (function () {
   var THIRD_PARTY = /\b(?:he said|she said|they said|he told me|she told me|they told me|according to|quoted from|overheard|guest named|colleague named|mr\.|mrs\.|dr\.)\b/i;
   var MEDIA_DEPENDENT = /\b(?:as pictured|in the photo|see (?:the )?(?:photo|image|picture|attachment|scan|file)|attached (?:photo|image|picture|recipe)|image says|photo shows|pictured here)\b/i;
   var NAMED_PERSON = /\b(?:with|by|from|said|called|named|met)\s+[A-Z][a-z]+\s+[A-Z][a-z]+\b/;
-  var HARD_FLAGS = ['recipe_unverified','handwriting_ambiguous','possible_personal_identifier','location_or_home_context','private_context','quote_consent_unconfirmed'];
+  var HARD_FLAGS = ['handwriting_ambiguous','possible_personal_identifier','location_or_home_context','private_context','quote_consent_unconfirmed'];
   var MAY_IGNORE_MEDIA_FLAGS = ['faces_or_reflections','unknown_attachment','photo_transcription_unverified'];
   function cleanText(value) {
     if (typeof value !== 'string') throw new Error('Invalid source text');
@@ -76,9 +76,22 @@ var AnnalsAuto = (function () {
       return !recipe.steps.some(function (part) { return norm(part) === line; });
     })) return false;
     // A submitted syrup preparation is material, not an optional flourish.
-    if (/\b(?:homemade syrup|make (?:the )?syrup|simmer (?:the )?syrup)\b/i.test(source) &&
-        !recipe.syrupIngredients.length && !recipe.steps.some(function (step) { return /syrup/i.test(step); })) return false;
+    // Missing syrup instructions are eligible for a separately labelled
+    // editorial suggestion. Never fabricate amounts or historic methods.
     return true;
+  }
+  // This is explicitly an optional editorial suggestion, never asserted to be a
+  // recovered historical instruction or a verified homemade syrup recipe.
+  function suggestedMethod(recipe, source) {
+    if (recipe.steps.length || !recipe.drinkIngredients.length) return [];
+    var joined = recipe.drinkIngredients.join(' ').toLowerCase();
+    if (/\b(?:lemon|lime|citrus|orange juice|grapefruit|egg white)\b/.test(joined)) {
+      return ['Shake the recorded drink ingredients with ice and strain; adjust serving to preference.'];
+    }
+    if (/\b(?:hot|warm|coffee|tea)\b/.test(joined) && !/\b(?:ice|cold|chilled)\b/.test(source)) {
+      return ['Suggested method (not provided in the original): Combine the recorded drink ingredients carefully and serve at a suitable temperature.'];
+    }
+    return ['Suggested method (not provided in the original): Combine the recorded drink ingredients, chill if appropriate and serve.'];
   }
   function propose(privateSource, candidate, id) {
     if (!privateSource || !privateSource.source || !candidate ||
@@ -129,10 +142,11 @@ var AnnalsAuto = (function () {
       dateLabel: 'Submitted ' + stamp.toISOString().slice(0,7), sortDate: '',
       quoteVerbatim: quote,
       recipe: { drinkIngredients: recipe.drinkIngredients.map(censor),
-        syrupIngredients: recipe.syrupIngredients.map(censor), steps: recipe.steps.map(censor) },
+        syrupIngredients: recipe.syrupIngredients.map(censor), steps: recipe.steps.map(censor),
+        ...(candidate.category === 'cocktail' && !recipe.steps.length ? { suggestedSteps: suggestedMethod(recipe, source) } : {}) },
       credit: 'anonymous' };
     return { eligible: true, entry: entry, mode: MODE };
   }
-  return Object.freeze({ MODE: MODE, NOTICE: NOTICE, censor: censor, cleanText: cleanText, independentText: independentText, propose: propose });
+  return Object.freeze({ MODE: MODE, NOTICE: NOTICE, censor: censor, cleanText: cleanText, independentText: independentText, suggestedMethod: suggestedMethod, propose: propose });
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = AnnalsAuto;

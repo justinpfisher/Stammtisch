@@ -1,6 +1,6 @@
 # The Annals of Stammtisch — publication and privacy guidelines
 
-**Working editorial safeguards, 8 October 2026.** This document records the owner's preference for a privacy-conscious public history. It is **not consent from the other members** to publish their new images, personal stories, names in a new context, or a headquarters address. This guidance does not authorize publication of any particular Annals entry.
+**Editorial safeguards, initiated 8 October 2026; updated 10 October 2026.** This document records the owner's privacy-conscious public history direction. On 10 October the owner reported having directly verified explicit permission from each contributor and any individual appearing in submissions. This is **owner-attested**, not independent verification or a permanent waiver of revocation or new-person consent. This guidance does not authorize publication of any particular Annals entry.
 
 ## Intended product
 
@@ -18,7 +18,7 @@ Start **text-first**. A picture of a cocktail, its ingredients, a setting, a clu
 | Existing publicly agreed CoL scores, selections and content | Continue under current known comfort; do not silently expand data collection |
 | Non-identifying description of monthly gatherings, food, cocktails and annual cottage traditions | Suitable as proposed public copy, subject to checking factual accuracy and avoiding private logistics |
 | Cocktail recipe submitted by its creator, with permitted attribution | Publish only after recipe owner confirms accuracy, credit choice and public permission |
-| Non-identifying photo of a prepared drink, ingredients, scenery or objects | Review ownership and incidental identifiers, then approve the exact image and context |
+| Non-identifying photograph of a drink, ingredients or club artefact | Automatically publish a metadata-stripped derivative when the contributor's scoped permission is recorded and private screening finds no unresolved identifiers |
 | Recognisable member or guest portrait, tagged handle, family detail, candid incident, identifiable home interior | Explicit approval from each affected person for that exact use; otherwise do not publish |
 | Private chats, raw photo collection, exact headquarters address, event entry codes, travel/room/payment arrangements | Keep off the public repository and public website |
 
@@ -30,7 +30,7 @@ Member comfort with the **currently published stylized likenesses, CoL standings
 - For each proposed public copy, check visible faces, reflections, name badges, plates, readable screens, private belongings, and background views that can reveal the headquarters or occupants.
 - Do not publish guests/children/others just because a member contributed an image; obtain their own consent or crop/omit them.
 - Strip EXIF/location metadata and avoid revealing hidden location details in filename, caption, alternative text and page source.
-- Only put the specifically approved **publishable derivative** into the public website after review. Publishing to a public Git repository can leave copies in its history even after a file is removed; warn contributors about limits to later takedown.
+- Only put a specifically **eligible, publishable derivative** into the public website. Automatic publication can rely on the recorded standing consent and privacy screening for non-identifying drinks/objects; identifying images remain in private exception review even if a blanket permission is reported. Publishing to a public Git repository can leave copies in its history even after a file is removed; warn contributors about limits to later takedown.
 - For truly private group albums, continue using an existing access-controlled sharing method. A static GitHub Pages site has no genuine members-only privacy built in.
 
 ### Lightweight editorial checklist
@@ -74,7 +74,7 @@ Do not implement a public photo gallery, private membership login or a separate 
 
 The owner has expressly authorised a **publish-by-default editorial approach** to genuine, non-sensitive, source-grounded member text without per-entry owner approval. Only identified rights, privacy, security or material-accuracy concerns hold an otherwise ordinary contribution. A sender must genuinely authenticate against the six-member private allowlist and must personally complete two separate, affirmative, revocable challenges: one for private AI processing and one for public automatic text publication. An address on the allowlist, an emailed contribution, or the owner's authorisation is not consent on a member's behalf.
 
-The separate standing-publication grant is scoped to material the contributor has the right to share publicly. It is not permission from guests, other speakers, photograph subjects, recipe owners or others. AI is not proof of rights or facts. Automatic policy holds third-party quotations without speaker permission, disputed or identifying anecdotes, allegations, ambiguous recipe transcriptions, private locations and all images where independent safety/rights checks are unavailable. A self-authored quotation clearly claimed by the contributor can publish under their own standing permission; censorship is visibly labelled and no longer called verbatim. A clean standalone text component can be published without its held photograph. The original remains private; anonymous public credit is the default. Revocation stops future automatic publishing but cannot erase public Git history.
+The standing-publication grant is scoped to material the contributor has the right to share publicly. The owner has attested to obtaining permission from all affected contributors and depicted persons; that statement may be recorded privately and does not itself establish the identity or rights of a person in a newly submitted image. It is not permission from guests, other speakers, photograph subjects, recipe owners or others. AI is not proof of rights or facts. Automatic policy holds third-party quotations without speaker permission, disputed or identifying anecdotes, allegations, ambiguous recipe transcriptions, private locations and all images where independent safety/rights checks are unavailable. A self-authored quotation clearly claimed by the contributor can publish under their own standing permission; censorship is visibly labelled and no longer called verbatim. A clean standalone text component can be published without its held photograph. The original remains private; anonymous public credit is the default. Revocation stops future automatic publishing but cannot erase public Git history.
 
 For eligible text, the approved editorial rule replaces strong profanity visibly with **[EXPLETIVE]** (or an occasional contextual **[POOP]**) while leaving mild “damn” and “hell”. Public records must never contain uncensored strong profanity. A censored direct quotation is not labelled verbatim. The permanent Annals footer notice reads:
 

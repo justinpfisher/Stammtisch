@@ -19,7 +19,7 @@ const PUBLIC_KEYS = new Set([
   'id', 'category', 'title', 'summary', 'year', 'dateLabel',
   'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo'
 ]);
-const RECIPE_KEYS = new Set(['drinkIngredients', 'syrupIngredients', 'steps']);
+const RECIPE_KEYS = new Set(['drinkIngredients', 'syrupIngredients', 'steps', 'suggestedSteps']);
 const RECEIPT_KEYS = new Set([
   'entryId', 'approvedAt', 'reviewedBy', 'consents', 'contentSha256', 'signature'
 ]);
@@ -63,11 +63,16 @@ export function validatePublicTextEntry(input) {
     syrupIngredients: arrayOfLines(recipe.syrupIngredients || [], 'syrup ingredients'),
     steps: arrayOfLines(recipe.steps || [], 'preparation'),
   };
+  const suggestedSteps = arrayOfLines(recipe.suggestedSteps || [], 'editorial suggested preparation');
+  if (suggestedSteps.length > 3 || (suggestedSteps.length && !outputRecipe.drinkIngredients.length)) {
+    throw new Error('Invalid suggested method');
+  }
+  if (suggestedSteps.length) outputRecipe.suggestedSteps = suggestedSteps;
   const quoteVerbatim = limited(input.quoteVerbatim || '', 'quote', 1800);
   if (input.category === 'quotation' && !quoteVerbatim.trim()) throw new Error('Quotation requires verbatim text');
   if (input.category !== 'quotation' && quoteVerbatim) throw new Error('Unexpected quotation text');
   if (input.category === 'cocktail' &&
-      !outputRecipe.drinkIngredients.length && !outputRecipe.steps.length) {
+      !outputRecipe.drinkIngredients.length && !outputRecipe.steps.length && !input.photo) {
     throw new Error('Cocktail requires an actual approved recipe');
   }
   if (input.category !== 'cocktail' && Object.values(outputRecipe).some(a => a.length)) {
@@ -83,11 +88,11 @@ export function validatePublicTextEntry(input) {
   };
   if (input.photo !== undefined && input.photo !== null) {
     allowedKeys(input.photo, new Set(['sha256', 'alt']), 'photo');
-    if (input.category !== 'cocktail' || !/^[a-f0-9]{64}$/.test(input.photo.sha256 ?? '')) throw new Error('Invalid cocktail photo');
+    if (input.category === 'quotation' || !/^[a-f0-9]{64}$/.test(input.photo.sha256 ?? '')) throw new Error('Invalid cocktail photo');
     output.photo = { sha256: input.photo.sha256, alt: limited(input.photo.alt, 'photo alt text', 180, true) };
   }
   const publicTexts = [output.title, output.summary, output.dateLabel, output.credit, output.quoteVerbatim,
-    ...outputRecipe.drinkIngredients, ...outputRecipe.syrupIngredients, ...outputRecipe.steps];
+    ...outputRecipe.drinkIngredients, ...outputRecipe.syrupIngredients, ...outputRecipe.steps, ...(outputRecipe.suggestedSteps || [])];
   if (publicTexts.some(s => UNCENSORED_STRONG.test(s))) throw new Error('Uncensored strong profanity must not enter the public archive');
   return Object.freeze(output);
 }
@@ -150,13 +155,17 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
     const entry = validatePublicTextEntry(publicEntry);
     allowedKeys(approval, PUBLIC_APPROVAL_KEYS, 'public approval');
     allowedKeys(approval.consents, CONSENT_KEYS, 'consent');
-    const automated = approval.mode === 'standing-consent-text-v1';
+    const automatedText = approval.mode === 'standing-consent-text-v1';
+    const automatedImage = approval.mode === 'standing-consent-image-v1';
+    const automated = automatedText || automatedImage;
     if (approval.mode !== undefined && !automated) return false;
     // Automated proof must be separately domain-tagged, with no photos,
     // third-party quotations or named attribution.
-    if (automated && (entry.photo || entry.credit !== 'anonymous' ||
-        approval.consents.quotePublication !== (entry.category === 'quotation') || approval.consents.namedAttribution !== false ||
-        approval.consents.photoPublication !== false)) return false;
+    if (automated && (entry.credit !== 'anonymous' ||
+        approval.consents.quotePublication !== (entry.category === 'quotation') ||
+        approval.consents.namedAttribution !== false ||
+        (automatedText && (entry.photo || approval.consents.photoPublication !== false)) ||
+        (automatedImage && (entry.category === 'quotation' || !entry.photo || approval.consents.photoPublication !== true)))) return false;
     if (approval.entryId !== entry.id || !/^\d{4}-\d{2}-\d{2}T/.test(approval.approvedAt ?? '') ||
         approval.consents.publication !== true ||
         (entry.category === 'quotation' && approval.consents.quotePublication !== true) ||
@@ -206,7 +215,10 @@ function approvedEntryMarkup(entry) {
     (entry.category === 'cocktail' ? '<div class="annal-recipe">' +
       section('Ingredients', entry.recipe.drinkIngredients) +
       section('Homemade syrup', entry.recipe.syrupIngredients) +
-      section('Preparation', entry.recipe.steps) + '</div>' : '') +
+      section('Preparation recorded by contributor', entry.recipe.steps) +
+      (entry.recipe.suggestedSteps?.length ? '<p class="annal-reconstruction-flag">Editorial reconstruction: suggested quantities or methods below are not the original recorded recipe.</p>' : '') +
+      section('Editorial suggestions — NOT part of the original recipe',
+        entry.recipe.suggestedSteps || []) + '</div>' : '') +
     (entry.credit === 'anonymous' ? '' : '<p class="annal-credit">Recorded by ' + esc(entry.credit) + '</p>') +
     '</article>';
 }
@@ -300,6 +312,7 @@ function buildAnnals(entries, receipts, verifyReceipt) {
 .annal-note{margin-top:10px;color:#64685e;font-size:11px}
 .annal-editorial-notice{margin:24px 0 38px;padding-top:16px;border-top:1px solid #d4d3c4;color:#64685e;font:italic 12px/1.7 Georgia,serif;max-width:790px}
 .annal-quote-note{font:italic 12px/1.6 Georgia,serif;color:#64685e}
+.annal-reconstruction-flag{padding:10px 12px;margin-block:16px;border-left:3px solid #846329;background:#eee9de;color:#5f4c2f;font-size:12px}
 @media(max-width:700px){.annal-hero{padding-block:38px 30px}.annal-collection{padding-block:27px}.annal-collection>h2{font-size:29px}.annal-entry{padding-block:18px 25px}}
 </style>
 </head>

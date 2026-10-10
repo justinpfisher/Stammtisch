@@ -51,7 +51,7 @@ function mock() {
     } }
   };
   vm.createContext(context);
-  vm.runInContext(['PilotCore.js','ProductionCore.js','AutoCore.js','Production.gs'].map(name=>readFileSync(new URL('../scripts/annals/'+name,import.meta.url),'utf8')).join('\n'),context);
+  vm.runInContext(['PilotCore.js','ProductionCore.js','AutoCore.js','MediaCore.js','MediaPolicy.js','Production.gs'].map(name=>readFileSync(new URL('../scripts/annals/'+name,import.meta.url),'utf8')).join('\n'),context);
   folder.createFile('source-private.json', JSON.stringify({ attachmentManifest: { items: [] } }));
   return { context, props, files, folder, root, calls, logs };
 }
