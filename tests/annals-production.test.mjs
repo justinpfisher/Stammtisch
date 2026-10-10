@@ -504,104 +504,104 @@ test('owner-attested prior permissions cannot override revocation, missing allow
   assert.equal(c.files.has('consent-registry-private.json'),false);
 });
 
-test('Register of Remarks uses the spoken member, not the email submitter, and requires scoped private permission',()=>{
-  const x=mock(),id='a'.repeat(64),names=['fish','marc','matt','ken','jamie','jerome'],
-    addresses=names.map((_,i)=>'member'+(i+1)+'@example.test');
-  Object.assign(x.props,{
-    ANNALS_ALLOWED_SENDERS:addresses.join(','),
-    ANNALS_SPEAKER_IDENTITIES:JSON.stringify(Object.fromEntries(addresses.map((a,i)=>[a,names[i]]))),
-    ANNALS_AUTO_PUBLICATION_ENABLED:'true',ANNALS_GITHUB_TOKEN:'synthetic-token',
-    ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
-    ANNALS_GITHUB_REPOSITORY:'justinpfisher/Stammtisch',
-    ANNALS_ACTIVATED_AT:'2026-10-08T00:00:00Z'
-  });
-  const members=Object.fromEntries(addresses.map((address,i)=>[address,{
-    status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T00:00:00Z',
-    autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:'2026-10-08T00:00:00Z'},
-    ...(i===3 ? {quoteAttribution:{status:'active',scope:'future_attributed_member_quotation_publication',consentedAt:'2026-10-09T00:00:00Z'}} : {})
-  }]));
-  x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members}));
-  const source={senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,
-    source:{sender:addresses[1],subject:'Register of Remarks',
-      excerpt:'Ken said: "We should have brought a map."',
-      receivedAt:'2026-10-10T15:00:00Z'},
-    attachmentManifest:{items:[],held:false}};
-  const draft={category:'quotation',title:'Register of Remarks',summary:'',
-    quoteVerbatim:'We should have brought a map.',riskFlags:['quote_consent_unconfirmed'],
-    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
-  x.folder.createFile('source-private.json',JSON.stringify(source));
-  x.folder.createFile('draft-private.json',JSON.stringify(draft));
-  const granted=x.context.annalsQuoteSpeakerPermission_(source,draft);
-  assert.equal(granted.speakerPortrait,'ken');
-  const dispatches=[];
-  x.context.UrlFetchApp.fetch=(url,options)=>{dispatches.push(JSON.parse(options.payload));return{getResponseCode:()=>204};};
-  assert.equal(x.context.annalsAutoPublishCandidate_(id),true);
-  assert.equal(dispatches.length,1);
-  const publicItem=dispatches[0].client_payload;
-  assert.equal(publicItem.entry.speakerPortrait,'ken'); // actual speaker, not Marc the contributor
-  assert.equal(publicItem.entry.contributorPortrait,undefined);
-  assert.equal(publicItem.entry.credit,'anonymous');
-  assert.equal(publicItem.approval.mode,'standing-consent-quote-v1');
-  assert.equal(publicItem.approval.consents.namedAttribution,true);
-  assert.equal(verifyPublicApproval(publicItem.entry,publicItem.approval,'p'.repeat(40)),true);
-  assert.doesNotMatch(JSON.stringify(publicItem),/member2|member4|@example.test|source-private/);
-  assert.equal(x.context.annalsAutoPublishCandidate_(id),true);
-  assert.equal(dispatches.length,1);
-  // Old email received before the speaker's grant cannot claim the likeness.
-  const older={...source,source:{...source.source,receivedAt:'2026-10-08T12:00:00Z'}};
-  assert.equal(x.context.annalsQuoteSpeakerPermission_(older,draft),null);
-});
-test('speaker quote permission can be registered once by owner without activating anything; revocation blocks later publication',()=>{
-  const x=mock(),emails=[],names=['fish','marc','matt','ken','jamie','jerome'],
-    addresses=names.map((_,i)=>'member'+(i+1)+'@example.test'),members={};
-  Object.assign(x.props,{ANNALS_AI_ENABLED:'false',ANNALS_AUTO_PUBLICATION_ENABLED:'false',
-    ANNALS_ALLOWED_SENDERS:addresses.join(','),
-    ANNALS_SPEAKER_IDENTITIES:JSON.stringify(Object.fromEntries(addresses.map((a,i)=>[a,names[i]])))});
-  addresses.forEach(address=>members[address]={
-    status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-07T00:00:00Z',
-    autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:'2026-10-07T00:00:00Z'}
-  });
-  x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members}));
-  x.context.MailApp={sendEmail:(...args)=>emails.push(args)};
-  assert.throws(()=>x.context.annalsRecordVerifiedQuotePermissions('valid',false,'owner testimony for each member'),/Operation held/);
-  assert.equal(x.files.has('verified-quote-speaker-consents-private.json'),false);
-  const done=x.context.annalsRecordVerifiedQuotePermissions('valid',true,'Evidence personally verified outside public GitHub for all six speakers.');
-  assert.equal(done.speakerCount,6);
-  assert.equal(done.activationChanged,false);
-  assert.equal(x.props.ANNALS_AUTO_PUBLICATION_ENABLED,'false');
-  assert.equal(x.context.annalsReviewConsentStatus('valid').every(m=>m.quoteAttributionStatus==='active'),true);
-  assert.equal(emails.length,6);
-  assert.doesNotMatch(JSON.stringify(emails),/private evidence|@example.test source|code: /i);
-  assert.throws(()=>x.context.annalsRecordVerifiedQuotePermissions('valid',true,'Cannot register a second time'),/Operation held/);
-  const s={senderAuthenticated:true,source:{sender:addresses[1],
-    receivedAt:'2026-10-10T15:00:00Z',excerpt:'Ken: "This is fictional."'}};
-  const d={category:'quotation',quoteVerbatim:'This is fictional.'};
-  assert.equal(x.context.annalsQuoteSpeakerPermission_(s,d).speakerPortrait,'ken');
-  assert.equal(x.context.annalsHandleConsentReply_(addresses[3],'REVOKE ANNALS QUOTE ATTRIBUTION'),'quote_attribution_revoked');
-  assert.equal(x.context.annalsQuoteSpeakerPermission_(s,d),null);
-  assert.equal(x.context.annalsReviewConsentStatus('valid')[3].quoteAttributionStatus,'revoked');
-});
-test('private source controls reject incorrect member speaker and only allow exact-source speaker rights',()=>{
-  const x=mock(),names=['fish','marc','matt','ken','jamie','jerome'],
-    addresses=names.map((_,i)=>'member'+(i+1)+'@example.test');
-  Object.assign(x.props,{ANNALS_ALLOWED_SENDERS:addresses.join(','),
-    ANNALS_SPEAKER_IDENTITIES:JSON.stringify(Object.fromEntries(addresses.map((a,i)=>[a,names[i]])))});
-  x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{
-    [addresses[3]]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-07T00:00:00Z',
-      autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:'2026-10-07T00:00:00Z'},
-      quoteAttribution:{status:'active',scope:'future_attributed_member_quotation_publication',consentedAt:'2026-10-09T00:00:00Z'}}
-  }}));
-  const source={senderAuthenticated:true,source:{sender:addresses[1],
-    receivedAt:'2026-10-10T15:00:00Z',excerpt:'Ken said: "This is a test."'}};
-  const d={category:'quotation',quoteVerbatim:'This is a test.'};
-  assert.equal(x.context.annalsQuoteSpeakerPermission_(source,d).speakerPortrait,'ken');
-  assert.equal(x.context.annalsQuoteSpeakerPermission_(source,{...d,quoteVerbatim:'This is a guess.'}),null);
-  assert.equal(x.context.annalsQuoteSpeakerPermission_({...source,senderAuthenticated:false},d),null);
-  const registry=JSON.parse(x.files.get('consent-registry-private.json').getBlob().getDataAsString());
-  registry.members[addresses[3]].portraitAttributionDisabled=true;
-  x.files.get('consent-registry-private.json').setContent(JSON.stringify(registry));
-  assert.equal(x.context.annalsQuoteSpeakerPermission_(source,d),null);
-});
+test('Register of Remarks uses the spoken member, not the email submitter, and requires scoped private permission',()=>{
+  const x=mock(),id='a'.repeat(64),names=['fish','marc','matt','ken','jamie','jerome'],
+    addresses=names.map((_,i)=>'member'+(i+1)+'@example.test');
+  Object.assign(x.props,{
+    ANNALS_ALLOWED_SENDERS:addresses.join(','),
+    ANNALS_SPEAKER_IDENTITIES:JSON.stringify(Object.fromEntries(addresses.map((a,i)=>[a,names[i]]))),
+    ANNALS_AUTO_PUBLICATION_ENABLED:'true',ANNALS_GITHUB_TOKEN:'synthetic-token',
+    ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
+    ANNALS_GITHUB_REPOSITORY:'justinpfisher/Stammtisch',
+    ANNALS_ACTIVATED_AT:'2026-10-08T00:00:00Z'
+  });
+  const members=Object.fromEntries(addresses.map((address,i)=>[address,{
+    status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T00:00:00Z',
+    autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:'2026-10-08T00:00:00Z'},
+    ...(i===3 ? {quoteAttribution:{status:'active',scope:'future_attributed_member_quotation_publication',consentedAt:'2026-10-09T00:00:00Z'}} : {})
+  }]));
+  x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members}));
+  const source={senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,
+    source:{sender:addresses[1],subject:'Register of Remarks',
+      excerpt:'Ken said: "We should have brought a map."',
+      receivedAt:'2026-10-10T15:00:00Z'},
+    attachmentManifest:{items:[],held:false}};
+  const draft={category:'quotation',title:'Register of Remarks',summary:'',
+    quoteVerbatim:'We should have brought a map.',riskFlags:['quote_consent_unconfirmed'],
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  x.folder.createFile('source-private.json',JSON.stringify(source));
+  x.folder.createFile('draft-private.json',JSON.stringify(draft));
+  const granted=x.context.annalsQuoteSpeakerPermission_(source,draft);
+  assert.equal(granted.speakerPortrait,'ken');
+  const dispatches=[];
+  x.context.UrlFetchApp.fetch=(url,options)=>{dispatches.push(JSON.parse(options.payload));return{getResponseCode:()=>204};};
+  assert.equal(x.context.annalsAutoPublishCandidate_(id),true);
+  assert.equal(dispatches.length,1);
+  const publicItem=dispatches[0].client_payload;
+  assert.equal(publicItem.entry.speakerPortrait,'ken'); // actual speaker, not Marc the contributor
+  assert.equal(publicItem.entry.contributorPortrait,undefined);
+  assert.equal(publicItem.entry.credit,'anonymous');
+  assert.equal(publicItem.approval.mode,'standing-consent-quote-v1');
+  assert.equal(publicItem.approval.consents.namedAttribution,true);
+  assert.equal(verifyPublicApproval(publicItem.entry,publicItem.approval,'p'.repeat(40)),true);
+  assert.doesNotMatch(JSON.stringify(publicItem),/member2|member4|@example.test|source-private/);
+  assert.equal(x.context.annalsAutoPublishCandidate_(id),true);
+  assert.equal(dispatches.length,1);
+  // Old email received before the speaker's grant cannot claim the likeness.
+  const older={...source,source:{...source.source,receivedAt:'2026-10-08T12:00:00Z'}};
+  assert.equal(x.context.annalsQuoteSpeakerPermission_(older,draft),null);
+});
+test('speaker quote permission can be registered once by owner without activating anything; revocation blocks later publication',()=>{
+  const x=mock(),emails=[],names=['fish','marc','matt','ken','jamie','jerome'],
+    addresses=names.map((_,i)=>'member'+(i+1)+'@example.test'),members={};
+  Object.assign(x.props,{ANNALS_AI_ENABLED:'false',ANNALS_AUTO_PUBLICATION_ENABLED:'false',
+    ANNALS_ALLOWED_SENDERS:addresses.join(','),
+    ANNALS_SPEAKER_IDENTITIES:JSON.stringify(Object.fromEntries(addresses.map((a,i)=>[a,names[i]])))});
+  addresses.forEach(address=>members[address]={
+    status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-07T00:00:00Z',
+    autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:'2026-10-07T00:00:00Z'}
+  });
+  x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members}));
+  x.context.MailApp={sendEmail:(...args)=>emails.push(args)};
+  assert.throws(()=>x.context.annalsRecordVerifiedQuotePermissions('valid',false,'owner testimony for each member'),/Operation held/);
+  assert.equal(x.files.has('verified-quote-speaker-consents-private.json'),false);
+  const done=x.context.annalsRecordVerifiedQuotePermissions('valid',true,'Evidence personally verified outside public GitHub for all six speakers.');
+  assert.equal(done.speakerCount,6);
+  assert.equal(done.activationChanged,false);
+  assert.equal(x.props.ANNALS_AUTO_PUBLICATION_ENABLED,'false');
+  assert.equal(x.context.annalsReviewConsentStatus('valid').every(m=>m.quoteAttributionStatus==='active'),true);
+  assert.equal(emails.length,6);
+  assert.doesNotMatch(JSON.stringify(emails),/private evidence|@example.test source|code: /i);
+  assert.throws(()=>x.context.annalsRecordVerifiedQuotePermissions('valid',true,'Cannot register a second time'),/Operation held/);
+  const s={senderAuthenticated:true,source:{sender:addresses[1],
+    receivedAt:'2026-10-10T15:00:00Z',excerpt:'Ken: "This is fictional."'}};
+  const d={category:'quotation',quoteVerbatim:'This is fictional.'};
+  assert.equal(x.context.annalsQuoteSpeakerPermission_(s,d).speakerPortrait,'ken');
+  assert.equal(x.context.annalsHandleConsentReply_(addresses[3],'REVOKE ANNALS QUOTE ATTRIBUTION'),'quote_attribution_revoked');
+  assert.equal(x.context.annalsQuoteSpeakerPermission_(s,d),null);
+  assert.equal(x.context.annalsReviewConsentStatus('valid')[3].quoteAttributionStatus,'revoked');
+});
+test('private source controls reject incorrect member speaker and only allow exact-source speaker rights',()=>{
+  const x=mock(),names=['fish','marc','matt','ken','jamie','jerome'],
+    addresses=names.map((_,i)=>'member'+(i+1)+'@example.test');
+  Object.assign(x.props,{ANNALS_ALLOWED_SENDERS:addresses.join(','),
+    ANNALS_SPEAKER_IDENTITIES:JSON.stringify(Object.fromEntries(addresses.map((a,i)=>[a,names[i]])))});
+  x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{
+    [addresses[3]]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-07T00:00:00Z',
+      autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:'2026-10-07T00:00:00Z'},
+      quoteAttribution:{status:'active',scope:'future_attributed_member_quotation_publication',consentedAt:'2026-10-09T00:00:00Z'}}
+  }}));
+  const source={senderAuthenticated:true,source:{sender:addresses[1],
+    receivedAt:'2026-10-10T15:00:00Z',excerpt:'Ken said: "This is a test."'}};
+  const d={category:'quotation',quoteVerbatim:'This is a test.'};
+  assert.equal(x.context.annalsQuoteSpeakerPermission_(source,d).speakerPortrait,'ken');
+  assert.equal(x.context.annalsQuoteSpeakerPermission_(source,{...d,quoteVerbatim:'This is a guess.'}),null);
+  assert.equal(x.context.annalsQuoteSpeakerPermission_({...source,senderAuthenticated:false},d),null);
+  const registry=JSON.parse(x.files.get('consent-registry-private.json').getBlob().getDataAsString());
+  registry.members[addresses[3]].portraitAttributionDisabled=true;
+  x.files.get('consent-registry-private.json').setContent(JSON.stringify(registry));
+  assert.equal(x.context.annalsQuoteSpeakerPermission_(source,d),null);
+});
 
 
 
@@ -697,4 +697,3 @@ test('private contributor portrait permissions require individual owner attestat
   assert.equal(x.context.annalsProductionPreflight().contributorPortraitConsentsRecorded,true);
   assert.throws(()=>x.context.annalsRecordVerifiedContributorPortraitPermissions('valid',true,evidence),/Operation held/);
 });
-
