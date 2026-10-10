@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { createHash, createHmac } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { contentDigest, validatePublicTextEntry, verifyApproval } from '../scripts/annals/ApprovedRenderer.mjs';
+import { contentDigest, validatePublicTextEntry, verifyApproval, verifyPublicApproval } from '../scripts/annals/ApprovedRenderer.mjs';
 import { prepareApprovedBundle } from '../scripts/annals/prepare-publication.mjs';
 const require = createRequire(import.meta.url);
 const core = require('../scripts/annals/ProductionCore.js');
@@ -98,6 +98,30 @@ test('every private UI operation rejects a blank or different owner identity and
   assert.throws(()=>core.owner('other@example.test','owner@example.test','owner@example.test'));
   const y=mock();assert.throws(()=>y.context.annalsPrepareDraft('expired','a'.repeat(64),'Synthetic',[],true),/Reload/);
 });
+test('sender authentication requires an aligned Google-reported DKIM or DMARC pass', () => {
+  const x=mock(), message=header=>({getRawContent:()=>`Authentication-Results: ${header}\r\n\r\nbody`});
+  assert.equal(x.context.annalsAuthentication_(message('mx.google.com; dkim=pass header.d=member.example; dmarc=pass header.from=member.example'),'member@member.example'),true);
+  assert.equal(x.context.annalsAuthentication_(message('mx.google.com; dkim=pass header.i=@member.example header.s=google; dmarc=pass header.from=member.example'),'member@member.example'),true);
+  assert.equal(x.context.annalsAuthentication_(message('mx.google.com; dkim=pass header.d=attacker.example; dmarc=fail header.from=member.example'),'member@member.example'),false);
+  assert.equal(x.context.annalsAuthentication_(message('attacker.example; dkim=pass header.d=member.example'),'member@member.example'),false);
+  assert.equal(x.context.annalsAuthentication_({getRawContent:()=> 'Authentication-Results: attacker.example; dkim=pass header.d=member.example\r\nAuthentication-Results: mx.google.com; dmarc=pass header.from=member.example\r\n\r\nbody'},'member@member.example'),false);
+  assert.equal(x.context.annalsAuthentication_({},'member@member.example'),false);
+});
+test('one-time private consent challenge activates only on exact reply and can be revoked', () => {
+  const x=mock(), sent=[];x.context.MailApp={sendEmail:(...args)=>sent.push(args)};
+  x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{'member@example.test':{status:'pending',scope:'future_text_ai_drafting',challenge:'opaque-token'}}}));
+  assert.equal(x.context.annalsHandleConsentReply_('member@example.test','I CONSENT TO PRIVATE AI DRAFTING FOR FUTURE TEXT SUBMISSIONS. CODE: wrong'),null);
+  assert.equal(x.context.annalsHandleConsentReply_('member@example.test','I CONSENT TO PRIVATE AI DRAFTING FOR FUTURE TEXT SUBMISSIONS. CODE: opaque-token'),'consent_activated');
+  assert.equal(x.context.annalsConsentActive_('member@example.test'),true);
+  assert.equal(x.context.annalsHandleConsentReply_('member@example.test','REVOKE ANNALS AI PROCESSING'),'consent_revoked');
+  assert.equal(x.context.annalsConsentActive_('member@example.test'),false);assert.equal(sent.length,2);
+  assert.doesNotMatch(JSON.stringify(sent),/opaque-token/);
+});
+test('automatic drafting rejects quoted or contact-bearing text but allows plain cocktail notes', () => {
+  const x=mock();
+  assert.equal(x.context.annalsSafeTextForAutoAi_('1/2 oz syrup and 1 oz juice.'),true);
+  for(const unsafe of ['Email me at member@example.test','> quoted private note','From: member@example.test','Call 416-555-1212','--\nPrivate signature'])assert.equal(x.context.annalsSafeTextForAutoAi_(unsafe),false);
+});
 test('drafting needs explicit consent, disabled AI never calls provider, reservation precedes network and repeats do not spend', () => {
   const x=mock(), id='a'.repeat(64);
   assert.throws(()=>x.context.annalsPrepareDraft('valid',id,'Synthetic',[],false));assert.equal(x.calls.ai,0);
@@ -148,8 +172,11 @@ test('approval needs exact saved revision, recipe consent and evidence; private 
   assert.throws(()=>x.context.annalsApproveReview('valid',id,second.hash,{...permissions,recipeVerified:false},'Synthetic consent record',true));
   assert.throws(()=>x.context.annalsApproveReview('valid',id,second.hash,permissions,'',true));
   assert.equal(x.context.annalsApproveReview('valid',id,second.hash,permissions,'Synthetic consent record',true).published,false);
-  const bundle=JSON.parse(JSON.stringify(x.context.annalsExportApproved('valid',id)));
+  const savedApproval=JSON.parse(x.files.get('approval-private.json').getBlob().getDataAsString());
+  const bundle=JSON.parse(JSON.stringify({entries:[savedApproval.entry],receipts:[savedApproval.receipt]}));
   assert.equal(verifyApproval(bundle.entries[0],bundle.receipts[0],x.props.ANNALS_APPROVAL_KEY),true);
+  const publicationKey='p'.repeat(40),publicApproval=x.context.annalsPublicApproval_(bundle.entries[0],bundle.receipts[0],publicationKey);
+  assert.equal(verifyPublicApproval(bundle.entries[0],publicApproval,publicationKey),true);
   assert.throws(()=>x.context.annalsSaveReview('valid',id,entry()));
   const prepared=prepareApprovedBundle(bundle,{entries:[]},x.props.ANNALS_APPROVAL_KEY);
   assert.equal(prepared.count,1);assert.doesNotMatch(prepared.html,/owner@example|signature|Synthetic consent record/);
@@ -162,7 +189,8 @@ test('production intake resumes a long thread and wraps without reading while di
   x.context.GmailApp={getInboxThreads:(offset)=>offset===0?[thread]:[],getThreadById:()=>thread};
   x.context.annalsStageProduction_=m=>{handled.push(m.id);return 'staged'};
   assert.equal(x.context.runAnnalsProductionIntake().enabled,false);assert.equal(handled.length,0);
-  Object.assign(x.props,{ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_ALLOWED_SENDERS:'sender@example.test',ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z'});
+  Object.assign(x.props,{ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_AI_ENABLED:'true',ANNALS_OPENAI_API_KEY:'test',ANNALS_BUDGET_LEDGER:'{}',ANNALS_GITHUB_TOKEN:'test',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'owner/repo',ANNALS_REVIEW_URL:'https://script.google.com/macros/s/test/exec',ANNALS_ALLOWED_SENDERS:'sender@example.test',ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z'});
+  x.root.getFolders=()=>iter([]);
   assert.equal(x.context.runAnnalsProductionIntake().staged,10);
   assert.equal(x.context.runAnnalsProductionIntake().staged,2);
   assert.deepEqual(handled,Array.from({length:12},(_,i)=>i));
@@ -174,15 +202,15 @@ test('old and unknown messages are skipped before body reads and production inta
   const activation=Date.parse('2026-10-08T23:00:00Z');
   assert.equal(x.context.annalsStageProduction_(m,activation,['sender@example.test']),'skipped');assert.equal(bodyReads,0);
   m.getFrom=()=> 'sender@example.test';assert.equal(x.context.annalsStageProduction_(m,Date.parse('2026-10-09T00:00:00Z'),['sender@example.test']),'skipped');assert.equal(bodyReads,0);
-  assert.equal(x.context.annalsStageProduction_(m,activation,['sender@example.test']),'held');assert.equal(copies,0);
+  assert.equal(x.context.annalsStageProduction_(m,activation,['sender@example.test']),'unverified');assert.equal(copies,0);
   assert.equal(x.context.annalsStageProduction_(m,activation,['sender@example.test']),'duplicates');assert.equal(bodyReads,1);
 });
 test('schedule installation is idempotent and stopping touches only the production intake handler', () => {
   const x=mock(), triggers=[{getHandlerFunction:()=> 'unrelatedHandler'}];
   x.context.ScriptApp={getProjectTriggers:()=>triggers,newTrigger:name=>({timeBased:()=>({everyMinutes:minutes=>({create:()=>{assert.equal(minutes,15);triggers.push({getHandlerFunction:()=>name})}})})}),deleteTrigger:t=>triggers.splice(triggers.indexOf(t),1)};
   assert.throws(()=>x.context.annalsInstallIntakeSchedule());
-  x.props.ANNALS_PRODUCTION_INTAKE_ENABLED='true';x.context.annalsInstallIntakeSchedule();x.context.annalsInstallIntakeSchedule();assert.equal(triggers.length,2);
+  Object.assign(x.props,{ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_AI_ENABLED:'true',ANNALS_OPENAI_API_KEY:'test',ANNALS_BUDGET_LEDGER:'{}',ANNALS_GITHUB_TOKEN:'test',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'owner/repo',ANNALS_REVIEW_URL:'https://script.google.com/macros/s/test/exec',ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z',ANNALS_ALLOWED_SENDERS:'sender@example.test'});
+  x.context.annalsInstallIntakeSchedule();x.context.annalsInstallIntakeSchedule();assert.equal(triggers.length,2);
   x.context.annalsStopProduction();assert.equal(triggers.length,1);assert.equal(triggers[0].getHandlerFunction(),'unrelatedHandler');
   assert.equal(x.props.ANNALS_AI_ENABLED,'false');assert.equal(x.props.ANNALS_PRODUCTION_INTAKE_ENABLED,'false');
 });
-
