@@ -2,7 +2,7 @@ name: Publish explicitly approved Annals entry
 
 on:
   repository_dispatch:
-    types: [annals-approved-entry]
+    types: [annals-approved-entry, annals-correct-entry, annals-remove-entry]
 
 permissions:
   contents: write
@@ -33,3 +33,4 @@ jobs:
           git diff --cached --quiet && exit 1
           git commit -m "Publish approved Annals entry"
           git push origin HEAD:main
+
