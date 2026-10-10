@@ -57,8 +57,10 @@ export async function applyApprovedEntry({ event, data, secret }) {
     const entry = validatePublicTextEntry(event.client_payload.entry), approval = event.client_payload.approval;
     if (!verifyPublicApproval(entry, approval, secret)) throw new Error('Missing exact public approval');
     if (event.action === 'annals-auto-entry') {
-      if (approval.mode !== 'standing-consent-text-v1' || entry.photo || event.client_payload.imageBase64 !== undefined)
-        throw new Error('Automated publication requires signed text-only standing-consent proof');
+      if ((approval.mode === 'standing-consent-text-v1' && (entry.photo || event.client_payload.imageBase64 !== undefined)) ||
+          (approval.mode === 'standing-consent-image-v1' && (!entry.photo || event.client_payload.imageBase64 === undefined)) ||
+          !['standing-consent-text-v1','standing-consent-image-v1'].includes(approval.mode))
+        throw new Error('Automated publication requires signed standing-consent proof and bounded media');
     } else if (approval.mode !== undefined) {
       throw new Error('Standing-consent proof cannot be reused for manual publication or correction');
     }
