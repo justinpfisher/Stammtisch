@@ -56,6 +56,8 @@ function annalsAuthentication_(message, sender) {
 }
 function annalsConsentRegistry_() { return annalsRead_(annalsRoot_(), 'consent-registry-private.json') || { schemaVersion: 1, members: {} }; }
 function annalsConsentActive_(sender) {
+  sender = String(sender || '').toLowerCase();
+  if (AnnalsPilot.allowedSenders(annalsProps_().getProperty('ANNALS_ALLOWED_SENDERS') || '').indexOf(sender) < 0) return false;
   var record = annalsConsentRegistry_().members[sender.toLowerCase()];
   return !!record && record.status === 'active' && record.scope === 'future_text_ai_drafting' && record.consentedAt && !record.revokedAt;
 }
@@ -302,9 +304,10 @@ function annalsReviewList(nonce, continuation) {
       if (!/^[a-f0-9]{64}$/.test(id)) continue;
       var source = annalsRead_(f, 'source-private.json');
       if (!source) continue;
-      var approval = annalsRead_(f, 'approval-private.json');
+      var approval = annalsRead_(f, 'approval-private.json'), correction = annalsRead_(f, 'correction-approval-private.json'), removal = annalsRead_(f, 'removal-private.json');
       items.push({ id: id, subject: source.source.subject, receivedAt: source.source.receivedAt,
-        state: approval ? (approval.publicationState === 'dispatch_accepted' ? 'Exact approval — publish request accepted' : 'Exact approval — publication needs attention') :
+        state: removal ? 'Removal request — ' + removal.state : correction ? 'Correction — ' + correction.publicationState :
+          approval ? (approval.publicationState === 'dispatch_accepted' ? 'Exact approval — publish request accepted' : 'Exact approval — publication needs attention') :
           annalsFile_(f, 'draft-private.json') ? 'Draft ready' :
           annalsFile_(f, 'ai-attempt-private.json') ? 'AI attempt requires review' : 'Awaiting processing consent' });
     }
@@ -315,14 +318,20 @@ function annalsReviewItem(nonce, id) {
   return annalsUiCall_(nonce, function () {
     var f = annalsFolder_(id), source = annalsRead_(f, 'source-private.json');
     if (!source) throw new Error('Incomplete source');
+    var originalApproval = annalsRead_(f, 'approval-private.json'), correction = annalsRead_(f, 'correction-approval-private.json');
+    var published = correction && correction.publicationState === 'dispatch_accepted' ? correction : originalApproval;
+    var publicationState = correction && correction.publicationState !== 'dispatch_accepted' ? 'correction_result_uncertain' : (published || {}).publicationState || null;
     var names = source.attachmentManifest.items.filter(function (a) { return a.accepted && annalsFile_(f, a.storageName); })
       .map(function (a) { return { name: a.storageName, mime: a.mime, size: a.size }; });
     return { id: id, subject: source.source.subject, text: source.source.excerpt, receivedAt: source.source.receivedAt,
       truncated: source.source.excerptTruncated, attachments: names, folderUrl: f.getUrl(),
       draft: annalsRead_(f, 'draft-private.json'), review: annalsRead_(f, 'review-private.json'),
-      outcome: annalsRead_(f, 'ai-outcome-private.json'),
+      outcome: annalsRead_(f, 'ai-outcome-private.json'), correctionReview: annalsRead_(f, 'correction-review-private.json'),
+      correctionApproval: correction, removal: annalsRead_(f, 'removal-private.json'),
+      publishedEntry: (published || {}).entry || null,
+      publishedEntryHash: (published || {}).entry ? annalsHash_(AnnalsProduction.serial(published.entry)) : null,
       attempted: !!annalsFile_(f, 'ai-attempt-private.json'), approved: !!annalsFile_(f, 'approval-private.json'),
-      publicationState: (annalsRead_(f, 'approval-private.json') || {}).publicationState || null,
+      publicationState: publicationState,
       dispatchAttempted: !!annalsFile_(f, 'publication-dispatch-private.json') };
   });
 }
@@ -441,7 +450,7 @@ function annalsApproveReview(nonce, id, expectedHash, consents, evidenceNote, un
     var saved = { entry: entry, receipt: receipt, publication: publication,
       evidenceNote: evidenceNote, uncertaintiesReviewed: true, publicationState: 'approved_private_pending_publish' };
     annalsWriteOnce_(f, 'approval-private.json', saved);
-    var sent = annalsDispatchApproved_(f, entry, publication);
+    var sent = annalsDispatchApproved_(f, entry, publication, 'annals-approved-entry', 'publication-dispatch-private.json');
     saved.publicationState = sent ? 'dispatch_accepted' : 'dispatch_not_configured_or_held';
     var approvalFile = annalsFile_(f, 'approval-private.json');
     approvalFile.setContent(JSON.stringify(saved));
@@ -454,44 +463,118 @@ function annalsPublicApproval_(entry, receipt, key) {
   proof.signature = annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial({ entry: entry, approval: proof }), key, Utilities.Charset.UTF_8));
   return proof;
 }
-function annalsDispatchApproved_(folder, entry, approval) {
+function annalsPublicRemoval_(entry, approvedAt, key) {
+  if (key.length < 32 || key === (annalsProps_().getProperty('ANNALS_APPROVAL_KEY') || '')) return null;
+  var proof = { entryId: entry.id, approvedAt: approvedAt, contentSha256: annalsHash_(AnnalsProduction.serial(entry)) };
+  proof.signature = annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial({ operation: 'remove', removal: proof }), key, Utilities.Charset.UTF_8));
+  return proof;
+}
+function annalsPrivateReceiptValid_(entry, receipt) {
+  var key = annalsProps_().getProperty('ANNALS_APPROVAL_KEY') || '';
+  if (!receipt || key.length < 32 || annalsHash_(AnnalsProduction.serial(entry)) !== receipt.contentSha256) return false;
+  var unsigned = { entryId: receipt.entryId, approvedAt: receipt.approvedAt, reviewedBy: receipt.reviewedBy,
+    consents: receipt.consents, contentSha256: receipt.contentSha256 };
+  var expected = annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial({ entry: entry, receipt: unsigned }), key, Utilities.Charset.UTF_8));
+  return expected === receipt.signature;
+}
+function annalsDispatchEvent_(folder, eventType, clientPayload, markerName) {
   var p = annalsProps_(), token = p.getProperty('ANNALS_GITHUB_TOKEN'), repo = p.getProperty('ANNALS_GITHUB_REPOSITORY');
   if (!token || (p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') || '').length < 32 ||
       p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') === p.getProperty('ANNALS_APPROVAL_KEY') ||
-      !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo || '') || !approval || annalsFile_(folder, 'publication-dispatch-private.json')) return false;
+      !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo || '') ||
+      ['annals-approved-entry','annals-correct-entry','annals-remove-entry'].indexOf(eventType) < 0 || annalsFile_(folder, markerName)) return false;
   var marker = { state: 'attempt_reserved', at: new Date().toISOString() };
-  annalsWriteOnce_(folder, 'publication-dispatch-private.json', marker);
+  annalsWriteOnce_(folder, markerName, marker);
   var response;
   try {
     response = UrlFetchApp.fetch('https://api.github.com/repos/' + repo + '/dispatches', {
       method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
-      payload: JSON.stringify({ event_type: 'annals-approved-entry', client_payload: { entry: entry, approval: approval } }),
+      payload: JSON.stringify({ event_type: eventType, client_payload: clientPayload }),
       muteHttpExceptions: true, followRedirects: false, validateHttpsCertificates: true });
-  } catch (e) { marker.state = 'unknown_no_retry'; annalsFile_(folder, 'publication-dispatch-private.json').setContent(JSON.stringify(marker)); return false; }
+  } catch (e) { marker.state = 'unknown_no_retry'; annalsFile_(folder, markerName).setContent(JSON.stringify(marker)); return false; }
   try { marker.state = response.getResponseCode() === 204 ? 'accepted' : 'rejected_no_retry'; }
   catch (e) { marker.state = 'unknown_no_retry'; }
   marker.completedAt = new Date().toISOString();
-  annalsFile_(folder, 'publication-dispatch-private.json').setContent(JSON.stringify(marker));
+  annalsFile_(folder, markerName).setContent(JSON.stringify(marker));
   return marker.state === 'accepted';
+}
+function annalsDispatchApproved_(folder, entry, approval, eventType, markerName) {
+  if (!approval) return false;
+  return annalsDispatchEvent_(folder, eventType, { entry: entry, approval: approval }, markerName);
+}
+function annalsDispatchRemoval_(folder, entryId, approval) {
+  if (!approval) return false;
+  return annalsDispatchEvent_(folder, 'annals-remove-entry', { entryId: entryId, approval: approval }, 'removal-dispatch-private.json');
 }
 function annalsPublishApproved(nonce, id) {
   return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
     var folder = annalsFolder_(id), saved = annalsRead_(folder, 'approval-private.json');
     if (!saved || annalsFile_(folder, 'publication-dispatch-private.json')) return { dispatchAccepted: false, retryAllowed: false };
-    var receipt = saved.receipt, p = annalsProps_(), key = p.getProperty('ANNALS_APPROVAL_KEY') || '';
-    var unsignedReceipt = { entryId: receipt.entryId, approvedAt: receipt.approvedAt, reviewedBy: receipt.reviewedBy,
-      consents: receipt.consents, contentSha256: receipt.contentSha256 };
-    var expected = annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial({ entry: saved.entry, receipt: unsignedReceipt }), key, Utilities.Charset.UTF_8));
-    if (key.length < 32 || expected !== receipt.signature || annalsHash_(AnnalsProduction.serial(saved.entry)) !== receipt.contentSha256) throw new Error('Private approval signature invalid');
+    var receipt = saved.receipt, p = annalsProps_();
+    if (!annalsPrivateReceiptValid_(saved.entry, receipt)) throw new Error('Private approval signature invalid');
     var publication = saved.publication || annalsPublicApproval_(saved.entry, receipt, p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') || '');
     if (!publication) return { dispatchAccepted: false, retryAllowed: true };
     saved.publication = publication;
     saved.publicationState = 'approved_private_pending_publish';
     annalsFile_(folder, 'approval-private.json').setContent(JSON.stringify(saved));
-    var accepted = annalsDispatchApproved_(folder, saved.entry, publication);
+    var accepted = annalsDispatchApproved_(folder, saved.entry, publication, 'annals-approved-entry', 'publication-dispatch-private.json');
     saved.publicationState = accepted ? 'dispatch_accepted' : 'dispatch_not_configured_or_held';
     annalsFile_(folder, 'approval-private.json').setContent(JSON.stringify(saved));
     return { dispatchAccepted: accepted, retryAllowed: false };
+  }); });
+}
+function annalsSaveCorrection(nonce, id, rawEntry) {
+  return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
+    var folder = annalsFolder_(id), original = annalsRead_(folder, 'approval-private.json');
+    if (!original || original.publicationState !== 'dispatch_accepted' || annalsFile_(folder, 'removal-private.json') ||
+        annalsFile_(folder, 'correction-approval-private.json') || !annalsPrivateReceiptValid_(original.entry, original.receipt)) throw new Error('Only a verified published entry can be corrected');
+    var entry = AnnalsProduction.publicEntry(rawEntry);
+    if (entry.id !== original.entry.id || AnnalsProduction.serial(entry) === AnnalsProduction.serial(original.entry)) throw new Error('Correction must change this exact entry');
+    var review = { entry: entry, hash: annalsHash_(AnnalsProduction.serial(entry)), savedAt: new Date().toISOString() };
+    var prior = annalsFile_(folder, 'correction-review-private.json');
+    if (prior) prior.setContent(JSON.stringify(review)); else annalsWriteOnce_(folder, 'correction-review-private.json', review);
+    return review;
+  }); });
+}
+function annalsApproveCorrection(nonce, id, expectedHash, consents, evidenceNote, uncertaintiesReviewed) {
+  return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
+    var folder = annalsFolder_(id), original = annalsRead_(folder, 'approval-private.json'), review = annalsRead_(folder, 'correction-review-private.json');
+    if (!original || original.publicationState !== 'dispatch_accepted' || !review || review.hash !== expectedHash || expectedHash !== annalsHash_(AnnalsProduction.serial(review.entry)) ||
+        annalsFile_(folder, 'correction-approval-private.json') || annalsFile_(folder, 'removal-private.json') ||
+        uncertaintiesReviewed !== true || typeof evidenceNote !== 'string' || evidenceNote.trim().length < 10 || evidenceNote.length > 2000 ||
+        !annalsPrivateReceiptValid_(original.entry, original.receipt)) throw new Error('Exact correction review and private evidence required');
+    var entry = AnnalsProduction.publicEntry(review.entry), key = annalsProps_().getProperty('ANNALS_APPROVAL_KEY') || '';
+    var receipt = { entryId: entry.id, approvedAt: new Date().toISOString(), reviewedBy: annalsOwner_(),
+      consents: AnnalsProduction.consents(entry, consents), contentSha256: expectedHash };
+    receipt.signature = annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial({ entry: entry, receipt: receipt }), key, Utilities.Charset.UTF_8));
+    var publication = annalsPublicApproval_(entry, receipt, annalsProps_().getProperty('ANNALS_PUBLISH_SIGNING_KEY') || '');
+    if (!publication) throw new Error('Separate public signing configuration required');
+    var record = { entry: entry, receipt: receipt, publication: publication, evidenceNote: evidenceNote,
+      uncertaintiesReviewed: true, publicationState: 'approved_correction_pending' };
+    annalsWriteOnce_(folder, 'correction-approval-private.json', record);
+    var sent = annalsDispatchApproved_(folder, entry, publication, 'annals-correct-entry', 'correction-dispatch-private.json');
+    record.publicationState = sent ? 'dispatch_accepted' : 'dispatch_not_configured_or_held';
+    annalsFile_(folder, 'correction-approval-private.json').setContent(JSON.stringify(record));
+    return { approved: true, dispatchAccepted: sent };
+  }); });
+}
+function annalsApproveRemoval(nonce, id, expectedHash, reason, confirmed) {
+  return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
+    var folder = annalsFolder_(id), original = annalsRead_(folder, 'approval-private.json'), correction = annalsRead_(folder, 'correction-approval-private.json');
+    var current = correction && correction.publicationState === 'dispatch_accepted' ? correction : original;
+    if (!current || (correction && correction.publicationState !== 'dispatch_accepted') || current.publicationState !== 'dispatch_accepted' || !annalsPrivateReceiptValid_(current.entry, current.receipt) ||
+        annalsFile_(folder, 'removal-private.json') ||
+        expectedHash !== annalsHash_(AnnalsProduction.serial(current.entry)) || confirmed !== true ||
+        typeof reason !== 'string' || reason.trim().length < 10 || reason.length > 2000) throw new Error('Exact public entry and private removal reason required');
+    var key = annalsProps_().getProperty('ANNALS_PUBLISH_SIGNING_KEY') || '', approvedAt = new Date().toISOString();
+    var proof = annalsPublicRemoval_(current.entry, approvedAt, key);
+    if (!proof) throw new Error('Separate public signing configuration required');
+    var record = { entry: current.entry, proof: proof, reason: reason, reviewedBy: annalsOwner_(), approvedAt: approvedAt, state: 'approved_removal_pending' };
+    annalsWriteOnce_(folder, 'removal-private.json', record);
+    var sent = annalsDispatchRemoval_(folder, original.entry.id, proof);
+    record.state = sent ? 'dispatch_accepted' : 'dispatch_not_configured_or_held';
+    annalsFile_(folder, 'removal-private.json').setContent(JSON.stringify(record));
+    return { approved: true, dispatchAccepted: sent };
   }); });
 }
 function annalsInstallIntakeSchedule() {
@@ -521,3 +604,4 @@ function annalsStopProduction() {
     return { intakeEnabled: false, aiEnabled: false };
   });
 }
+

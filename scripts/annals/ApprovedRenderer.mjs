@@ -24,6 +24,7 @@ const RECEIPT_KEYS = new Set([
   'entryId', 'approvedAt', 'reviewedBy', 'consents', 'contentSha256', 'signature'
 ]);
 const PUBLIC_APPROVAL_KEYS = new Set(['entryId', 'approvedAt', 'consents', 'contentSha256', 'signature']);
+const PUBLIC_REMOVAL_KEYS = new Set(['entryId', 'approvedAt', 'contentSha256', 'signature']);
 const CONSENT_KEYS = new Set(['publication', 'quotePublication', 'recipeVerified', 'namedAttribution']);
 
 const allowedKeys = (object, keys, context) => {
@@ -154,6 +155,21 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
   } catch { return false; }
 }
 
+export function verifyPublicRemoval(publicEntry, removal, secret) {
+  if (typeof secret !== 'string' || secret.length < 32) return false;
+  try {
+    const entry = validatePublicTextEntry(publicEntry);
+    allowedKeys(removal, PUBLIC_REMOVAL_KEYS, 'public removal');
+    if (removal.entryId !== entry.id || !/^\d{4}-\d{2}-\d{2}T/.test(removal.approvedAt ?? '') ||
+        removal.contentSha256 !== contentDigest(entry) || !/^[a-f0-9]{64}$/.test(removal.signature ?? '')) return false;
+    const signedMaterial = JSON.stringify(canonical({ operation: 'remove', removal: {
+      entryId: removal.entryId, approvedAt: removal.approvedAt, contentSha256: removal.contentSha256,
+    } }));
+    const expected = createHmac('sha256', secret).update(signedMaterial).digest();
+    return timingSafeEqual(expected, Buffer.from(removal.signature, 'hex'));
+  } catch { return false; }
+}
+
 function approvedEntryMarkup(entry) {
   const esc = escapeHtml;
   const section = (label, items) => items.length
@@ -272,3 +288,4 @@ ${collections}
 </body></html>`;
   return { html, entryCount: accepted.length };
 }
+
