@@ -27,6 +27,7 @@ Use the existing **Stammtisch Annals — Production** Apps Script project and de
 | `ANNALS_OWNER_EMAIL` | Dedicated owner account |
 | `ANNALS_PRODUCTION_FOLDER_ID` | Owner-only private Drive root, restricted, no additional editors/viewers |
 | `ANNALS_ALLOWED_SENDERS` | **Exactly the six owner-confirmed addresses**, privately recorded |
+| `ANNALS_SPEAKER_IDENTITIES` | Owner-only JSON mapping the six verified allowed email addresses to the six exact approved public Annals portrait slugs; configured in the private desk, never checked into GitHub. Quote speaker identity is distinct from email submitter attribution |
 | `ANNALS_ACTIVATED_AT` | Written **once** by `annalsStampProductionActivation()` after safe preflight; excludes historic mail |
 | `ANNALS_PRODUCTION_INTAKE_ENABLED` | `false` until all deployment gates pass |
 | `ANNALS_AI_ENABLED` | `false` until all deployment gates pass |
