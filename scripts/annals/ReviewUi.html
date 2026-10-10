@@ -5,7 +5,13 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 </style></head><body>
 <h1>The private Annals desk</h1><p>Eligible text from members who separately opted into AI processing and public publication can publish without a routine review. Exceptions, corrections and withdrawals remain private and owner-controlled.</p>
 <p id="status" role="status" aria-live="polite">Signing in…</p>
-<fieldset><legend>One-time member permissions</legend><p class="muted">Each member opts into private AI processing, then separately into public automatic text and screened photographs. The owner has confirmed existing club photo permission; this does not authorise guest images or override contributor publication choices. No permission is inferred from an email address or from someone else's decision. Either permission can be revoked. Uncertain or identifying material stays private.</p><label>Allowlisted member email<input id="consentEmail" type="text" autocomplete="off"></label><button id="inviteConsent">Invite to private AI processing</button><button id="inviteAutoConsent">Invite to automatic text and safe photos</button><button id="refreshConsent">Refresh private consent status</button><ul id="consents"></ul></fieldset>
+<fieldset><legend>One-time member permissions</legend><p class="muted">Each member opts into private AI processing, then separately into public automatic text and screened photographs. The owner has confirmed existing club photo permission; this does not authorise guest images or override contributor publication choices. No permission is inferred from an email address or from someone else's decision. Either permission can be revoked. Uncertain or identifying material stays private.</p><label>Allowlisted member email<input id="consentEmail" type="text" autocomplete="off"></label><button id="inviteConsent">Invite to private AI processing</button><button id="inviteAutoConsent">Invite to automatic text and safe photos</button><button id="refreshConsent">Refresh private consent status</button><ul id="consents"></ul>
+<details><summary>Record permission already personally verified by the Club owner (one time)</summary>
+<p class="muted">Use this only if every one of the six contributors previously gave affirmative, revocable consent to private AI processing and automatic public text and screened image publication. Do not manufacture member replies or override an existing revocation. The record stays in private Drive; public history may retain published content.</p>
+<label>Private evidence context — briefly describe when/how permission was actually verified, without copying messages<textarea id="verifiedExistingEvidence" maxlength="1000"></textarea></label>
+<label><input type="checkbox" id="verifiedExistingConfirmed">I have personally verified each contributor's existing explicit, revocable consent for AI processing and public text and screened-image publication.</label>
+<button id="recordVerifiedConsents">Record previously obtained permissions for all six</button>
+</details></fieldset>
 <section id="queue"><h2>Contributions</h2><ul id="items"></ul><button id="more" hidden>More contributions</button></section>
 <section id="detail" hidden><button id="back">Back to contributions</button><h2 id="subject"></h2>
 <p><a id="original" target="_blank" rel="noopener">Open private originals in Drive</a></p>
@@ -95,6 +101,14 @@ el('approveCorrection').onclick=()=>act(async()=>{if(!review||!el('correctionPub
 el('approveRemoval').onclick=()=>act(async()=>{if(!current.publishedEntry||current.publicationState!=='dispatch_accepted'||!el('removalConfirmed').checked)throw new Error('Review and confirm the exact currently published entry first.');const result=await call('annalsApproveRemoval',nonce,current.id,current.publishedEntryHash,val('removalReason'),true);await open(current.id);say(result.dispatchAccepted?'Removal approved and accepted for publishing. Verify the public page after deployment.':'Removal approval was saved, but dispatch was not confirmed. Check GitHub Actions before any retry.')});
 el('more').onclick=()=>act(()=>list(false));el('back').onclick=()=>act(async()=>{current=null;el('detail').hidden=true;el('queue').hidden=false;await list(true)});
 el('inviteConsent').onclick=()=>act(async()=>{await call('annalsInviteProcessingConsent',nonce,val('consentEmail'));say('Private AI-processing invitation sent. Only that member can activate consent with their unique reply.')});
+el('recordVerifiedConsents').onclick=()=>act(async()=>{
+  if(!el('verifiedExistingConfirmed').checked)throw new Error('Confirm only permissions you actually verified for each contributor.');
+  const result=await call('annalsRecordVerifiedExistingConsents',nonce,true,val('verifiedExistingEvidence'));
+  el('verifiedExistingConfirmed').checked=false;
+  el('verifiedExistingEvidence').value='';
+  await el('refreshConsent').onclick();
+  say('Previously obtained permissions recorded privately for '+result.memberCount+' members. This did not activate intake, AI, image processing or publication.');
+});
 el('inviteAutoConsent').onclick=()=>act(async()=>{await call('annalsInviteAutoPublicationConsent',nonce,val('consentEmail'));say('Separate automatic-publication invitation sent. The member must explicitly agree from their authenticated mailbox.')});
 
 el('refreshConsent').onclick=()=>act(async()=>{const members=await call('annalsReviewConsentStatus',nonce);el('consents').replaceChildren();members.forEach(m=>{

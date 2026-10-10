@@ -426,3 +426,61 @@ test('stale unverified publication privately alerts once and never re-dispatches
   assert.equal(JSON.parse(x.files.get('auto-publication-delay-private.json').getBlob().getDataAsString()).state,
     'unverified_after_24h');
 });
+
+
+test('owner can privately record six already-obtained member permissions without fabricated email challenges',()=>{
+  const x=mock(), sent=[];
+  const approved=Array.from({length:6},(_,i)=>'member'+(i+1)+'@example.test');
+  x.props.ANNALS_ALLOWED_SENDERS=approved.join(',');
+  x.props.ANNALS_AI_ENABLED='false';
+  x.context.MailApp={sendEmail:(...args)=>sent.push(args)};
+  const evidence='I personally verified affirmative, revocable individual consent in a private conversation.';
+  assert.throws(()=>x.context.annalsRecordVerifiedExistingConsents('valid',false,evidence),/Operation held/);
+  assert.throws(()=>x.context.annalsRecordVerifiedExistingConsents('valid',true,'short'),/Operation held/);
+  const outcome=x.context.annalsRecordVerifiedExistingConsents('valid',true,evidence);
+  assert.equal(outcome.recorded,true);
+  assert.equal(outcome.memberCount,6);
+  assert.equal(outcome.activationChanged,false);
+  assert.equal(sent.length,6);
+  assert.ok(sent.every(item=>/revoke/i.test(item[2])));
+  const registry=JSON.parse(x.files.get('consent-registry-private.json').getBlob().getDataAsString());
+  assert.deepEqual(Object.keys(registry.members).sort(),approved);
+  for(const address of approved){
+    const member=registry.members[address];
+    assert.equal(member.status,'active');
+    assert.equal(member.scope,'future_text_ai_drafting');
+    assert.equal(member.source,'owner_attested_prior_direct_permission');
+    assert.equal(member.autoPublication.status,'active');
+    assert.equal(member.autoPublication.scope,'future_source_grounded_text_and_screened_image_publication');
+    assert.equal(member.autoPublication.source,'owner_attested_prior_direct_permission');
+    assert.equal('challenge' in member,false);
+    assert.equal(x.context.annalsStandingPublicationActive_(address,'2026-10-09T00:31:00.000Z'),true);
+    assert.equal(x.context.annalsImageConsentActive_(address,'2026-10-09T00:31:00.000Z'),true);
+  }
+  const marker=JSON.parse(x.files.get('verified-existing-consents-private.json').getBlob().getDataAsString());
+  assert.equal(marker.memberCount,6);
+  assert.equal(marker.state,'consent_attested_and_recorded');
+  assert.equal(marker.method,'owner_attested_previous_individual_permissions');
+  assert.equal(marker.privateEvidenceNote,evidence);
+  assert.equal(x.props.ANNALS_AI_ENABLED,'false');
+  assert.notEqual(x.props.ANNALS_PRODUCTION_INTAKE_ENABLED,'true');
+  assert.notEqual(x.props.ANNALS_AUTO_PUBLICATION_ENABLED,'true');
+  assert.notEqual(x.props.ANNALS_AUTO_MEDIA_ENABLED,'true');
+  assert.throws(()=>x.context.annalsRecordVerifiedExistingConsents('valid',true,evidence),/Operation held/);
+});
+test('owner-attested prior permissions cannot override revocation, missing allowlist or active intake',()=>{
+  const addresses=Array.from({length:6},(_,i)=>'member'+(i+1)+'@example.test');
+  const evidence='I personally verified direct consent from all six members without copying their messages.';
+  const a=mock();a.props.ANNALS_AI_ENABLED='false';
+  a.props.ANNALS_ALLOWED_SENDERS=addresses.slice(0,5).join(',');
+  assert.throws(()=>a.context.annalsRecordVerifiedExistingConsents('valid',true,evidence),/Operation held/);
+  const b=mock();b.props.ANNALS_AI_ENABLED='false';b.props.ANNALS_ALLOWED_SENDERS=addresses.join(',');
+  b.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{
+    [addresses[2]]:{status:'revoked',scope:'future_text_ai_drafting',revokedAt:'2026-10-08T21:00:00Z'}
+  }}));
+  assert.throws(()=>b.context.annalsRecordVerifiedExistingConsents('valid',true,evidence),/Operation held/);
+  assert.equal(b.files.has('verified-existing-consents-private.json'),false);
+  const c=mock();c.props.ANNALS_ALLOWED_SENDERS=addresses.join(',');
+  assert.throws(()=>c.context.annalsRecordVerifiedExistingConsents('valid',true,evidence),/Operation held/);
+  assert.equal(c.files.has('consent-registry-private.json'),false);
+});

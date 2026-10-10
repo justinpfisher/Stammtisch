@@ -449,6 +449,78 @@ function annalsRevokeImagePublicationConsent(nonce,email) {
     return {revoked:true};
   }); });
 }
+/** Owner-recorded evidence of ALREADY OBTAINED individual consents; never
+ * misrepresent this as an authenticated member challenge response.
+ * This is an optional one-time route when the owner actually verified direct,
+ * affirmative, revocable consent outside the script (e.g. in person).
+ */
+function annalsRecordVerifiedExistingConsents(nonce, confirmed, evidenceNote) {
+  return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
+    if (confirmed !== true || typeof evidenceNote !== 'string' ||
+        evidenceNote.trim().length < 18 || evidenceNote.length > 1000)
+      throw new Error('Owner must attest existing individual permissions with private evidence context');
+    var p = annalsProps_();
+    if (p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED') === 'true' ||
+        p.getProperty('ANNALS_AI_ENABLED') === 'true' ||
+        p.getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') === 'true' ||
+        p.getProperty('ANNALS_AUTO_MEDIA_ENABLED') === 'true')
+      throw new Error('Stop all Annals automation before initial consent registration');
+    var allowed = AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '');
+    if (allowed.length !== 6) throw new Error('Exactly six private member addresses are required');
+    var root = annalsRoot_(), previous = annalsFile_(root, 'verified-existing-consents-private.json');
+    if (previous) throw new Error('Existing consent registration was already attempted; inspect private evidence');
+    var registry = annalsConsentRegistry_(), time = new Date().toISOString();
+    // Refuse to revive anyone who expressly revoked previous permission.
+    allowed.forEach(function (address) {
+      var member = registry.members[address] || {};
+      if (member.status === 'revoked' || member.revokedAt ||
+          member.autoPublication && (member.autoPublication.status === 'revoked' || member.autoPublication.revokedAt) ||
+          member.imagePublication && (member.imagePublication.status === 'revoked' || member.imagePublication.revokedAt))
+        throw new Error('A revoked contributor must opt in directly again');
+    });
+    // The signed-in dedicated owner controls a private attestation, not the
+    // contributors' mailbox identities. Keep source/verification notes private.
+    var marker = { state: 'attempt_reserved', verifiedAt: time,
+      method: 'owner_attested_previous_individual_permissions', memberCount: 6,
+      scope: 'private_ai_drafting_and_public_text_and_screened_image_publication',
+      privateEvidenceNote: evidenceNote.trim() };
+    annalsWriteOnce_(root, 'verified-existing-consents-private.json', marker);
+    allowed.forEach(function (address) {
+      var member = registry.members[address] || {};
+      if (member.status !== 'active' || member.scope !== 'future_text_ai_drafting') {
+        member.status = 'active';
+        member.scope = 'future_text_ai_drafting';
+        member.consentedAt = time;
+        member.source = 'owner_attested_prior_direct_permission';
+        delete member.challenge;
+      }
+      if (!member.autoPublication || member.autoPublication.status !== 'active' ||
+          member.autoPublication.scope !== 'future_source_grounded_text_and_screened_image_publication') {
+        member.autoPublication = { status: 'active',
+          scope: 'future_source_grounded_text_and_screened_image_publication',
+          consentedAt: time, source: 'owner_attested_prior_direct_permission' };
+      }
+      registry.members[address] = member;
+    });
+    annalsSavePrivate_(root, 'consent-registry-private.json', registry);
+    marker.state = 'consent_attested_and_recorded';
+    annalsFile_(root, 'verified-existing-consents-private.json').setContent(JSON.stringify(marker));
+    // One-time informational notice makes revocation practical without
+    // demanding each consenting member repeat their existing agreement.
+    allowed.forEach(function (address) {
+      var notice = 'Annals standing consent — confirmation';
+      var body = 'The Club owner has recorded your previously given permission for private AI processing ' +
+        'and automatic public Annals text and independently screened, small, metadata-stripped image derivatives. ' +
+        'Public GitHub history may retain published material even after withdrawal. To revoke future automatic ' +
+        'publication, email REVOKE ANNALS AUTOMATIC PUBLICATION. To stop future private AI processing, email ' +
+        'REVOKE ANNALS AI PROCESSING. You can also contact the owner about corrections or removal.';
+      try { MailApp.sendEmail(address, notice, body); }
+      catch (ignored) { /* No duplicate mail or permission invention on failure. */ }
+    });
+    return {recorded:true, memberCount:6, evidenceStorage:'private_only', activationChanged:false};
+  }); });
+}
+
 function annalsReviewConsentStatus(nonce) {
   return annalsUiCall_(nonce, function () {
     var members = annalsConsentRegistry_().members;
