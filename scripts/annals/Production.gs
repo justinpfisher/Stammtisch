@@ -365,6 +365,16 @@ function annalsProductionPreflight() {
     autoPublicationEnabled: p.getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') === 'true',
     autoMediaEnabled: p.getProperty('ANNALS_AUTO_MEDIA_ENABLED') === 'true',
     standingPublicationRequiresContributorConsent: true,
+    quoteSpeakerPermissionsConfigured: (function () {
+      try {
+        var allowed = AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '');
+        var members = annalsConsentRegistry_().members;
+        return allowed.length === 6 && allowed.every(function (address) {
+          var grant = members[address] && members[address].quoteAttribution;
+          return grant && grant.status === 'active' && !grant.revokedAt;
+        });
+      } catch (ignored) { return false; }
+    })(),
     contributorPortraitsConfigured: (function () {
       try {
         return !!AnnalsProduction.portraitMap(
@@ -941,7 +951,7 @@ function annalsSaveReview(nonce, id, rawEntry) {
     // speaker-permission evidence in the separate private approval record.
     if (entry.speakerPortrait) {
       var permittedSpeaker = annalsQuoteSpeakerPermission_(source,
-        { category:'quotation', quoteVerbatim: entry.quoteVerbatim });
+        annalsRead_(f,'draft-private.json'));
       if (!permittedSpeaker || permittedSpeaker.speakerPortrait !== entry.speakerPortrait)
         throw new Error('Quotation speaker portrait lacks verified individual standing permission');
     }
@@ -981,6 +991,7 @@ function annalsPublicApproval_(entry, receipt, key) {
   var proof = { entryId: entry.id, approvedAt: receipt.approvedAt, consents: receipt.consents, contentSha256: receipt.contentSha256 };
   if (receipt.reviewedBy === 'standing-consent-automation-v1') proof.mode = AnnalsAuto.MODE;
   if (receipt.reviewedBy === 'standing-consent-image-automation-v1') proof.mode = AnnalsMediaPolicy.MODE;
+  if (receipt.reviewedBy === 'standing-consent-quote-automation-v1') proof.mode = AnnalsAuto.QUOTE_MODE;
   proof.signature = annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial({ entry: entry, approval: proof }), key, Utilities.Charset.UTF_8));
   return proof;
 }
@@ -1061,6 +1072,12 @@ function annalsSaveCorrection(nonce, id, rawEntry) {
     var source = annalsRead_(folder, 'source-private.json'), expectedPortrait = annalsContributorPortrait_(source);
     if (entry.contributorPortrait && entry.contributorPortrait !== expectedPortrait)
       throw new Error('Corrected contributor portrait does not match the authenticated member');
+    if (entry.speakerPortrait) {
+      var draft = annalsRead_(folder,'draft-private.json');
+      var permittedSpeaker = annalsQuoteSpeakerPermission_(source,draft);
+      if (!permittedSpeaker || permittedSpeaker.speakerPortrait !== entry.speakerPortrait)
+        throw new Error('Corrected quotation speaker identity or permission unverified');
+    }
     if (entry.id !== original.entry.id || AnnalsProduction.serial(entry) === AnnalsProduction.serial(original.entry)) throw new Error('Correction must change this exact entry');
     var review = { entry: entry, hash: annalsHash_(AnnalsProduction.serial(entry)), savedAt: new Date().toISOString() };
     var prior = annalsFile_(folder, 'correction-review-private.json');
@@ -1139,14 +1156,18 @@ function annalsAutoPublishCandidate_(id) {
       p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') === p.getProperty('ANNALS_APPROVAL_KEY') ||
       AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '').length !== 6) return false;
   var folder = annalsFolder_(id), previous = annalsRead_(folder, 'approval-private.json');
-  if (previous) return [AnnalsAuto.MODE,AnnalsMediaPolicy.MODE].indexOf(previous.approvalMode) >= 0 && previous.publicationState === 'dispatch_accepted';
+  if (previous) return [AnnalsAuto.MODE,AnnalsAuto.QUOTE_MODE,AnnalsMediaPolicy.MODE].indexOf(previous.approvalMode) >= 0 && previous.publicationState === 'dispatch_accepted';
   if (annalsFile_(folder, 'auto-decision-private.json')) return false; // no silent retries
   var source = annalsRead_(folder, 'source-private.json'), draft = annalsRead_(folder, 'draft-private.json');
   if (!source || !draft || !source.source || !source.senderAuthenticated || !source.aiConsentActive ||
       !source.autoConsentAtReceipt || !annalsStandingPublicationActive_(source.source.sender, source.source.receivedAt) ||
       source.source.excerptTruncated ||
       Date.parse(source.source.receivedAt) < Date.parse(p.getProperty('ANNALS_ACTIVATED_AT'))) return false;
-  var originalDecision = AnnalsAuto.propose(source, draft, id), derivative = null;
+  // Source speaker identification alone is never permission. Recheck the
+  // actual speaker's private, revocable quote-attribution grant at signing.
+  var speakerPermission = draft.category === 'quotation' ?
+    annalsQuoteSpeakerPermission_(source, draft) : null;
+  var originalDecision = AnnalsAuto.propose(source, draft, id, speakerPermission), derivative = null;
   if (p.getProperty('ANNALS_AUTO_MEDIA_ENABLED') === 'true' && source.imageConsentAtReceipt &&
       annalsImageConsentActive_(source.source.sender, source.source.receivedAt)) {
     try { derivative = annalsPhotoDerivative_(folder); }
@@ -1159,15 +1180,21 @@ function annalsAutoPublishCandidate_(id) {
     annalsWriteOnce_(folder, 'auto-decision-private.json', { state: 'held', reason: decision.reason, at: new Date().toISOString() });
     return false;
   }
-  var portrait = annalsContributorPortrait_(source);
-  if (portrait) decision.entry.contributorPortrait = portrait;
+  // A quote identifies the *speaker*, not the contributor who emailed it.
+  // For every other Annals category, identify the submitter when opted in.
+  if (decision.entry.category !== 'quotation') {
+    var portrait = annalsContributorPortrait_(source);
+    if (portrait) decision.entry.contributorPortrait = portrait;
+  }
   var entry = AnnalsProduction.publicEntry(decision.entry);
   var hash = annalsHash_(AnnalsProduction.serial(entry));
   var receipt = { entryId: entry.id, approvedAt: new Date().toISOString(),
-    reviewedBy: decision.mode === AnnalsMediaPolicy.MODE ? 'standing-consent-image-automation-v1' : 'standing-consent-automation-v1',
+    reviewedBy: decision.mode === AnnalsMediaPolicy.MODE ? 'standing-consent-image-automation-v1' :
+      decision.mode === AnnalsAuto.QUOTE_MODE ? 'standing-consent-quote-automation-v1' :
+      'standing-consent-automation-v1',
     consents: AnnalsProduction.consents(entry, {
       publication: true, quotePublication: entry.category === 'quotation', recipeVerified: entry.category === 'cocktail',
-      namedAttribution: false, photoPublication: !!entry.photo
+      namedAttribution: !!entry.speakerPortrait, photoPublication: !!entry.photo
     }), contentSha256: hash };
   receipt.signature = annalsHex_(Utilities.computeHmacSha256Signature(
     AnnalsProduction.serial({ entry: entry, receipt: receipt }), p.getProperty('ANNALS_APPROVAL_KEY'), Utilities.Charset.UTF_8));
@@ -1200,7 +1227,7 @@ function annalsVerifyAutomaticPublications_(limit) {
     var folder = annalsPrivate_(folders.next()), id = folder.getName();
     if (!/^[a-f0-9]{64}$/.test(id) || annalsFile_(folder, 'auto-live-verification-private.json')) continue;
     var saved = annalsRead_(folder, 'approval-private.json');
-    if (!saved || [AnnalsAuto.MODE,AnnalsMediaPolicy.MODE].indexOf(saved.approvalMode) < 0 || saved.publicationState !== 'dispatch_accepted') continue;
+    if (!saved || [AnnalsAuto.MODE,AnnalsAuto.QUOTE_MODE,AnnalsMediaPolicy.MODE].indexOf(saved.approvalMode) < 0 || saved.publicationState !== 'dispatch_accepted') continue;
     // A queued/failed Pages run must not remain invisible indefinitely.
     // Private reminder only; never re-dispatch an uncertain publication.
     var approvedAt = Date.parse(saved.receipt && saved.receipt.approvedAt);
