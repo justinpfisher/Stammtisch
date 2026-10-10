@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en-CA"><head><base target="_top"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Private Annals review</title><style>
+body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padding:24px;max-width:800px}h1,h2{font-family:Georgia,serif}button,input,textarea,select{font:inherit}button{background:#193d32;color:white;border:0;padding:12px 16px;border-radius:5px;cursor:pointer;margin:8px 8px 8px 0}button:disabled{opacity:.5;cursor:wait}textarea,input[type=text],input[type=number],select{box-sizing:border-box;width:100%;padding:10px;border:1px solid #817557;background:white}label{display:block;margin:14px 0}textarea{min-height:100px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#ece5d6;padding:16px}fieldset{border:1px solid #b5a686;margin:22px 0;padding:16px}a{color:#193d32}#status{padding:10px;border-left:3px solid #987838}li{margin:12px 0}.muted{font-size:14px}input[type=checkbox]{margin-right:8px}section[hidden]{display:none}
+</style></head><body>
+<h1>The private Annals desk</h1><p>Review contributions, prepare a draft, and approve the exact text for the public record.</p>
+<p id="status" role="status" aria-live="polite">Signing in…</p>
+<section id="queue"><h2>Contributions</h2><ul id="items"></ul><button id="more" hidden>More contributions</button></section>
+<section id="detail" hidden><button id="back">Back to contributions</button><h2 id="subject"></h2>
+<p><a id="original" target="_blank" rel="noopener">Open private originals in Drive</a></p>
+<fieldset><legend>Prepare a private AI draft</legend>
+<label>Text to send to AI — remove signatures, contacts and unrelated conversation<textarea id="source" maxlength="12000"></textarea></label>
+<div id="attachments"></div><p class="muted">Choose up to three consented JPEG/PNG images, each at most 4 MB. Other originals remain in Drive for manual review.</p>
+<label><input id="aiConsent" type="checkbox">I verified this submission and have permission to send the selected text and images to OpenAI for drafting.</label>
+<button id="prepare">Prepare draft</button><p class="muted">This reserves US$0.10 from the US$5 monthly allowance. An interrupted attempt will need review before any retry.</p></fieldset>
+<p id="flags"></p>
+<fieldset><legend>Edit the proposed public text</legend>
+<label>Category<select id="category"><option value="" selected>Choose a category</option><option value="cocktail">Cocktail</option><option value="quotation">Quotation</option><option value="monthly_gathering">Monthly gathering</option><option value="assembly">Annual Assembly</option><option value="club_history">Club history</option><option value="artefact">Club artefact</option></select></label>
+<label>Title<input id="title" type="text" maxlength="160"></label>
+<label>Summary<textarea id="summary" maxlength="1800"></textarea></label>
+<label>Confirmed year<input id="year" type="number" min="1990" max="2100"></label>
+<label>Public date label, if known<input id="dateLabel" type="text" maxlength="80"></label>
+<label>Exact event date, only if confirmed (YYYY-MM-DD)<input id="sortDate" type="text" maxlength="10"></label>
+<label>Credit chosen by the contributor<input id="credit" type="text" maxlength="70" value="anonymous"></label>
+<label>Verbatim quotation, for quotation entries only<textarea id="quoteVerbatim" maxlength="1500"></textarea></label>
+<label>Drink ingredients — one per line<textarea id="drinkIngredients"></textarea></label>
+<label>Syrup ingredients — one per line<textarea id="syrupIngredients"></textarea></label>
+<label>Preparation — one step per line<textarea id="steps"></textarea></label>
+<button id="save">Save exact preview</button></fieldset>
+<section id="approval" hidden><h2>Exact text for approval</h2><pre id="exact"></pre>
+<p>Only this text is being approved. Photographs remain private in this first release.</p>
+<label><input type="checkbox" id="publication">The contributor and anyone identified have approved this exact text for the public website and public GitHub history.</label>
+<label><input type="checkbox" id="recipeVerified">For a recipe: its creator verified the quantities, units and syrup instructions.</label>
+<label><input type="checkbox" id="quotePublication">For a quotation: the exact quotation and its public use are approved.</label>
+<label><input type="checkbox" id="namedAttribution">For named credit: the contributor approved this attribution.</label>
+<label><input type="checkbox" id="reviewed">I resolved the uncertainties and checked for private details against the originals.</label>
+<label>Private consent record — who approved what, when, and where the evidence is kept<textarea id="evidence" maxlength="2000"></textarea></label>
+<button id="approve">Approve this exact text</button></section>
+<button id="export" hidden>Download private approved bundle</button>
+<p class="muted">The download includes private approval evidence. Keep it out of GitHub; the publication tool extracts only the approved public text. Approval here does not publish the website.</p>
+</section>
+<script>
+let nonce, current, continuation, review;
+const el=id=>document.getElementById(id), val=id=>el(id).value, say=text=>{el('status').textContent=text};
+function call(name,...args){return new Promise((resolve,reject)=>google.script.run.withSuccessHandler(resolve).withFailureHandler(()=>reject(new Error('Operation held. Check the private configuration or reload this page.')))[name](...args));}
+function attemptMessage(outcome){const messages={network_error:'The request could not reach the AI provider.',provider_response_error:'The provider response could not be read.',invalid_response:'The provider response did not pass validation.',private_storage_error:'The private draft could not be saved.'};let message=messages[outcome&&outcome.reason]||'The AI attempt was interrupted or held.';if(outcome&&outcome.reason==='provider_http_error')message='The AI provider returned HTTP '+(Number.isInteger(outcome.httpStatus)?outcome.httpStatus:'error')+'.';return message+' No automatic retry will spend more.';}
+async function act(fn){document.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn();}catch(e){say(e.message)}finally{document.querySelectorAll('button').forEach(b=>b.disabled=false);if(current&&current.attempted)el('prepare').disabled=true;if(current&&current.approved){el('prepare').disabled=true;el('save').disabled=true;el('approve').disabled=true;}}}
+async function list(reset){if(reset){el('items').replaceChildren();continuation=null;}const page=await call('annalsReviewList',nonce,continuation);page.items.forEach(item=>{const li=document.createElement('li'),b=document.createElement('button');b.textContent=item.subject+' — '+item.state;b.onclick=()=>act(()=>open(item.id));li.append(b);el('items').append(li)});continuation=page.continuation;el('more').hidden=!continuation;say('Private review is ready.');}
+async function open(id){current=await call('annalsReviewItem',nonce,id);review=null;el('queue').hidden=true;el('detail').hidden=false;el('subject').textContent=current.subject;el('source').value=current.text.slice(0,12000);el('original').href=current.folderUrl;el('attachments').replaceChildren();current.attachments.forEach(a=>{const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.value=a.name;check.className='media';check.disabled=!['image/jpeg','image/png'].includes(a.mime)||a.size>4194304;label.append(check,document.createTextNode(a.name));el('attachments').append(label)});
+['aiConsent','publication','recipeVerified','quotePublication','namedAttribution','reviewed'].forEach(id=>el(id).checked=false);el('evidence').value='';
+const d=current.draft||{};['title','summary','quoteVerbatim'].forEach(id=>el(id).value=d[id]||'');el('category').value=['cocktail','quotation','monthly_gathering','assembly','club_history','artefact'].includes(d.category)?d.category:'';el('year').value='';el('dateLabel').value='';el('sortDate').value='';el('credit').value='anonymous';['drinkIngredients','syrupIngredients','steps'].forEach(id=>el(id).value=(d.recipe?.[id]||[]).join('\n'));
+el('flags').textContent='Review flags: '+(d.riskFlags||[]).join(', ');el('approval').hidden=true;el('export').hidden=!current.approved;el('save').disabled=current.approved;
+say(current.approved?'Approved privately; publication is still separate.':current.attempted&&!current.draft?attemptMessage(current.outcome):current.truncated?'The original exceeds the preview limit. Review the full email before selecting source text.':'Review the original and choose the material to process.');}
+function entry(){const split=id=>val(id).split('\n').map(s=>s.trim()).filter(Boolean);return{id:'annal-'+current.id.slice(0,24),category:val('category'),title:val('title'),summary:val('summary'),year:Number(val('year')),dateLabel:val('dateLabel'),sortDate:val('sortDate'),credit:val('credit'),quoteVerbatim:val('quoteVerbatim'),recipe:{drinkIngredients:split('drinkIngredients'),syrupIngredients:split('syrupIngredients'),steps:split('steps')}};}
+el('prepare').onclick=()=>act(async()=>{say('Preparing the private draft…');await call('annalsPrepareDraft',nonce,current.id,val('source'),[...document.querySelectorAll('.media:checked')].map(i=>i.value),el('aiConsent').checked);await open(current.id);});
+el('save').onclick=()=>act(async()=>{if(!val('category'))throw new Error('Choose a category after reviewing the source; uncertain material must stay uncategorised until resolved.');review=await call('annalsSaveReview',nonce,current.id,entry());el('exact').textContent=JSON.stringify(review.entry,null,2);el('approval').hidden=false;['publication','recipeVerified','quotePublication','namedAttribution','reviewed'].forEach(id=>el(id).checked=false);say('Review the exact saved text below before approving.');});
+el('approve').onclick=()=>act(async()=>{if(!review)throw new Error('Save the exact preview first.');if(JSON.stringify(entry())!==JSON.stringify(review.entry)){// Server canonical ordering differs; compare fields explicitly.
+const normalize=x=>JSON.stringify(Object.keys(x).sort().map(k=>[k,x[k]]));if(normalize(entry())!==normalize(review.entry))throw new Error('The form changed. Save and review it again.');}
+const c={};['publication','quotePublication','recipeVerified','namedAttribution'].forEach(id=>c[id]=el(id).checked);await call('annalsApproveReview',nonce,current.id,review.hash,c,val('evidence'),el('reviewed').checked);await open(current.id);});
+el('export').onclick=()=>act(async()=>{const bundle=await call('annalsExportApproved',nonce,current.id);const url=URL.createObjectURL(new Blob([JSON.stringify(bundle,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='annals-approved-private.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);say('Private bundle downloaded. Keep it outside the public repository.');});
+el('more').onclick=()=>act(()=>list(false));el('back').onclick=()=>act(async()=>{current=null;el('detail').hidden=true;el('queue').hidden=false;await list(true)});
+act(async()=>{nonce=(await call('annalsReviewSession')).nonce;await list(true)});
+</script></body></html>
+

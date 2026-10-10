@@ -107,6 +107,8 @@ nav a:hover,nav a[aria-current="page"] { text-decoration:underline; text-decorat
 .celebration-teaser { display:flex; align-items:center; justify-content:space-between; gap:35px; border-block:1px solid var(--line); padding-block:42px; margin-bottom:70px; }
 .celebration-teaser h2 { font-size:clamp(34px,4vw,48px); letter-spacing:-.035em; margin-top:13px; }
 .celebration-teaser p:not(.eyebrow) { font-size:13px; color:var(--muted); margin-top:17px; }
+.annals-teaser-actions { display:flex; flex-direction:column; align-items:flex-start; gap:8px; min-width:205px; }
+.annals-teaser-actions .text-link { min-height:40px; }
 
 /* The Assembly */
 .assembly-hero { display:grid; grid-template-columns:1fr 230px; gap:40px; align-items:center; padding-block:30px 54px; }

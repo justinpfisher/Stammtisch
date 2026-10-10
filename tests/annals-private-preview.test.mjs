@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { validateCandidate, renderPrivatePreview, canPublishFromPilot } from '../scripts/annals/PrivatePreview.mjs';
 import { writePreview } from '../scripts/annals/private-preview-cli.mjs';
 
@@ -89,7 +90,7 @@ test('private preview path refuses the public GitHub checkout', () => {
     const modelFile = join(temp, 'candidate.json');
     writeFileSync(sourceFile, JSON.stringify(source));
     writeFileSync(modelFile, JSON.stringify(modelCocktail));
-    const dangerous = new URL('../test-annals-private-preview.html', import.meta.url).pathname;
+    const dangerous = fileURLToPath(new URL('../test-annals-private-preview.html', import.meta.url));
     assert.throws(() => writePreview(sourceFile, modelFile, dangerous),
       /Refusing to write PRIVATE preview inside the public repository/);
     assert.ok(!existsSync(dangerous));
