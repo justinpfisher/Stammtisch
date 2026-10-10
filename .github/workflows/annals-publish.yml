@@ -29,8 +29,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add annals.html data/annals-approved.json
+          git add -A -- annals.html data/annals-approved.json assets
           git diff --cached --quiet && exit 1
-          git commit -m "Publish approved Annals entry"
+          git commit -m "Publish approved Annals update"
           git push origin HEAD:main
-
