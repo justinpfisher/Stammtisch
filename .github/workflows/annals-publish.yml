@@ -1,8 +1,8 @@
-name: Publish explicitly approved Annals entry
+name: Publish signed and consented Annals entry
 
 on:
   repository_dispatch:
-    types: [annals-approved-entry, annals-correct-entry, annals-remove-entry]
+    types: [annals-approved-entry, annals-auto-entry, annals-correct-entry, annals-remove-entry]
 
 permissions:
   contents: write
@@ -21,11 +21,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify exact signed approval and render the public archive
+      - name: Verify signed consent and render public-safe archive
         env:
           ANNALS_PUBLISH_SIGNING_KEY: ${{ secrets.ANNALS_PUBLISH_SIGNING_KEY }}
         run: node scripts/annals/apply-approved-entry.mjs
-      - name: Commit approved public entry
+      - name: Commit consented public entry
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

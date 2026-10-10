@@ -51,13 +51,14 @@ function mock() {
     } }
   };
   vm.createContext(context);
-  vm.runInContext(['PilotCore.js','ProductionCore.js','Production.gs'].map(name=>readFileSync(new URL('../scripts/annals/'+name,import.meta.url),'utf8')).join('\n'),context);
+  vm.runInContext(['PilotCore.js','ProductionCore.js','AutoCore.js','Production.gs'].map(name=>readFileSync(new URL('../scripts/annals/'+name,import.meta.url),'utf8')).join('\n'),context);
   folder.createFile('source-private.json', JSON.stringify({ attachmentManifest: { items: [] } }));
   return { context, props, files, folder, root, calls, logs };
 }
 test('AI and public contracts retain literal fractions and match approved renderer canonical digest', () => {
   assert.equal(core.candidate(candidate()).recipe.drinkIngredients[0], '1/2 oz syrup');
-  assert.ok(core.candidate(candidate()).riskFlags.includes('recipe_unverified'));
+  assert.ok(core.candidate(candidate()).riskFlags.includes('handwriting_ambiguous'));
+  assert.ok(!core.candidate(candidate()).riskFlags.includes('recipe_unverified'));
   assert.deepEqual(core.publicEntry(entry()), validatePublicTextEntry(entry()));
   assert.equal(createHash('sha256').update(core.serial(core.publicEntry(entry()))).digest('hex'), contentDigest(entry()));
   for (const extra of ['sender','publicationApproved','media']) assert.throws(()=>core.publicEntry({...entry(),[extra]:'private'}));
@@ -275,4 +276,153 @@ test('schedule installation is idempotent and stopping touches only the producti
   x.context.annalsInstallIntakeSchedule();x.context.annalsInstallIntakeSchedule();assert.equal(triggers.length,2);
   x.context.annalsStopProduction();assert.equal(triggers.length,1);assert.equal(triggers[0].getHandlerFunction(),'unrelatedHandler');
   assert.equal(x.props.ANNALS_AI_ENABLED,'false');assert.equal(x.props.ANNALS_PRODUCTION_INTAKE_ENABLED,'false');
+});
+
+
+test('member standing consent is separate from AI consent, receipt-dated and independently revocable', () => {
+  const x=mock(), sent=[], sender='member1@example.test';
+  x.props.ANNALS_ALLOWED_SENDERS=['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test').join(',');
+  x.context.MailApp={sendEmail:(...args)=>sent.push(args)};
+  const registry={schemaVersion:1,members:{
+    [sender]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T18:00:00Z',
+      autoPublication:{status:'pending',scope:'future_source_grounded_text_publication',challenge:'private-code',invitedAt:'2026-10-08T20:00:00Z'}}
+  }};
+  x.folder.createFile('consent-registry-private.json',JSON.stringify(registry));
+  assert.equal(x.context.annalsStandingPublicationActive_(sender,'2026-10-09T00:31:00Z'),false);
+  assert.equal(x.context.annalsHandleConsentReply_(sender,'I CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT PUBLICATION. CODE: wrong'),null);
+  assert.equal(x.context.annalsHandleConsentReply_(sender,'I CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT PUBLICATION. CODE: private-code'),'auto_consent_activated');
+  assert.equal(x.context.annalsStandingPublicationActive_(sender,'2026-10-09T00:29:00Z'),false);
+  assert.equal(x.context.annalsStandingPublicationActive_(sender,'2026-10-09T00:31:00Z'),true);
+  assert.equal(x.context.annalsHandleConsentReply_(sender,'I CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT PUBLICATION. CODE: private-code'),null);
+  assert.equal(x.context.annalsHandleConsentReply_(sender,'REVOKE ANNALS AUTOMATIC PUBLICATION'),'auto_consent_revoked');
+  assert.equal(x.context.annalsStandingPublicationActive_(sender,'2026-10-09T00:31:00Z'),false);
+  assert.equal(sent.length,2);
+  assert.doesNotMatch(JSON.stringify(sent),/private-code/);
+});
+
+test('only a separate signed standing-consent proof permits unattended text dispatch, never repeats', () => {
+  const x=mock(), id='a'.repeat(64), sender='member1@example.test', dispatches=[];
+  Object.assign(x.props, {
+    ANNALS_ALLOWED_SENDERS:['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test').join(','),
+    ANNALS_AUTO_PUBLICATION_ENABLED:'true',ANNALS_GITHUB_TOKEN:'invented-test-token',
+    ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'justinpfisher/Stammtisch',
+    ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z'
+  });
+  x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{
+    [sender]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-07T00:00:00Z',
+      autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:'2026-10-08T00:00:00Z'}}
+  }}));
+  const source={senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,requiresClarification:false,
+    source:{sender,subject:'Fictional Test Mule',
+      excerpt:'Fictional Test Mule\n1 oz invented syrup\n2 oz imaginary juice\nStir the invented liquids.',
+      receivedAt:'2026-10-09T00:30:00Z'},attachmentManifest:{held:false,items:[]}};
+  const candidate={category:'cocktail',title:'Fictional Test Mule',summary:'Fictional test drink',eventDate:'',
+    quoteVerbatim:'',riskFlags:[],recipe:{drinkIngredients:['1 oz invented syrup','2 oz imaginary juice'],
+      syrupIngredients:[],steps:['Stir the invented liquids.']}};
+  x.folder.createFile('source-private.json',JSON.stringify(source));
+  x.folder.createFile('draft-private.json',JSON.stringify(candidate));
+  x.context.UrlFetchApp.fetch=(url,options)=>{
+    assert.equal(url,'https://api.github.com/repos/justinpfisher/Stammtisch/dispatches');
+    dispatches.push(JSON.parse(options.payload));
+    return {getResponseCode:()=>204};
+  };
+  assert.equal(x.context.annalsAutoPublishCandidate_(id),true);
+  assert.equal(dispatches.length,1);
+  assert.equal(dispatches[0].event_type,'annals-auto-entry');
+  const p=dispatches[0].client_payload;
+  assert.equal(p.approval.mode,'standing-consent-text-v1');
+  assert.equal(verifyPublicApproval(p.entry,p.approval,'p'.repeat(40)),true);
+  assert.ok(p.entry.summary.includes('invented syrup'));
+  assert.equal(p.entry.credit,'anonymous');
+  assert.doesNotMatch(JSON.stringify(p),/member1|consentedAt|sourceId|private-code|owner@example/);
+  assert.equal(x.context.annalsAutoPublishCandidate_(id),true);
+  assert.equal(dispatches.length,1); // reserved one-shot dispatch marker
+  assert.equal(JSON.parse(x.files.get('approval-private.json').getBlob().getDataAsString()).approvalMode,'standing-consent-text-v1');
+});
+
+test('live reconciliation verifies matching public archive and deployed page without re-dispatch', () => {
+  const x=mock(), id='a'.repeat(64), sender='member1@example.test', mail=[];
+  Object.assign(x.props,{ANNALS_AUTO_PUBLICATION_ENABLED:'true',ANNALS_GITHUB_TOKEN:'dummy',
+    ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'justinpfisher/Stammtisch',
+    ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z',
+    ANNALS_ALLOWED_SENDERS:['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test').join(',')});
+  x.folder.getName=()=>id;x.root.getFolders=()=>iter([x.folder]);x.context.MailApp={sendEmail:(...args)=>mail.push(args)};
+  x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{
+    [sender]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T00:00:00Z',
+      autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:'2026-10-08T01:00:00Z'}}}}));
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,
+    autoConsentAtReceipt:true,requiresClarification:false,source:{sender,subject:'Test Mule',
+      excerpt:'Test Mule\n1 oz syrup\n1 oz juice\nStir.',receivedAt:'2026-10-09T00:30:00Z'},
+    attachmentManifest:{items:[],held:false}}));
+  x.folder.createFile('draft-private.json',JSON.stringify({category:'cocktail',title:'Test Mule',summary:'Test',
+    eventDate:'',quoteVerbatim:'',riskFlags:[],recipe:{drinkIngredients:['1 oz syrup','1 oz juice'],syrupIngredients:[],steps:['Stir.']}}));
+  let dispatchCount=0;
+  x.context.UrlFetchApp.fetch=(url)=>{
+    if(url.includes('/dispatches')){dispatchCount++;return{getResponseCode:()=>204}}
+    const saved=JSON.parse(x.files.get('approval-private.json').getBlob().getDataAsString());
+    if(url.includes('raw.githubusercontent.com'))return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({schemaVersion:1,entries:[saved.entry],approvals:[saved.publication]})};
+    if(url.includes('stammtischbrewery.com'))return {getResponseCode:()=>200,getContentText:()=>'<article id="'+saved.entry.id+'"></article>'};
+    throw new Error('Unexpected test URL');
+  };
+  assert.equal(x.context.annalsAutoPublishCandidate_(id),true);
+  assert.equal(x.context.annalsVerifyAutomaticPublications_(3),1);
+  assert.equal(JSON.parse(x.files.get('auto-live-verification-private.json').getBlob().getDataAsString()).state,'verified_live');
+  assert.equal(x.context.annalsVerifyAutomaticPublications_(3),0);
+  assert.equal(mail.length,1);
+  assert.equal(dispatchCount,1);
+});
+
+test('empty inbox still resumes one private AI draft with no nested script-lock acquisition', () => {
+  const x=mock(), id='a'.repeat(64), sender='member@example.test';
+  let lockHeld=false;
+  x.context.LockService.getScriptLock=()=>({tryLock(){if(lockHeld)return false;lockHeld=true;return true},releaseLock(){lockHeld=false}});
+  Object.assign(x.props,{ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_AI_ENABLED:'true',
+    ANNALS_GITHUB_TOKEN:'dummy',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
+    ANNALS_GITHUB_REPOSITORY:'justinpfisher/Stammtisch',
+    ANNALS_REVIEW_URL:'https://script.google.com/macros/s/invented/exec',
+    ANNALS_ALLOWED_SENDERS:sender,ANNALS_ACTIVATED_AT:'2026-10-08T00:00:00Z'});
+  x.context.GmailApp={getInboxThreads:()=>[]};x.folder.getName=()=>id;x.root.getFolders=()=>iter([x.folder]);
+  x.context.MailApp={sendEmail(){}};
+  x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{
+    [sender]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T00:00:00Z'}}}));
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,
+    autoConsentAtReceipt:false,requiresClarification:false,
+    source:{sender,subject:'Fictional recipe',excerpt:'1 oz invented syrup and 1 oz juice.',excerptTruncated:false,receivedAt:'2026-10-09T00:00:00Z'},
+    attachmentManifest:{held:false,items:[]}}));
+  assert.equal(x.context.runAnnalsProductionIntake().drafted,1);
+  assert.equal(x.calls.ai,1);
+  assert.equal(lockHeld,false);
+  assert.equal(x.files.has('draft-private.json'),true);
+});
+
+
+test('one malformed private draft is held without blocking other intake or exposing an exception',()=>{
+  const x=mock(),id='a'.repeat(64);
+  x.context.annalsAutoPublishCandidate_=()=>{throw new Error('INVENTED private email content')};
+  assert.equal(x.context.annalsAutoAttemptSafe_(x.folder,id),false);
+  assert.equal(x.context.annalsAutoAttemptSafe_(x.folder,id),false);
+  const record=JSON.parse(x.files.get('auto-decision-private.json').getBlob().getDataAsString());
+  assert.equal(record.state,'held');
+  assert.equal(record.reason,'internal_validation_error');
+  assert.doesNotMatch(JSON.stringify(record),/INVENTED private email content/);
+});
+
+test('stale unverified publication privately alerts once and never re-dispatches',()=>{
+  const x=mock(),id='a'.repeat(64),sent=[];
+  x.context.MailApp={sendEmail:(...args)=>sent.push(args)};
+  x.props.ANNALS_AUTO_PUBLICATION_ENABLED='true';
+  x.props.ANNALS_REVIEW_URL='https://script.google.com/macros/s/invented/exec';
+  x.folder.getName=()=>id;
+  x.root.getFolders=()=>iter([x.folder]);
+  x.folder.createFile('approval-private.json',JSON.stringify({
+    entry:entry(),approvalMode:'standing-consent-text-v1',publicationState:'dispatch_accepted',
+    receipt:{approvedAt:'2026-10-07T00:00:00Z',contentSha256:'a'.repeat(64)}
+  }));
+  x.context.UrlFetchApp.fetch=()=>({getResponseCode:()=>404});
+  assert.equal(x.context.annalsVerifyAutomaticPublications_(3),0);
+  assert.equal(x.context.annalsVerifyAutomaticPublications_(3),0);
+  assert.equal(sent.length,1);
+  assert.equal(sent[0][0],'owner@example.test');
+  assert.equal(JSON.parse(x.files.get('auto-publication-delay-private.json').getBlob().getDataAsString()).state,
+    'unverified_after_24h');
 });

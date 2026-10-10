@@ -69,3 +69,15 @@ The owner has now asked to investigate a single email address to accept all kind
 The club's owner has expressly favoured **The Annals** and expressed concern about public photos/identifiers. Design a text-first layout and a safe content submission/approval process before publicly publishing the first edition. New identifiable content requires a new specific approval; current approved artwork and CoL information may remain.
 
 Do not implement a public photo gallery, private membership login or a separate social network on the strength of this document alone.
+
+## Adopted automatic-publication exception — 10 October 2026
+
+The owner has expressly authorised a **publish-by-default editorial approach** to genuine, non-sensitive, source-grounded member text without per-entry owner approval. Only identified rights, privacy, security or material-accuracy concerns hold an otherwise ordinary contribution. A sender must genuinely authenticate against the six-member private allowlist and must personally complete two separate, affirmative, revocable challenges: one for private AI processing and one for public automatic text publication. An address on the allowlist, an emailed contribution, or the owner's authorisation is not consent on a member's behalf.
+
+The separate standing-publication grant is scoped to material the contributor has the right to share publicly. It is not permission from guests, other speakers, photograph subjects, recipe owners or others. AI is not proof of rights or facts. Automatic policy holds third-party quotations without speaker permission, disputed or identifying anecdotes, allegations, ambiguous recipe transcriptions, private locations and all images where independent safety/rights checks are unavailable. A self-authored quotation clearly claimed by the contributor can publish under their own standing permission; censorship is visibly labelled and no longer called verbatim. A clean standalone text component can be published without its held photograph. The original remains private; anonymous public credit is the default. Revocation stops future automatic publishing but cannot erase public Git history.
+
+For eligible text, the approved editorial rule replaces strong profanity visibly with **[EXPLETIVE]** (or an occasional contextual **[POOP]**) while leaving mild “damn” and “hell”. Public records must never contain uncensored strong profanity. A censored direct quotation is not labelled verbatim. The permanent Annals footer notice reads:
+
+> The Editorial Committee reserves the right to replace particularly spirited language with conspicuous euphemisms. Historical accuracy is otherwise maintained.
+
+Categories only become visible after genuine, signed, successfully published entries exist in them. No test/example history or private held submission should surface. The current production runbook governs installation, spend/consent gates, live verification, correction and withdrawal; this authorisation does **not** assert that the private Apps Script project was activated.
