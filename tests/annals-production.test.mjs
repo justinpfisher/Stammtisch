@@ -112,6 +112,16 @@ test('provider timeout stays reserved without any automatic retry or leaked prov
   assert.throws(()=>x.context.annalsPrepareDraft('valid','a'.repeat(64),'Synthetic',[],true));
   assert.equal(x.calls.ai,1);assert.equal(JSON.parse(x.props.ANNALS_BUDGET_LEDGER).reservedCents,10);
   assert.equal(x.files.has('draft-private.json'),false);assert.deepEqual(x.logs,[]);
+  const outcome=JSON.parse(x.files.get('ai-outcome-private.json').getBlob().getDataAsString());
+  assert.deepEqual(Object.keys(outcome).sort(),['at','reason','state']);assert.equal(outcome.reason,'network_error');
+});
+test('provider HTTP failure records only its numeric status in private staging', () => {
+  const x=mock();x.context.UrlFetchApp.fetch=()=>{x.calls.ai++;return {getResponseCode:()=>401,getContentText:()=> 'PRIVATE-KEY and provider response'};};
+  assert.throws(()=>x.context.annalsPrepareDraft('valid','a'.repeat(64),'Synthetic',[],true),error=>!/PRIVATE-KEY|provider response/.test(error.message));
+  const outcome=JSON.parse(x.files.get('ai-outcome-private.json').getBlob().getDataAsString());
+  assert.equal(outcome.reason,'provider_http_error');assert.equal(outcome.httpStatus,401);
+  assert.doesNotMatch(JSON.stringify(outcome),/PRIVATE-KEY|provider response/);
+  assert.equal(x.files.has('draft-private.json'),false);assert.equal(x.calls.ai,1);
 });
 test('shared staging and exhausted budget stop before provider call', () => {
   const x=mock();x.root.getViewers=()=>['other'];assert.throws(()=>x.context.annalsPrepareDraft('valid','a'.repeat(64),'Synthetic',[],true));assert.equal(x.calls.ai,0);
@@ -161,3 +171,4 @@ test('schedule installation is idempotent and stopping touches only the producti
   x.context.annalsStopProduction();assert.equal(triggers.length,1);assert.equal(triggers[0].getHandlerFunction(),'unrelatedHandler');
   assert.equal(x.props.ANNALS_AI_ENABLED,'false');assert.equal(x.props.ANNALS_PRODUCTION_INTAKE_ENABLED,'false');
 });
+
