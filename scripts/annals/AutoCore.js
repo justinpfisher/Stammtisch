@@ -7,7 +7,7 @@ var AnnalsAuto = (function () {
   'use strict';
   var MODE = 'standing-consent-text-v1';
   var QUOTE_MODE = 'standing-consent-quote-v1';
-  var NOTICE = 'The Editorial Committee reserves the right to replace particularly spirited language with conspicuous euphemisms. Historical accuracy is otherwise maintained.';
+  var NOTICE = 'The Editorial Committee reserves the right to replace particularly spirited language with conspicuous euphemisms. Historical accuracy is otherwise maintained. The Editorial Committee is actually just AI we tried to train.';
   var CATEGORIES = ['cocktail', 'quotation', 'monthly_gathering', 'assembly', 'club_history', 'artefact'];
   // Specific hard stops. Generic club language ("home", "family", "history",
   // "photograph") is NOT inherently a reason to suppress innocent text.

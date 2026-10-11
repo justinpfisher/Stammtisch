@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { thirdFridayDay, nextMonthlyGathering } from '../monthly.mjs';
+import { thirdFridayDay, nextMonthlyGathering, monthlyCountdown } from '../monthly.mjs';
 
 test('third Friday is computed across different month layouts', () => {
   assert.equal(thirdFridayDay(2026, 10), 16);
@@ -60,4 +60,21 @@ test('home distinguishes the monthly date reminder and annual Assembly start', (
   assert.match(html, /often held at headquarters/i);
   assert.match(html, /date-only/i);
   assert.match(html, /data-assembly-start datetime="2027-02-05T09:00:00-05:00"/);
+});
+
+
+test('minute countdown targets Toronto date start across DST and year rollover', () => {
+  assert.deepEqual(monthlyCountdown('2026-10-10T01:38:00Z'),
+    { days: 6, hours: 2, minutes: 22, isToday: false });
+  assert.deepEqual(monthlyCountdown('2026-10-16T03:59:30Z'),
+    { days: 0, hours: 0, minutes: 1, isToday: false });
+  assert.deepEqual(monthlyCountdown('2026-10-16T04:00:00Z'),
+    { days: 0, hours: 0, minutes: 0, isToday: true });
+  assert.deepEqual(monthlyCountdown('2026-11-20T04:00:00Z'),
+    { days: 0, hours: 1, minutes: 0, isToday: false });
+  assert.deepEqual(monthlyCountdown('2027-03-14T07:30:00Z'),
+    { days: 4, hours: 20, minutes: 30, isToday: false });
+  assert.deepEqual(monthlyCountdown('2027-01-01T05:00:00Z'),
+    { days: 14, hours: 0, minutes: 0, isToday: false });
+  assert.equal(monthlyCountdown('invalid-date'), null);
 });
