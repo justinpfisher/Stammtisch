@@ -94,6 +94,6 @@ The standing-publication grant is scoped to material the contributor has the rig
 
 For eligible text, the approved editorial rule replaces strong profanity visibly with **[EXPLETIVE]** (or an occasional contextual **[POOP]**) while leaving mild “damn” and “hell”. Public records must never contain uncensored strong profanity. A censored direct quotation is not labelled verbatim. The permanent Annals footer notice reads:
 
-> The Editorial Committee reserves the right to replace particularly spirited language with conspicuous euphemisms. Historical accuracy is otherwise maintained.
+> The Editorial Committee reserves the right to replace particularly spirited language with conspicuous euphemisms. Historical accuracy is otherwise maintained. The Editorial Committee is actually just AI we tried to train.
 
 Categories only become visible after genuine, signed, successfully published entries exist in them. No test/example history or private held submission should surface. The current production runbook governs installation, spend/consent gates, live verification, correction and withdrawal; this authorisation does **not** assert that the private Apps Script project was activated.

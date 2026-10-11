@@ -12,11 +12,11 @@ test('empty Annals archive is discoverable and contains no invented entries', ()
   assert.deepEqual(data.approvals, []);
   assert.match(annals, /The Annals of Stammtisch/);
   assert.match(annals, /The record awaits an approved contribution/);
-  assert.match(annals, /Members only\. A submission is considered privately/);
+  assert.match(annals, /Members only\./);
   assert.doesNotMatch(annals, /class="annal-collections"|class="annal-collection"|No approved entries in this collection yet/);
   assert.doesNotMatch(annals, /The Cocktail Register|Quotations of Questionable Wisdom|Monthly Proceedings|Annual Assemblies|Club History|Club Artefacts/);
   assert.match(annals, /mailto:annals@stammtischbrewery\.com/);
-  assert.match(annals, /submission is considered privately/);
+  assert.doesNotMatch(annals, /Only verified material approved for public use|A submission is considered privately/);
   assert.doesNotMatch(annals, /sample-cocktail|fictional|example\.test/i);
   const home = read('../index.html');
   const assembly = read('../location.html');

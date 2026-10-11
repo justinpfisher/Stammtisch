@@ -27,7 +27,7 @@ The context summary does not replace the official Celebration of Life rules, sou
 - `styles.css`: shared responsive design.
 - `assembly.mjs`: countdown based on the page's `time[data-assembly-start]`.
 - `assembly-2027.ics`: a calendar start reminder, with no invented end time.
-- `monthly.mjs`: Toronto-local next third-Friday date and day-only countdown; no invented meeting hour.
+- `monthly.mjs`: Toronto-local next third-Friday date and days/hours/minutes countdown to the start of that date; no invented meeting hour.
 - `stammtisch-monthly.ics`: repeatable third-Friday **all-day date reminder** (not an all-day meeting or a confirmed location).
 - `assets/`: resized crest files; the original PNG remains for sharing previews.
 - `celebration.html`, `celebration.css`, `celebration.mjs`: Celebration of Life standings, searchable member lists, commemorations, scoring, and button ideas.
@@ -38,7 +38,7 @@ The context summary does not replace the official Celebration of Life rules, sou
 
 ## Event details
 
-**Monthly Stammtisch:** the standing date is the **third Friday of every month**, often at the headquarters. Exact meeting time, venue, and occasional exceptions are agreed privately. The homepage computes the next third Friday in **America/Toronto**, using calendar days rather than hours to a presumed start time. The downloadable `stammtisch-monthly.ics` is an **all-day calendar date placeholder**, not a claim the meeting lasts all day. It recurs as `RRULE:FREQ=MONTHLY;BYDAY=3FR`, starts on October 16, 2026 and deliberately omits a private location. Changing the standing rule requires updating the website, script, calendar and tests together.
+**Monthly Stammtisch:** the standing date is the **third Friday of every month**, often at the headquarters. Exact meeting time, venue, and occasional exceptions are agreed privately. The homepage computes the next third Friday in **America/Toronto**, with days, hours and minutes until that Friday begins at midnight in Toronto. This is labelled as the start of the date, not a confirmed meeting hour. The downloadable `stammtisch-monthly.ics` is an **all-day calendar date placeholder**, not a claim the meeting lasts all day. It recurs as `RRULE:FREQ=MONTHLY;BYDAY=3FR`, starts on October 16, 2026 and deliberately omits a private location. Changing the standing rule requires updating the website, script, calendar and tests together.
 
 **Annual Gentlemen's Assembly:** separate **off-site** gathering, typically at a rented cottage. The confirmed 2027 start is February 5, 2027, at 09:00 America/Toronto (14:00 UTC).
 When changing the gathering, update the visible dates and `datetime` values

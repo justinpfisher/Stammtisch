@@ -61,9 +61,14 @@
           <a class="text-link" href="stammtisch-monthly.ics" download="stammtisch-monthly.ics">Add monthly dates to calendar <span aria-hidden="true">↓</span></a>
           <p class="monthly-calendar-note">Date-only calendar reminder. Meeting time and location are arranged privately.</p>
         </div>
-        <div class="monthly-days" aria-label="Days until the next third Friday">
-          <strong data-monthly-days>—</strong>
-          <span data-monthly-caption>days until the next third Friday</span>
+        <div class="monthly-countdown" role="group" aria-label="Time until the next third Friday begins in Toronto">
+          <div class="monthly-digits" aria-hidden="true">
+            <div><strong data-monthly-days>—</strong><small>Days</small></div>
+            <div><strong data-monthly-hours>—</strong><small>Hours</small></div>
+            <div><strong data-monthly-minutes>—</strong><small>Minutes</small></div>
+          </div>
+          <p class="monthly-countdown-note">Until the third Friday begins · Toronto time</p>
+          <p class="sr-only" data-monthly-caption>Until the next third Friday</p>
         </div>
       </div>
     </section>
