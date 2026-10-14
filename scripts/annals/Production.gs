@@ -484,13 +484,39 @@ function annalsInitialiseBudget() {
     return { initialised: true, monthlyLimitUsd: 5 };
   });
 }
+/** Resolve a sender to its existing allowlisted identity.
+ * Gmail ignores dots in personal @gmail.com local parts. No other domain or
+ * plus-address alias is normalized, and collisions fail closed.
+ */
+function annalsResolveAllowedSender_(sender, allowed) {
+  sender = String(sender || '').trim().toLowerCase();
+  if (!sender || !Array.isArray(allowed)) return null;
+  var exact = allowed.filter(function (identity) {
+    return String(identity || '').trim().toLowerCase() === sender;
+  });
+  if (exact.length === 1) return String(exact[0]).trim().toLowerCase();
+  if (exact.length > 1) return null;
+  var at = sender.lastIndexOf('@');
+  if (at <= 0 || sender.slice(at + 1) !== 'gmail.com') return null;
+  var local = sender.slice(0, at).replace(/\./g, '');
+  var matches = [];
+  allowed.forEach(function (identity) {
+    identity = String(identity || '').trim().toLowerCase();
+    var split = identity.lastIndexOf('@');
+    if (split <= 0 || identity.slice(split + 1) !== 'gmail.com' ||
+        identity.slice(0, split).replace(/\./g, '') !== local) return;
+    if (matches.indexOf(identity) === -1) matches.push(identity);
+  });
+  return matches.length === 1 ? matches[0] : null;
+}
 function annalsStageProduction_(message, activation, allowed) {
-  var sender = AnnalsPilot.senderAddress(message.getFrom());
-  if (!sender || allowed.indexOf(sender) < 0 || message.getDate().getTime() < activation ||
+  var authenticatedSender = AnnalsPilot.senderAddress(message.getFrom());
+  var sender = annalsResolveAllowedSender_(authenticatedSender, allowed);
+  if (!sender || message.getDate().getTime() < activation ||
       /^\[ANNALS SYNTHETIC PILOT\]/.test(message.getSubject())) return 'skipped';
   var id = annalsHash_(message.getId()), folder = annalsFolder_(id, true);
   if (annalsRead_(folder, 'source-private.json')) return 'duplicates';
-  var authenticated = annalsAuthentication_(message, sender);
+  var authenticated = annalsAuthentication_(message, authenticatedSender);
   if (authenticated) {
     var consentResult = annalsHandleConsentReply_(sender, message.getPlainBody());
     if (consentResult) return consentResult;
@@ -498,7 +524,7 @@ function annalsStageProduction_(message, activation, allowed) {
     if (/^(?:I CONSENT TO |REVOKE ANNALS |HIDE MY ANNALS PORTRAIT|SHOW MY ANNALS PORTRAIT)/.test(firstLine)) return 'held'; // invalid/stale challenges are not submissions
   }
   var attachments = message.getAttachments({ includeInlineImages: true, includeAttachments: true });
-  var source = AnnalsPilot.privateProposal({ sourceId: id, from: sender, subject: message.getSubject(),
+  var source = AnnalsPilot.privateProposal({ sourceId: id, from: authenticated ? sender : authenticatedSender, subject: message.getSubject(),
     body: message.getPlainBody(), receivedAt: message.getDate().toISOString(),
     attachments: attachments.map(function (a) { return { mime: a.getContentType(), size: a.getSize() }; }) });
   if (source.attachmentManifest.reason !== 'total_attachments_too_large') {
