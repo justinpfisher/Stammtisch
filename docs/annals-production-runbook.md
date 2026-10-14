@@ -97,3 +97,8 @@ Members may email HIDE MY ANNALS PORTRAIT from their authenticated address to pr
 Run `node --test tests/annals-*.test.mjs` and `node scripts/local-dev.mjs check` (on the GMKtec if available; otherwise use the existing GitHub-hosted CI). Use **invented fixtures** for categories, profanity, extraction omissions, quotations, budget, authentication, consents, revisions and duplicate dispatch. Synthetic passing notices and invented historical entries must never be publicly published.
 
 Offline tests establish code behaviour under controlled inputs only. They do **not** establish Google account settings, real DKIM/DMARC forwarding, actual member consent, provider billing, Google Apps Script deployment or live website publication. Confirm every actual account and public-site step separately before declaring the complete pipeline operational.
+
+
+## Owner-identified test quarantine
+
+The private desk can permanently quarantine an exact submission hash. Its write-once private record preserves the original, consent, AI attempt, ledger and audit evidence. Intake holds a quarantined hash even before it has been staged; automatic drafting, publication, manual dispatch and held-quote reassessment refuse it. No automatic release exists. Existing approval or dispatch markers require inspection and, where applicable, the authenticated withdrawal workflow before quarantine. Do not classify real submissions as tests or copy private item identifiers or reasons into this public repository.

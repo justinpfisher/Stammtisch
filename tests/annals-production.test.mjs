@@ -763,3 +763,50 @@ test('private contributor portrait permissions require individual owner attestat
   assert.equal(x.context.annalsProductionPreflight().contributorPortraitConsentsRecorded,true);
   assert.throws(()=>x.context.annalsRecordVerifiedContributorPortraitPermissions('valid',true,evidence),/Operation held/);
 });
+
+test('owner-confirmed quarantine preserves source, attempts and budget and blocks future drafting and publishing', () => {
+  const { context, props, files, folder, calls } = mock(), id = 'd'.repeat(64);
+  const original = files.get('source-private.json').getBlob().getDataAsString();
+  const ledger = props.ANNALS_BUDGET_LEDGER;
+  assert.throws(() => context.annalsQuarantineSubmission('valid', id, 'Owner identified invented test.', false));
+  assert.ok(!files.has('quarantine-private.json'));
+  assert.equal(context.annalsQuarantineSubmission('valid', id, 'Owner identified invented test.', true).quarantined, true);
+  const audit = files.get('quarantine-private.json').getBlob().getDataAsString();
+  assert.equal(context.annalsQuarantineSubmission('valid', id, 'A different reason cannot replace the audit.', true).alreadyRecorded, true);
+  assert.equal(files.get('quarantine-private.json').getBlob().getDataAsString(), audit);
+  assert.equal(files.get('source-private.json').getBlob().getDataAsString(), original);
+  assert.equal(context.annalsProcessConsentedText_(id), false);
+  assert.throws(() => context.annalsPrepareDraft('valid', id, 'Invented test.', [], true), /Operation held/);
+  props.ANNALS_AUTO_PUBLICATION_ENABLED = 'true';
+  props.ANNALS_GITHUB_REPOSITORY = 'justinpfisher/Stammtisch';
+  props.ANNALS_GITHUB_TOKEN = 'synthetic-token';
+  props.ANNALS_PUBLISH_SIGNING_KEY = 'p'.repeat(40);
+  props.ANNALS_ALLOWED_SENDERS = 'one@example.test,two@example.test,three@example.test,four@example.test,five@example.test,six@example.test';
+  assert.equal(context.annalsAutoPublishCandidate_(id), false);
+  assert.equal(context.annalsAutoPublishCandidate_(id, true), false);
+  assert.throws(() => context.annalsReassessHeldQuote('valid', id, true), /Operation held/);
+  assert.throws(() => context.annalsDispatchApproved_(folder, entry(), {}, 'annals-auto-entry', 'publication-dispatch-private.json'), /Quarantined/);
+  assert.match(context.annalsReviewStatus_(folder, {}, null), /Quarantined/);
+  assert.equal(calls.ai, 0);
+  assert.equal(props.ANNALS_BUDGET_LEDGER, ledger);
+  for (const name of ['ai-attempt-private.json','approval-private.json','publication-dispatch-private.json','reassessment-attempt-private.json']) assert.ok(!files.has(name));
+});
+test('quarantine requires owner authentication and preserves uncertain publication records', () => {
+  const { context, files, folder } = mock(), id = 'e'.repeat(64);
+  assert.throws(() => context.annalsQuarantineSubmission('invalid', id, 'Owner identified invented test.', true));
+  assert.throws(() => context.annalsQuarantineSubmission('valid', 'bad-id', 'Owner identified invented test.', true));
+  folder.createFile('publication-dispatch-private.json', '{"state":"attempt_reserved"}');
+  assert.throws(() => context.annalsQuarantineSubmission('valid', id, 'Owner identified invented test.', true), /Operation held/);
+  assert.ok(!files.has('quarantine-private.json'));
+  assert.equal(files.get('publication-dispatch-private.json').getBlob().getDataAsString(), '{"state":"attempt_reserved"}');
+});
+test('an unencountered quarantined email is held without staging its body or reserving an AI attempt', () => {
+  const { context, files, props } = mock(), id = 'f'.repeat(64);
+  files.delete('source-private.json');
+  context.annalsQuarantineSubmission('valid', id, 'Owner identified invented test.', true);
+  const message = {getId:()=>id,getFrom:()=> 'member@example.test',getDate:()=>new Date('2026-10-10T00:00:00Z'),getSubject:()=> 'Normal subject',getPlainBody:()=>{throw Error('Quarantined body must not be read');}};
+  assert.equal(context.annalsStageProduction_(message, Date.parse('2026-10-09T00:00:00Z'), ['member@example.test']), 'held');
+  assert.ok(!files.has('source-private.json'));
+  assert.ok(!files.has('ai-attempt-private.json'));
+  assert.equal(JSON.parse(props.ANNALS_BUDGET_LEDGER).reservedCents, 0);
+});
