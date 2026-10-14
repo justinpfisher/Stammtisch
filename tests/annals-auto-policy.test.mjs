@@ -241,6 +241,35 @@ test('speaker is never fabricated from casual prose, altered quotes or unconsent
   const risky={...d,riskFlags:['possible_personal_identifier']};
   assert.equal(policy.propose(s,risky,id,{speakerPortrait:'ken'}).eligible,false);
 });
+test('explicit, unquoted speaker line and matching subject can publish only with independent speaker permission',()=>{
+  const s=sample();s.source.subject='Quote from Ken';
+  s.source.excerpt='Ken: A completely fictional one-line remark.';
+  const d={...draft(),category:'quotation',title:'Quote from Ken',
+    quoteVerbatim:'A completely fictional one-line remark.',riskFlags:[],
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  assert.deepEqual(policy.quotationEvidence(s.source.excerpt,d.quoteVerbatim),
+    {speakerPortrait:'ken',self:false,quote:d.quoteVerbatim});
+  assert.equal(policy.propose(s,d,id).reason,'speaker_specific_publication_permission_missing');
+  const accepted=policy.propose(s,d,id,{speakerPortrait:'ken'});
+  assert.equal(accepted.eligible,true);
+  assert.equal(accepted.mode,policy.QUOTE_MODE);
+  assert.equal(accepted.entry.speakerPortrait,'ken');
+  assert.equal(accepted.entry.quoteVerbatim,d.quoteVerbatim);
+  assert.equal(verifyPublicApproval(accepted.entry,proof(accepted.entry),secret),true);
+  const changed={...d,quoteVerbatim:'A completely fictional edited remark.'};
+  assert.equal(policy.propose(s,changed,id,{speakerPortrait:'ken'}).eligible,false);
+  for(const subject of ['Quote from Matt','Quote from Ken and Jamie','Ken at a private gathering']) {
+    assert.equal(policy.propose({...s,source:{...s.source,subject}},d,id,{speakerPortrait:'ken'}).eligible,false,subject);
+  }
+  for(const body of ['A completely fictional one-line remark.',
+    'Ken: A completely fictional one-line remark.\\nAdditional context',
+    'Guest: A completely fictional one-line remark.']) {
+    assert.equal(policy.propose({...s,source:{...s.source,excerpt:body}},d,id,{speakerPortrait:'ken'}).eligible,false,body);
+  }
+  const forbidden={...s,source:{...s.source,excerpt:'Ken: Our private address is 22 Imaginary Street.'}};
+  assert.equal(policy.propose(forbidden,{...d,quoteVerbatim:'Our private address is 22 Imaginary Street.'},id,{speakerPortrait:'ken'}).eligible,false);
+});
+
 test('distinct quote signature mode cannot be reused for cocktails, photos or sender portraits',()=>{
   const s=sample();s.source.subject='Register';s.source.excerpt='Ken: "An invented saying"';
   const d={...draft(),category:'quotation',quoteVerbatim:'An invented saying',
