@@ -20,6 +20,7 @@ const sample = () => ({
 const draft = () => ({
   category: 'cocktail', title: 'Fictional Test Mule', summary: 'An invented test recipe',
   eventDate: '', quoteVerbatim: '', riskFlags: [],
+  interpretation: { intent:'recipe', speakerId:'unknown', evidenceField:'body' },
   recipe: { drinkIngredients: ['1 oz invented syrup', '2 oz imaginary juice'],
     syrupIngredients: [], steps: ['Stir the invented liquids.'] }
 });
@@ -114,6 +115,7 @@ test('self-authored quotation with standing consent can publish, with conspicuou
   const s=sample();s.source.subject='Quotation for the Annals';s.source.excerpt='My quote: "What the fuck?"';
   const d={...draft(),category:'quotation',title:'Quotation for the Annals',
     quoteVerbatim:'What the fuck?',riskFlags:[],
+    interpretation:{intent:'direct_quote',speakerId:'self',evidenceField:'body'},
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
   const result=policy.propose(s,d,id);
   assert.equal(result.eligible,true);
@@ -199,6 +201,7 @@ test('source-exact member quotation is held without private speaker permission, 
   source.source.excerpt='Ken said: "What the fuck?"';
   const d={...draft(),category:'quotation',title:'Register of Remarks',
     quoteVerbatim:'What the fuck?',riskFlags:['quote_consent_unconfirmed'],
+    interpretation:{intent:'direct_quote',speakerId:'ken',evidenceField:'body'},
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
   assert.deepEqual(policy.quotationEvidence(source.source.excerpt,d.quoteVerbatim),
     {speakerPortrait:'ken',self:false,quote:'What the fuck?'});
@@ -224,6 +227,7 @@ test('source-exact member quotation is held without private speaker permission, 
 });
 test('speaker is never fabricated from casual prose, altered quotes or unconsented third-party references',()=>{
   const d={...draft(),category:'quotation',quoteVerbatim:'An invented saying',
+    interpretation:{intent:'direct_quote',speakerId:'ken',evidenceField:'body'},
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
   const cases=['Ken told me "An invented saying"','We heard a saying at dinner',
     'Ken said: "A different saying"','Ken: "An invented saying" then something else',
@@ -246,6 +250,7 @@ test('explicit, unquoted speaker line and matching subject can publish only with
   s.source.excerpt='Ken: A completely fictional one-line remark.';
   const d={...draft(),category:'quotation',title:'Quote from Ken',
     quoteVerbatim:'A completely fictional one-line remark.',riskFlags:[],
+    interpretation:{intent:'direct_quote',speakerId:'ken',evidenceField:'body'},
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
   assert.deepEqual(policy.quotationEvidence(s.source.excerpt,d.quoteVerbatim),
     {speakerPortrait:'ken',self:false,quote:d.quoteVerbatim});
@@ -258,10 +263,12 @@ test('explicit, unquoted speaker line and matching subject can publish only with
   assert.equal(verifyPublicApproval(accepted.entry,proof(accepted.entry),secret),true);
   const changed={...d,quoteVerbatim:'A completely fictional edited remark.'};
   assert.equal(policy.propose(s,changed,id,{speakerPortrait:'ken'}).eligible,false);
-  for(const subject of ['Quote from Matt','Quote from Ken and Jamie','Ken at a private gathering']) {
+  for(const subject of ['Quote from Matt','Quote from Ken and Jamie']) {
     assert.equal(policy.propose({...s,source:{...s.source,subject}},d,id,{speakerPortrait:'ken'}).eligible,false,subject);
   }
-  for(const body of ['A completely fictional one-line remark.',
+  assert.equal(policy.propose({...s,source:{...s.source,subject:'Ken at a private gathering'}},d,id,{speakerPortrait:'ken'}).eligible,true);
+  assert.equal(policy.propose({...s,source:{...s.source,excerpt:'A completely fictional one-line remark.'}},d,id,{speakerPortrait:'ken'}).eligible,true);
+  for(const body of [
     'Ken: A completely fictional one-line remark.\\nAdditional context',
     'Guest: A completely fictional one-line remark.']) {
     assert.equal(policy.propose({...s,source:{...s.source,excerpt:body}},d,id,{speakerPortrait:'ken'}).eligible,false,body);
@@ -270,9 +277,65 @@ test('explicit, unquoted speaker line and matching subject can publish only with
   assert.equal(policy.propose(forbidden,{...d,quoteVerbatim:'Our private address is 22 Imaginary Street.'},id,{speakerPortrait:'ken'}).eligible,false);
 });
 
+test('natural quotation proposals cover either email field and all six approved speakers',()=>{
+  const cases=[
+    {subject:'Ken: “We can take the scenic route.”',excerpt:'',speaker:'ken',quote:'We can take the scenic route.',field:'subject'},
+    {subject:'',excerpt:"Matt said: 'That syrup needs another minute.'",speaker:'matt',quote:'That syrup needs another minute.',field:'body'},
+    {subject:'Marc',excerpt:'The rain stopped before the second toast.',speaker:'marc',quote:'The rain stopped before the second toast.',field:'body'},
+    {subject:'Quote from Jamie',excerpt:'The last chair has a story.',speaker:'jamie',quote:'The last chair has a story.',field:'body'},
+    {subject:'Register of Remarks',excerpt:'Jerome said: “We should keep the recipe as written.”',speaker:'jerome',quote:'We should keep the recipe as written.',field:'body'},
+    {subject:'“There is always room for one more glass.”',excerpt:'Justin',speaker:'fish',quote:'There is always room for one more glass.',field:'subject'},
+    {subject:'My quote: “I owe that glass an apology.”',excerpt:'',speaker:'self',quote:'I owe that glass an apology.',field:'subject'},
+    {subject:'',excerpt:'I said: “The evening improved after the rain.”',speaker:'self',quote:'The evening improved after the rain.',field:'body'}
+  ];
+  for(const item of cases){
+    const source=sample();source.source.subject=item.subject;source.source.excerpt=item.excerpt;
+    const proposed={...draft(),category:'quotation',title:'Recorded remark',quoteVerbatim:item.quote,
+      interpretation:{intent:'direct_quote',speakerId:item.speaker,evidenceField:item.field},
+      recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+    const permission=item.speaker==='self'?null:{speakerPortrait:item.speaker};
+    const result=policy.propose(source,proposed,id,permission);
+    assert.equal(result.eligible,true,JSON.stringify(item));
+    assert.equal(result.entry.quoteVerbatim,item.quote,JSON.stringify(item));
+    assert.equal(result.entry.speakerPortrait||null,permission?.speakerPortrait||null,JSON.stringify(item));
+  }
+});
+
+test('quotation field, exact wording and speaker proposal must agree; ambiguity and reported speech hold',()=>{
+  const make=(subject,excerpt,quote,speaker,field,intent='direct_quote')=>({
+    ...draft(),category:'quotation',quoteVerbatim:quote,
+    interpretation:{intent,speakerId:speaker,evidenceField:field},
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}
+  });
+  const pair=(subject,excerpt,d)=>policy.propose({...sample(),source:{...sample().source,subject,excerpt}},d,id,{speakerPortrait:'ken'});
+  const quote='A fictional sentence for the test.';
+  assert.equal(pair('Quote from Ken',`Jamie said: "${quote}"`,make('','',quote,'jamie','body')).eligible,false);
+  assert.equal(pair('Ken at Friday',quote,make('','',quote,'ken','body')).eligible,false);
+  assert.equal(pair('Register',`Ken said: "${quote}"`,make('','',quote,'matt','body')).eligible,false);
+  assert.equal(pair('Register',`Ken said: "${quote.replace('fictional','changed')}"`,make('','',quote,'ken','body')).eligible,false);
+  assert.equal(pair('Unspecified',`"${quote}"`,make('','',quote,'unknown','body')).eligible,false);
+  assert.equal(pair('Register',`Ken said: "${quote}"`,make('','',quote,'ken','body','anecdote')).eligible,false);
+});
+
+test('subject-only content, body-only recipes and club observations retain their actual source',()=>{
+  const subjectOnly=sample();subjectOnly.source.subject='Ken: The evening improved after the rain.';subjectOnly.source.excerpt='';
+  const q={...draft(),category:'quotation',quoteVerbatim:'The evening improved after the rain.',
+    interpretation:{intent:'direct_quote',speakerId:'ken',evidenceField:'subject'},
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  assert.equal(policy.propose(subjectOnly,q,id,{speakerPortrait:'ken'}).eligible,true);
+  const recipe=sample();recipe.source.subject='';recipe.source.excerpt='1 oz fictional cordial\n2 oz invented juice\nStir gently.';
+  const recipeDraft={...draft(),title:'1 oz fictional cordial',recipe:{drinkIngredients:['1 oz fictional cordial','2 oz invented juice'],syrupIngredients:[],steps:['Stir gently.']}};
+  assert.equal(policy.propose(recipe,recipeDraft,id).eligible,true);
+  const observation=sample();observation.source.subject='The chairs were set before the ceremony.';observation.source.excerpt='';
+  const note={...draft(),category:'club_history',title:observation.source.subject,
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  assert.equal(policy.propose(observation,note,id).eligible,true);
+});
+
 test('distinct quote signature mode cannot be reused for cocktails, photos or sender portraits',()=>{
   const s=sample();s.source.subject='Register';s.source.excerpt='Ken: "An invented saying"';
   const d={...draft(),category:'quotation',quoteVerbatim:'An invented saying',
+    interpretation:{intent:'direct_quote',speakerId:'ken',evidenceField:'body'},
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
   const e=policy.propose(s,d,id,{speakerPortrait:'ken'}).entry;
   const proofQuote=proof(e);
@@ -288,7 +351,7 @@ test('speaker-specific signed quote passes actual public publisher, excludes sub
   const msg=sample();msg.source.subject='Register of Remarks';
   msg.source.excerpt='Ken said: "One imaginary demonstration line."';
   const draftQuote={...draft(),category:'quotation',title:'Register of Remarks',
-    quoteVerbatim:'One imaginary demonstration line.',recipe:{
+    quoteVerbatim:'One imaginary demonstration line.',interpretation:{intent:'direct_quote',speakerId:'ken',evidenceField:'body'},recipe:{
       drinkIngredients:[],syrupIngredients:[],steps:[]},riskFlags:['quote_consent_unconfirmed']};
   const decision=policy.propose(msg,draftQuote,id,{speakerPortrait:'ken'});
   assert.equal(decision.eligible,true);

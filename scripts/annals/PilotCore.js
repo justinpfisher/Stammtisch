@@ -8,6 +8,8 @@ var AnnalsPilot = (function () {
 
   var SCHEMA_VERSION = 1;
   var MAX_BODY_CHARS = 16000;
+  var MAX_SUBJECT_CHARS = 2000;
+  var MAX_SOURCE_CHARS = 11000;
   var MAX_ATTACHMENTS = 6;
   var MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
   var MAX_TOTAL_BYTES = 20 * 1024 * 1024;
@@ -95,12 +97,15 @@ var AnnalsPilot = (function () {
     if (!params || typeof params !== 'object') throw new TypeError('Expected private message data');
     var id = String(params.sourceId || '');
     if (!/^[a-f0-9]{64}$/.test(id)) throw new Error('Source ID must be SHA-256 hex digest');
-    var subject = String(params.subject || '').slice(0, 240);
+    var rawSubject = String(params.subject || '');
+    var subjectTruncated = rawSubject.length > MAX_SUBJECT_CHARS;
+    var subject = rawSubject.slice(0, MAX_SUBJECT_CHARS);
     var body = String(params.body || '');
     var from = senderAddress(params.from);
     if (!from) throw new Error('No usable sender address');
     var bodyTruncated = body.length > MAX_BODY_CHARS;
     var safeBody = body.slice(0, MAX_BODY_CHARS);
+    var sourceTruncated = subjectTruncated || bodyTruncated || subject.length + safeBody.length > MAX_SOURCE_CHARS;
     var plan = planAttachments(params.attachments || []);
     return {
       schemaVersion: SCHEMA_VERSION,
@@ -113,12 +118,14 @@ var AnnalsPilot = (function () {
       source: {
         sender: from, // PRIVATE, never committed to public GitHub.
         subject: subject,
+        subjectTruncated: subjectTruncated,
         receivedAt: params.receivedAt || null,
         excerpt: safeBody,
-        excerptTruncated: bodyTruncated
+        excerptTruncated: bodyTruncated,
+        sourceTruncated: sourceTruncated
       },
       attachmentManifest: plan,
-      requiresClarification: bodyTruncated || plan.held,
+      requiresClarification: sourceTruncated || plan.held || !(subject.trim() || safeBody.trim() || plan.items.length),
       quoteMustStayVerbatim: true,
       eventDateConfirmed: false,
       creditedCreatorConfirmed: false,
@@ -137,6 +144,8 @@ var AnnalsPilot = (function () {
   return Object.freeze({
     SCHEMA_VERSION: SCHEMA_VERSION,
     MAX_BODY_CHARS: MAX_BODY_CHARS,
+    MAX_SUBJECT_CHARS: MAX_SUBJECT_CHARS,
+    MAX_SOURCE_CHARS: MAX_SOURCE_CHARS,
     MAX_ATTACHMENTS: MAX_ATTACHMENTS,
     MAX_ATTACHMENT_BYTES: MAX_ATTACHMENT_BYTES,
     MAX_TOTAL_BYTES: MAX_TOTAL_BYTES,

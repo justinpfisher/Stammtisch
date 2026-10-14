@@ -49,9 +49,9 @@ function annalsAuthentication_(message, sender) {
   // Require one unambiguous Google result. The configured Porkbun forwarding
   // hop adds its own result; it is never used to establish sender authenticity.
   if (typeof message.getRawContent !== 'function') return false;
-  var raw = String(message.getRawContent() || ''), boundary = raw.search(/\r?\n\r?\n/);
+  var raw = String(message.getRawContent() || ''), boundary = raw.search(/\n?\n\n?\n/);
   if (boundary < 0) return false;
-  var lines = raw.slice(0, boundary).replace(/\r?\n[ \t]+/g, ' ').split(/\r?\n/), results = [];
+  var lines = raw.slice(0, boundary).replace(/\n?\n[ \t]+/g, ' ').split(/\n?\n/), results = [];
   lines.forEach(function (line) { if (/^authentication-results:/i.test(line)) results.push(line.replace(/^authentication-results:\s*/i, '')); });
   if (results.length === 2) {
     var googleReceiver = lines.filter(function (line) { return /^received:/i.test(line) && /\bby mx\.google\.com(?:[\s;(]|$)/i.test(line); })[0] || '';
@@ -170,16 +170,15 @@ function annalsContributorPortrait_(source) {
 function annalsQuoteSpeakerPermission_(source, draft) {
   if (!source || !source.senderAuthenticated || !source.source || !draft ||
       draft.category !== 'quotation') return null;
-  var evidence = AnnalsAuto.quotationEvidence(
-    AnnalsAuto.cleanText(source.source.excerpt || ''), draft.quoteVerbatim || '');
+  var evidence = AnnalsAuto.quotationEvidence(source.source.subject || '',
+    source.source.excerpt || '', draft.quoteVerbatim || '', draft.interpretation);
   if (!evidence) return null;
   var p = annalsProps_(), allowed = AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '');
   var mapping;
   try { mapping = AnnalsProduction.portraitMap(allowed,
       JSON.parse(p.getProperty('ANNALS_SPEAKER_IDENTITIES') || 'null')); }
   catch (ignored) { return null; }
-  var portrait = evidence.self ? mapping[String(source.source.sender || '').toLowerCase()] :
-    evidence.speakerPortrait;
+  var portrait = evidence.self ? mapping[String(source.source.sender || '').toLowerCase()] : evidence.speakerPortrait;
   if (!portrait || (!evidence.self && evidence.speakerPortrait !== portrait)) return null;
   var speakerAddress = allowed.filter(function (address) { return mapping[address] === portrait; })[0];
   if (!speakerAddress) return null;
@@ -302,7 +301,7 @@ function annalsRecordVerifiedQuotePermissions(nonce, confirmed, evidenceNote) {
 }
 function annalsHandleConsentReply_(sender, body) {
   var root = annalsRoot_(), registry = annalsConsentRegistry_(), member = registry.members[sender.toLowerCase()];
-  var text = String(body || '').split(/\r?\n/).map(function (line) { return line.trim(); }).filter(Boolean)[0] || '';
+  var text = String(body || '').split(/\n?\n/).map(function (line) { return line.trim(); }).filter(Boolean)[0] || '';
   if (member && text === 'HIDE MY ANNALS PORTRAIT') {
     member.portraitAttributionDisabled = true;
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
@@ -495,7 +494,7 @@ function annalsStageProduction_(message, activation, allowed) {
   if (authenticated) {
     var consentResult = annalsHandleConsentReply_(sender, message.getPlainBody());
     if (consentResult) return consentResult;
-    var firstLine = String(message.getPlainBody() || '').trim().split(/\r?\n/)[0] || '';
+    var firstLine = String(message.getPlainBody() || '').trim().split(/\n?\n/)[0] || '';
     if (/^(?:I CONSENT TO |REVOKE ANNALS |HIDE MY ANNALS PORTRAIT|SHOW MY ANNALS PORTRAIT)/.test(firstLine)) return 'held'; // invalid/stale challenges are not submissions
   }
   var attachments = message.getAttachments({ includeInlineImages: true, includeAttachments: true });
@@ -514,14 +513,17 @@ function annalsStageProduction_(message, activation, allowed) {
   annalsWriteOnce_(folder, 'source-private.json', source);
   if (!source.senderAuthenticated) return 'unverified';
   if (!source.aiConsentActive) { annalsAckOnce_(folder, sender, id, 'private_review_only'); return 'awaiting_consent'; }
-  if (source.requiresClarification || attachments.length || !source.source.excerpt || source.source.excerptTruncated) {
+  var hasSourceText = !!(String(source.source.subject || '').trim() || String(source.source.excerpt || '').trim());
+  var textComplete = hasSourceText && source.source.sourceTruncated !== true &&
+    source.source.subjectTruncated !== true && source.source.excerptTruncated !== true;
+  if (source.requiresClarification || attachments.length || !hasSourceText || !textComplete) {
     var hasEligibleSinglePhoto = source.imageConsentAtReceipt &&
       attachments.length === 1 && source.attachmentManifest.items.length === 1 &&
       source.attachmentManifest.items[0].accepted &&
       ['image/jpeg','image/png','image/webp','image/heic','image/heif'].indexOf(source.attachmentManifest.items[0].mime) >= 0 &&
       source.attachmentManifest.items[0].size > 0 && source.attachmentManifest.items[0].size <= 8*1024*1024;
-    var completeStandaloneText = !!source.source.excerpt && !source.source.excerptTruncated &&
-      annalsSafeTextForAutoAi_(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) &&
+    var completeStandaloneText = textComplete &&
+      annalsSafeTextForAutoAi_(annalsAiSourceText_(source)) &&
       AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt));
     if (!hasEligibleSinglePhoto && !completeStandaloneText) {
       annalsAckOnce_(folder, sender, id, 'held_for_private_review'); return 'held';
@@ -608,8 +610,10 @@ function annalsResumeConsentedDrafts_(limit) {
     }
     if (annalsFile_(folder, 'ai-attempt-private.json') || source.senderAuthenticated !== true ||
         source.aiConsentActive !== true || !annalsConsentActive_(source.source.sender) ||
-        (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) && !source.imageConsentAtReceipt) || source.source.excerptTruncated ||
-        !annalsSafeTextForAutoAi_(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt))) continue;
+        (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) && !source.imageConsentAtReceipt) ||
+        source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated ||
+        !annalsHasAiSource_(source) ||
+        !annalsSafeTextForAutoAi_(annalsAiSourceText_(source))) continue;
     try { if (annalsProcessConsentedText_(id)) done++; }
     catch (e) {
       // An attempt marker permanently prevents a second provider charge.
@@ -804,13 +808,28 @@ function annalsReviewList(nonce, continuation) {
       if (!source) continue;
       var approval = annalsRead_(f, 'approval-private.json'), correction = annalsRead_(f, 'correction-approval-private.json'), removal = annalsRead_(f, 'removal-private.json');
       items.push({ id: id, subject: source.source.subject, receivedAt: source.source.receivedAt,
-        state: removal ? 'Removal request — ' + removal.state : correction ? 'Correction — ' + correction.publicationState :
-          approval ? (approval.publicationState === 'dispatch_accepted' ? 'Exact approval — publish request accepted' : 'Exact approval — publication needs attention') :
-          annalsFile_(f, 'draft-private.json') ? 'Draft ready' :
-          annalsFile_(f, 'ai-attempt-private.json') ? 'AI attempt requires review' : 'Awaiting processing consent' });
+        state: removal ? 'Removal: ' + removal.state : correction ? 'Correction: ' + correction.publicationState :
+          annalsReviewStatus_(f, source, approval) });
     }
     return { items: items, continuation: folders.hasNext() ? folders.getContinuationToken() : null };
   });
+}
+function annalsReviewStatus_(folder, source, approval) {
+  if (annalsFile_(folder, 'auto-live-verification-private.json')) return 'Verified live';
+  if (approval && approval.publicationState === 'dispatch_accepted') return 'Dispatched — awaiting live verification';
+  if (approval && (annalsFile_(folder, 'publication-dispatch-private.json') || approval.publicationState !== 'approved_private_pending_publish'))
+    return 'Failed — recovery decision required';
+  var reassessment = annalsRead_(folder,'auto-reassessment-private.json'), reassessmentAttempt = annalsRead_(folder,'reassessment-attempt-private.json');
+  if (reassessment && reassessment.state === 'held') return 'Held after reassessment — ' + String(reassessment.reason || 'policy_review_required').slice(0,100);
+  if (reassessmentAttempt && reassessmentAttempt.state !== 'attempt_reserved') return 'Failed — recovery decision required';
+  if (reassessmentAttempt) return 'Failed — recovery attempt needs owner review';
+  var decision = annalsRead_(folder, 'auto-decision-private.json');
+  if (decision && decision.state === 'held') return 'Held — ' + String(decision.reason || 'policy_review_required').slice(0,100);
+  if (approval || decision && decision.state === 'eligible') return 'Eligible for publication';
+  if (annalsFile_(folder, 'ai-attempt-private.json') && !annalsFile_(folder, 'draft-private.json'))
+    return 'Failed — recovery decision required';
+  if (annalsFile_(folder, 'draft-private.json')) return 'Drafted privately';
+  return source.senderAuthenticated === true ? 'Received and authenticated' : 'Received — sender not authenticated';
 }
 function annalsReviewItem(nonce, id) {
   return annalsUiCall_(nonce, function () {
@@ -821,8 +840,17 @@ function annalsReviewItem(nonce, id) {
     var publicationState = correction && correction.publicationState !== 'dispatch_accepted' ? 'correction_result_uncertain' : (published || {}).publicationState || null;
     var names = source.attachmentManifest.items.filter(function (a) { return a.accepted && annalsFile_(f, a.storageName); })
       .map(function (a) { return { name: a.storageName, mime: a.mime, size: a.size }; });
+    var approval = annalsRead_(f, 'approval-private.json'), decision = annalsRead_(f, 'auto-decision-private.json');
+    var reassessment = annalsRead_(f,'reassessment-attempt-private.json');
     return { id: id, subject: source.source.subject, text: source.source.excerpt, receivedAt: source.source.receivedAt,
-      truncated: source.source.excerptTruncated, attachments: names, folderUrl: f.getUrl(),
+      truncated: source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated,
+      status: annalsReviewStatus_(f, source, approval),
+      holdReason: reassessment && reassessment.state === 'held' ? reassessment.reason :
+        decision && decision.state === 'held' ? decision.reason : '',
+      reassessmentAvailable: !!(decision && decision.state === 'held' && !reassessment &&
+        !annalsFile_(f,'approval-private.json') && !annalsFile_(f,'publication-dispatch-private.json') &&
+        annalsFile_(f,'ai-attempt-private.json') && (annalsRead_(f,'draft-private.json') || {}).category === 'quotation'),
+      attachments: names, folderUrl: f.getUrl(),
       draft: annalsRead_(f, 'draft-private.json'), review: annalsRead_(f, 'review-private.json'),
       photoDerivative: annalsRead_(f, 'photo-derivative-private.json') ? annalsPhotoDerivative_(f) : null,
       outcome: annalsRead_(f, 'ai-outcome-private.json'), correctionReview: annalsRead_(f, 'correction-review-private.json'),
@@ -976,10 +1004,12 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
 function annalsProcessConsentedText_(id) {
   var source = annalsRead_(annalsFolder_(id), 'source-private.json');
   if (!source || source.senderAuthenticated !== true || source.aiConsentActive !== true || !annalsConsentActive_(source.source.sender) ||
-      (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) && !source.imageConsentAtReceipt) || source.source.excerptTruncated ||
-      !annalsSafeTextForAutoAi_(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) ||
+      (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) && !source.imageConsentAtReceipt) ||
+      source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated ||
+      !annalsHasAiSource_(source) ||
+      !annalsSafeTextForAutoAi_(annalsAiSourceText_(source)) ||
       annalsProps_().getProperty('ANNALS_AI_ENABLED') !== 'true') return false;
-  var fullText = source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt);
+  var fullText = [source.source.subject || '', source.source.excerpt || ''].filter(function (v) { return v.trim(); }).join('\n');
   var derived = null;
   if (source.imageConsentAtReceipt && annalsProps_().getProperty('ANNALS_AUTO_MEDIA_ENABLED') === 'true') {
     try { derived = annalsAutoThumbnail_(id, source); }
@@ -988,10 +1018,10 @@ function annalsProcessConsentedText_(id) {
   // Image-dependent emails must not consume their only paid AI attempt while
   // Drive is still preparing a thumbnail; defer until a safe one exists.
   var needsImage = !!(source.attachmentManifest && source.attachmentManifest.items.length &&
-    !AnnalsAuto.independentText(fullText));
+    (!fullText.trim() || !AnnalsAuto.independentText(fullText)));
   if (needsImage && !derived) return false;
   var images = derived ? [{mime:'image/jpeg',base64:derived.base64}] : [];
-  annalsPrepareDraftCore_(id, fullText, [], true, true, images); // caller already holds intake lock
+  annalsPrepareDraftCore_(id, annalsAiSourceText_(source), [], true, true, images); // caller already holds intake lock
   var dispatched = annalsAutoAttemptSafe_(annalsFolder_(id), id);
   if (!dispatched) annalsNotifyDraftReady_(annalsFolder_(id));
   return true;
@@ -1013,6 +1043,17 @@ function annalsNotifyDraftReady_(folder) {
 function annalsSafeTextForAutoAi_(text) {
   if (typeof text !== 'string' || !text.trim() || text.length > 6000) return false;
   return !/(?:[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|https?:\/\/|www\.|(?:\+?1[- .]?)?\(?[2-9]\d{2}\)?[- .][2-9]\d{2}[- .]\d{4}|^\s*>|^\s*from:\s|^\s*sent:\s|^\s*subject:\s|^\s*--\s*$|\b(?:forwarded message|original message|confidential|private address|phone number|contact details)\b)/im.test(text);
+}
+function annalsAiSourceText_(source) {
+  if (!source || !source.source) return '';
+  return 'EMAIL SUBJECT (original field):\n' + String(source.source.subject || '') +
+    '\n\nEMAIL BODY (original field):\n' + String(source.source.excerpt || '');
+}
+function annalsHasAiSource_(source) {
+  if (!source || !source.source) return false;
+  if (String(source.source.subject || '').trim() || String(source.source.excerpt || '').trim()) return true;
+  return source.imageConsentAtReceipt === true && source.attachmentManifest &&
+    Array.isArray(source.attachmentManifest.items) && source.attachmentManifest.items.length > 0;
 }
 function annalsSaveReview(nonce, id, rawEntry) {
   return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
@@ -1219,7 +1260,7 @@ function annalsAutoAttemptSafe_(folder, id) {
  * server-side decision, guarded by private consent evidence and an exact
  * deterministic source-grounding check. Only eligible text is signed.
  */
-function annalsAutoPublishCandidate_(id) {
+function annalsAutoPublishCandidate_(id, allowHeldRecovery) {
   var p = annalsProps_();
   if (p.getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') !== 'true') return false;
   if (p.getProperty('ANNALS_GITHUB_REPOSITORY') !== 'justinpfisher/Stammtisch' ||
@@ -1230,11 +1271,20 @@ function annalsAutoPublishCandidate_(id) {
       AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '').length !== 6) return false;
   var folder = annalsFolder_(id), previous = annalsRead_(folder, 'approval-private.json');
   if (previous) return [AnnalsAuto.MODE,AnnalsAuto.QUOTE_MODE,AnnalsMediaPolicy.MODE].indexOf(previous.approvalMode) >= 0 && previous.publicationState === 'dispatch_accepted';
-  if (annalsFile_(folder, 'auto-decision-private.json')) return false; // no silent retries
   var source = annalsRead_(folder, 'source-private.json'), draft = annalsRead_(folder, 'draft-private.json');
+  var priorDecision = annalsRead_(folder, 'auto-decision-private.json');
+  var recoveryAttempt = annalsRead_(folder, 'reassessment-attempt-private.json');
+  var heldRecovery = allowHeldRecovery === true && priorDecision &&
+    priorDecision.state === 'held' && recoveryAttempt && recoveryAttempt.state === 'attempt_reserved' &&
+    recoveryAttempt.owner === annalsOwner_() && recoveryAttempt.aiCall === false && recoveryAttempt.dispatchWasAbsent === true &&
+    source && draft && recoveryAttempt.sourceDigest === annalsHash_(AnnalsProduction.serial(source.source)) &&
+    recoveryAttempt.draftDigest === annalsHash_(AnnalsProduction.serial(draft)) &&
+    !annalsRead_(folder, 'auto-reassessment-private.json');
+  if (priorDecision && !heldRecovery) return false; // no silent retries
+  if (!priorDecision && recoveryAttempt) return false;
   if (!source || !draft || !source.source || !source.senderAuthenticated || !source.aiConsentActive ||
       !source.autoConsentAtReceipt || !annalsStandingPublicationActive_(source.source.sender, source.source.receivedAt) ||
-      source.source.excerptTruncated ||
+    source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated ||
       Date.parse(source.source.receivedAt) < Date.parse(p.getProperty('ANNALS_ACTIVATED_AT'))) return false;
   var speakerPermission = draft.category === 'quotation' ?
     annalsQuoteSpeakerPermission_(source,draft) : null;
@@ -1248,7 +1298,8 @@ function annalsAutoPublishCandidate_(id) {
   }
   var decision = AnnalsMediaPolicy.enrich(source,draft,id,originalDecision,derivative);
   if (!decision.eligible) {
-    annalsWriteOnce_(folder, 'auto-decision-private.json', { state: 'held', reason: decision.reason, at: new Date().toISOString() });
+    annalsWriteOnce_(folder, heldRecovery ? 'auto-reassessment-private.json' : 'auto-decision-private.json',
+      { state: 'held', reason: decision.reason, at: new Date().toISOString() });
     return false;
   }
   if (decision.entry.category !== 'quotation') {
@@ -1270,8 +1321,9 @@ function annalsAutoPublishCandidate_(id) {
   var publication = annalsPublicApproval_(entry, receipt, p.getProperty('ANNALS_PUBLISH_SIGNING_KEY'));
   if (!publication || publication.mode !== decision.mode) return false;
   // Both consent records and the accuracy/eligibility reason stay private.
-  annalsWriteOnce_(folder, 'auto-decision-private.json', {
-    state: 'eligible', policy: decision.mode, sourceDigest: annalsHash_(source.source.excerpt),
+  annalsWriteOnce_(folder, heldRecovery ? 'auto-reassessment-private.json' : 'auto-decision-private.json', {
+    state: 'eligible', policy: decision.mode,
+    sourceDigest: annalsHash_(String(source.source.subject || '') + '\n' + String(source.source.excerpt || '')),
     contentSha256: hash, consentCheckedAt: new Date().toISOString()
   });
   var saved = { entry: entry, receipt: receipt, publication: publication, approvalMode: decision.mode,
@@ -1282,6 +1334,41 @@ function annalsAutoPublishCandidate_(id) {
   saved.publicationState = accepted ? 'dispatch_accepted' : 'dispatch_not_configured_or_held';
   annalsFile_(folder, 'approval-private.json').setContent(JSON.stringify(saved));
   return accepted;
+}
+/** Owner-confirmed, one-shot deterministic recheck of an existing held quote draft.
+ * This never calls AI and never retries an item with any approval or dispatch record.
+ */
+function annalsReassessHeldQuote(nonce, id, confirmed) {
+  return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
+    var owner = annalsOwner_();
+    if (confirmed !== true || !/^[a-f0-9]{64}$/.test(id || '')) throw new Error('Explicit one-time owner confirmation required');
+    var folder = annalsFolder_(id), source = annalsRead_(folder,'source-private.json'),
+      draft = annalsRead_(folder,'draft-private.json'), held = annalsRead_(folder,'auto-decision-private.json');
+    var p = annalsProps_(), sender = source && source.source && String(source.source.sender || '').toLowerCase(),
+      allowed = AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '');
+    if (!source || source.sourceId !== id || source.senderAuthenticated !== true || source.aiConsentActive !== true ||
+        source.autoConsentAtReceipt !== true || !draft || draft.category !== 'quotation' ||
+        !draft.interpretation || draft.interpretation.intent !== 'direct_quote' ||
+        !held || held.state !== 'held' || !annalsFile_(folder,'ai-attempt-private.json') ||
+        annalsFile_(folder,'approval-private.json') || annalsFile_(folder,'publication-dispatch-private.json') ||
+        annalsFile_(folder,'reassessment-attempt-private.json') || annalsFile_(folder,'auto-reassessment-private.json') ||
+        allowed.length !== 6 || allowed.indexOf(sender) < 0 ||
+        source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated ||
+        Date.parse(source.source.receivedAt) < Date.parse(p.getProperty('ANNALS_ACTIVATED_AT')) ||
+        !annalsConsentActive_(sender) || !annalsStandingPublicationActive_(sender,source.source.receivedAt))
+      throw new Error('This item is not eligible for one-time quote reassessment');
+    var attempt = { state:'attempt_reserved', at:new Date().toISOString(), owner:owner,
+      sourceDigest:annalsHash_(AnnalsProduction.serial(source.source)),
+      draftDigest:annalsHash_(AnnalsProduction.serial(draft)), aiCall:false, dispatchWasAbsent:true };
+    annalsWriteOnce_(folder,'reassessment-attempt-private.json',attempt);
+    var accepted = annalsAutoPublishCandidate_(id,true), approval = annalsRead_(folder,'approval-private.json');
+    var reassessment = annalsRead_(folder,'auto-reassessment-private.json');
+    var state = approval ? (approval.publicationState === 'dispatch_accepted' ? 'dispatch_accepted' : 'failed_recovery_decision_required') :
+      reassessment && reassessment.reason || (reassessment ? 'held_by_deterministic_policy' : 'reassessment_stopped_before_decision');
+    annalsFile_(folder,'reassessment-attempt-private.json').setContent(JSON.stringify(Object.assign({},attempt,
+      {state:state,finishedAt:new Date().toISOString(),dispatchAccepted:accepted === true})));
+    return { status:state, aiCall:false, dispatchAccepted:accepted === true };
+  }); });
 }
 /** Read-only reconciliation. HTTP acceptance is NOT proof of publication.
  * Verify both published archive identity/digest and live Pages markup.
