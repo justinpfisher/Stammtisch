@@ -840,3 +840,69 @@ test('oversized provider response stays held without storing unbounded evidence 
   assert.equal(calls.ai,1);
   assert.equal(JSON.parse(props.ANNALS_BUDGET_LEDGER).reservedCents,10);
 });
+
+
+test('none image flag is conservatively false only when the request is known to have no images', () => {
+  const raw={...candidate(),imageSafety:{kind:'none',safeToPublish:true,altText:''}};
+  const response={status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(raw)}]}]};
+  assert.equal(core.response(response,false).imageSafety.safeToPublish,false);
+  assert.equal(raw.imageSafety.safeToPublish,true);
+  assert.throws(()=>core.response(response,true),/Invalid image review/);
+  assert.throws(()=>core.response(response),/Invalid image review/);
+  assert.match(core.request('Synthetic text.',[]).instructions,/When no image is provided/);
+});
+function capturedTextFixture() {
+  const state=mock(),{context,props,folder}=state,id='7'.repeat(64),sender='member@example.test';
+  props.ANNALS_ALLOWED_SENDERS=sender;
+  props.ANNALS_ACTIVATED_AT='2026-10-08T00:00:00Z';
+  folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{[sender]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T00:00:00Z',autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:'2026-10-08T00:00:00Z'}}}}));
+  const source={sourceId:id,senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,attachmentManifest:{items:[]},source:{sender,subject:'Register of Remarks',excerpt:'My quote: "Synthetic diagnostic only. Not club history."',receivedAt:'2026-10-09T00:00:00Z'}};
+  const raw={category:'quotation',title:'Register of Remarks',summary:'Synthetic diagnostic only.',eventDate:'',quoteVerbatim:'Synthetic diagnostic only. Not club history.',recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]},riskFlags:[],interpretation:{intent:'direct_quote',speakerId:'self',evidenceField:'body'},imageSafety:{kind:'none',safeToPublish:true,altText:''}};
+  const responseText=JSON.stringify({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(raw)}]}]});
+  folder.createFile('source-private.json',JSON.stringify(source));
+  folder.createFile('ai-attempt-private.json',JSON.stringify({model:core.MODEL,processingConsent:true,submittedText:context.annalsAiSourceText_(source),selectedNames:[]}));
+  folder.createFile('ai-outcome-private.json','{"state":"held","reason":"invalid_response"}');
+  folder.createFile('ai-response-private.json',JSON.stringify({httpStatus:200,model:core.MODEL,responseText}));
+  return {...state,id,source};
+}
+test('captured no-image repair preserves original evidence and budget and makes no AI or dispatch call', () => {
+  const {context,files,props,calls,id}=capturedTextFixture();
+  const names=['source-private.json','ai-attempt-private.json','ai-outcome-private.json','ai-response-private.json'];
+  const before=names.map(name=>files.get(name).getBlob().getDataAsString()),ledger=props.ANNALS_BUDGET_LEDGER;
+  assert.throws(()=>context.annalsRecoverCapturedTextDraft('valid',id,false));
+  assert.equal(context.annalsRecoverCapturedTextDraft('valid',id,true).drafted,true);
+  assert.equal(JSON.parse(files.get('draft-private.json').getBlob().getDataAsString()).imageSafety.safeToPublish,false);
+  assert.equal(JSON.parse(files.get('captured-response-recovery-private.json').getBlob().getDataAsString()).state,'private_draft_recovered');
+  assert.deepEqual(names.map(name=>files.get(name).getBlob().getDataAsString()),before);
+  assert.equal(props.ANNALS_BUDGET_LEDGER,ledger);
+  assert.equal(calls.ai,0);
+  assert.ok(!files.has('approval-private.json'));
+  assert.ok(!files.has('publication-dispatch-private.json'));
+  assert.throws(()=>context.annalsRecoverCapturedTextDraft('valid',id,true));
+});
+test('captured repair rejects source drift, image inputs, revoked permission, quarantine and prior dispatch', () => {
+  for(const block of ['source_drift','image','revoked','quarantine','dispatch']){
+    const {context,files,props,folder,id,source}=capturedTextFixture();
+    if(block==='source_drift')folder.createFile('source-private.json',JSON.stringify({...source,source:{...source.source,excerpt:'Different words.'}}));
+    if(block==='image')folder.createFile('source-private.json',JSON.stringify({...source,attachmentManifest:{items:[{name:'synthetic.jpg'}]}}));
+    if(block==='revoked')props.ANNALS_ALLOWED_SENDERS='other@example.test';
+    if(block==='quarantine')folder.createFile('quarantine-private.json','{}');
+    if(block==='dispatch')folder.createFile('publication-dispatch-private.json','{}');
+    assert.throws(()=>context.annalsRecoverCapturedTextDraft('valid',id,true));
+    assert.ok(!files.has('draft-private.json'));
+    assert.ok(!files.has('captured-response-recovery-private.json'));
+  }
+});
+
+
+test('captured repair refuses non-verbatim output, image attempt context and invalid activation boundary', () => {
+  for (const block of ['quote_drift','image_context','activation']) {
+    const {context,folder,files,props,id}=capturedTextFixture();
+    if(block==='quote_drift'){const e=JSON.parse(files.get('ai-response-private.json').getBlob().getDataAsString());const r=JSON.parse(e.responseText);const d=JSON.parse(r.output[0].content[0].text);d.quoteVerbatim='Different invented words.';r.output[0].content[0].text=JSON.stringify(d);e.responseText=JSON.stringify(r);folder.createFile('ai-response-private.json',JSON.stringify(e));}
+    if(block==='image_context'){const a=JSON.parse(files.get('ai-attempt-private.json').getBlob().getDataAsString());a.imageInputCount=1;folder.createFile('ai-attempt-private.json',JSON.stringify(a));}
+    if(block==='activation')props.ANNALS_ACTIVATED_AT='invalid';
+    assert.throws(()=>context.annalsRecoverCapturedTextDraft('valid',id,true));
+    assert.ok(!files.has('draft-private.json'));
+    assert.ok(!files.has('captured-response-recovery-private.json'));
+  }
+});

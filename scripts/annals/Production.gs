@@ -996,7 +996,7 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
     p.setProperty('ANNALS_BUDGET_LEDGER', JSON.stringify(ledger)); // before any network request
     annalsWriteOnce_(f, 'ai-attempt-private.json', { state: 'attempt_reserved', reservedCents: 10,
       at: new Date().toISOString(), owner: intakeLockHeld === true ? annalsServiceOwner_() : annalsOwner_(), model: AnnalsProduction.MODEL,
-      processingConsent: true, submittedText: text, selectedNames: selectedNames });
+      processingConsent: true, submittedText: text, selectedNames: selectedNames, imageInputCount: images.length });
     var response;
     try {
       response = UrlFetchApp.fetch('https://api.openai.com/v1/responses', {
@@ -1034,7 +1034,7 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
       throw new Error('AI attempt held; no automatic retry');
     }
     var candidate;
-    try { candidate = AnnalsProduction.response(JSON.parse(responseText)); }
+    try { candidate = AnnalsProduction.response(JSON.parse(responseText), images.length > 0); }
     catch (e) {
       annalsRecordAttemptOutcome_(f, 'invalid_response');
       throw new Error('AI attempt held; no automatic retry');
@@ -1537,5 +1537,55 @@ function annalsQuarantineSubmission_(id, reason, confirmed) {
 function annalsQuarantineSubmission(nonce, id, reason, confirmed) {
   return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
     return annalsQuarantineSubmission_(id, reason, confirmed);
+  }); });
+}
+
+
+/** One-shot private repair of the irrelevant none/true image flag on a text-only
+ * captured response. No provider request or publication dispatch is made here.
+ * Original response, failure, attempt and budget evidence remain unchanged.
+ */
+function annalsRecoverCapturedTextDraft(nonce, id, confirmed) {
+  return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
+    if (confirmed !== true) throw new Error('Explicit captured-response review required');
+    var folder = annalsFolder_(id), source = annalsRead_(folder, 'source-private.json'),
+      attempt = annalsRead_(folder, 'ai-attempt-private.json'), outcome = annalsRead_(folder, 'ai-outcome-private.json'),
+      evidence = annalsRead_(folder, 'ai-response-private.json');
+    if (!source || source.sourceId !== id || source.senderAuthenticated !== true || source.aiConsentActive !== true ||
+        source.autoConsentAtReceipt !== true || !source.attachmentManifest || !Array.isArray(source.attachmentManifest.items) || source.attachmentManifest.items.length ||
+        source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated ||
+        !annalsConsentActive_(source.source.sender) || !annalsStandingPublicationActive_(source.source.sender, source.source.receivedAt) ||
+        !Number.isFinite(Date.parse(source.source.receivedAt)) ||
+        !Number.isFinite(Date.parse(annalsProps_().getProperty('ANNALS_ACTIVATED_AT'))) ||
+        Date.parse(source.source.receivedAt) < Date.parse(annalsProps_().getProperty('ANNALS_ACTIVATED_AT')) ||
+        !attempt || attempt.model !== AnnalsProduction.MODEL || attempt.processingConsent !== true ||
+        !Array.isArray(attempt.selectedNames) || attempt.selectedNames.length ||
+        attempt.imageInputCount !== undefined && attempt.imageInputCount !== 0 ||
+        attempt.submittedText !== annalsAiSourceText_(source) || !outcome || outcome.reason !== 'invalid_response' ||
+        !evidence || evidence.httpStatus !== 200 || evidence.model !== AnnalsProduction.MODEL ||
+        typeof evidence.responseText !== 'string' || evidence.responseText.length > 100000 ||
+        annalsFile_(folder, 'quarantine-private.json') || annalsFile_(folder, 'draft-private.json') ||
+        annalsFile_(folder, 'approval-private.json') || annalsFile_(folder, 'publication-dispatch-private.json') ||
+        annalsFile_(folder, 'auto-decision-private.json') || annalsFile_(folder, 'captured-response-recovery-private.json'))
+      throw new Error('Captured response is not eligible for private text-only repair');
+    var response = JSON.parse(evidence.responseText), output = response.output;
+    if (response.status !== 'completed' || !Array.isArray(output) || output.length !== 1 ||
+        output[0].type !== 'message' || !Array.isArray(output[0].content) || output[0].content.length !== 1 ||
+        output[0].content[0].type !== 'output_text') throw new Error('Exact completed response required');
+    var raw = JSON.parse(output[0].content[0].text);
+    if (!raw.imageSafety || raw.imageSafety.kind !== 'none' || raw.imageSafety.safeToPublish !== true)
+      throw new Error('Only the diagnosed text-only no-image flag can be repaired');
+    var candidate = AnnalsProduction.response(response, false);
+    var permission = candidate.category === 'quotation' ? annalsQuoteSpeakerPermission_(source, candidate) : null;
+    if (!AnnalsAuto.propose(source, candidate, id, permission).eligible)
+      throw new Error('Exact source-grounding and current consent checks must pass before repair');
+    var record = { state: 'repair_reserved', at: new Date().toISOString(), owner: annalsOwner_(),
+      sourceDigest: annalsHash_(AnnalsProduction.serial(source.source)), responseDigest: annalsHash_(evidence.responseText),
+      providerCalled: false, publishesAnything: false, repair: 'text_only_none_image_flag_false' };
+    annalsWriteOnce_(folder, 'captured-response-recovery-private.json', record);
+    annalsWriteOnce_(folder, 'draft-private.json', candidate);
+    record.state = 'private_draft_recovered';
+    annalsFile_(folder, 'captured-response-recovery-private.json').setContent(JSON.stringify(record));
+    return { drafted: true, providerCalled: false, publishesAnything: false };
   }); });
 }

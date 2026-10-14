@@ -107,3 +107,8 @@ The private desk can permanently quarantine an exact submission hash. Its write-
 ### Private AI failure evidence
 
 Each new one-shot HTTP-200 provider response is retained, before validation, in owner-only Drive as ai-response-private.json, bounded to 100,000 characters. This unapproved output must never appear in execution logs, GitHub, builds or public previews. Invalid, oversized or unavailable response evidence remains held; the attempt and budget reservation are never cleared, refunded or retried. Earlier failures without retained response evidence cannot be reconstructed from a generic invalid_response marker. Inspect the private evidence before deciding a correction or a separately authored new diagnostic is necessary.
+
+
+### Text-only no-image response repair
+
+For a request proven to have no image input, a provider none/true image-safety flag is conservatively canonicalised to none/false. Requests with images or unknown input context retain strict image validation. The original response is preserved. An owner-authenticated one-time repair can reconstruct an eligible private draft from an already completed captured response containing only this diagnosed flag inconsistency. It requires unchanged exact source text, active receipt-time and current consent, no images, no quarantine or prior approval/dispatch, and the normal deterministic source-grounding policy. It neither calls AI nor publishes; original attempt, failure and budget records remain intact, and normal intake must perform signing and publication.
