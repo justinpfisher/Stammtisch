@@ -102,3 +102,8 @@ Offline tests establish code behaviour under controlled inputs only. They do **n
 ## Owner-identified test quarantine
 
 The private desk can permanently quarantine an exact submission hash. Its write-once private record preserves the original, consent, AI attempt, ledger and audit evidence. Intake holds a quarantined hash even before it has been staged; automatic drafting, publication, manual dispatch and held-quote reassessment refuse it. No automatic release exists. Existing approval or dispatch markers require inspection and, where applicable, the authenticated withdrawal workflow before quarantine. Do not classify real submissions as tests or copy private item identifiers or reasons into this public repository.
+
+
+### Private AI failure evidence
+
+Each new one-shot HTTP-200 provider response is retained, before validation, in owner-only Drive as ai-response-private.json, bounded to 100,000 characters. This unapproved output must never appear in execution logs, GitHub, builds or public previews. Invalid, oversized or unavailable response evidence remains held; the attempt and budget reservation are never cleared, refunded or retried. Earlier failures without retained response evidence cannot be reconstructed from a generic invalid_response marker. Inspect the private evidence before deciding a correction or a separately authored new diagnostic is necessary.

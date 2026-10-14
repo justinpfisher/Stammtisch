@@ -1016,8 +1016,25 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
       annalsRecordAttemptOutcome_(f, 'provider_http_error', status);
       throw new Error('AI attempt held; no automatic retry');
     }
+    // Retain one bounded response only in owner-only Drive before validation.
+    // Never log it or send it to GitHub. This does not permit a second AI call.
+    var responseText;
+    try {
+      responseText = response.getContentText();
+      if (typeof responseText !== 'string' || responseText.length > 100000) {
+        annalsRecordAttemptOutcome_(f, 'provider_response_too_large');
+        throw new Error('Response evidence exceeds private bounds');
+      }
+      annalsWriteOnce_(f, 'ai-response-private.json', {
+        receivedAt: new Date().toISOString(), httpStatus: status,
+        model: AnnalsProduction.MODEL, responseText: responseText
+      });
+    } catch (e) {
+      annalsRecordAttemptOutcome_(f, 'response_evidence_unavailable');
+      throw new Error('AI attempt held; no automatic retry');
+    }
     var candidate;
-    try { candidate = AnnalsProduction.response(JSON.parse(response.getContentText())); }
+    try { candidate = AnnalsProduction.response(JSON.parse(responseText)); }
     catch (e) {
       annalsRecordAttemptOutcome_(f, 'invalid_response');
       throw new Error('AI attempt held; no automatic retry');

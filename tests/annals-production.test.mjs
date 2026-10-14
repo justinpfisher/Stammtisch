@@ -810,3 +810,33 @@ test('an unencountered quarantined email is held without staging its body or res
   assert.ok(!files.has('ai-attempt-private.json'));
   assert.equal(JSON.parse(props.ANNALS_BUDGET_LEDGER).reservedCents, 0);
 });
+
+
+test('invalid provider output is retained privately once, never logged, published or retried', () => {
+  const { context, folder, files, props, calls, logs } = mock(), id = 'b'.repeat(64);
+  const privateOutput = JSON.stringify({ status:'completed', output:[{type:'message',content:[{type:'output_text',text:'PRIVATE SYNTHETIC INVALID OUTPUT'}]}] });
+  context.UrlFetchApp.fetch = () => {calls.ai++; return {getResponseCode:()=>200,getContentText:()=>privateOutput};};
+  folder.createFile('source-private.json', JSON.stringify({attachmentManifest:{items:[]}}));
+  assert.throws(()=>context.annalsPrepareDraft('valid',id,'Synthetic test only.',[],true));
+  const evidence = files.get('ai-response-private.json').getBlob().getDataAsString();
+  assert.equal(JSON.parse(evidence).responseText, privateOutput);
+  assert.equal(JSON.parse(evidence).httpStatus, 200);
+  assert.equal(JSON.parse(files.get('ai-outcome-private.json').getBlob().getDataAsString()).reason,'invalid_response');
+  assert.ok(!files.has('draft-private.json'));
+  assert.ok(!files.has('approval-private.json'));
+  assert.ok(!logs.join('').includes('PRIVATE SYNTHETIC INVALID OUTPUT'));
+  assert.throws(()=>context.annalsPrepareDraft('valid',id,'Synthetic test only.',[],true));
+  assert.equal(calls.ai,1);
+  assert.equal(JSON.parse(props.ANNALS_BUDGET_LEDGER).reservedCents,10);
+  assert.equal(files.get('ai-response-private.json').getBlob().getDataAsString(),evidence);
+});
+test('oversized provider response stays held without storing unbounded evidence or retrying', () => {
+  const { context, files, props, calls } = mock();
+  context.UrlFetchApp.fetch=()=>{calls.ai++;return {getResponseCode:()=>200,getContentText:()=> 'x'.repeat(100001)};};
+  assert.throws(()=>context.annalsPrepareDraft('valid','c'.repeat(64),'Synthetic test only.',[],true));
+  assert.ok(!files.has('ai-response-private.json'));
+  assert.ok(!files.has('draft-private.json'));
+  assert.equal(JSON.parse(files.get('ai-outcome-private.json').getBlob().getDataAsString()).reason,'provider_response_too_large');
+  assert.equal(calls.ai,1);
+  assert.equal(JSON.parse(props.ANNALS_BUDGET_LEDGER).reservedCents,10);
+});
