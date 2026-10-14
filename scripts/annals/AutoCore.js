@@ -45,35 +45,76 @@ var AnnalsAuto = (function () {
     return PRIVATE_DATA.test(text) || ALLEGATION.test(text) ||
       IDENTIFYING.test(text) || THIRD_PARTY.test(text) || NAMED_PERSON.test(text);
   }
-  // Extract quotation and speaker from a whole, explicit source line. Never
-  // trust an AI-generated attribution or infer a speaker from the sender.
-  // Actual speaker permissions are checked separately in private Apps Script.
-  function quotationEvidence(text, aiQuote) {
-    if (typeof aiQuote !== 'string' || !aiQuote.trim()) return null;
-    var original = cleanText(text);
-    var self = original.match(/^(?:my quote|i said|i wrote)\s*:\s*(?:"([^"\r\n]+)"|“([^”\r\n]+)”)\s*$/i);
-    // A single source line explicitly naming its speaker is still source-exact
-    // when it omits typographic quotation marks (e.g. Ken: Exact words).
-    var speaker = original.match(/^(?:(?:quote\s+(?:from|by))\s+)?(Justin|Fish|Marc|Matt|Ken|Jamie|Jerome)(?:\s+(?:said|remarked))?\s*:\s*(?:"([^"\r\n]+)"|“([^”\r\n]+)”|([^"“”\r\n]+))\s*$/i);
-    var suffix = original.match(/^(?:"([^"\r\n]+)"|“([^”\r\n]+)”)\s*[—–-]\s*(Justin|Fish|Marc|Matt|Ken|Jamie|Jerome)\s*$/i);
-    var line = self ? self[1] || self[2] : speaker ? speaker[2] || speaker[3] || speaker[4] :
-      suffix ? suffix[1] || suffix[2] : '';
-    // Wording, case and punctuation must be copied exactly by the AI.
-    if (!line || line.trim() !== aiQuote.trim()) return null;
-    var name = speaker ? speaker[1] : suffix ? suffix[3] : '';
-    var identity = name ? (name.toLowerCase() === 'justin' ? 'fish' : name.toLowerCase()) : '';
-    return { speakerPortrait: identity || null, self: !!self, quote: line.trim() };
+  var SPEAKERS = { justin:'fish', fish:'fish', marc:'marc', matt:'matt', ken:'ken', jamie:'jamie', jerome:'jerome' };
+  function speakerId(value) { return SPEAKERS[String(value || '').trim().toLowerCase()] || null; }
+  function mentionedSpeakers(value) {
+    var found = [];
+    Object.keys(SPEAKERS).forEach(function (name) {
+      if (new RegExp('\\b' + name + '\\b','i').test(String(value || '')) && found.indexOf(SPEAKERS[name]) < 0)
+        found.push(SPEAKERS[name]);
+    });
+    return found;
+  }
+  function outerQuote(value) {
+    var text = value.trim(), pairs = [['"','"'],["'","'"],['“','”'],['‘','’'],['«','»']];
+    for (var i = 0; i < pairs.length; i++)
+      if (text.length >= 2 && text.charAt(0) === pairs[i][0] && text.charAt(text.length - 1) === pairs[i][1])
+        return text.slice(1,-1);
+    return text;
+  }
+  // Read one original source field. This deliberately small grammar handles
+  // explicit labels; cross-field attribution is checked separately below.
+  function fieldEvidence(value, aiQuote) {
+    if (typeof value !== 'string') return null;
+    var original = value.replace(/\r\n?/g,'\n').trim();
+    if (!original) return null;
+    var self = original.match(/^(?:my quote|i said|i wrote)\s*:\s*([\s\S]+)$/i);
+    var prefix = original.match(/^(?:(?:quote\s+(?:from|by)\s+))?(Justin|Fish|Marc|Matt|Ken|Jamie|Jerome)(?:\s+(?:said|remarked))?\s*:\s*([\s\S]+)$/i);
+    var suffix = original.match(/^([\s\S]+?)\s*[—–-]\s*(Justin|Fish|Marc|Matt|Ken|Jamie|Jerome)$/i);
+    var quoted = self ? self[1] : prefix ? prefix[2] : suffix ? suffix[1] : original;
+    var line = outerQuote(quoted);
+    if (line !== aiQuote) return null;
+    return { speakerPortrait:prefix ? speakerId(prefix[1]) : suffix ? speakerId(suffix[2]) : null,
+      self:!!self, quote:line };
+  }
+  function quotationEvidence(subject, body, aiQuote, interpretation) {
+    var legacy = arguments.length === 2;
+    if (legacy) { aiQuote = body; body = subject; subject = ''; interpretation = null; }
+    if (typeof aiQuote !== 'string' || !aiQuote.trim() || aiQuote.length > 1500) return null;
+    interpretation = interpretation || { intent:'direct_quote', speakerId:'unknown', evidenceField:'body' };
+    if (!interpretation || interpretation.intent !== 'direct_quote' ||
+        ['subject','body','subject_and_body'].indexOf(interpretation.evidenceField) < 0) return null;
+    var fields = { subject:subject, body:body }, field = interpretation.evidenceField, matches = [];
+    (field === 'subject_and_body' ? ['subject','body'] : [field]).forEach(function (name) {
+      var found = fieldEvidence(fields[name], aiQuote);
+      if (found) { found.field = name; matches.push(found); }
+    });
+    if (matches.length !== 1) return null;
+    var evidence = matches[0], otherName = evidence.field === 'subject' ? 'body' : 'subject';
+    var context = String(fields[otherName] || '').trim();
+    var contextSelf = /^(?:my quote|i said|i wrote)\s*:?$/i.test(context);
+    var contextSpeaker = speakerId(context.replace(/^quote\s+(?:from|by)\s+/i,''));
+    if (!legacy && evidence.self && interpretation.speakerId !== 'self') return null;
+    if (!legacy && evidence.speakerPortrait && interpretation.speakerId !== evidence.speakerPortrait) return null;
+    if (!evidence.self && !evidence.speakerPortrait) {
+      if (contextSelf && interpretation.speakerId === 'self') evidence.self = true;
+      else if (contextSpeaker && interpretation.speakerId === contextSpeaker) evidence.speakerPortrait = contextSpeaker;
+      else if (interpretation.speakerId !== 'unknown') return null;
+    }
+    if (!legacy && interpretation.speakerId === 'unknown' && (evidence.self || evidence.speakerPortrait)) return null;
+    if (legacy) delete evidence.field;
+    return evidence;
   }
   function proposeRemark(s, source, full, candidate, id, speakerPermission) {
-    var evidence = quotationEvidence(source, candidate.quoteVerbatim);
-    if (!evidence) return held('quotation_not_verbatim_or_speaker_unknown');
+    var evidence = quotationEvidence(s.subject, s.excerpt, candidate.quoteVerbatim, candidate.interpretation);
+    if (!evidence) return held(candidate.interpretation && candidate.interpretation.intent !== 'direct_quote' ?
+      'not_a_direct_quotation' : 'quotation_not_verbatim_or_speaker_unknown');
+    if (!evidence.self && !evidence.speakerPortrait) return held('quotation_speaker_unknown');
     // Allow only the actual, separately consented speaker in a simple subject
     // such as 'Quote from Ken'; other identifying subjects remain held.
-    var namedSubject = s.subject.match(/^quote\s+(?:from|by)\s+(Justin|Fish|Marc|Matt|Ken|Jamie|Jerome)\s*$/i);
-    var subjectSpeaker = namedSubject && namedSubject[1].toLowerCase();
-    if (subjectSpeaker === 'justin') subjectSpeaker = 'fish';
-    var unexpectedSubjectIdentity = IDENTIFYING.test(s.subject) &&
-      (!subjectSpeaker || subjectSpeaker !== evidence.speakerPortrait);
+    var subject = String(s.subject || '').trim(), subjectSpeakers = mentionedSpeakers(subject);
+    var unexpectedSubjectIdentity = subjectSpeakers.length > 0 &&
+      (subjectSpeakers.length !== 1 || subjectSpeakers[0] !== evidence.speakerPortrait);
     if (PRIVATE_DATA.test(full) || ALLEGATION.test(full) || THIRD_PARTY.test(full) ||
         NAMED_PERSON.test(full) || IDENTIFYING.test(evidence.quote) ||
         unexpectedSubjectIdentity || protectedText(evidence.quote))
@@ -154,11 +195,12 @@ var AnnalsAuto = (function () {
         privateSource.aiConsentActive !== true ||
         privateSource.autoConsentAtReceipt !== true) return held('consent_or_source_missing');
     var s = privateSource.source;
-    if (typeof s.excerpt !== 'string' || !s.excerpt.trim() || s.excerptTruncated ||
-        typeof s.subject !== 'string' || s.subject.length > 160) return held('source_incomplete');
-    var source = cleanText(s.excerpt);
-    if (!source || source.length > 1800) return held('source_incomplete');
-    var full = (s.subject.trim() + '\n' + source).trim();
+    if (typeof s.excerpt !== 'string' || typeof s.subject !== 'string' || s.excerptTruncated ||
+        s.subjectTruncated || s.sourceTruncated) return held('source_incomplete');
+    var body = cleanText(s.excerpt), subject = s.subject.trim();
+    var source = body || subject;
+    if (!source || subject.length + body.length > 11000) return held('source_incomplete');
+    var full = [subject, body].filter(Boolean).join('\n').trim();
     if (candidate.category === 'quotation') {
       if (!privateSource.attachmentManifest ||
           !Array.isArray(privateSource.attachmentManifest.items) ||
@@ -186,7 +228,7 @@ var AnnalsAuto = (function () {
       return held('invalid_recipe');
     var all = recipe.drinkIngredients.concat(recipe.syrupIngredients,recipe.steps);
     if (candidate.category === 'cocktail') {
-      if (!sourceRecipeGrounded(source, recipe)) return held('recipe_measure_or_step_uncertain');
+      if (!sourceRecipeGrounded(full, recipe)) return held('recipe_measure_or_step_uncertain');
     } else if (all.length) return held('unexpected_recipe');
     var quote = '';
     if (candidate.category !== 'quotation' && /[\"“”«»]/.test(full)) return held('third_party_quotation_permission');

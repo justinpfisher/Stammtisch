@@ -123,6 +123,32 @@ test('classification is merely a suggestion; no draft is public-ready', () => {
   assert.equal(core.publicationBlocked(draft), true);
 });
 
+test('subject-only and body-only source content is preserved without inventing required metadata',()=>{
+  const subject=core.privateProposal({sourceId:'1'.repeat(64),from:'test@example.com',
+    subject:'Ken: A fictional remark with punctuation!',body:'',attachments:[]});
+  assert.equal(subject.source.subject,'Ken: A fictional remark with punctuation!');
+  assert.equal(subject.source.excerpt,'');
+  assert.equal(subject.source.subjectTruncated,false);
+  assert.equal(subject.source.sourceTruncated,false);
+  assert.equal(subject.requiresClarification,false);
+  const body=core.privateProposal({sourceId:'2'.repeat(64),from:'test@example.com',
+    subject:'',body:'1 oz invented cordial\nStir gently.',attachments:[]});
+  assert.equal(body.source.subject,'');
+  assert.equal(body.source.excerpt,'1 oz invented cordial\nStir gently.');
+  assert.equal(body.requiresClarification,false);
+  const empty=core.privateProposal({sourceId:'3'.repeat(64),from:'test@example.com',subject:'',body:'',attachments:[]});
+  assert.equal(empty.requiresClarification,true);
+});
+
+test('a clipped long subject is explicitly marked and never considered complete',()=>{
+  const proposal=core.privateProposal({sourceId:'4'.repeat(64),from:'test@example.com',
+    subject:'Q'.repeat(core.MAX_SUBJECT_CHARS+1),body:'',attachments:[]});
+  assert.equal(proposal.source.subject.length,core.MAX_SUBJECT_CHARS);
+  assert.equal(proposal.source.subjectTruncated,true);
+  assert.equal(proposal.source.sourceTruncated,true);
+  assert.equal(proposal.requiresClarification,true);
+});
+
 test('attachment triage holds HEIC for conversion and rejects risky/oversized files', () => {
   assert.deepEqual(core.attachmentPolicy('image/heic', 100).accepted, true);
   assert.equal(core.attachmentPolicy('image/heic', 100).conversionNeeded, true);
