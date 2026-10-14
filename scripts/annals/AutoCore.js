@@ -52,9 +52,11 @@ var AnnalsAuto = (function () {
     if (typeof aiQuote !== 'string' || !aiQuote.trim()) return null;
     var original = cleanText(text);
     var self = original.match(/^(?:my quote|i said|i wrote)\s*:\s*(?:"([^"\r\n]+)"|“([^”\r\n]+)”)\s*$/i);
-    var speaker = original.match(/^(?:(?:quote\s+(?:from|by))\s+)?(Justin|Fish|Marc|Matt|Ken|Jamie|Jerome)(?:\s+(?:said|remarked))?\s*:\s*(?:"([^"\r\n]+)"|“([^”\r\n]+)”)\s*$/i);
+    // A single source line explicitly naming its speaker is still source-exact
+    // when it omits typographic quotation marks (e.g. Ken: Exact words).
+    var speaker = original.match(/^(?:(?:quote\s+(?:from|by))\s+)?(Justin|Fish|Marc|Matt|Ken|Jamie|Jerome)(?:\s+(?:said|remarked))?\s*:\s*(?:"([^"\r\n]+)"|“([^”\r\n]+)”|([^"“”\r\n]+))\s*$/i);
     var suffix = original.match(/^(?:"([^"\r\n]+)"|“([^”\r\n]+)”)\s*[—–-]\s*(Justin|Fish|Marc|Matt|Ken|Jamie|Jerome)\s*$/i);
-    var line = self ? self[1] || self[2] : speaker ? speaker[2] || speaker[3] :
+    var line = self ? self[1] || self[2] : speaker ? speaker[2] || speaker[3] || speaker[4] :
       suffix ? suffix[1] || suffix[2] : '';
     // Wording, case and punctuation must be copied exactly by the AI.
     if (!line || line.trim() !== aiQuote.trim()) return null;
@@ -65,9 +67,16 @@ var AnnalsAuto = (function () {
   function proposeRemark(s, source, full, candidate, id, speakerPermission) {
     var evidence = quotationEvidence(source, candidate.quoteVerbatim);
     if (!evidence) return held('quotation_not_verbatim_or_speaker_unknown');
+    // Allow only the actual, separately consented speaker in a simple subject
+    // such as 'Quote from Ken'; other identifying subjects remain held.
+    var namedSubject = s.subject.match(/^quote\s+(?:from|by)\s+(Justin|Fish|Marc|Matt|Ken|Jamie|Jerome)\s*$/i);
+    var subjectSpeaker = namedSubject && namedSubject[1].toLowerCase();
+    if (subjectSpeaker === 'justin') subjectSpeaker = 'fish';
+    var unexpectedSubjectIdentity = IDENTIFYING.test(s.subject) &&
+      (!subjectSpeaker || subjectSpeaker !== evidence.speakerPortrait);
     if (PRIVATE_DATA.test(full) || ALLEGATION.test(full) || THIRD_PARTY.test(full) ||
         NAMED_PERSON.test(full) || IDENTIFYING.test(evidence.quote) ||
-        IDENTIFYING.test(s.subject) || protectedText(evidence.quote))
+        unexpectedSubjectIdentity || protectedText(evidence.quote))
       return held('private_personal_or_sensitive_content');
     var granted = speakerPermission && speakerPermission.speakerPortrait;
     if (evidence.speakerPortrait && granted !== evidence.speakerPortrait)
