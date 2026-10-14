@@ -49,7 +49,7 @@ function annalsAuthentication_(message, sender) {
   // Require one unambiguous Google result. The configured Porkbun forwarding
   // hop adds its own result; it is never used to establish sender authenticity.
   if (typeof message.getRawContent !== 'function') return false;
-  var raw = String(message.getRawContent() || ''), boundary = raw.search(/\n?\n\n?\n/);
+  var raw = String(message.getRawContent() || '').replace(/\r\n?/g, '\n'), boundary = raw.search(/\n\n/);
   if (boundary < 0) return false;
   var lines = raw.slice(0, boundary).replace(/\n?\n[ \t]+/g, ' ').split(/\n?\n/), results = [];
   lines.forEach(function (line) { if (/^authentication-results:/i.test(line)) results.push(line.replace(/^authentication-results:\s*/i, '')); });
