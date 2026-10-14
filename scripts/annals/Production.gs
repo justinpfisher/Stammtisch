@@ -515,6 +515,7 @@ function annalsStageProduction_(message, activation, allowed) {
   if (!sender || message.getDate().getTime() < activation ||
       /^\[ANNALS SYNTHETIC PILOT\]/.test(message.getSubject())) return 'skipped';
   var id = annalsHash_(message.getId()), folder = annalsFolder_(id, true);
+  if (annalsFile_(folder, 'quarantine-private.json')) return 'held';
   if (annalsRead_(folder, 'source-private.json')) return 'duplicates';
   var authenticated = annalsAuthentication_(message, authenticatedSender);
   if (authenticated) {
@@ -628,7 +629,7 @@ function annalsResumeConsentedDrafts_(limit) {
     var folder = annalsPrivate_(folders.next()), id = folder.getName();
     if (!/^[a-f0-9]{64}$/.test(id)) continue;
     var source = annalsRead_(folder, 'source-private.json');
-    if (!source) continue;
+    if (!source || annalsFile_(folder, 'quarantine-private.json')) continue;
     if (annalsFile_(folder, 'draft-private.json')) {
       var dispatched = annalsAutoAttemptSafe_(folder, id);
       if (!dispatched && !annalsFile_(folder, 'draft-notice-private.json')) annalsNotifyDraftReady_(folder);
@@ -841,6 +842,7 @@ function annalsReviewList(nonce, continuation) {
   });
 }
 function annalsReviewStatus_(folder, source, approval) {
+  if (annalsFile_(folder, 'quarantine-private.json')) return 'Quarantined - owner-identified test';
   if (annalsFile_(folder, 'auto-live-verification-private.json')) return 'Verified live';
   if (approval && approval.publicationState === 'dispatch_accepted') return 'Dispatched — awaiting live verification';
   if (approval && (annalsFile_(folder, 'publication-dispatch-private.json') || approval.publicationState !== 'approved_private_pending_publish'))
@@ -871,6 +873,7 @@ function annalsReviewItem(nonce, id) {
     return { id: id, subject: source.source.subject, text: source.source.excerpt, receivedAt: source.source.receivedAt,
       truncated: source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated,
       status: annalsReviewStatus_(f, source, approval),
+      quarantined: !!annalsFile_(f, 'quarantine-private.json'),
       holdReason: reassessment && reassessment.state === 'held' ? reassessment.reason :
         decision && decision.state === 'held' ? decision.reason : '',
       reassessmentAvailable: !!(decision && decision.state === 'held' && !reassessment &&
@@ -969,6 +972,7 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
   var process = function () {
     if (consent !== true) throw new Error('Processing consent required');
     var p = annalsProps_(), f = annalsFolder_(id);
+    if (annalsFile_(f, 'quarantine-private.json')) throw new Error('Quarantined test cannot be drafted');
     if (p.getProperty('ANNALS_AI_ENABLED') !== 'true' || !p.getProperty('ANNALS_OPENAI_API_KEY')) throw new Error('AI configuration incomplete');
     if (Date.now() > Date.parse('2026-11-08T00:00:00Z')) throw new Error('Review current model pricing before further use');
     if (annalsFile_(f, 'ai-attempt-private.json')) throw new Error('An attempt already exists; no duplicate spend');
@@ -1028,7 +1032,9 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
   return intakeLockHeld === true ? process() : annalsLocked_(process);
 }
 function annalsProcessConsentedText_(id) {
-  var source = annalsRead_(annalsFolder_(id), 'source-private.json');
+  var folder = annalsFolder_(id);
+  if (annalsFile_(folder, 'quarantine-private.json')) return false;
+  var source = annalsRead_(folder, 'source-private.json');
   if (!source || source.senderAuthenticated !== true || source.aiConsentActive !== true || !annalsConsentActive_(source.source.sender) ||
       (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) && !source.imageConsentAtReceipt) ||
       source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated ||
@@ -1173,6 +1179,7 @@ function annalsDispatchEvent_(folder, eventType, clientPayload, markerName) {
   return marker.state === 'accepted';
 }
 function annalsDispatchApproved_(folder, entry, approval, eventType, markerName) {
+  if (annalsFile_(folder, 'quarantine-private.json')) throw new Error('Quarantined test cannot be published');
   if (!approval) return false;
   var payload = { entry: entry, approval: approval };
   if (entry.photo) {
@@ -1295,7 +1302,9 @@ function annalsAutoPublishCandidate_(id, allowHeldRecovery) {
       (p.getProperty('ANNALS_APPROVAL_KEY') || '').length < 32 ||
       p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') === p.getProperty('ANNALS_APPROVAL_KEY') ||
       AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '').length !== 6) return false;
-  var folder = annalsFolder_(id), previous = annalsRead_(folder, 'approval-private.json');
+  var folder = annalsFolder_(id);
+  if (annalsFile_(folder, 'quarantine-private.json')) return false;
+  var previous = annalsRead_(folder, 'approval-private.json');
   if (previous) return [AnnalsAuto.MODE,AnnalsAuto.QUOTE_MODE,AnnalsMediaPolicy.MODE].indexOf(previous.approvalMode) >= 0 && previous.publicationState === 'dispatch_accepted';
   var source = annalsRead_(folder, 'source-private.json'), draft = annalsRead_(folder, 'draft-private.json');
   var priorDecision = annalsRead_(folder, 'auto-decision-private.json');
@@ -1368,7 +1377,9 @@ function annalsReassessHeldQuote(nonce, id, confirmed) {
   return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
     var owner = annalsOwner_();
     if (confirmed !== true || !/^[a-f0-9]{64}$/.test(id || '')) throw new Error('Explicit one-time owner confirmation required');
-    var folder = annalsFolder_(id), source = annalsRead_(folder,'source-private.json'),
+    var folder = annalsFolder_(id);
+    if (annalsFile_(folder, 'quarantine-private.json')) throw new Error('Quarantined test cannot be reassessed');
+    var source = annalsRead_(folder,'source-private.json'),
       draft = annalsRead_(folder,'draft-private.json'), held = annalsRead_(folder,'auto-decision-private.json');
     var p = annalsProps_(), sender = source && source.source && String(source.source.sender || '').toLowerCase(),
       allowed = AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '');
@@ -1486,4 +1497,28 @@ function annalsStopProduction() {
     });
     return { intakeEnabled: false, aiEnabled: false };
   });
+}
+
+/** A private, write-once exclusion. Gmail and all prior source/audit files remain intact.
+ * May cover an existing staged item or a message hash not encountered by intake yet.
+ * No automatic release exists; it never grants consent or retries a dispatch.
+ */
+function annalsQuarantineSubmission_(id, reason, confirmed) {
+  var owner = annalsOwner_();
+  if (confirmed !== true || !/^[a-f0-9]{64}$/.test(id || '') ||
+      typeof reason !== 'string' || reason.trim().length < 10 || reason.length > 1000)
+    throw new Error('Exact submission hash and explicit test quarantine reason required');
+  var folder = annalsFolder_(id, true);
+  if (annalsFile_(folder, 'quarantine-private.json')) return { quarantined: true, alreadyRecorded: true };
+  if (annalsFile_(folder, 'approval-private.json') || annalsFile_(folder, 'publication-dispatch-private.json'))
+    throw new Error('Inspect existing publication approval or dispatch before quarantine; withdrawal may be required');
+  annalsWriteOnce_(folder, 'quarantine-private.json', {
+    state: 'quarantined_test', at: new Date().toISOString(), owner: owner, reason: reason.trim()
+  });
+  return { quarantined: true, alreadyRecorded: false };
+}
+function annalsQuarantineSubmission(nonce, id, reason, confirmed) {
+  return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
+    return annalsQuarantineSubmission_(id, reason, confirmed);
+  }); });
 }
