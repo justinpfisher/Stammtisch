@@ -215,13 +215,13 @@ rule reversal is a new linked revision, not deletion of history.
 
 ## Illustrative emails only — never real club content
 
-To: annals@stammtischbrewery.com  
-Subject: A photograph for the Annals  
+To: annals@stammtischbrewery.com
+Subject: A photograph for the Annals
 “Here are my photographs of the glasses and all six of us. I took these myself.
 Caption: Glasses raised. I do not remember the event date.” Attach the actual images.
 
-To: annals@stammtischbrewery.com  
-Subject: Change to the CoL prize rule  
+To: annals@stammtischbrewery.com
+Subject: Change to the CoL prize rule
 “Please change the annual prize from $100 to $120 for scoring years beginning
 January 1, 2027, at midnight Toronto time. Leave every earlier prize and result
 unchanged.” This example is not adopted; it would require qualified implementation
