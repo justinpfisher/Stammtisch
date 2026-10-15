@@ -1,38 +1,5 @@
 {
   "schemaVersion": 1,
-  "entries": [
-    {
-      "id": "annal-307f70ab6ca19ae3aadb375c",
-      "category": "monthly_gathering",
-      "title": "Monthly Stammtisch — diagnostic note",
-      "summary": "Fictional rehearsal only: chairs were arranged around an imaginary table,\nwith an empty notebook beside an empty glass. This does not describe a real\nmeeting.",
-      "year": 2026,
-      "dateLabel": "Submitted 2026-10",
-      "sortDate": "",
-      "quoteVerbatim": "",
-      "recipe": {
-        "drinkIngredients": [],
-        "syrupIngredients": [],
-        "steps": []
-      },
-      "credit": "anonymous",
-      "contributorPortrait": "fish"
-    }
-  ],
-  "approvals": [
-    {
-      "approvedAt": "2026-10-15T02:46:15.983Z",
-      "consents": {
-        "namedAttribution": true,
-        "photoPublication": false,
-        "publication": true,
-        "quotePublication": false,
-        "recipeVerified": false
-      },
-      "contentSha256": "71152038f412e65904b64fa6dfa334c597e1d127502e2b1c91fbe5992837b917",
-      "entryId": "annal-307f70ab6ca19ae3aadb375c",
-      "mode": "standing-consent-text-v1",
-      "signature": "a92cf7a2426d21e4f1d14a67a761b539f6d3e8aec0cc99978a8f1b6522054a46"
-    }
-  ]
+  "entries": [],
+  "approvals": []
 }
