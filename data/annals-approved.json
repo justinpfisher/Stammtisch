@@ -180,6 +180,23 @@
       },
       "credit": "anonymous",
       "contributorPortrait": "fish"
+    },
+    {
+      "id": "annal-2d309a7b824fb2443b58eff8",
+      "category": "artefact",
+      "title": "Club artefact diagnostic — separate photograph",
+      "summary": "This is a fictional description of an imaginary brass coaster with a plain\ncircular mark. It is not a real club artefact; this is a classification\ndiagnostic.",
+      "year": 2026,
+      "dateLabel": "Submitted 2026-10",
+      "sortDate": "",
+      "quoteVerbatim": "",
+      "recipe": {
+        "drinkIngredients": [],
+        "syrupIngredients": [],
+        "steps": []
+      },
+      "credit": "anonymous",
+      "contributorPortrait": "fish"
     }
   ],
   "approvals": [
@@ -322,6 +339,20 @@
       "entryId": "annal-4acc742851da8b9fc1b8a322",
       "mode": "standing-consent-text-v1",
       "signature": "761b469c745a01f1e6c2bee65adfdbc6f64b3ff7fa10376b92bf956dc4b1bdda"
+    },
+    {
+      "approvedAt": "2026-10-15T05:50:54.627Z",
+      "consents": {
+        "namedAttribution": true,
+        "photoPublication": false,
+        "publication": true,
+        "quotePublication": false,
+        "recipeVerified": false
+      },
+      "contentSha256": "c517626e6579e4735ebd4c538d16cf773d123d428fd5b97cc258d7368c44d8c6",
+      "entryId": "annal-2d309a7b824fb2443b58eff8",
+      "mode": "standing-consent-text-v1",
+      "signature": "b45f2555eb730f930796ee71c0fa09607d3d501969ea169481e99f69549bce49"
     }
   ]
 }
