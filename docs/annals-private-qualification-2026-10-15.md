@@ -299,6 +299,8 @@ when checking a known already-deployed source revision:
 node scripts/annals/observe-hosted-col.mjs
 ```
 
+Alternatively, use GitHub **Actions → Observe public CoL rule files (read-only) → Run workflow**. That workflow runs on a GitHub-hosted runner against the current `main` and is manual-only; it has `contents: read` permissions and no signing or deployment access. A successful run is still one network-vantage observation, not an activation authorisation.
+
 It requests no Gmail, Google Sheet, credentials, API key, private source or
 GitHub write permission. Every public path is allowlisted. The observer rejects
 partial, missing, redirected, oversized or stale responses and returns only
