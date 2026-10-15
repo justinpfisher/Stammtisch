@@ -107,7 +107,7 @@ test('classification is merely a suggestion; no draft is public-ready', () => {
   assert.equal(core.classify('Special cocktail recipe', ''), 'cocktail');
   assert.equal(core.classify('An overheard quote', ''), 'quotation');
   assert.equal(core.classify('Annual assembly memories', ''), 'assembly');
-  assert.equal(core.classify('Third Friday meeting', ''), 'monthly_gathering');
+  assert.equal(core.classify('Third Friday meeting', ''), 'club_history');
   assert.equal(core.classify('Remember when', ''), 'club_history');
   assert.equal(core.classify('A strange proposal', ''), 'uncategorised');
   const draft = core.privateProposal({

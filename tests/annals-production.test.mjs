@@ -52,8 +52,8 @@ function mock() {
     } }
   };
   vm.createContext(context);
-  vm.runInContext(['PilotCore.js','ProductionCore.js','AutoCore.js','MediaCore.js','MediaPolicy.js','Production.gs'].map(name=>readFileSync(new URL('../scripts/annals/'+name,import.meta.url),'utf8')).join('\n'),context);
-  folder.createFile('source-private.json', JSON.stringify({ attachmentManifest: { items: [] } }));
+  vm.runInContext(['PilotCore.js','ProductionCore.js','AutoCore.js','MediaCore.js','MediaPolicy.js','HistoryCore.js','GovernanceCore.js','HistoryProduction.gs','Production.gs'].map(name=>readFileSync(new URL('../scripts/annals/'+name,import.meta.url),'utf8')).join('\n'),context);
+  folder.createFile('source-private.json', JSON.stringify({source:{subject:'Offline fixture',excerpt:'Source evidence only.',receivedAt:'2026-10-09T00:00:00Z'},attachmentManifest:{items:[]}}));
   return { context, props, files, folder, root, calls, logs };
 }
 test('AI and public contracts retain literal fractions and match approved renderer canonical digest', () => {
@@ -72,12 +72,12 @@ test('the production review model and public renderer support artefacts without 
   assert.equal(core.publicEntry(artefact).category, 'artefact');
   assert.throws(() => core.publicEntry({ ...artefact, recipe: entry().recipe }), /Unexpected recipe/);
   const ui = readFileSync(new URL('../scripts/annals/ReviewUi.html', import.meta.url), 'utf8');
-  assert.match(ui, /option value="artefact"/);
+  assert.doesNotMatch(ui, /option value="artefact"|option value="monthly_gathering"/);
 });
 test('review UI never silently converts uncategorised AI output into club history', () => {
   const ui = readFileSync(new URL('../scripts/annals/ReviewUi.html', import.meta.url), 'utf8');
   assert.match(ui, /<option value="" selected>Choose a category<\/option>/);
-  assert.match(ui, /includes\(d\.category\)\?d\.category:''/);
+  assert.match(ui, /includes\(d\.category\)\?d\.category:/);
   assert.match(ui, /if\(!val\('category'\)\)throw new Error\('Choose a category/);
   assert.doesNotMatch(ui, /d\.category==='uncategorised'\?'club_history'/);
 });
@@ -845,7 +845,7 @@ test('invalid provider output is retained privately once, never logged, publishe
   const { context, folder, files, props, calls, logs } = mock(), id = 'b'.repeat(64);
   const privateOutput = JSON.stringify({ status:'completed', output:[{type:'message',content:[{type:'output_text',text:'PRIVATE SYNTHETIC INVALID OUTPUT'}]}] });
   context.UrlFetchApp.fetch = () => {calls.ai++; return {getResponseCode:()=>200,getContentText:()=>privateOutput};};
-  folder.createFile('source-private.json', JSON.stringify({attachmentManifest:{items:[]}}));
+  folder.createFile('source-private.json', JSON.stringify({source:{subject:'Offline fixture',excerpt:'Source evidence only.'},attachmentManifest:{items:[]}}));
   assert.throws(()=>context.annalsPrepareDraft('valid',id,'Synthetic test only.',[],true));
   const evidence = files.get('ai-response-private.json').getBlob().getDataAsString();
   assert.equal(JSON.parse(evidence).responseText, privateOutput);
@@ -945,8 +945,8 @@ test('diagnostic framing retains its subject category without resolving material
   assert.match(req.instructions,/never resolves a denied speaker attribution, uncertain measurement, privacy concern or image dependency/);
   assert.match(req.instructions,/assembly = the separate Annual Gentlemen's Assembly/);
   assert.match(req.instructions,/an invented Assembly menu belongs to assembly/);
-  assert.match(req.instructions,/a fictional founding custom belongs to club_history/);
-  assert.match(req.instructions,/a hypothetical commemorative badge belongs to artefact/);
+  assert.match(req.instructions,/fictional founding custom or hypothetical commemorative badge belongs to club_history/);
+  assert.match(req.instructions,/hypothetical commemorative badge belongs to club_history/);
   assert.match(req.text.format.schema.properties.category.description,/independent of whether the account is factual or explicitly fictional/);
   const policy=require('../scripts/annals/AutoCore.js');
   const source={senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,
@@ -1275,4 +1275,135 @@ test('back navigation keeps loaded queue pages and continuation while explicit r
 test('owner removal still requires explicit exact-entry confirmation before its only write',async()=>{
   const x=ownerActionUiFixture({approved:true,dispatchAccepted:true});x.get('removalConfirmed').checked=false;
   await x.get('approveRemoval').onclick();assert.equal(x.calls.length,0);assert.match(x.messages.at(-1),/confirm the exact currently published entry/);
+});
+
+// New release qualification uses only fictional offline service mocks.
+test('independent proposal routing holds complete raw email before AI, preserving ledger and originals',()=>{
+  const x=mock(),id='c'.repeat(64),before=x.props.ANNALS_BUDGET_LEDGER;
+  x.files.delete('source-private.json');
+  x.context.annalsAuthentication_=()=>true;x.context.annalsConsentActive_=()=>true;
+  x.context.annalsStandingPublicationActive_=()=>true;x.context.annalsImageConsentActive_=()=>false;
+  const msg={getFrom:()=> 'member@example.test',getId:()=> 'offline-proposal',getSubject:()=> 'A cocktail',getPlainBody:()=> 'Could we double points next year?',getDate:()=>new Date('2026-10-09T00:00:00Z'),getAttachments:()=>[]};
+  assert.equal(x.context.annalsStageProduction_(msg,Date.parse('2026-10-08'),['member@example.test']),'held');
+  assert.equal(x.calls.ai,0);assert.equal(x.props.ANNALS_BUDGET_LEDGER,before);
+  assert.equal(JSON.parse(x.files.get('original-email-private.json').getBlob().getDataAsString()).body,msg.getPlainBody());
+  assert.ok(!x.files.has('draft-private.json'));assert.ok(!x.files.has('publication-dispatch-private.json'));
+});
+test('proposal intent cannot bypass private holding through manual review, paid drafting or lower-level ordinary dispatch',()=>{
+  const x=mock(),id='c'.repeat(64);
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,source:{subject:'A cocktail',excerpt:'Could we change the Diamond provision?'},attachmentManifest:{items:[]}}));
+  assert.throws(()=>x.context.annalsSaveReview('valid',id,entry()));
+  assert.throws(()=>x.context.annalsPrepareDraft('valid',id,'Only a cocktail.',[],true));
+  assert.throws(()=>x.context.annalsDispatchApproved_(x.folder,entry(),{},'annals-approved-entry','publication-dispatch-private.json'));
+  assert.equal(x.calls.ai,0);assert.ok(!x.files.has('ai-attempt-private.json'));assert.ok(!x.files.has('approval-private.json'));
+});
+test('owner-only CoL comparison stores private immutable versions and performs no adoption or publication',()=>{
+  const x=mock(),id='c'.repeat(64),rules=readFileSync(new URL('../docs/celebration-of-life-rules.md',import.meta.url),'utf8'),requests=[];
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,source:{subject:'Change drafting',excerpt:'Could we change the celebrity draft?',receivedAt:'2026-10-09T00:00:00Z'},attachmentManifest:{items:[]}}));
+  x.context.UrlFetchApp.fetch=(url)=>{requests.push(url);return {getResponseCode:()=>200,getContentText:()=>rules};};
+  assert.throws(()=>x.context.annalsPrepareRuleProposal('invalid',id,'DRAFTING','',''));
+  const p=x.context.annalsPrepareRuleProposal('valid',id,'DRAFTING','Suggested exact replacement.','Ask the club; not adopted.');
+  assert.equal(p.adoptionConfirmed,false);assert.match(p.currentProvision,/Every January/);
+  assert.equal(requests.length,1);assert.match(requests[0],/raw\.githubusercontent/);
+  x.context.annalsPrepareRuleProposal('valid',id,'DRAFTING','Another proposed wording.','Still not adopted.');
+  assert.equal(requests.length,1);assert.equal([...x.files.keys()].filter(k=>/^col-proposal-[a-f0-9]{64}-private/.test(k)).length,2);
+  assert.ok(!x.files.has('publication-dispatch-private.json'));assert.ok(!x.files.has('approval-private.json'));
+});
+test('history preparation is private and signing remains blocked until explicit remediation and qualification',()=>{
+  const x=mock(),id='d'.repeat(64),statement='The blue ledger appeared in 2021.';
+  x.context.annalsConsentActive_=()=>true;x.context.annalsStandingPublicationActive_=()=>true;
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,source:{subject:'A recollection',excerpt:statement,receivedAt:'2026-10-09T00:00:00Z',sender:'member@example.test'},attachmentManifest:{items:[]}}));
+  const raw={chapter:'origins',factKey:'ledger-arrival',field:'excerpt',statement,period:'2021',status:'recollection',uncertainty:'',evidenceNote:'Reviewed offline source fixture.',order:100};
+  const r=x.context.annalsSaveHistoryClaim('valid',id,raw,'add','Reviewed offline source fixture.');
+  assert.match(r.chapters[0].paragraphs[0],/A member recalls/);
+  assert.throws(()=>x.context.annalsApproveHistoryRevision('valid',id,r.hash,true));
+  assert.equal(x.calls.ai,0);assert.ok(!x.files.has('history-pending-private.json'));assert.ok(!x.files.has('history-ledger-private.json'));
+  x.props.ANNALS_HISTORY_PUBLICATION_ENABLED='true';x.props.ANNALS_SIGNING_REMEDIATED_AT='2026-10-08T00:00:00Z';
+  x.props.ANNALS_HISTORY_SIGNING_KEY=x.props.ANNALS_APPROVAL_KEY;
+  assert.throws(()=>x.context.annalsApproveHistoryRevision('valid',id,r.hash,true));
+});
+test('November processing and dispatch stops are enforced without consuming reservations or attempting requests',()=>{
+  const x=mock();
+  x.context.Date={now:()=>Date.parse('2026-11-09T00:00:00Z'),parse:Date.parse};
+  assert.throws(()=>x.context.annalsPrepareDraft('valid','d'.repeat(64),'Offline.',[],true));
+  assert.equal(x.context.annalsDispatchEvent_(x.folder,'annals-auto-entry',{},'publication-dispatch-private.json'),false);
+  assert.equal(x.calls.ai,0);assert.ok(!x.files.has('ai-attempt-private.json'));assert.ok(!x.files.has('publication-dispatch-private.json'));
+  assert.equal(JSON.parse(x.props.ANNALS_BUDGET_LEDGER).reservedCents,0);
+});
+
+test('qualified history dispatch preserves pending evidence, rejects resend, and commits only after exact live reconciliation',()=>{
+  const x=mock(),id='d'.repeat(64),statement='The blue ledger appeared in 2021.';
+  x.context.annalsConsentActive_=()=>true;x.context.annalsStandingPublicationActive_=()=>true;
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,source:{subject:'A recollection',excerpt:statement,receivedAt:'2026-10-09T00:00:00Z',sender:'member@example.test'},attachmentManifest:{items:[]}}));
+  Object.assign(x.props,{ANNALS_HISTORY_PUBLICATION_ENABLED:'true',ANNALS_SIGNING_REMEDIATED_AT:'2026-10-08T00:00:00Z',ANNALS_HISTORY_SIGNING_KEY:'h'.repeat(40),ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_TOKEN:'offline-token',ANNALS_GITHUB_REPOSITORY:'justinpfisher/Stammtisch'});
+  let publicDocument={schemaVersion:1,revision:0,chapters:[],updatedAt:''},dispatches=[];
+  x.context.UrlFetchApp.fetch=(url,options)=>{
+    if(url.endsWith('/dispatches')){dispatches.push(JSON.parse(options.payload));return {getResponseCode:()=>204};}
+    if(url.endsWith('history.html'))return {getResponseCode:()=>200,getContentText:()=>'<main data-history-revision="'+publicDocument.revision+'">Offline fixture only.</main>'};
+    return {getResponseCode:()=>200,getContentText:()=>JSON.stringify(publicDocument)};
+  };
+  const raw={chapter:'origins',factKey:'ledger-arrival',field:'excerpt',statement,period:'2021',status:'recollection',uncertainty:'',evidenceNote:'Reviewed offline source fixture.',order:100};
+  const preview=x.context.annalsSaveHistoryClaim('valid',id,raw,'add','Reviewed offline source fixture.');
+  assert.equal(x.context.annalsApproveHistoryRevision('valid',id,preview.hash,true).dispatchAccepted,true);
+  assert.ok(!x.files.has('history-ledger-private.json'));
+  assert.equal(x.context.annalsReconcileHistory('valid').verified,false);
+  assert.throws(()=>x.context.annalsApproveHistoryRevision('valid',id,preview.hash,true));assert.equal(dispatches.length,1);
+  publicDocument=dispatches[0].client_payload.document;
+  assert.equal(x.context.annalsReconcileHistory('valid').verified,true);
+  assert.equal(JSON.parse(x.files.get('history-ledger-private.json').getBlob().getDataAsString()).claims.length,1);
+  assert.equal(JSON.parse(x.files.get('history-pending-private.json').getBlob().getDataAsString()).state,'verified_live');
+  assert.equal(x.context.annalsReconcileHistory('valid').verified,false);assert.equal(dispatches.length,1);
+  // Revocation stops additions; owner withdrawal remains available and removes
+  // every public passage relying on this source without erasing the evidence.
+  x.context.annalsStandingPublicationActive_=()=>false;x.context.annalsConsentActive_=()=>false;
+  assert.throws(()=>x.context.annalsSaveHistoryClaim('valid',id,{...raw,factKey:'new-topic'},'add','New addition must be refused.'));
+  const withdrawal=x.context.annalsSaveHistoryClaim('valid',id,{},'withdraw','Contributor withdrew this entire source.');
+  assert.equal(withdrawal.chapters.length,0);
+  assert.equal(x.context.annalsApproveHistoryRevision('valid',id,withdrawal.hash,true).dispatchAccepted,true);
+  assert.equal(dispatches.length,2);assert.ok(x.files.has('history-revision-1-private.json'));assert.ok(x.files.has('history-revision-2-private.json'));
+});
+
+test('private signing rotation probe rejects old signatures and validates new configuration without revealing or publishing credentials',()=>{
+  const x=mock(),id='a'.repeat(64);x.props.ANNALS_PUBLISH_SIGNING_KEY='p'.repeat(40);
+  const review=x.context.annalsSaveReview('valid',id,entry());
+  x.context.annalsApproveReview('valid',id,review.hash,permissions,'Offline consent evidence only.',true);
+  const before=x.files.get('approval-private.json').getBlob().getDataAsString();
+  assert.equal(x.context.annalsCheckSigningRotation('valid',id).oldPrivateSignatureRejected,false);
+  x.props.ANNALS_APPROVAL_KEY='r'.repeat(40);x.props.ANNALS_PUBLISH_SIGNING_KEY='t'.repeat(40);
+  const result=x.context.annalsCheckSigningRotation('valid',id);
+  assert.equal(result.newPrivateSignatureValid,true);assert.equal(result.oldPrivateSignatureRejected,true);assert.equal(result.oldPublicSignatureRejected,true);
+  assert.equal(result.githubSecretConsistencyVerified,false);assert.equal(result.publishesAnything,false);
+  assert.equal(x.files.get('approval-private.json').getBlob().getDataAsString(),before);
+  assert.ok(Object.values(result).every(v=>typeof v==='boolean'));assert.equal(x.calls.ai,0);
+});
+
+test('one-shot private CoL assessment uses existing model, input/output bounds and budget, never signing or changing rules',()=>{
+  const x=mock(),id='c'.repeat(64),rules=readFileSync(new URL('../docs/celebration-of-life-rules.md',import.meta.url),'utf8');
+  x.context.annalsConsentActive_=()=>true;
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,source:{subject:'Proposal about drafting',excerpt:'Could we change the January celebrity draft?',sender:'member@example.test',receivedAt:'2026-10-09T00:00:00Z'},attachmentManifest:{items:[]}}));
+  let paid=0;
+  const assessment={heading:'DRAFTING',replacement:'Offline proposed replacement only.',scores:'No retrospective change established.',selections:'Pending club decision.',awards:'Unassessed.',drafting:'Proposal only.',annualRollover:'Intervening January remains unresolved.',notifications:'No change authorised.',effectiveDate:'Unresolved.',contradictions:'Needs review.',recommendation:'Private consideration only.'};
+  x.context.UrlFetchApp.fetch=(url,options)=>{
+    if(url.includes('raw.githubusercontent'))return {getResponseCode:()=>200,getContentText:()=>rules};
+    assert.equal(url,'https://api.openai.com/v1/responses');paid++;
+    const request=JSON.parse(options.payload);
+    assert.equal(request.model,core.MODEL);assert.equal(request.store,false);assert.equal(request.max_output_tokens,4000);assert.equal(request.tools,undefined);
+    assert.ok(request.input[0].content[0].text.length<=12000);
+    assert.equal(JSON.parse(x.props.ANNALS_BUDGET_LEDGER).reservedCents,10);assert.ok(x.files.has('ai-attempt-private.json'));
+    return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(assessment)}]}]})};
+  };
+  assert.equal(x.context.annalsPrepareRuleDraftCore_(id),true);
+  const packet=JSON.parse(x.files.get('col-proposal-private.json').getBlob().getDataAsString());
+  assert.equal(packet.adoptionConfirmed,false);assert.equal(packet.aiSuggestionsUnverified,true);assert.match(packet.effects.annualRollover,/unresolved/);
+  assert.equal(x.context.annalsPrepareRuleDraftCore_(id),false);assert.equal(paid,1);
+  assert.ok(!x.files.has('approval-private.json'));assert.ok(!x.files.has('publication-dispatch-private.json'));
+});
+test('uncertain CoL provider delivery never retries or refunds the attempt',()=>{
+  const x=mock(),id='c'.repeat(64),rules=readFileSync(new URL('../docs/celebration-of-life-rules.md',import.meta.url),'utf8');
+  x.context.annalsConsentActive_=()=>true;
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,source:{subject:'Rule proposal',excerpt:'Could we change the draft?',sender:'member@example.test'},attachmentManifest:{items:[]}}));
+  let paid=0;x.context.UrlFetchApp.fetch=url=>{if(url.includes('raw.githubusercontent'))return {getResponseCode:()=>200,getContentText:()=>rules};paid++;throw Error('PRIVATE provider failure');};
+  assert.equal(x.context.annalsPrepareRuleDraftCore_(id),false);assert.equal(x.context.annalsPrepareRuleDraftCore_(id),false);assert.equal(paid,1);
+  assert.equal(JSON.parse(x.props.ANNALS_BUDGET_LEDGER).reservedCents,10);assert.ok(!x.files.has('col-proposal-private.json'));
+  assert.ok(!x.logs.join('').includes('PRIVATE provider failure'));
 });

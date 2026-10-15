@@ -1,3 +1,16 @@
+> **15 October 2026 owner decision:** Use The Cocktail Register, The Register of
+> Remarks, Annual Assemblies and a dedicated evolving Club History. Monthly
+> Proceedings and Club Artefacts are retired for new classification/navigation.
+> Legacy signed records remain valid evidence. Strong profanity now displays as
+> a black bar with harmless lowercase `[expletive]` fallback; redacted quotations
+> say “Editorially redacted quotation — not verbatim.” Existing source matching,
+> speaker-specific rights, `[POOP]` exception and private originals are preserved.
+> Potential CoL amendments are private proposals, never ordinary Annals material
+> or adopted rules. See the [release boundaries](annals-editorial-release-2026-10-15.md).
+> New history publication remains disabled until signing remediation and hosted
+> qualification. Automatic media remains off. Earlier sections are historical
+> where they conflict with this decision.
+
 # The Annals of Stammtisch — publication and privacy guidelines
 
 **Editorial safeguards, initiated 8 October 2026; updated 10 October 2026.** This document records the owner's privacy-conscious public history direction. On 10 October the owner reported having directly verified explicit permission from each contributor and any individual appearing in submissions. This is **owner-attested**, not independent verification or a permanent waiver of revocation or new-person consent. This guidance does not authorize publication of any particular Annals entry.

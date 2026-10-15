@@ -51,5 +51,5 @@ test('an empty approved archive retains the empty state without invented collect
   assert.match(html, /The record awaits an approved contribution/);
   assert.doesNotMatch(html, /class="annal-collections"|class="annal-collection"|class="annal-entry/);
   assert.doesNotMatch(html, /The Cocktail Register|The Register of Remarks|Monthly Proceedings|Annual Assemblies|Club History|Club Artefacts/);
-  assert.match(html, /The Editorial Committee reserves the right/);
+  assert.match(html, /The Editorial Committee obscures/);
 });

@@ -5,14 +5,16 @@
  */
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { escapeHtml } from './PrivatePreview.mjs';
+import { displayDate, editorialHtml, recipeIntroduction, EDITORIAL_NOTICE, REDACTION_CSS } from './EditorialDisplay.mjs';
+import { emptyHistory, validateHistory } from './HistoryPublisher.mjs';
 
 const TYPES = Object.freeze({
   cocktail: 'The Cocktail Register',
   quotation: 'The Register of Remarks',
-  monthly_gathering: 'Monthly Proceedings',
+  monthly_gathering: 'Club History',
   assembly: 'Annual Assemblies',
   club_history: 'Club History',
-  artefact: 'Club Artefacts',
+  artefact: 'Club History',
 });
 
 const PUBLIC_KEYS = new Set([
@@ -111,7 +113,7 @@ export function validatePublicTextEntry(input) {
     output.photo = { sha256: input.photo.sha256, alt: limited(input.photo.alt, 'photo alt text', 180, true) };
   }
   const publicTexts = [output.title, output.summary, output.dateLabel, output.credit, output.quoteVerbatim,
-    ...outputRecipe.drinkIngredients, ...outputRecipe.syrupIngredients, ...outputRecipe.steps, ...(outputRecipe.suggestedSteps || [])];
+    ...outputRecipe.drinkIngredients, ...outputRecipe.syrupIngredients, ...outputRecipe.steps, ...(outputRecipe.suggestedSteps || []), ...(output.photo ? [output.photo.alt] : [])];
   if (publicTexts.some(s => UNCENSORED_STRONG.test(s))) throw new Error('Uncensored strong profanity must not enter the public archive');
   return Object.freeze(output);
 }
@@ -234,14 +236,16 @@ function contributorCreditMarkup(credit) {
   const member = Object.hasOwn(MEMBER_PORTRAITS, key) ? MEMBER_PORTRAITS[key] : null;
   const portrait = member ? '<img class="annal-contributor-portrait" src="assets/members/annals/' +
     member + '-annals.webp" width="48" height="48" alt="" loading="lazy" decoding="async">' : '';
-  return '<p class="annal-credit">' + portrait + '<span>Recorded by ' + escapeHtml(credit) + '</span></p>';
+  return '<p class="annal-credit">' + portrait + '<span>Recorded by ' + editorialHtml(credit) + '</span></p>';
 }
 
 function approvedEntryMarkup(entry) {
   const esc = escapeHtml;
+  const text = editorialHtml;
+  const introduction = recipeIntroduction(entry);
   const section = (label, items) => items.length
     ? '<h4>' + label + '</h4><ul>' +
-      items.map(s => '<li>' + esc(s) + '</li>').join('') + '</ul>' : '';
+      items.map(s => '<li>' + text(s) + '</li>').join('') + '</ul>' : '';
   const speaker = entry.speakerPortrait;
   const speakerMarkup = speaker
     ? '<img class="annal-speaker-portrait" src="assets/members/annals/' +
@@ -250,21 +254,21 @@ function approvedEntryMarkup(entry) {
       ', the speaker" width="64" height="64" loading="lazy" decoding="async">'
     : '';
   const quoteCard = '<div class="annal-remark-card">' + speakerMarkup +
-    '<div class="annal-remark-words"><blockquote>' + esc(entry.quoteVerbatim) + '</blockquote>' +
-      (/\[(?:EXPLETIVE|POOP)\]/.test(entry.quoteVerbatim)
-        ? '<p class="annal-quote-note">Editorially censored quotation — not verbatim.</p>' : '') +
+    '<div class="annal-remark-words"><blockquote>' + text(entry.quoteVerbatim) + '</blockquote>' +
+      (/\[(?:expletive|POOP)\]/i.test(entry.quoteVerbatim)
+        ? '<p class="annal-quote-note">Editorially redacted quotation — not verbatim.</p>' : '') +
     '</div></div>';
   return '<article class="annal-entry' + (entry.category === 'quotation' ? ' annal-remark' : '') + '" id="' + esc(entry.id) + '">' +
     '<p class="annal-type">' + esc(TYPES[entry.category]) + '</p>' +
-    (entry.category === 'quotation' ? '' : '<h4>' + esc(entry.title) + '</h4>') +
-    (entry.dateLabel ? '<p class="annal-date">' + esc(entry.dateLabel) + '</p>' : '') +
-    (entry.category === 'quotation' ? '' : '<p class="annal-summary">' + esc(entry.summary) + '</p>') +
+    (entry.category === 'quotation' ? '' : '<h4>' + text(entry.title) + '</h4>') +
+    (entry.dateLabel ? '<p class="annal-date">' + esc(displayDate(entry.dateLabel)) + '</p>' : '') +
+    (entry.category === 'quotation' || !introduction ? '' : '<p class="annal-summary">' + text(introduction) + '</p>') +
     (entry.photo ? '<figure class="annal-photo"><img src="assets/annals/' + esc(entry.id) + '.jpg" alt="' + esc(entry.photo.alt) + '" loading="lazy" decoding="async"></figure>' : '') +
     (entry.category === 'quotation' ? quoteCard : '') +
     (entry.category === 'cocktail' ? '<div class="annal-recipe">' +
       section('Ingredients', entry.recipe.drinkIngredients) +
       section('Homemade syrup', entry.recipe.syrupIngredients) +
-      section('Preparation recorded by contributor', entry.recipe.steps) +
+      section('Preparation', entry.recipe.steps) +
       (entry.recipe.suggestedSteps?.length ? '<p class="annal-reconstruction-flag">Editorial reconstruction: suggested quantities or methods below are not the original recorded recipe.</p>' : '') +
       section('Editorial suggestions — NOT part of the original recipe',
         entry.recipe.suggestedSteps || []) + '</div>' : '') +
@@ -281,11 +285,12 @@ export function buildApprovedAnnals(entries, receipts, secret) {
   return buildAnnals(entries, receipts, (entry, receipt) => verifyApproval(entry, receipt, secret));
 }
 
-export function buildPublishedAnnals(entries, approvals, secret) {
-  return buildAnnals(entries, approvals, (entry, approval) => verifyPublicApproval(entry, approval, secret));
+export function buildPublishedAnnals(entries, approvals, secret, history = emptyHistory()) {
+  validateHistory(history);
+  return buildAnnals(entries, approvals, (entry, approval) => verifyPublicApproval(entry, approval, secret), history);
 }
 
-function buildAnnals(entries, receipts, verifyReceipt) {
+function buildAnnals(entries, receipts, verifyReceipt, history = emptyHistory()) {
   if (!Array.isArray(entries) || !Array.isArray(receipts) || entries.length !== receipts.length ||
       entries.length > 300) throw new Error('Invalid publication batch');
   const ids = new Set();
@@ -306,10 +311,11 @@ function buildAnnals(entries, receipts, verifyReceipt) {
   accepted.sort((a, b) => b.year - a.year || b.sortDate.localeCompare(a.sortDate) ||
     a.title.localeCompare(b.title));
   // Public collection visibility follows actual approved, published entries only.
+  const displayCategory = item => ['monthly_gathering','artefact'].includes(item.category) ? 'club_history' : item.category;
   const populatedTypes = Object.entries(TYPES).filter(([category]) =>
-    accepted.some(item => item.category === category));
+    !['monthly_gathering','artefact'].includes(category) && accepted.some(item => displayCategory(item) === category));
   const collections = populatedTypes.map(([category, label]) => {
-    const items = accepted.filter(item => item.category === category);
+    const items = accepted.filter(item => displayCategory(item) === category);
     const collectionId = 'collection-' + category.replaceAll('_', '-');
     const byYear = new Map();
     for (const item of items) {
@@ -323,13 +329,14 @@ function buildAnnals(entries, receipts, verifyReceipt) {
     return '<section class="annal-collection" id="' + collectionId + '" aria-labelledby="heading-' + collectionId + '">' +
       '<h2 id="heading-' + collectionId + '">' + escapeHtml(label) + '</h2>' + archive + '</section>';
   }).join('');
-  const navigation = populatedTypes.length > 1
+  const historyLink = history.chapters.length ? '<a href="history.html">Read Club History →</a>' : '';
+  const navigation = populatedTypes.length > 1 || historyLink
     ? '<nav class="annal-collections" aria-label="Browse Annals collections">' +
       populatedTypes.map(([category, label]) =>
         '<a href="#collection-' + category.replaceAll('_', '-') + '">' + escapeHtml(label) + '</a>').join('') +
-      '</nav>'
+      historyLink + '</nav>'
     : '';
-  const emptyState = accepted.length === 0
+  const emptyState = accepted.length === 0 && !history.chapters.length
     ? '<p class="annal-empty">The record awaits an approved contribution.</p>'
     : '';
   const html = `<!doctype html>
@@ -342,6 +349,7 @@ function buildAnnals(entries, receipts, verifyReceipt) {
 <meta name="description" content="A considered record of Stammtisch traditions, cocktails and shared occasions.">
 <link rel="stylesheet" href="styles.css">
 <style>
+${REDACTION_CSS}
 .annal-hero{padding-block:65px 45px;border-bottom:1px solid #d4d3c4}
 .annal-hero h1{font-size:clamp(44px,7vw,78px);line-height:1.1;margin-top:15px}
 .annal-hero p:last-child{max-width:560px;font-size:14px;color:#64685e;margin-top:18px}
@@ -394,7 +402,7 @@ function buildAnnals(entries, receipts, verifyReceipt) {
 <p class="annal-note">Members only.</p></section>
 ${navigation}
 ${collections}${emptyState}
-<p class="annal-editorial-notice">The Editorial Committee reserves the right to replace particularly spirited language with conspicuous euphemisms. Historical accuracy is otherwise maintained. The Editorial Committee is actually just AI we tried to train.</p>
+<p class="annal-editorial-notice">${EDITORIAL_NOTICE}</p>
 </main>
 <footer class="site-footer"><div class="shell footer-inner"><p>The Stammtisch Social Club<span>A tradition of gathering.</span></p><nav aria-label="Footer navigation"><a href="index.html">The Club</a><a href="annals.html" aria-current="page">The Annals</a><a href="celebration.html">Celebration of Life</a><a href="location.html">The Annual Assembly</a></nav></div></footer>
 </body></html>`;
