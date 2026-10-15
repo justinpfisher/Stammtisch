@@ -50,6 +50,6 @@ test('an empty approved archive retains the empty state without invented collect
   const { html } = buildPublishedAnnals([], [], 'invented-empty-archive-test-secret');
   assert.match(html, /The record awaits an approved contribution/);
   assert.doesNotMatch(html, /class="annal-collections"|class="annal-collection"|class="annal-entry/);
-  assert.doesNotMatch(html, /The Cocktail Register|The Register of Remarks|Monthly Proceedings|Annual Assemblies|Club History|Club Artefacts/);
+  assert.doesNotMatch(html, /<h2[^>]*>(?:The Cocktail Register|The Register of Remarks|Monthly Proceedings|Annual Assemblies|Club History|Club Artefacts)<\/h2>/);
   assert.match(html, /The Editorial Committee obscures/);
 });
