@@ -2,36 +2,6 @@
   "schemaVersion": 1,
   "entries": [
     {
-      "id": "annal-3a576afa6045bc29ba975ffb",
-      "category": "cocktail",
-      "title": "Mocktail with homemade syrup — recipe diagnostic",
-      "summary": "Fictional recipe testing quantities and syrup steps; not an actual\nStammtisch drink.\nDrink:\n45 mL cranberry juice\n30 mL soda water\n15 mL rosemary syrup\nSyrup:\n100 mL water\n100 g sugar\n1 sprig rosemary\nHeat the water and sugar gently.\nSteep the rosemary for 10 minutes.\nStir the juice and syrup over ice.\nTop with soda water.",
-      "year": 2026,
-      "dateLabel": "Submitted 2026-10",
-      "sortDate": "",
-      "quoteVerbatim": "",
-      "recipe": {
-        "drinkIngredients": [
-          "45 mL cranberry juice",
-          "30 mL soda water",
-          "15 mL rosemary syrup"
-        ],
-        "syrupIngredients": [
-          "100 mL water",
-          "100 g sugar",
-          "1 sprig rosemary"
-        ],
-        "steps": [
-          "Heat the water and sugar gently.",
-          "Steep the rosemary for 10 minutes.",
-          "Stir the juice and syrup over ice.",
-          "Top with soda water."
-        ]
-      },
-      "credit": "anonymous",
-      "contributorPortrait": "fish"
-    },
-    {
       "id": "annal-307f70ab6ca19ae3aadb375c",
       "category": "monthly_gathering",
       "title": "Monthly Stammtisch — diagnostic note",
@@ -220,20 +190,6 @@
     }
   ],
   "approvals": [
-    {
-      "approvedAt": "2026-10-15T02:42:59.369Z",
-      "consents": {
-        "namedAttribution": true,
-        "photoPublication": false,
-        "publication": true,
-        "quotePublication": false,
-        "recipeVerified": true
-      },
-      "contentSha256": "29caabe866a3b7b1715017bcaba3e61ef07542326da0d4ba430473fe478cfaf4",
-      "entryId": "annal-3a576afa6045bc29ba975ffb",
-      "mode": "standing-consent-text-v1",
-      "signature": "9527bcf6c7338f49cbea0a707de159f2c73e622814b14d726aa317541fa6ba5f"
-    },
     {
       "approvedAt": "2026-10-15T02:46:15.983Z",
       "consents": {
