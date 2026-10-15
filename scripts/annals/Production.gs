@@ -239,7 +239,7 @@ function annalsRecordVerifiedContributorPortraitPermissions(nonce, confirmed, ev
     marker.state='consents_recorded';
     annalsFile_(root,'verified-contributor-portraits-private.json').setContent(JSON.stringify(marker));
     allowed.forEach(function (address) {
-      try { MailApp.sendEmail(address,'Stammtisch Annals — illustrated contributor credit',
+      try { GmailApp.sendEmail(address,'Stammtisch Annals — illustrated contributor credit',
         'The Club owner has recorded your earlier permission for the approved illustrated likeness to identify your eligible future Annals contributions without displaying your email address or visible name. This is separate from your quotation-speaker permission. To hide future portraits, email HIDE MY ANNALS PORTRAIT. Public GitHub history can retain earlier copies; contact the Club owner for corrections or withdrawal.'); }
       catch (ignored) { /* Never fabricate delivery evidence. */ }
     });
@@ -288,7 +288,7 @@ function annalsRecordVerifiedQuotePermissions(nonce, confirmed, evidenceNote) {
     marker.state = 'speaker_permissions_recorded';
     annalsFile_(root, 'verified-quote-speaker-consents-private.json').setContent(JSON.stringify(marker));
     allowed.forEach(function (address) {
-      try { MailApp.sendEmail(address, 'Stammtisch Register of Remarks — speaker permission',
+      try { GmailApp.sendEmail(address, 'Stammtisch Register of Remarks — speaker permission',
         'The Club owner has recorded your previously confirmed permission for your attributed quotations ' +
         'to be published when another approved member submits the exact wording. ' +
         'Your already-approved illustration may appear beside the quote. A separate contributor-portrait permission covers other entries. Public GitHub history may ' +
@@ -305,7 +305,7 @@ function annalsHandleConsentReply_(sender, body) {
   if (member && text === 'HIDE MY ANNALS PORTRAIT') {
     member.portraitAttributionDisabled = true;
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
-    MailApp.sendEmail(sender, 'Annals portrait attribution disabled',
+    GmailApp.sendEmail(sender, 'Annals portrait attribution disabled',
       'Future Annals entries and quotations will not display your illustrated likeness. Already published entries require correction or withdrawal.');
     return 'portrait_hidden';
   }
@@ -318,7 +318,7 @@ function annalsHandleConsentReply_(sender, body) {
         !member.contributorPortraitPublication.revokedAt))) {
     member.portraitAttributionDisabled = false;
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
-    MailApp.sendEmail(sender, 'Annals portrait attribution enabled',
+    GmailApp.sendEmail(sender, 'Annals portrait attribution enabled',
       'Your approved illustration can accompany future eligible Annals entries and quotations. To opt out, email HIDE MY ANNALS PORTRAIT.');
     return 'portrait_enabled';
   }
@@ -327,7 +327,7 @@ function annalsHandleConsentReply_(sender, body) {
     member.quoteAttribution.status = 'revoked';
     member.quoteAttribution.revokedAt = new Date().toISOString();
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
-    MailApp.sendEmail(sender, 'Register of Remarks — quotation permission revoked',
+    GmailApp.sendEmail(sender, 'Register of Remarks — quotation permission revoked',
       'Future public quotations attributed to you are disabled. Existing public entries may remain in GitHub history; contact the Club owner for corrections or withdrawal.');
     return 'quote_attribution_revoked';
   }
@@ -339,7 +339,7 @@ function annalsHandleConsentReply_(sender, body) {
     member.imagePublication.consentedAt = new Date().toISOString();
     delete member.imagePublication.challenge;
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
-    MailApp.sendEmail(sender, 'Annals image consent recorded',
+    GmailApp.sendEmail(sender, 'Annals image consent recorded',
       'Your optional standing permission for private AI image screening and automatic publication of safe, metadata-stripped derivatives is active. Images with people, private locations, third-party rights or uncertain details remain private. To revoke future image publication send the exact line: REVOKE ANNALS IMAGE PUBLICATION. Public history may persist after withdrawal.');
     return 'image_consent_activated';
   }
@@ -348,7 +348,7 @@ function annalsHandleConsentReply_(sender, body) {
     member.imagePublication.status = 'revoked';
     member.imagePublication.revokedAt = new Date().toISOString();
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
-    MailApp.sendEmail(sender, 'Annals image consent revoked',
+    GmailApp.sendEmail(sender, 'Annals image consent revoked',
       'Future automatic image screening and publication are disabled. Contact the owner to request withdrawal of already published material.');
     return 'image_consent_revoked';
   }
@@ -362,7 +362,7 @@ function annalsHandleConsentReply_(sender, body) {
     member.autoPublication.consentedAt = new Date().toISOString();
     delete member.autoPublication.challenge;
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
-    MailApp.sendEmail(sender, 'Annals automatic publication consent recorded',
+    GmailApp.sendEmail(sender, 'Annals automatic publication consent recorded',
       'Your separate standing permission for eligible future text submissions is active. The public website and GitHub history are accessible to everyone and old copies may remain after withdrawal. Unsafe or uncertain material stays private. You can revoke future automatic publication by emailing the exact line: REVOKE ANNALS AUTOMATIC PUBLICATION. You may also revoke private AI processing separately.');
     return 'auto_consent_activated';
   }
@@ -371,20 +371,20 @@ function annalsHandleConsentReply_(sender, body) {
     member.autoPublication.status = 'revoked';
     member.autoPublication.revokedAt = new Date().toISOString();
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
-    MailApp.sendEmail(sender, 'Annals automatic publication consent revoked',
+    GmailApp.sendEmail(sender, 'Annals automatic publication consent revoked',
       'Future automatic publication is disabled. Existing public entries and GitHub history are not erased. Contact the club owner to request a withdrawal.');
     return 'auto_consent_revoked';
   }
   if (member && member.status === 'pending' && text === 'I CONSENT TO PRIVATE AI DRAFTING FOR FUTURE TEXT SUBMISSIONS. CODE: ' + member.challenge) {
     member.status = 'active'; member.scope = 'future_text_ai_drafting'; member.consentedAt = new Date().toISOString(); delete member.challenge;
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
-    MailApp.sendEmail(sender, 'Annals processing consent recorded', 'Your one-time consent is recorded for private AI drafting of future text submissions. You may revoke it at any time by replying exactly: REVOKE ANNALS AI PROCESSING. Public publication requires either your separate standing automatic-publication consent for narrowly eligible text or separate exact owner approval.');
+    GmailApp.sendEmail(sender, 'Annals processing consent recorded', 'Your one-time consent is recorded for private AI drafting of future text submissions. You may revoke it at any time by replying exactly: REVOKE ANNALS AI PROCESSING. Public publication requires either your separate standing automatic-publication consent for narrowly eligible text or separate exact owner approval.');
     return 'consent_activated';
   }
   if (member && member.status === 'active' && text === 'REVOKE ANNALS AI PROCESSING') {
     member.status = 'revoked'; member.revokedAt = new Date().toISOString();
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
-    MailApp.sendEmail(sender, 'Annals processing consent revoked', 'Future submissions will no longer be sent for AI drafting. Existing drafts remain private for owner review.');
+    GmailApp.sendEmail(sender, 'Annals processing consent revoked', 'Future submissions will no longer be sent for AI drafting. Existing drafts remain private for owner review.');
     return 'consent_revoked';
   }
   return null;
@@ -394,7 +394,7 @@ function annalsAckOnce_(folder, sender, itemId, state) {
   var record = { at: new Date().toISOString(), state: state, delivery: 'attempted_once' };
   annalsWriteOnce_(folder, 'acknowledgement-private.json', record);
   try {
-    MailApp.sendEmail(sender, 'Annals submission received',
+    GmailApp.sendEmail(sender, 'Annals submission received',
       'Your submission was received. Eligible consented text may publish automatically; uncertain submissions remain private. The public site, not this receipt, confirms publication.');
     record.delivery = 'sent';
   } catch (e) { record.delivery = 'unknown_no_retry'; }
@@ -645,7 +645,7 @@ function annalsResumeConsentedDrafts_(limit) {
     catch (e) {
       // An attempt marker permanently prevents a second provider charge.
       if (annalsFile_(folder, 'ai-attempt-private.json')) {
-        try { MailApp.sendEmail(annalsProps_().getProperty('ANNALS_OWNER_EMAIL'), 'Annals draft requires private review',
+        try { GmailApp.sendEmail(annalsProps_().getProperty('ANNALS_OWNER_EMAIL'), 'Annals draft requires private review',
           'A consented submission could not complete drafting. It remains private and will not be retried automatically. Open the owner-only review desk: ' + annalsProps_().getProperty('ANNALS_REVIEW_URL')); } catch (ignored) {}
       }
     }
@@ -672,7 +672,7 @@ function annalsInviteProcessingConsent(nonce, email) {
     var challenge = Utilities.getUuid() + Utilities.getUuid();
     registry.members[address] = { status: 'pending', scope: 'future_text_ai_drafting', invitedAt: new Date().toISOString(), challenge: challenge };
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
-    MailApp.sendEmail(address, 'Choose whether to allow private Annals AI drafting',
+    GmailApp.sendEmail(address, 'Choose whether to allow private Annals AI drafting',
       'You may explicitly opt in to private AI drafting for future text submissions. To opt in, reply to this message with this exact sentence:\n\nI CONSENT TO PRIVATE AI DRAFTING FOR FUTURE TEXT SUBMISSIONS. CODE: ' + challenge +
       '\n\nThis consent alone does not authorize publication. You may separately opt in to narrow automatic public text publication or seek individual approval. To revoke AI processing, reply exactly: REVOKE ANNALS AI PROCESSING.');
     return { invited: true };
@@ -689,7 +689,7 @@ function annalsInviteAutoPublicationConsent(nonce, email) {
     member.autoPublication = { status: 'pending', scope: 'future_source_grounded_text_and_screened_image_publication',
       invitedAt: new Date().toISOString(), challenge: challenge };
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
-    MailApp.sendEmail(address, 'One-time choice: automatic Annals text and safe photographs',
+    GmailApp.sendEmail(address, 'One-time choice: automatic Annals text and safe photographs',
       'This is a separate, optional and revocable authorisation. If you agree, your original text and safe photographs that you own or are permitted to share can publish automatically on the PUBLIC Stammtisch website and in permanent PUBLIC GitHub history without per-entry review. A private AI service may analyse submitted images, and only a screened, metadata-stripped small image derivative can be public. The Club owner confirms that the six members have agreed to photos, but any guests or other identifiable people still need their own permission. Strong profanity may be visibly censored; attribution defaults to anonymous. If the content is unsafe, it stays private. You affirm that you hold the rights needed for the content you send. Withdrawal cannot erase previous GitHub history.\n\nTo opt in, reply with this exact sentence:\n\nI CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT AND SCREENED PHOTO PUBLICATION. CODE: ' + challenge +
       '\n\nTo revoke, send: REVOKE ANNALS AUTOMATIC PUBLICATION. Your private AI-processing consent is separate.');
     return { invited: true };
@@ -720,7 +720,7 @@ function annalsInviteImagePublicationConsent(nonce, email) {
     member.imagePublication = {status:'pending',scope:'future_safe_original_image_ai_and_publication',
       invitedAt:new Date().toISOString(),challenge:challenge};
     annalsSavePrivate_(root,'consent-registry-private.json',registry);
-    MailApp.sendEmail(address,'Optional: allow safe Annals photographs to publish automatically',
+    GmailApp.sendEmail(address,'Optional: allow safe Annals photographs to publish automatically',
       'You can opt into private AI screening of your image attachments and automatic publication of a small metadata-stripped derivative when the image shows a non-identifying drink or object. You affirm that you own the images you submit or have actual permission from their photographer and anyone identifiable. This never authorises another private photo, identifiable guests, private interiors or personal information. Images that fail screening stay private. The public website and GitHub history may retain copies after withdrawal.\n\nTo opt in, reply exactly:\n\nI CONSENT TO PRIVATE AI IMAGE SCREENING AND PUBLICATION OF MY SAFE ORIGINAL IMAGES. CODE: ' +
       challenge + '\n\nTo stop future image publication, reply: REVOKE ANNALS IMAGE PUBLICATION.');
     return {invited:true};
@@ -802,7 +802,7 @@ function annalsRecordVerifiedExistingConsents(nonce, confirmed, evidenceNote) {
         'Public GitHub history may retain published material even after withdrawal. To revoke future automatic ' +
         'publication, email REVOKE ANNALS AUTOMATIC PUBLICATION. To stop future private AI processing, email ' +
         'REVOKE ANNALS AI PROCESSING. You can also contact the owner about corrections or removal.';
-      try { MailApp.sendEmail(address, notice, body); }
+      try { GmailApp.sendEmail(address, notice, body); }
       catch (ignored) { /* No duplicate mail or permission invention on failure. */ }
     });
     return {recorded:true, memberCount:6, evidenceStorage:'private_only', activationChanged:false};
@@ -1082,7 +1082,7 @@ function annalsNotifyDraftReady_(folder) {
   annalsWriteOnce_(folder, 'draft-notice-private.json', { state: 'attempted_once', at: new Date().toISOString() });
   var delivery = 'unknown_no_retry';
   try {
-    MailApp.sendEmail(p.getProperty('ANNALS_OWNER_EMAIL'), 'Private Annals draft ready',
+    GmailApp.sendEmail(p.getProperty('ANNALS_OWNER_EMAIL'), 'Private Annals draft ready',
       'A consented submission requires private attention; no automatic publication was confirmed. Any manual publication requires your exact approval.\n\n' + reviewUrl + '?item=' + encodeURIComponent(folder.getName()));
     delivery = 'sent';
   } catch (e) {}
@@ -1445,7 +1445,7 @@ function annalsVerifyAutomaticPublications_(limit) {
         !annalsFile_(folder, 'auto-publication-delay-private.json')) {
       annalsWriteOnce_(folder, 'auto-publication-delay-private.json',
         { state: 'unverified_after_24h', at: new Date().toISOString() });
-      try { MailApp.sendEmail(p.getProperty('ANNALS_OWNER_EMAIL'), 'Annals publication still unverified',
+      try { GmailApp.sendEmail(p.getProperty('ANNALS_OWNER_EMAIL'), 'Annals publication still unverified',
         'A signed automatic submission remains unverified after 24 hours. Check the existing Annals GitHub Actions and Pages runs. Do not resend blindly.\n\n' +
         p.getProperty('ANNALS_REVIEW_URL') + '?item=' + encodeURIComponent(id)); }
       catch (ignored) {}
@@ -1474,7 +1474,7 @@ function annalsVerifyAutomaticPublications_(limit) {
       var source = annalsRead_(folder, 'source-private.json');
       if (source && source.source && source.source.sender && !annalsFile_(folder, 'published-email-private.json')) {
         annalsWriteOnce_(folder, 'published-email-private.json', { state: 'attempted_once', at: new Date().toISOString() });
-        try { MailApp.sendEmail(source.source.sender, 'Your Stammtisch Annals entry is published',
+        try { GmailApp.sendEmail(source.source.sender, 'Your Stammtisch Annals entry is published',
           'Your approved-by-standing-consent text now appears on the public website:\nhttps://stammtischbrewery.com/annals.html#' +
           saved.entry.id + '\n\nFor a correction or withdrawal, contact the club owner. Old copies in public GitHub history may remain.'); }
         catch (ignored) { /* no duplicate mail */ }

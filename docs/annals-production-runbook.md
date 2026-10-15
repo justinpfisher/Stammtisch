@@ -137,3 +137,8 @@ Each normal intake cycle resumes at most two new AI drafts and scans at most twe
 ### Private desk session recovery
 
 The owner desk may obtain a fresh owner-authenticated session and retry one allowlisted read when the server explicitly reports an expired review session. No AI, consent, signing, publication, correction, removal or quarantine action is automatically retried. Other failures show only a private-safe category; raw provider errors and source values are never reflected in the page. Check saved status before repeating an uncertain action.
+
+
+### Notice delivery and existing Gmail permission
+
+Production notices use `GmailApp.sendEmail` with the already required `https://mail.google.com/` scope. The separate `MailApp` service requires `script.send_mail`, which is not in this manifest; do not add that permission merely to repair this transport. See the official [Gmail sending authorization](https://developers.google.com/apps-script/reference/gmail/gmail-app#sendEmail(String,String,String)) and [Mail service authorization](https://developers.google.com/apps-script/reference/mail/mail-app). Recipients, message content and one-shot markers are unchanged. Never clear an attempted or uncertain delivery record to resend an old notice, and never send prepared member drafts through this notification path.
