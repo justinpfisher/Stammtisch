@@ -1,38 +1,5 @@
 {
   "schemaVersion": 1,
-  "entries": [
-    {
-      "id": "annal-91833fa51acaf7d2987b94df",
-      "category": "quotation",
-      "title": "Recorded remark",
-      "summary": "An authenticated contribution to the Register of Remarks.",
-      "year": 2026,
-      "dateLabel": "Submitted 2026-10",
-      "sortDate": "",
-      "quoteVerbatim": "Annals production diagnostic 2 only. This is not a historical\nclub remark.",
-      "recipe": {
-        "drinkIngredients": [],
-        "syrupIngredients": [],
-        "steps": []
-      },
-      "credit": "anonymous",
-      "speakerPortrait": "fish"
-    }
-  ],
-  "approvals": [
-    {
-      "approvedAt": "2026-10-14T23:56:15.627Z",
-      "consents": {
-        "namedAttribution": true,
-        "photoPublication": false,
-        "publication": true,
-        "quotePublication": true,
-        "recipeVerified": false
-      },
-      "contentSha256": "923af64aa4c825c79ce1e801462fe6aee4f1ac62a718e8fbb673422f4d51f3d8",
-      "entryId": "annal-91833fa51acaf7d2987b94df",
-      "mode": "standing-consent-quote-v1",
-      "signature": "982223d5a1c956dd0f51238c3ac73acf61ed9016a72b08b88cf3e46eebe89740"
-    }
-  ]
+  "entries": [],
+  "approvals": []
 }
