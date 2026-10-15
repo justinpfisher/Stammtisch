@@ -156,6 +156,23 @@
       },
       "credit": "anonymous",
       "contributorPortrait": "fish"
+    },
+    {
+      "id": "annal-c53cc97bc6b9a9c2c3a0d15d",
+      "category": "artefact",
+      "title": "Annals nots — made-up memory",
+      "summary": "In this purely invented memory, an imaginary brass bookmark almost became a\nceremonial object. This is a writing test, not an event that happened.",
+      "year": 2026,
+      "dateLabel": "Submitted 2026-10",
+      "sortDate": "",
+      "quoteVerbatim": "",
+      "recipe": {
+        "drinkIngredients": [],
+        "syrupIngredients": [],
+        "steps": []
+      },
+      "credit": "anonymous",
+      "contributorPortrait": "fish"
     }
   ],
   "approvals": [
@@ -270,6 +287,20 @@
       "entryId": "annal-f6e08358e568b5cc5e98f9aa",
       "mode": "standing-consent-text-v1",
       "signature": "95d5d96ae1d95a62f727303dc0e60672adc5c178b1ae7a01b0d83e5e2595e4f4"
+    },
+    {
+      "approvedAt": "2026-10-15T04:06:59.996Z",
+      "consents": {
+        "namedAttribution": true,
+        "photoPublication": false,
+        "publication": true,
+        "quotePublication": false,
+        "recipeVerified": false
+      },
+      "contentSha256": "1a1b34537d3b68a79fa7306bee707e2195f63a8711b8e43f8058e84c5caa37d2",
+      "entryId": "annal-c53cc97bc6b9a9c2c3a0d15d",
+      "mode": "standing-consent-text-v1",
+      "signature": "6228fdb691e750dceb0cc9beee99ed30eacfdc3465a337bdef6e1af8b3993e4e"
     }
   ]
 }
