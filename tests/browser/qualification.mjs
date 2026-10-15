@@ -10,6 +10,7 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {chromium,webkit,devices} from 'playwright';
 import {buildPublishedAnnals,contentDigest} from '../../scripts/annals/ApprovedRenderer.mjs';
+import {renderRegister} from '../../scripts/annals/RulesPublisher.mjs';
 import {photoIndex} from '../../scripts/annals/PhotoIndex.mjs';
 import Media from '../../scripts/annals/MediaCore.js';
 import {renderHistory} from '../../scripts/annals/HistoryPublisher.mjs';
@@ -41,7 +42,8 @@ const gallery=entries.at(-1),a={entryId:gallery.id,approvedAt:'2026-10-15T12:00:
 approvals.push({...a,signature:createHmac('sha256',fixtureKey).update(JSON.stringify(canonical({entry:gallery,approval:a}))).digest('hex')});
 const index=photoIndex(Array.from({length:2500},(_,i)=>({...gallery,id:'offline-photo-'+String(i).padStart(6,'0'),title:'Fictional photo '+i,summary:i===2499?'needle archival caption':'Fictional archived fixture',submittedAt:(2000+i%26)+'-10-15T12:00:00Z',year:2000+i%26})));
 const annals=buildPublishedAnnals(entries,approvals,fixtureKey,history).html;
-const documents=new Map([['/annals.html',annals],['/history.html',renderHistory(history)],['/photos.html',await readFile(path.join(root,'photos.html'),'utf8')]]);
+const ruleRegister={schemaVersion:1,baseline:{id:'col-browser-baseline',recordedAt:'2026-10-15T12:00:00Z',description:'Fictional browser fixture baseline.'},revisions:[{id:'col-browser-fictional',member:'marc',submittedAt:'2026-10-15T12:00:00Z',publishedAt:null,effectiveAt:null,state:'awaiting_implementation',baseVersion:'col-browser-baseline',explanation:'Fictional rule-layout fixture only.',changes:[{provision:'PRIZE',before:'## PRIZE\n'+('Fictional unchanged source text. '.repeat(40)),after:'## PRIZE\n'+('Fictional revised layout text. '.repeat(40))}],correctionOf:null}],events:[]};
+const documents=new Map([['/annals.html',annals],['/history.html',renderHistory(history)],['/photos.html',await readFile(path.join(root,'photos.html'),'utf8')],['/col-revisions.html',renderRegister(ruleRegister)]]);
 const metadata=new Map([['/data/photos/index.json',index.manifest],...index.pages.map(p=>['/'+p.path,p.data])]);
 const server=createServer(async(req,res)=>{
   const pathname=new URL(req.url,'http://localhost').pathname;
@@ -96,6 +98,13 @@ try{
         await page.waitForFunction(()=>document.querySelector('#photo-status').textContent.includes('entries shown'));
         assert.ok(await page.locator('.photos-card').count()<=24);await noOverflow(page);
         const first=page.locator('.photos-card [data-photo-view]').first();await first.click();await page.getByRole('dialog').waitFor({state:'visible'});await page.getByRole('button',{name:'Close',exact:true}).click();assert.equal(await first.evaluate(e=>document.activeElement===e),true);
+      });
+      await check(browser,profile,'revision register exact comparison and permanent links',async page=>{
+        await page.goto(origin+'/col-revisions.html#col-browser-fictional');
+        assert.equal(await page.locator('main').count(),1);assert.equal(await page.locator('#col-browser-fictional').count(),1);
+        assert.match(await page.locator('main').innerText(),/awaiting implementation/);assert.match(await page.locator('main').innerText(),/Toronto/);
+        await page.locator('details summary').focus();await page.keyboard.press('Enter');assert.equal(await page.locator('details').getAttribute('open'),'');
+        assert.match(await page.locator('pre').first().innerText(),/Fictional unchanged source text/);assert.match(await page.locator('pre').last().innerText(),/Fictional revised layout text/);await noOverflow(page);
       });
       await check(browser,profile,'recipe fidelity and whole narrative',async page=>{
         await page.goto(origin+'/annals.html');

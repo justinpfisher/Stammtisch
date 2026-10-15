@@ -104,7 +104,7 @@ var AnnalsProduction = (function () {
     return Object.freeze(Object.assign({}, mapping));
   }
   function publicEntry(raw) {
-    keys(raw, ['id', 'category', 'title', 'summary', 'year', 'dateLabel', 'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo', 'photos', 'submittedAt', 'eventPeriod', 'speakerPortrait', 'contributorPortrait']);
+    keys(raw, ['id', 'category', 'title', 'summary', 'year', 'dateLabel', 'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo', 'photos', 'correction', 'submittedAt', 'eventPeriod', 'speakerPortrait', 'contributorPortrait']);
     if (!/^[a-z0-9][a-z0-9-]{5,63}$/.test(raw.id || '') || CATEGORIES.slice(0, 6).indexOf(raw.category) < 0) throw new Error('Invalid public identity');
     if (!Number.isInteger(raw.year) || raw.year < 1990 || raw.year > 2100) throw new Error('Confirm the year');
     var date = text(raw.sortDate, 10);
@@ -125,6 +125,11 @@ var AnnalsProduction = (function () {
           result.credit !== 'anonymous')
         throw new Error('Invalid quotation speaker portrait');
       result.speakerPortrait = raw.speakerPortrait;
+    }
+    if (raw.correction !== undefined) {
+      keys(raw.correction,['at','note']);
+      if(!Number.isFinite(Date.parse(raw.correction.at)))throw new Error('Invalid correction timestamp');
+      result.correction={at:text(raw.correction.at,40,true),note:text(raw.correction.note,250,true)};
     }
     if (raw.photos !== undefined) {
       if (raw.photo || raw.category === 'quotation') throw new Error('Conflicting photo representation');
@@ -149,7 +154,7 @@ var AnnalsProduction = (function () {
     if (result.category === 'cocktail' && !result.recipe.drinkIngredients.length && !result.recipe.steps.length && !result.photo && !result.photos) throw new Error('Missing recipe or approved photo');
     if (result.category !== 'cocktail' && Object.values(result.recipe).some(function (v) { return v.length; })) throw new Error('Unexpected recipe');
     if ([result.title, result.summary, result.dateLabel, result.credit, result.quoteVerbatim]
-      .concat(result.recipe.drinkIngredients, result.recipe.syrupIngredients, result.recipe.steps, result.recipe.suggestedSteps || [], result.photo ? [result.photo.alt] : [], (result.photos || []).reduce(function(a,p){return a.concat(p.alt,p.caption||'');},[]))
+      .concat(result.correction ? [result.correction.note] : [], result.recipe.drinkIngredients, result.recipe.syrupIngredients, result.recipe.steps, result.recipe.suggestedSteps || [], result.photo ? [result.photo.alt] : [], (result.photos || []).reduce(function(a,p){return a.concat(p.alt,p.caption||'');},[]))
       .some(uncensoredStrong)) throw new Error('Apply conspicuous editorial censorship before public approval');
     return result;
   }

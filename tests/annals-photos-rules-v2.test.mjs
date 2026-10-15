@@ -119,6 +119,12 @@ test('empty production archives expose neither Photos navigation nor fabricated 
   assert.equal(JSON.parse(readFileSync(new URL('../data/annals-approved.json',import.meta.url))).entries.length,0);
   assert.equal(JSON.parse(readFileSync(new URL('../data/col-rules-register.json',import.meta.url))).revisions.length,0);
 });
+test('a signed source-grounded date correction is visible without replacing submission time',()=>{
+  const e={...entry(),eventPeriod:'2025-06',correction:{at:'2026-10-16T00:30:00Z',note:'Event month corrected from the contributor record.'}};
+  const result=buildPublishedAnnals([e],[sign(e)],key).html;
+  assert.match(result,/Corrected <time datetime="2026-10-16T00:30:00Z">October 15, 2026/);
+  assert.match(result,/Event: 2025-06/);assert.match(result,/Submitted <time datetime="2026-10-15T18:00:00Z">/);
+});
 test('new private capabilities stay off without all independent readiness evidence',()=>{
   for(const module of ['PhotoProduction.gs','RulesProduction.gs']){
     const values={},ctx=vm.createContext({annalsProps_:()=>({getProperty:k=>values[k]||null})});vm.runInContext(readFileSync(new URL('../scripts/annals/'+module,import.meta.url),'utf8'),ctx);

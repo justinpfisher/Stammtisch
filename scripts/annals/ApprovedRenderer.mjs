@@ -20,7 +20,7 @@ const TYPES = Object.freeze({
 
 const PUBLIC_KEYS = new Set([
   'id', 'category', 'title', 'summary', 'year', 'dateLabel',
-  'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo', 'photos', 'submittedAt', 'eventPeriod', 'speakerPortrait', 'contributorPortrait'
+  'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo', 'photos', 'correction', 'submittedAt', 'eventPeriod', 'speakerPortrait', 'contributorPortrait'
 ]);
 const RECIPE_KEYS = new Set(['drinkIngredients', 'syrupIngredients', 'steps', 'suggestedSteps']);
 // Already-public illustrated portraits used in Celebration of Life; no private images.
@@ -94,6 +94,12 @@ export function validatePublicTextEntry(input) {
     year, dateLabel, sortDate, quoteVerbatim, recipe: outputRecipe,
     credit: limited(input.credit || 'anonymous', 'credit', 70, true),
   };
+  if (input.correction !== undefined) {
+    allowedKeys(input.correction,new Set(['at','note']),'correction');
+    const correctionAt=limited(input.correction.at,'correction timestamp',40,true);
+    if(!/^\d{4}-\d\d-\d\dT/.test(correctionAt)||!Number.isFinite(Date.parse(correctionAt)))throw new Error('Invalid correction timestamp');
+    output.correction={at:correctionAt,note:limited(input.correction.note,'correction note',250,true)};
+  }
   if (input.photos !== undefined) {
     if (input.photo || input.category === 'quotation') throw new Error('Conflicting photo representation');
     output.photos = Photos.validate(input.photos);
@@ -123,7 +129,7 @@ export function validatePublicTextEntry(input) {
     output.photo = { sha256: input.photo.sha256, alt: limited(input.photo.alt, 'photo alt text', 180, true) };
   }
   const publicTexts = [output.title, output.summary, output.dateLabel, output.credit, output.quoteVerbatim,
-    ...outputRecipe.drinkIngredients, ...outputRecipe.syrupIngredients, ...outputRecipe.steps, ...(outputRecipe.suggestedSteps || []), ...(output.photo ? [output.photo.alt] : []), ...(output.photos || []).flatMap(p => [p.alt,p.caption || ''])];
+    ...outputRecipe.drinkIngredients, ...outputRecipe.syrupIngredients, ...outputRecipe.steps, ...(outputRecipe.suggestedSteps || []), ...(output.correction ? [output.correction.note] : []), ...(output.photo ? [output.photo.alt] : []), ...(output.photos || []).flatMap(p => [p.alt,p.caption || ''])];
   if (publicTexts.some(s => UNCENSORED_STRONG.test(s))) throw new Error('Uncensored strong profanity must not enter the public archive');
   return Object.freeze(output);
 }
@@ -281,6 +287,7 @@ function approvedEntryMarkup(entry) {
     (entry.category === 'quotation' ? '' : '<h4>' + text(entry.title) + '</h4>') +
     (entry.submittedAt ? '<p class="annal-date">Submitted <time datetime="'+esc(entry.submittedAt)+'">'+esc(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',dateStyle:'long'}).format(new Date(entry.submittedAt)))+'</time> (Toronto)'+(entry.eventPeriod?' · Event: '+esc(entry.eventPeriod):' · Event date unrecorded')+'</p>' : entry.dateLabel ? '<p class="annal-date">' + esc(displayDate(entry.dateLabel)) + '</p>' : '') +
     (entry.category === 'quotation' || !introduction ? '' : '<p class="annal-summary">' + text(introduction) + '</p>') +
+    (entry.correction?'<p class="annal-date">Corrected <time datetime="'+esc(entry.correction.at)+'">'+esc(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',dateStyle:'long'}).format(new Date(entry.correction.at)))+'</time> (Toronto): '+text(entry.correction.note)+'</p>':'') +
     photoMarkup(entry) +
     (entry.category === 'quotation' ? quoteCard : '') +
     (entry.category === 'cocktail' ? '<div class="annal-recipe">' +
