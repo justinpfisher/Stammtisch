@@ -71,16 +71,49 @@ export function coordinate({register,versions,markdown,html,bundle,secret,enable
  * Scheduled, non-operative records can still be prepared under the existing
  * disabled-by-default owner/security gates.
  */
-export function requireNonActivatingRuleRelease(after,before){
-  if(!after||!before||!Array.isArray(before.versions?.versions)||
-    !Array.isArray(after.versions?.versions)||!Array.isArray(before.register?.events)||
-    !Array.isArray(after.register?.events)||typeof before.markdown!=='string'||
-    typeof before.html!=='string')throw Error('Incomplete CoL publication boundary');
-  const additions=after.versions.versions.slice(before.versions.versions.length);
-  if(additions.length!==1||additions[0].verified!==false||
+export function requireNonActivatingRuleRelease(after,before,now=new Date()){
+  const deny=()=>{throw Error('CoL activation blocked pending verified hosted publication clock and failure-safe prior-version retention');};
+  const equal=(a,b)=>digest(a)===digest(b);
+  const prefix=(oldList,newList)=>Array.isArray(oldList)&&Array.isArray(newList)&&
+    oldList.length<=newList.length&&oldList.every((item,i)=>equal(item,newList[i]));
+  if(!(now instanceof Date)||!Number.isFinite(now.getTime())||
+    !after||!before||!after.register||!before.register||!after.versions||!before.versions||
+    !Array.isArray(before.versions.versions)||!Array.isArray(after.versions.versions)||
+    !Array.isArray(before.register.revisions)||!Array.isArray(after.register.revisions)||
+    !Array.isArray(before.register.events)||!Array.isArray(after.register.events)||
+    typeof before.markdown!=='string'||typeof before.html!=='string'||
     after.markdown!==before.markdown||after.html!==before.html||
-    after.register.events.slice(before.register.events.length).some(e=>e.state==='active'))
-    throw Error('CoL activation blocked pending verified hosted publication clock and failure-safe prior-version retention');
+    after.register.schemaVersion!==before.register.schemaVersion||
+    after.versions.schemaVersion!==before.versions.schemaVersion||
+    !equal(after.register.baseline,before.register.baseline)||
+    !prefix(before.register.revisions,after.register.revisions)||
+    !prefix(before.register.events,after.register.events)||
+    !prefix(before.versions.versions,after.versions.versions)||
+    after.register.revisions.length>before.register.revisions.length+1||
+    after.register.events.length>before.register.events.length+1||
+    after.versions.versions.length!==before.versions.versions.length+1)deny();
+
+  const candidate=after.versions.versions.at(-1);
+  let base;
+  try{
+    Rules.stamp(candidate?.effectiveAt);
+    Rules.stamp(candidate?.publishedAt);
+    base=Rules.select(before.versions.versions,now.toISOString());
+  }catch{deny();}
+  // A proposed future version must never become operative by an ordinary
+  // dispatch, retroactively or by modifying any previous verified record.
+  if(candidate.verified!==false||candidate.previous!==base.id||
+    Date.parse(candidate.effectiveAt)<=now.getTime()||
+    Date.parse(candidate.publishedAt)>now.getTime()+60000||
+    !equal(candidate.parameters,base.parameters)||
+    candidate.januaryGap!==base.januaryGap)deny();
+
+  const matches=after.register.revisions.filter(r=>r.id===candidate.id);
+  const newEvents=after.register.events.slice(before.register.events.length);
+  if(matches.length!==1||newEvents.some(e=>e.revisionId!==candidate.id||e.state!=='scheduled')||
+    (matches[0].state!=='scheduled'&&!newEvents.some(e=>e.state==='scheduled'))||
+    (after.register.revisions.length===before.register.revisions.length+1&&
+      matches[0]!==after.register.revisions.at(-1)))deny();
   return after;
 }
 

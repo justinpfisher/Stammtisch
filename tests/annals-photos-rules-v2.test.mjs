@@ -184,7 +184,21 @@ test('live rule release fails closed before writing any unverified active versio
   const staged=coordinate({...args,bundle});
   assert.equal(staged.versions.versions.at(-1).verified,false);
   assert.equal(staged.markdown,args.markdown);
-  assert.equal(requireNonActivatingRuleRelease(staged,args),staged);
+  assert.equal(requireNonActivatingRuleRelease(staged,args,new Date(at)),staged);
+  assert.equal(Rules.select(staged.versions.versions,at).id,base.id,'An unverified staged version must not become operative');
+  // Preservation matters independently of whether an active event is absent.
+  const original=JSON.stringify(args);
+  for(const unsafe of [
+    {...staged,register:{...staged.register,baseline:{...staged.register.baseline,description:'Substituted baseline'}}},
+    {...staged,versions:{...staged.versions,versions:staged.versions.versions.map((v,i)=>i===0?{...v,provisions:{...v.provisions,PRIZE:'Replaced operative prize'}}:v)}},
+    {...staged,versions:{...staged.versions,versions:staged.versions.versions.map((v,i)=>i===staged.versions.versions.length-1?{...v,previous:'col-unrelated'}:v)}},
+    {...staged,versions:{...staged.versions,versions:staged.versions.versions.map((v,i)=>i===staged.versions.versions.length-1?{...v,parameters:{...v.parameters,prizeDollars:120}}:v)}},
+    {...staged,versions:{...staged.versions,versions:staged.versions.versions.map((v,i)=>i===staged.versions.versions.length-1?{...v,effectiveAt:at}:v)}},
+    {...staged,register:{...staged.register,revisions:[...staged.register.revisions,{...staged.register.revisions[0],id:'col-imposter'}]}}
+  ])assert.throws(()=>requireNonActivatingRuleRelease(unsafe,args,new Date(at)),/hosted publication clock/);
+  assert.throws(()=>requireNonActivatingRuleRelease(staged,args,new Date(future)),/hosted publication clock/,
+    'An elapsed scheduled date is not activation authority');
+  assert.equal(JSON.stringify(args),original,'No test or stage check may mutate prior operative state');
   for(const unsafe of [
     {...staged,markdown:'Unverified operative text'},
     {...staged,html:'<p>Unverified operative text</p>'},
