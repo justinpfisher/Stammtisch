@@ -68,23 +68,6 @@
       },
       "credit": "anonymous",
       "contributorPortrait": "fish"
-    },
-    {
-      "id": "annal-53f2e10bcf943f83545ae101",
-      "category": "club_history",
-      "title": "Fictional Stammtisch history diagnostic: imagine a tradition of granting pompous titles to ordinary coasters",
-      "summary": "Fictional Stammtisch history diagnostic: imagine a tradition of granting\npompous titles to ordinary coasters. This is not an actual club custom.",
-      "year": 2026,
-      "dateLabel": "Submitted 2026-10",
-      "sortDate": "",
-      "quoteVerbatim": "",
-      "recipe": {
-        "drinkIngredients": [],
-        "syrupIngredients": [],
-        "steps": []
-      },
-      "credit": "anonymous",
-      "contributorPortrait": "fish"
     }
   ],
   "approvals": [
@@ -143,20 +126,6 @@
       "entryId": "annal-af139db66de06c5050f41783",
       "mode": "standing-consent-text-v1",
       "signature": "1b587121b7a517d5c3ab59e0960d90249b0ed6da3e3a3355bc0a845ed26f1ce0"
-    },
-    {
-      "approvedAt": "2026-10-15T03:52:55.692Z",
-      "consents": {
-        "namedAttribution": true,
-        "photoPublication": false,
-        "publication": true,
-        "quotePublication": false,
-        "recipeVerified": false
-      },
-      "contentSha256": "9e660a7710727c52cf3121cbd7e505d5b927edecbf2dbb94b6c43eacf799fbbc",
-      "entryId": "annal-53f2e10bcf943f83545ae101",
-      "mode": "standing-consent-text-v1",
-      "signature": "7ecbf21f6aa1555334aa236743cb78f5857fc07af0d96ccca89ed4884d7e66f7"
     }
   ]
 }
