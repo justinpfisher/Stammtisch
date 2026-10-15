@@ -50,7 +50,7 @@ test('monthly calendar contains date-only 3rd-Friday recurrence and no private a
   for (const line of ics.split('\r\n')) assert.ok(Buffer.byteLength(line) <= 75);
 });
 
-test('home distinguishes the monthly date reminder and annual Assembly start', () => {
+test('home shows the monthly 8 p.m. start and distinct date-only calendar reminder', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(html, /data-monthly-gathering/);
   assert.match(html, /data-monthly-date/);
@@ -59,22 +59,36 @@ test('home distinguishes the monthly date reminder and annual Assembly start', (
   assert.match(html, /Third Friday of every month/);
   assert.match(html, /often held at headquarters/i);
   assert.match(html, /date-only/i);
+  assert.match(html, /8 p\.m\. Toronto time/);
+  assert.doesNotMatch(html, /third Friday begins/);
   assert.match(html, /data-assembly-start datetime="2027-02-05T09:00:00-05:00"/);
 });
 
 
-test('minute countdown targets Toronto date start across DST and year rollover', () => {
+test('minute countdown targets 8 p.m. Toronto time across DST and year rollover', () => {
   assert.deepEqual(monthlyCountdown('2026-10-10T01:38:00Z'),
-    { days: 6, hours: 2, minutes: 22, isToday: false });
+    { days: 6, hours: 22, minutes: 22, isToday: false });
   assert.deepEqual(monthlyCountdown('2026-10-16T03:59:30Z'),
-    { days: 0, hours: 0, minutes: 1, isToday: false });
+    { days: 0, hours: 20, minutes: 1, isToday: false });
   assert.deepEqual(monthlyCountdown('2026-10-16T04:00:00Z'),
-    { days: 0, hours: 0, minutes: 0, isToday: true });
+    { days: 0, hours: 20, minutes: 0, isToday: true });
   assert.deepEqual(monthlyCountdown('2026-11-20T04:00:00Z'),
-    { days: 0, hours: 1, minutes: 0, isToday: false });
+    { days: 0, hours: 21, minutes: 0, isToday: false });
   assert.deepEqual(monthlyCountdown('2027-03-14T07:30:00Z'),
-    { days: 4, hours: 20, minutes: 30, isToday: false });
+    { days: 5, hours: 16, minutes: 30, isToday: false });
   assert.deepEqual(monthlyCountdown('2027-01-01T05:00:00Z'),
-    { days: 14, hours: 0, minutes: 0, isToday: false });
+    { days: 14, hours: 20, minutes: 0, isToday: false });
+  assert.deepEqual(monthlyCountdown('2026-10-17T00:00:00Z'),
+    { days: 0, hours: 0, minutes: 0, isToday: true });
+  assert.deepEqual(monthlyCountdown('2026-10-16T23:59:30Z'),
+    { days: 0, hours: 0, minutes: 1, isToday: true });
+  assert.deepEqual(monthlyCountdown('2026-10-17T02:00:00Z'),
+    { days: 0, hours: 0, minutes: 0, isToday: true });
+  assert.deepEqual(monthlyCountdown('2026-11-21T00:00:00Z'),
+    { days: 0, hours: 1, minutes: 0, isToday: true });
+  assert.deepEqual(monthlyCountdown('2026-11-21T01:00:00Z'),
+    { days: 0, hours: 0, minutes: 0, isToday: true });
+  assert.deepEqual(monthlyCountdown('2026-10-17T04:00:00Z'),
+    { days: 34, hours: 21, minutes: 0, isToday: false });
   assert.equal(monthlyCountdown('invalid-date'), null);
 });

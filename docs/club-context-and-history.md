@@ -42,7 +42,7 @@ The GitHub repository is **public**. Keep this record about club identity, alrea
 
 The recurring third-Friday gathering is the fundamental tradition: making time for the same people, with ceremonial language applied to an intentionally simple event. **Monthly Stammtisch often takes place at the headquarters. The Annual Gentlemen's Assembly is distinct: an off-site retreat, typically at a rented cottage.** An Annual General Meeting has appeared in constitution/governance drafting, but do not invent a formal agenda or minutes.
 
-A modest homepage monthly-date reminder computes the next third Friday in **America/Toronto** and offers a **recurring date-only calendar file** (../stammtisch-monthly.ics). It is deliberately not a confirmed meeting start time or exact venue; the annual Assembly's separate timed countdown and event file remain unchanged.
+A modest homepage monthly-date reminder computes the next third Friday in **America/Toronto** and offers a **recurring date-only calendar file** (../stammtisch-monthly.ics). On 15 October 2026 the owner confirmed the monthly start as **8 p.m. America/Toronto**. The homepage countdown targets that hour; the calendar remains an all-day date reminder. The exact venue stays private; the annual Assembly's separate timed countdown and event file remain unchanged.
 
 **Next published Assembly:** Friday, **5 February 2027 at 9:00 a.m. America/Toronto**, in Huntsville, Ontario. This is the published Assembly start, **not** rental check-in. The public site includes a cottage listing, countdown, event description, packing considerations, and a start-only calendar file. A departure time, itinerary, room assignments and private access instructions have not been supplied as public facts.
 
@@ -128,7 +128,7 @@ These are milestones from relevant conversation history; they are **not** a veri
 - docs/col-push-rollout.md and issue #18 — approved notification contract, activation and ledger.
 - docs/gmktec-local-development.md and issue #20 — completed local set-up/verification.
 - index.html, location.html, celebration.html and their associated scripts/styles — actual published implementation.
-- monthly.mjs and stammtisch-monthly.ics — monthly third-Friday date display/calendar; this does not expose a meeting time or address.
+- monthly.mjs and stammtisch-monthly.ics — monthly third-Friday date display, confirmed 8 p.m. Toronto countdown and date-only calendar; no private address.
 - docs/annals-publication-guidelines.md — owner-directed privacy-first plan, not individual consent to publish new photos/stories.
 
 **Relevant earlier ChatGPT conversations (historical leads, not public source documents):**
