@@ -136,23 +136,6 @@
       },
       "credit": "anonymous",
       "contributorPortrait": "fish"
-    },
-    {
-      "id": "annal-d43273618b69fd821944f771",
-      "category": "artefact",
-      "title": "fictional wooden recipe box with three blank index cards",
-      "summary": "Artefact entry for testing: a fictional wooden recipe box with three blank\nindex cards. This object is imaginary, not part of a real club collection.",
-      "year": 2026,
-      "dateLabel": "Submitted 2026-10",
-      "sortDate": "",
-      "quoteVerbatim": "",
-      "recipe": {
-        "drinkIngredients": [],
-        "syrupIngredients": [],
-        "steps": []
-      },
-      "credit": "anonymous",
-      "contributorPortrait": "fish"
     }
   ],
   "approvals": [
@@ -267,20 +250,6 @@
       "entryId": "annal-09e9fad19fffb4f2ed634506",
       "mode": "standing-consent-text-v1",
       "signature": "b32103cb0eca01a5d482f6539fc6f79b52a9e0879d5a7624fb117be9b6221911"
-    },
-    {
-      "approvedAt": "2026-10-15T04:16:18.533Z",
-      "consents": {
-        "namedAttribution": true,
-        "photoPublication": false,
-        "publication": true,
-        "quotePublication": false,
-        "recipeVerified": false
-      },
-      "contentSha256": "70273585caa34629e8abdde37306cc9c00e8a375db523a7e3c93583abf3a1ea9",
-      "entryId": "annal-d43273618b69fd821944f771",
-      "mode": "standing-consent-text-v1",
-      "signature": "6521d1934240ad225f7289ee1e5fd0eb7ef17f22bb053ab896c71b3206c6b0e8"
     }
   ]
 }
