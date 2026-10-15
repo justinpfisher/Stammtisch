@@ -1,7 +1,8 @@
 # Annals photographs and member-initiated CoL revisions
 
 > **Current continuation:** [Observed private installation and qualification](annals-private-qualification-2026-10-15.md)
-> records PR #75 installed as existing deployment version 27, the supported manual
+> records PR #75 installed as existing deployment version 27 and PR #76 as version
+> 28, the privately recorded six-member standing attestation, the supported manual
 > Sheet editor/independent Viewer route, reconciled original QA diagnoses and the
 > still-blocked rule activation/automation gaps. Earlier access/matrix limitations
 > below describe the earlier cloud session. New publication remains disabled.
