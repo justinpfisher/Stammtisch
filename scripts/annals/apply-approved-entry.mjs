@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildPublishedAnnals, contentDigest, validatePublicTextEntry, verifyPublicApproval, verifyPublicRemoval } from './ApprovedRenderer.mjs';
+import { emptyHistory } from './HistoryPublisher.mjs';
 
 function approvedPhoto(entry, base64) {
   if (!entry.photo) {
@@ -32,31 +33,45 @@ function approvedPhoto(entry, base64) {
   return bytes;
 }
 
-export async function applyApprovedEntry({ event, data, secret }) {
+export function assertFreshDispatch(event, now) {
+  const timestamp=event?.client_payload?.approval?.approvedAt;
+  const at=Date.parse(timestamp);
+  if(!Number.isFinite(at)||at>now.getTime()+60000||now.getTime()-at>86400000)
+    throw new Error('Expired or future publication approval');
+}
+
+export async function applyApprovedEntry({ event, data, secret, history = emptyHistory(), now }) {
   const actions = ['annals-approved-entry', 'annals-auto-entry', 'annals-correct-entry', 'annals-remove-entry'];
   if (!event || !actions.includes(event.action) || !event.client_payload) throw new Error('Invalid dispatch event');
   if (!data || data.schemaVersion !== 1 || !Array.isArray(data.entries) || !Array.isArray(data.approvals) ||
-      Object.keys(data).some(k => !['schemaVersion', 'entries', 'approvals'].includes(k))) throw new Error('Invalid public archive');
+      Object.keys(data).some(k => !['schemaVersion', 'entries', 'approvals', 'retiredIds'].includes(k))) throw new Error('Invalid public archive');
+  if (now) assertFreshDispatch(event,now);
+  const retiredIds=[...(data.retiredIds || [])];
+  if(!Array.isArray(data.retiredIds || [])||retiredIds.length>5000||new Set(retiredIds).size!==retiredIds.length||retiredIds.some(id=>typeof id!=='string'||!/^[a-z0-9][a-z0-9-]{5,63}$/.test(id)))throw new Error('Invalid withdrawal replay ledger');
   const entries = data.entries.map(validatePublicTextEntry);
   const approvals = [...data.approvals];
   const assetsToWrite = [], assetsToDelete = [];
   // Refuse to mutate an archive that already contains invalid public approvals.
-  buildPublishedAnnals(entries, approvals, secret);
+  buildPublishedAnnals(entries, approvals, secret, history);
   if (event.action === 'annals-remove-entry') {
     if (Object.keys(event.client_payload).sort().join(',') !== 'approval,entryId') throw new Error('Invalid removal payload');
     const index = entries.findIndex(item => item.id === event.client_payload.entryId);
     const approvalIndex = approvals.findIndex(item => item?.entryId === event.client_payload.entryId);
     if (index < 0 || approvalIndex < 0 || !verifyPublicRemoval(entries[index], event.client_payload.approval, secret)) throw new Error('Missing exact removal approval');
     entries.splice(index, 1); approvals.splice(approvalIndex, 1);
-    const result = buildPublishedAnnals(entries, approvals, secret);
-    return { data: { schemaVersion: 1, entries, approvals }, html: result.html,
+    retiredIds.push(event.client_payload.entryId);
+    const result = buildPublishedAnnals(entries, approvals, secret, history);
+    return { data: { schemaVersion: 1, entries, approvals, retiredIds }, html: result.html,
       assetsToDelete: [{ path: `assets/annals/${event.client_payload.entryId}.jpg` }], assetsToWrite: [] };
   } else {
     const keys = Object.keys(event.client_payload).sort().join(',');
     if (keys !== 'approval,entry' && keys !== 'approval,entry,imageBase64') throw new Error('Invalid entry payload');
     const entry = validatePublicTextEntry(event.client_payload.entry), approval = event.client_payload.approval;
+    if(retiredIds.includes(entry.id))throw new Error('Withdrawn identity cannot be replayed');
     if (!verifyPublicApproval(entry, approval, secret)) throw new Error('Missing exact public approval');
     if (event.action === 'annals-auto-entry') {
+      if (['club_history','monthly_gathering','artefact'].includes(entry.category))
+        throw new Error('Living History requires distinct signed revision authority');
       if ((approval.mode === 'standing-consent-text-v1' && (entry.photo || event.client_payload.imageBase64 !== undefined)) ||
           (approval.mode === 'standing-consent-image-v1' && (!entry.photo || event.client_payload.imageBase64 === undefined)) ||
           (approval.mode === 'standing-consent-quote-v1' &&
@@ -74,7 +89,7 @@ export async function applyApprovedEntry({ event, data, secret }) {
       entries.push(entry); approvals.push(approval);
     } else {
       const approvalIndex = approvals.findIndex(item => item?.entryId === entry.id);
-      if (index < 0 || approvalIndex < 0 || contentDigest(entries[index]) === contentDigest(entry)) {
+      if (index < 0 || approvalIndex < 0 || Date.parse(approval.approvedAt) <= Date.parse(approvals[approvalIndex].approvedAt) || contentDigest(entries[index]) === contentDigest(entry)) {
         throw new Error('Correction must replace an existing entry with changed exact text');
       }
       if (entries[index].photo && !entry.photo) assetsToDelete.push({ path: `assets/annals/${entry.id}.jpg` });
@@ -82,15 +97,16 @@ export async function applyApprovedEntry({ event, data, secret }) {
     }
     if (imageBytes) assetsToWrite.push({ path: `assets/annals/${entry.id}.jpg`, bytes: imageBytes });
   }
-  const rendered = buildPublishedAnnals(entries, approvals, secret);
-  return { data: { schemaVersion: 1, entries, approvals }, html: rendered.html, assetsToWrite, assetsToDelete };
+  const rendered = buildPublishedAnnals(entries, approvals, secret, history);
+  return { data: { schemaVersion: 1, entries, approvals, ...(retiredIds.length ? {retiredIds} : {}) }, html: rendered.html, assetsToWrite, assetsToDelete };
 }
 
 async function main() {
   const event = JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, 'utf8'));
   const dataPath = 'data/annals-approved.json';
   const data = JSON.parse(await readFile(dataPath, 'utf8'));
-  const result = await applyApprovedEntry({ event, data, secret: process.env.ANNALS_PUBLISH_SIGNING_KEY });
+  const history = JSON.parse(await readFile('data/club-history.json', 'utf8'));
+  const result = await applyApprovedEntry({ event, data, secret: process.env.ANNALS_PUBLISH_SIGNING_KEY, history, now:new Date() });
   for (const item of result.assetsToDelete) await rm(item.path, { force: true });
   for (const item of result.assetsToWrite) { await mkdir(path.dirname(item.path), { recursive: true }); await writeFile(item.path, item.bytes); }
   await writeFile(dataPath, JSON.stringify(result.data, null, 2) + '\n');

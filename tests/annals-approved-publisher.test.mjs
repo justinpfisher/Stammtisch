@@ -11,8 +11,8 @@ const entry = { id: 'annal-aaaaaaaaaaaaaaaaaaaaaaaa', category: 'cocktail', titl
   recipe: { drinkIngredients: ['1/2 oz imaginary syrup'], syrupIngredients: [], steps: ['Synthetic only.'] } };
 const canonical = value => Array.isArray(value) ? value.map(canonical) : value && typeof value === 'object'
   ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
-const makeApproval = source => {
-  const unsigned = { entryId: source.id, approvedAt: '2026-10-09T12:00:00.000Z',
+const makeApproval = (source,approvedAt='2026-10-09T12:00:00.000Z') => {
+  const unsigned = { entryId: source.id, approvedAt,
     consents: { publication: true, quotePublication: false, recipeVerified: true, namedAttribution: false, photoPublication: false },
     contentSha256: contentDigest(source) };
   return { ...unsigned, signature: createHmac('sha256', secret)
@@ -66,7 +66,7 @@ test('publisher workflow is reachable only through the dedicated repository disp
 
 test('signed correction replaces only the exact existing entry and preserves the rest', async () => {
   const previous={...entry,id:'annal-bbbbbbbbbbbbbbbbbbbbbbbb',title:'Prior public entry'}, previousApproval=makeApproval(previous);
-  const corrected={...previous,title:'Corrected public entry',summary:'Corrected exact content.'}, correctionApproval=makeApproval(corrected);
+  const corrected={...previous,title:'Corrected public entry',summary:'Corrected exact content.'}, correctionApproval=makeApproval(corrected,'2026-10-09T12:00:01.000Z');
   const event={action:'annals-correct-entry',client_payload:{entry:corrected,approval:correctionApproval}};
   const result=await applyApprovedEntry({event,data:{schemaVersion:1,entries:[previous],approvals:[previousApproval]},secret});
   assert.equal(result.data.entries.length,1);assert.equal(result.data.entries[0].title,'Corrected public entry');

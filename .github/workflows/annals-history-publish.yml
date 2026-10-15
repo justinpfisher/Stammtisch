@@ -1,0 +1,34 @@
+name: Publish qualified signed Club History revision
+on:
+  repository_dispatch:
+    types: [annals-history-revision]
+permissions:
+  contents: write
+concurrency:
+  group: annals-approved-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: vars.ANNALS_HISTORY_RELEASE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify distinct history authority and exact previous revision
+        env:
+          ANNALS_HISTORY_RELEASE_ENABLED: ${{ vars.ANNALS_HISTORY_RELEASE_ENABLED }}
+          ANNALS_HISTORY_SIGNING_KEY: ${{ secrets.ANNALS_HISTORY_SIGNING_KEY }}
+          ANNALS_PUBLISH_SIGNING_KEY: ${{ secrets.ANNALS_PUBLISH_SIGNING_KEY }}
+        run: node scripts/annals/HistoryPublisher.mjs
+      - name: Commit public narrative only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- data/club-history.json history.html annals.html
+          git diff --cached --quiet && exit 1
+          git commit -m "Publish source-grounded Club History revision"
+          git push origin HEAD:main

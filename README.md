@@ -3,6 +3,13 @@
 Static website published through GitHub Pages at https://stammtischbrewery.com/.
 The publishing branch is `main`; there is no build step.
 
+[15 October Annals editorial release and qualification boundaries](docs/annals-editorial-release-2026-10-15.md)
+and [sanitized October QA summary](docs/annals-october-2026-qa-summary.md) govern the
+current changes. Club History has a dedicated `history.html` reader; its link
+stays hidden until qualified content exists. Private source updates, signing
+rotation and activation must be verified in the existing Apps Script project;
+merged source alone does not establish those capabilities as live.
+
 
 ## Club context and review
 

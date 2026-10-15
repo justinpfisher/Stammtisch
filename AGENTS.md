@@ -1,5 +1,21 @@
 # Stammtisch repository working instructions
 
+## Current Annals release authority — 15 October 2026
+
+The owner's final QA/editorial/history/CoL assignment supersedes older category
+and display proposals below. Read `docs/annals-editorial-release-2026-10-15.md`
+and `docs/annals-october-2026-qa-summary.md` first. Ordinary text production was
+already activated; never repeat setup or reset live state. New merged private
+source is not proof of an updated Apps Script deployment. The two reported
+signing exposures still need owner-controlled remediation; do not enable new
+publishing capabilities until verified. History signing is separately gated and
+disabled by default. Use four surviving collections, display-only recipe/date/
+redaction transformations, and private protective CoL proposal routing. A
+proposal is never adoption. Automatic media remains off. Preserve all CoL rules,
+records, awards and notifications. Do not close the six original QA failures
+without the private completed matrix and case-level evidence.
+
+
 ## Club identity and institutional memory
 
 - Before changing club-facing narrative, membership descriptions, the Annual Assembly, image choices, or club traditions, consult `docs/club-context-and-history.md`. It consolidates relevant prior conversations **without** converting unapproved draft governance into adopted rules.

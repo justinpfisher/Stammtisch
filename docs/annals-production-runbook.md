@@ -1,5 +1,16 @@
 # Stammtisch Annals — production automatic-publication runbook
 
+**15 October 2026 release boundary:** Read the
+[editorial release and secure update procedure](annals-editorial-release-2026-10-15.md)
+and [sanitized original-QA status](annals-october-2026-qa-summary.md) first. These
+supersede retired-category and uppercase-redaction instructions below. Existing
+text production is operational; do not reinstall or reset it. Private source
+updates still require an actual deployment update. Two reported signing
+exposures remain unremediated in this workspace; distinct history publication
+is disabled pending remediation and hosted qualification. CoL proposals remain
+private and never adopt rules. Media remains off.
+
+
 **Owner decision: 10 October 2026 (refined).** The owner authorised **publish by default** for ordinary authenticated, separately consented member contributions without routine human review. Minor editorial, wording, heading, category or uncertain event-date issues are not grounds for holding an otherwise publishable item. Only concrete privacy, third-party rights, factual measurement or security problems block automatic publication. This is a liberal *editorial* standard, not permission to publish private or unconsented material. This **supersedes mandatory owner approval for every item**, not existing privacy, authenticity, individual-consent, image or Celebration of Life safeguards. The earlier 8 October design proposal and pilot notes are historical, not the current publication policy.
 
 **Observed 14 October 2026, 8:09 p.m. Toronto: automatic text production operational.** The existing owner-only Apps Script deployment is version 13, with the merged source through PR #54. Authenticated ordinary Gmail intake, dot-equivalent allowlist resolution, private AI interpretation, exact self-quotation grounding, the approved owner portrait, a distinct signed quotation dispatch, GitHub publication, Pages deployment, private `verified_live`, and authenticated withdrawal were observed. The single existing Head trigger remains every 15 minutes; its 8:00 p.m. scheduled run completed. Intake, AI and automatic text publication are `true`; automatic media is `false`. Do not repeat completed activation, reset the activation boundary or inbox cursor, recreate consents, clear attempts, or rerun paid diagnostics merely because earlier status notes described an unfinished installation.

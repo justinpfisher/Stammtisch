@@ -47,7 +47,7 @@ var AnnalsPilot = (function () {
     if (/\b(cocktail|syrup|recipe|mocktail|shrub|garnish|negroni|martini|mixed drinks?)\b/i.test(text)) return 'cocktail';
     if (/\b(quote|quotation|someone said|overheard|wisdom)\b/i.test(text)) return 'quotation';
     if (/\b(annual assembly|annual retreat|cottage weekend)\b/i.test(text)) return 'assembly';
-    if (/\b(monthly stam(m)?tisch|third friday|monthly meeting)\b/i.test(text)) return 'monthly_gathering';
+    if (/\b(monthly stam(m)?tisch|third friday|monthly meeting)\b/i.test(text)) return 'club_history';
     if (/\b(annals|history|archive|old photo|remember when)\b/i.test(text)) return 'club_history';
     return 'uncategorised';
   }

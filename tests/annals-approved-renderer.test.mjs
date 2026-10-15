@@ -198,7 +198,7 @@ test('club artefacts are a supported text-only public category', () => {
   };
   const receipt = signedTestReceipt(artefact);
   const result = buildApprovedAnnals([artefact], [receipt], TEST_SECRET);
-  assert.ok(result.html.includes('Club Artefacts'));
+  assert.ok(result.html.includes('Club History'));
   assert.ok(result.html.includes('Fictional test keepsake'));
 });
 

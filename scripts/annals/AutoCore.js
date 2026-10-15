@@ -9,6 +9,16 @@ var AnnalsAuto = (function () {
   var QUOTE_MODE = 'standing-consent-quote-v1';
   var NOTICE = 'The Editorial Committee reserves the right to replace particularly spirited language with conspicuous euphemisms. Historical accuracy is otherwise maintained. The Editorial Committee is actually just AI we tried to train.';
   var CATEGORIES = ['cocktail', 'quotation', 'monthly_gathering', 'assembly', 'club_history', 'artefact'];
+  // Independent of the AI category. Conservative private routing also covers
+  // ambiguous references and mixed recipe/proposal emails, in either field.
+  function protectedRoute(subject, body) {
+    var text = (String(subject || '') + '\n' + String(body || '')).normalize('NFKC')
+      .replace(/[\u200B-\u200D\uFEFF]/g, '');
+    var domain = /\b(?:CoL|celebration\s+of\s+life|diamond|birthday\s+buffet|devil[’']?s\s+share|jettison|celebrity\s+(?:pool|draft)|deaths?|selections?|awards?|eligibility|rollover|steals?|scor(?:e|es|ing)|points?|draft(?:ing)?|rules?)\b/i;
+    var proposal = /\b(?:propos\w*|suggest\w*|amend\w*|chang\w*|revis\w*|replac\w*|adopt\w*|should|could\s+we|what\s+if|how\s+about|let[’']?s|instead|new\s+rule|increase|decrease|double|halve|abolish|remove|allow|must|ought|need\s+to)\b/i;
+    var specific = /\b(?:CoL|celebration\s+of\s+life|diamond|birthday\s+buffet|devil[’']?s\s+share|jettison|celebrity\s+(?:pool|draft))\b/i;
+    return specific.test(text) || domain.test(text) && proposal.test(text) ? 'col_proposal' : 'annals';
+  }
   // Specific hard stops. Generic club language ("home", "family", "history",
   // "photograph") is NOT inherently a reason to suppress innocent text.
   var PRIVATE_DATA = /(?:\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b|https?:\/\/|www\.|\b(?:\+?1[- .]?)?\(?[2-9]\d{2}\)?[- .][2-9]\d{2}[- .]\d{4}\b|\b\d{1,5}\s+[\w'-]+\s+(?:street|st\.|avenue|ave\.|road|rd\.|drive|lane|boulevard|blvd\.)\b|\b(?:password|passcode|access code|door code|postal code|credit card|bank account|home address|private address|personal phone|private message|confidential|secret|medical diagnosis)\b|^\s*(?:from|sent|subject|to|cc|bcc)\s*:|^\s*>|^\s*--\s*$|<[^>]+>|\b(?:ignore previous instructions|system prompt|developer instructions|api key|publish this regardless|override safeguards)\b)/im;
@@ -33,7 +43,7 @@ var AnnalsAuto = (function () {
     if (typeof value !== 'string') throw new Error('Invalid editorial text');
     return value.replace(/\b(?:tastes?|smells?)\s+like\s+shit\b/gi, function (part) {
       return part.replace(/\bshit\b/i, '[POOP]');
-    }).replace(/\b(?:motherfucker|motherfucking|fucking|fucked|fucker|fuck|bullshit|shitty|shit|asshole|bastard|bitch|cunt|dickhead)\b/gi, '[EXPLETIVE]');
+    }).replace(/\b(?:motherfucker|motherfucking|fucking|fucked|fucker|fuck|bullshit|shitty|shit|asshole|bastard|bitch|cunt|dickhead)\b/gi, '[expletive]');
   }
   function norm(value) { return String(value).trim().replace(/^\s*[-*•]\s*/, '').replace(/\s+/g, ' ').toLowerCase(); }
   function held(reason) { return { eligible: false, reason: reason }; }
@@ -204,6 +214,9 @@ var AnnalsAuto = (function () {
     var source = body || subject;
     if (!source || subject.length + body.length > 11000) return held('source_incomplete');
     var full = [subject, body].filter(Boolean).join('\n').trim();
+    if (protectedRoute(s.subject, s.excerpt) !== 'annals') return held('col_proposal_private_review');
+    if (['club_history','monthly_gathering','artefact'].indexOf(candidate.category) >= 0)
+      return held('living_history_revision_required');
     if (candidate.category === 'quotation') {
       if (!privateSource.attachmentManifest ||
           !Array.isArray(privateSource.attachmentManifest.items) ||
@@ -252,6 +265,6 @@ var AnnalsAuto = (function () {
       credit: 'anonymous' };
     return { eligible: true, entry: entry, mode: MODE };
   }
-  return Object.freeze({ MODE: MODE, QUOTE_MODE: QUOTE_MODE, NOTICE: NOTICE, censor: censor, cleanText: cleanText, quotationEvidence: quotationEvidence, independentText: independentText, suggestedMethod: suggestedMethod, propose: propose });
+  return Object.freeze({ MODE: MODE, QUOTE_MODE: QUOTE_MODE, NOTICE: NOTICE, sensitiveText: protectedText, protectedRoute: protectedRoute, censor: censor, cleanText: cleanText, quotationEvidence: quotationEvidence, independentText: independentText, suggestedMethod: suggestedMethod, propose: propose });
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = AnnalsAuto;

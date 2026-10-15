@@ -5,6 +5,11 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/celebration-*.yml'
+      - '.github/workflows/annals-*.yml'
+      - 'annals.html'
+      - 'history.html'
+      - 'data/annals-approved.json'
+      - 'data/club-history.json'
       - 'scripts/**'
       - 'data/celebration*.json'
       - 'celebration*.mjs'

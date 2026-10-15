@@ -518,15 +518,16 @@ function annalsStageProduction_(message, activation, allowed) {
   if (annalsFile_(folder, 'quarantine-private.json')) return 'held';
   if (annalsRead_(folder, 'source-private.json')) return 'duplicates';
   var authenticated = annalsAuthentication_(message, authenticatedSender);
+  var originalSubject=message.getSubject(), originalBody=message.getPlainBody();
   if (authenticated) {
-    var consentResult = annalsHandleConsentReply_(sender, message.getPlainBody());
+    var consentResult = annalsHandleConsentReply_(sender, originalBody);
     if (consentResult) return consentResult;
-    var firstLine = String(message.getPlainBody() || '').trim().split(/\n?\n/)[0] || '';
+    var firstLine = String(originalBody || '').trim().split(/\n?\n/)[0] || '';
     if (/^(?:I CONSENT TO |REVOKE ANNALS |HIDE MY ANNALS PORTRAIT|SHOW MY ANNALS PORTRAIT)/.test(firstLine)) return 'held'; // invalid/stale challenges are not submissions
   }
   var attachments = message.getAttachments({ includeInlineImages: true, includeAttachments: true });
-  var source = AnnalsPilot.privateProposal({ sourceId: id, from: authenticated ? sender : authenticatedSender, subject: message.getSubject(),
-    body: message.getPlainBody(), receivedAt: message.getDate().toISOString(),
+  var source = AnnalsPilot.privateProposal({ sourceId: id, from: authenticated ? sender : authenticatedSender, subject: originalSubject,
+    body: originalBody, receivedAt: message.getDate().toISOString(),
     attachments: attachments.map(function (a) { return { mime: a.getContentType(), size: a.getSize() }; }) });
   if (source.attachmentManifest.reason !== 'total_attachments_too_large') {
     source.attachmentManifest.items.forEach(function (a) {
@@ -537,8 +538,11 @@ function annalsStageProduction_(message, activation, allowed) {
   source.aiConsentActive = source.senderAuthenticated && annalsConsentActive_(sender);
   source.autoConsentAtReceipt = source.senderAuthenticated && annalsStandingPublicationActive_(sender, message.getDate().toISOString());
   source.imageConsentAtReceipt = source.senderAuthenticated && annalsImageConsentActive_(sender, message.getDate().toISOString());
+  annalsWriteOnce_(folder, 'original-email-private.json', {subject:originalSubject,body:originalBody,receivedAt:message.getDate().toISOString()});
+  source.protectiveRoute = AnnalsAuto.protectedRoute(originalSubject, originalBody);
   annalsWriteOnce_(folder, 'source-private.json', source);
   if (!source.senderAuthenticated) return 'unverified';
+  if (source.protectiveRoute === 'col_proposal') return 'held';
   if (!source.aiConsentActive) { annalsAckOnce_(folder, sender, id, 'private_review_only'); return 'awaiting_consent'; }
   var hasSourceText = !!(String(source.source.subject || '').trim() || String(source.source.excerpt || '').trim());
   var textComplete = hasSourceText && source.source.sourceTruncated !== true &&
@@ -630,6 +634,10 @@ function annalsResumeConsentedDrafts_(limit) {
     if (!/^[a-f0-9]{64}$/.test(id)) continue;
     var source = annalsRead_(folder, 'source-private.json');
     if (!source || annalsFile_(folder, 'quarantine-private.json')) continue;
+    if (AnnalsAuto.protectedRoute(source.source.subject,source.source.excerpt) !== 'annals') {
+      try {if(annalsPrepareRuleDraftCore_(id))done++;}catch(ignored){}
+      continue;
+    }
     if (annalsFile_(folder, 'draft-private.json')) {
       var dispatched = annalsAutoAttemptSafe_(folder, id);
       if (!dispatched && !annalsFile_(folder, 'draft-notice-private.json')) annalsNotifyDraftReady_(folder);
@@ -843,6 +851,7 @@ function annalsReviewList(nonce, continuation) {
 }
 function annalsReviewStatus_(folder, source, approval) {
   if (annalsFile_(folder, 'quarantine-private.json')) return 'Quarantined - owner-identified test';
+  if (AnnalsAuto.protectedRoute(source.source.subject,source.source.excerpt) !== 'annals') return 'CoL proposal — private owner consideration only';
   if (annalsFile_(folder, 'auto-live-verification-private.json')) return 'Verified live';
   if (approval && approval.publicationState === 'dispatch_accepted') return 'Dispatched — awaiting live verification';
   if (approval && (annalsFile_(folder, 'publication-dispatch-private.json') || approval.publicationState !== 'approved_private_pending_publish'))
@@ -871,6 +880,9 @@ function annalsReviewItem(nonce, id) {
     var approval = annalsRead_(f, 'approval-private.json'), decision = annalsRead_(f, 'auto-decision-private.json');
     var reassessment = annalsRead_(f,'reassessment-attempt-private.json');
     return { id: id, subject: source.source.subject, text: source.source.excerpt, receivedAt: source.source.receivedAt,
+      protectiveRoute: AnnalsAuto.protectedRoute(source.source.subject,source.source.excerpt),
+      ruleProposal: annalsRead_(f,'col-proposal-private.json'),
+      historyReview: annalsRead_(f,'history-review-private.json'),
       truncated: source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated,
       status: annalsReviewStatus_(f, source, approval),
       quarantined: !!annalsFile_(f, 'quarantine-private.json'),
@@ -974,7 +986,7 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
     var p = annalsProps_(), f = annalsFolder_(id);
     if (annalsFile_(f, 'quarantine-private.json')) throw new Error('Quarantined test cannot be drafted');
     if (p.getProperty('ANNALS_AI_ENABLED') !== 'true' || !p.getProperty('ANNALS_OPENAI_API_KEY')) throw new Error('AI configuration incomplete');
-    if (Date.now() > Date.parse('2026-11-08T00:00:00Z')) throw new Error('Review current model pricing before further use');
+    if (Date.now() >= Date.parse('2026-11-08T00:00:00Z')) throw new Error('Review current model pricing before further use');
     if (annalsFile_(f, 'ai-attempt-private.json')) throw new Error('An attempt already exists; no duplicate spend');
     var source = annalsRead_(f, 'source-private.json');
     if (!source || !Array.isArray(selectedNames) || selectedNames.length > 3 || new Set(selectedNames).size !== selectedNames.length) throw new Error('Invalid sources');
@@ -990,6 +1002,7 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
         throw new Error('Invalid automated image selection');
       images = derivedImages;
     }
+    annalsOrdinarySourceGate_(source);
     var request = AnnalsProduction.request(text, images);
     var month = Utilities.formatDate(new Date(), 'America/Toronto', 'yyyy-MM');
     var ledger = AnnalsProduction.reserve(JSON.parse(p.getProperty('ANNALS_BUDGET_LEDGER') || 'null'), month);
@@ -1108,6 +1121,7 @@ function annalsSaveReview(nonce, id, rawEntry) {
   return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
     var f = annalsFolder_(id);
     if (!annalsRead_(f, 'source-private.json') || annalsFile_(f, 'approval-private.json')) throw new Error('Item cannot be edited here');
+    annalsOrdinarySourceGate_(annalsRead_(f,'source-private.json'));
     var entry = AnnalsProduction.publicEntry(rawEntry);
     if (entry.contributorPortrait && entry.contributorPortrait !==
         annalsContributorPortrait_(annalsRead_(annalsFolder_(id),'source-private.json')))
@@ -1130,6 +1144,7 @@ function annalsApproveReview(nonce, id, expectedHash, consents, evidenceNote, un
     var f = annalsFolder_(id), review = annalsRead_(f, 'review-private.json');
     if (!review || review.hash !== expectedHash || annalsHash_(AnnalsProduction.serial(review.entry)) !== expectedHash ||
         uncertaintiesReviewed !== true || typeof evidenceNote !== 'string' || evidenceNote.trim().length < 10 || evidenceNote.length > 2000) throw new Error('Exact review and consent evidence required');
+    annalsOrdinarySourceGate_(annalsRead_(f,'source-private.json'));
     var entry = AnnalsProduction.publicEntry(review.entry);
     var key = annalsProps_().getProperty('ANNALS_APPROVAL_KEY') || '';
     if (key.length < 32) throw new Error('Missing signing configuration');
@@ -1174,10 +1189,12 @@ function annalsPrivateReceiptValid_(entry, receipt) {
 }
 function annalsDispatchEvent_(folder, eventType, clientPayload, markerName) {
   var p = annalsProps_(), token = p.getProperty('ANNALS_GITHUB_TOKEN'), repo = p.getProperty('ANNALS_GITHUB_REPOSITORY');
+  if (Date.now() >= Date.parse('2026-11-09T00:00:00Z')) return false;
   if (!token || (p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') || '').length < 32 ||
       p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') === p.getProperty('ANNALS_APPROVAL_KEY') ||
       !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo || '') ||
-      ['annals-approved-entry','annals-auto-entry','annals-correct-entry','annals-remove-entry'].indexOf(eventType) < 0 || annalsFile_(folder, markerName)) return false;
+      ['annals-approved-entry','annals-auto-entry','annals-correct-entry','annals-remove-entry','annals-history-revision'].indexOf(eventType) < 0 || annalsFile_(folder, markerName)) return false;
+  if (eventType === 'annals-history-revision' && (p.getProperty('ANNALS_HISTORY_PUBLICATION_ENABLED') !== 'true' || !Number.isFinite(Date.parse(p.getProperty('ANNALS_SIGNING_REMEDIATED_AT'))))) return false;
   var marker = { state: 'attempt_reserved', at: new Date().toISOString() };
   var requestBody = JSON.stringify({ event_type: eventType, client_payload: clientPayload });
   if (Utilities.newBlob(requestBody, 'application/json').getBytes().length > 60000) return false;
@@ -1197,6 +1214,8 @@ function annalsDispatchEvent_(folder, eventType, clientPayload, markerName) {
 }
 function annalsDispatchApproved_(folder, entry, approval, eventType, markerName) {
   if (annalsFile_(folder, 'quarantine-private.json')) throw new Error('Quarantined test cannot be published');
+  annalsOrdinarySourceGate_(annalsRead_(folder,'source-private.json'));
+  if (eventType !== 'annals-correct-entry' && ['club_history','monthly_gathering','artefact'].indexOf(entry.category) >= 0) throw new Error('Use the distinct Living History workflow');
   if (!approval) return false;
   var payload = { entry: entry, approval: approval };
   if (entry.photo) {

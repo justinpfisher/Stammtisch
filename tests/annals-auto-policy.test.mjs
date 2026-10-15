@@ -36,11 +36,11 @@ function proof(entry) {
   return {...approval,signature};
 }
 test('strong profanity is conspicuously censored without changing mild language or measurements', () => {
-  assert.equal(policy.censor('Holy shit!'), 'Holy [EXPLETIVE]!');
-  assert.equal(policy.censor('What the fuck?'), 'What the [EXPLETIVE]?');
+  assert.equal(policy.censor('Holy shit!'), 'Holy [expletive]!');
+  assert.equal(policy.censor('What the fuck?'), 'What the [expletive]?');
   assert.equal(policy.censor('This tastes like shit.'), 'This tastes like [POOP].');
   assert.equal(policy.censor('That was damn good. Hell yes.'), 'That was damn good. Hell yes.');
-  assert.equal(policy.censor('1/2 oz syrup. Fucking excellent.'), '1/2 oz syrup. [EXPLETIVE] excellent.');
+  assert.equal(policy.censor('1/2 oz syrup. Fucking excellent.'), '1/2 oz syrup. [expletive] excellent.');
 });
 test('source-grounded, no-risk fictional cocktail can be assembled anonymously with no inferred event date', () => {
   const decision=policy.propose(sample(),draft(),id);
@@ -119,11 +119,11 @@ test('self-authored quotation with standing consent can publish, with conspicuou
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
   const result=policy.propose(s,d,id);
   assert.equal(result.eligible,true);
-  assert.equal(result.entry.quoteVerbatim,'What the [EXPLETIVE]?');
+  assert.equal(result.entry.quoteVerbatim,'What the [expletive]?');
   const signed=proof(result.entry);
   assert.equal(verifyPublicApproval(result.entry,signed,secret),true);
   const html=buildPublishedAnnals([result.entry],[signed],secret).html;
-  assert.match(html,/Editorially censored quotation — not verbatim/);
+  assert.match(html,/Editorially redacted quotation — not verbatim/);
 });
 test('safe standalone text publishes even if an unrelated image is held privately',()=>{
   const s=sample();s.attachmentManifest.items=[{mime:'image/jpeg',size:1500}];
@@ -144,16 +144,15 @@ test('generic language about a club gathering is not a privacy veto',()=>{
   const s=sample();s.source.subject='Club history';s.source.excerpt='We gathered at home and had a damn good laugh.';
   const d={...draft(),category:'club_history',title:'Club history',
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
-  assert.equal(policy.propose(s,d,id).eligible,true);
+  assert.equal(policy.propose(s,d,id).reason,'living_history_revision_required');
 });
 test('non-cocktail, non-identifying plain-text category can be selected by AI but source remains literal',()=>{
   const s=sample();s.source.subject='Proceedings';s.source.excerpt='Proceedings\nThe chairs were set before the ceremony.';
   const d={...draft(),category:'monthly_gathering',title:'Proceedings',
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
   const result=policy.propose(s,d,id);
-  assert.equal(result.eligible,true);
-  assert.equal(result.entry.category,'monthly_gathering');
-  assert.equal(result.entry.summary,s.source.excerpt);
+  assert.equal(result.eligible,false);
+  assert.equal(result.reason,'living_history_revision_required');
 });
 test('signed automatic proof binds exact text, policy mode and no public sender data',async()=>{
   const entry=policy.propose(sample(),draft(),id).entry, approval=proof(entry);
@@ -164,7 +163,7 @@ test('signed automatic proof binds exact text, policy mode and no public sender 
   const event={action:'annals-auto-entry',client_payload:{entry,approval}};
   const result=await applyApprovedEntry({event,data:original,secret});
   assert.equal(result.data.entries.length,1);
-  assert.match(result.html,/The Editorial Committee reserves the right/);
+  assert.match(result.html,/The Editorial Committee obscures/);
   assert.match(result.html,/The Cocktail Register/);
   assert.doesNotMatch(JSON.stringify(result.data),/sender|reviewer|example\.test|source-private/);
   await assert.rejects(applyApprovedEntry({event,data:result.data,secret}),/already exists/);
@@ -181,10 +180,10 @@ test('an automatic signed proof cannot attach photographs, forge quotation right
 });
 test('empty public archive retains permanent censorship notice without any category',()=>{
   const html=buildPublishedAnnals([],[],secret).html;
-  assert.match(html,/The Editorial Committee reserves the right/);
+  assert.match(html,/The Editorial Committee obscures/);
   assert.doesNotMatch(html,/class="annal-collection"|class="annal-collections"/);
   const staticHtml=readFileSync(new URL('../annals.html',import.meta.url),'utf8');
-  assert.match(staticHtml,/The Editorial Committee reserves the right/);
+  assert.match(staticHtml,/The Editorial Committee obscures/);
   assert.ok(staticHtml.indexOf('annal-editorial-notice')>0);
 });
 test('existing provider spending guard is unchanged and the auto workflow is isolated from CoL',()=>{
@@ -214,7 +213,7 @@ test('source-exact member quotation is held without private speaker permission, 
   assert.equal(allowed.mode,policy.QUOTE_MODE);
   assert.equal(allowed.entry.speakerPortrait,'ken');
   assert.equal(allowed.entry.contributorPortrait,undefined);
-  assert.equal(allowed.entry.quoteVerbatim,'What the [EXPLETIVE]?');
+  assert.equal(allowed.entry.quoteVerbatim,'What the [expletive]?');
   assert.equal(allowed.entry.credit,'anonymous');
   const signed=proof(allowed.entry);
   assert.equal(verifyPublicApproval(allowed.entry,signed,secret),true);
@@ -222,7 +221,7 @@ test('source-exact member quotation is held without private speaker permission, 
   const html=buildPublishedAnnals([allowed.entry],[signed],secret).html;
   assert.match(html,/The Register of Remarks/);
   assert.match(html,/alt="Illustrated portrait of Ken, the speaker"/);
-  assert.match(html,/Editorially censored quotation — not verbatim/);
+  assert.match(html,/Editorially redacted quotation — not verbatim/);
   assert.doesNotMatch(JSON.stringify({entry:allowed.entry,approval:signed}),/member1|@example.test|source\.excerpt/i);
 });
 test('speaker is never fabricated from casual prose, altered quotes or unconsented third-party references',()=>{
@@ -329,7 +328,7 @@ test('subject-only content, body-only recipes and club observations retain their
   const observation=sample();observation.source.subject='The chairs were set before the ceremony.';observation.source.excerpt='';
   const note={...draft(),category:'club_history',title:observation.source.subject,
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
-  assert.equal(policy.propose(observation,note,id).eligible,true);
+  assert.equal(policy.propose(observation,note,id).reason,'living_history_revision_required');
 });
 
 test('distinct quote signature mode cannot be reused for cocktails, photos or sender portraits',()=>{
@@ -408,10 +407,10 @@ test('an exact full labelled quotation field can retain its source wrappers',()=
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
   const result=policy.propose(s,d,id,{speakerPortrait:'fish'});
   assert.equal(result.eligible,true);
-  assert.equal(result.entry.quoteVerbatim,'The imaginary umbrella earned a [EXPLETIVE] medal.\nKeep its ribbon dry.');
+  assert.equal(result.entry.quoteVerbatim,'The imaginary umbrella earned a [expletive] medal.\nKeep its ribbon dry.');
   assert.equal(result.entry.speakerPortrait,'fish');
   assert.match(buildPublishedAnnals([result.entry],[proof(result.entry)],secret).html,
-    /Editorially censored quotation — not verbatim/);
+    /Editorially redacted quotation — not verbatim/);
   for(const changed of [
     s.source.excerpt.replace('medal.','medal!'),
     s.source.excerpt.replace('umbrella earned','umbrella  earned'),
