@@ -655,7 +655,7 @@ test('speaker quote permission can be registered once by owner without activatin
     autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:'2026-10-07T00:00:00Z'}
   });
   x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members}));
-  x.context.GmailApp={...(x.context.GmailApp||{}),sendEmail:(...args)=>emails.push(args)};
+  x.context.GmailApp={...(x.context.GmailApp||{}),sendEmail:(...args)=>emails.push(args)};
   assert.throws(()=>x.context.annalsRecordVerifiedQuotePermissions('valid',false,'owner testimony for each member'),/Operation held/);
   assert.equal(x.files.has('verified-quote-speaker-consents-private.json'),false);
   const done=x.context.annalsRecordVerifiedQuotePermissions('valid',true,'Evidence personally verified outside public GitHub for all six speakers.');
