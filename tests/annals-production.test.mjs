@@ -110,6 +110,33 @@ test('AI request has no tools, remote URLs or publication controls; rejects exce
   for(const status of ['incomplete','failed'])assert.throws(()=>core.response({status,output:[]}));
   assert.throws(()=>core.response({status:'completed',output:[{type:'message',content:[{type:'refusal',refusal:'no'}]}]}));
 });
+test('non-quotation response instructions match the strict quote-field gate and retain private holds', () => {
+  const source = 'An invented attribution was rejected; this is only an offline contract fixture.';
+  const rejectedAttribution = { category: 'uncategorised', title: 'Invented attribution',
+    summary: 'No authentic remark is established by this fictional fixture.', eventDate: '',
+    quoteVerbatim: 'A pretend line used only by an offline contract test.',
+    recipe: { drinkIngredients: [], syrupIngredients: [], steps: [] },
+    riskFlags: ['attribution_unconfirmed', 'other_uncertainty'],
+    interpretation: { intent: 'other', speakerId: 'unknown', evidenceField: 'body' } };
+  const response = raw => ({ status: 'completed', output: [{ type: 'message',
+    content: [{ type: 'output_text', text: JSON.stringify(raw) }] }] });
+  const request = core.request(source, []);
+  assert.match(request.instructions, /When category is quotation, preserve quoteVerbatim exactly as submitted/);
+  assert.match(request.instructions, /When category is not quotation, including uncategorised, return quoteVerbatim as an empty string/);
+  assert.throws(() => core.response(response(rejectedAttribution), false), /Unexpected quotation/);
+  const held = core.response(response({ ...rejectedAttribution, quoteVerbatim: '' }), false);
+  assert.equal(held.category, 'uncategorised');
+  assert.equal(held.interpretation.speakerId, 'unknown');
+  assert.deepEqual(held.riskFlags, rejectedAttribution.riskFlags);
+  const automatic = require('../scripts/annals/AutoCore.js');
+  const decision = automatic.propose({ senderAuthenticated: true, aiConsentActive: true,
+    autoConsentAtReceipt: true, source: { subject: '', excerpt: source,
+      receivedAt: '2026-10-10T12:00:00.000Z' },
+    attachmentManifest: { held: false, items: [] } }, held, 'e'.repeat(64));
+  assert.equal(decision.eligible, false);
+  assert.equal(decision.entry, undefined);
+});
+
 test('every private UI operation rejects a blank or different owner identity and expired session', () => {
   const x=mock();x.context.Session.getActiveUser=()=>({getEmail:()=>''});
   assert.throws(()=>x.context.annalsReviewItem('valid','a'.repeat(64)),/Owner/);
