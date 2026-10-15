@@ -34,23 +34,6 @@
       },
       "credit": "anonymous",
       "contributorPortrait": "fish"
-    },
-    {
-      "id": "annal-a84799613765ad020da68ce7",
-      "category": "monthly_gathering",
-      "title": "Monthly Stammtisch diagnostic: a fictional gathering featured an ordinary empty table. No actual event is claimed.",
-      "summary": "Monthly Stammtisch diagnostic: a fictional gathering featured an ordinary empty table. No actual event is claimed.",
-      "year": 2026,
-      "dateLabel": "Submitted 2026-10",
-      "sortDate": "",
-      "quoteVerbatim": "",
-      "recipe": {
-        "drinkIngredients": [],
-        "syrupIngredients": [],
-        "steps": []
-      },
-      "credit": "anonymous",
-      "contributorPortrait": "fish"
     }
   ],
   "approvals": [
@@ -81,20 +64,6 @@
       "entryId": "annal-252455376e0e358099a6be69",
       "mode": "standing-consent-text-v1",
       "signature": "72652c22161b2864bff38efdcc62499542ae3fcd6102c4023a0c2121a893263a"
-    },
-    {
-      "approvedAt": "2026-10-15T03:01:33.887Z",
-      "consents": {
-        "namedAttribution": true,
-        "photoPublication": false,
-        "publication": true,
-        "quotePublication": false,
-        "recipeVerified": false
-      },
-      "contentSha256": "96700c1c7024ca378a062a1b7c69a51c0376da4856c5699e725ebf4c2db3d314",
-      "entryId": "annal-a84799613765ad020da68ce7",
-      "mode": "standing-consent-text-v1",
-      "signature": "d170384cafb78136ed1c966a6994f65985753ee23e92483354a59521ff12b0a3"
     }
   ]
 }
