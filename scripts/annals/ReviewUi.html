@@ -90,11 +90,11 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 <fieldset id="removalBox"><legend>Remove published entry</legend><p class="muted">Removal withdraws this entry from the public site and public current index. GitHub's permanent commit history may still retain old content.</p>
 <label>Private reason for withdrawal<textarea id="removalReason" maxlength="2000"></textarea></label>
 <label><input type="checkbox" id="removalConfirmed">I reviewed the exact currently published entry and authorize its removal.</label>
-<button id="approveRemoval">Approve and send removal</button></fieldset>
+<button id="approveRemoval">Approve and send removal</button></fieldset></section>
 <fieldset id="quoteRecovery" hidden><legend>One-time recovery of a held quotation</legend>
 <p class="muted">This checks the saved source and existing private draft against current consents and deterministic quotation rules. It makes no AI request. If eligible, it makes one signed publication request. Any uncertain dispatch result remains stopped and is never retried automatically.</p>
 <label><input type="checkbox" id="quoteRecoveryConfirmed">I reviewed this exact original email and saved AI draft, and authorize one deterministic reassessment of this held quotation.</label>
-<button id="reassessHeldQuote">Reassess this held quotation once</button></fieldset></section>
+<button id="reassessHeldQuote">Reassess this held quotation once</button></fieldset>
 </section>
 <script>
 let nonce, current, continuation, review, pendingPhotoBase64=null, photoPreviewUrl=null;
