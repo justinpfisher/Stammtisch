@@ -1,0 +1,31 @@
+name: Annals fictional browser qualification
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/annals-browser-qualification.yml'
+      - 'scripts/annals/**'
+      - 'tests/browser/**'
+      - 'styles.css'
+      - 'assets/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned test-only dependencies
+        working-directory: tests/browser
+        run: npm ci --ignore-scripts
+      - name: Install Chromium and WebKit for fictional qualification
+        working-directory: tests/browser
+        run: npx playwright install --with-deps chromium webkit
+      - name: Run loopback-only fictional browser checks
+        working-directory: tests/browser
+        run: npm run check

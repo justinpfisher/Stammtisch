@@ -63,6 +63,13 @@ service and depend on its availability.
 
 ## Verification
 
+Annals also has a separate, fictional browser-qualification workflow. See
+`tests/browser/qualification.mjs` for loopback-only Chromium/WebKit checks and
+`docs/annals-editorial-release-2026-10-15.md` for evidence limits. Device
+emulation does not establish physical-device or screen-reader acceptance.
+`scripts/annals/build-install-package.py` prepares an exact-revision source ZIP
+for the existing private project; it does not install or activate anything.
+
 Serve the folder with a local static server and inspect both pages at
 desktop and phone widths. Check navigation, disclosure sections, cottage
 and area-map links, and the calendar download. Calendar clients may apply
