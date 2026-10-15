@@ -1,5 +1,13 @@
 import Media from './MediaCore.js';
 import Photos from './PhotoContracts.js';
+
+// Trusted deployment configuration only. An email/payload cannot arm this lane.
+export function photoReleaseAllowed({entryId,photosEnabled,securityVerified,acceptanceEntryId,acceptanceUntil,now=new Date()}){
+  if(securityVerified!==true)return false;
+  if(photosEnabled===true)return true;
+  const until=Date.parse(acceptanceUntil),time=now.getTime();
+  return /^annal-[a-f0-9]{24}$/.test(entryId||'')&&entryId===acceptanceEntryId&&until>time&&until<=time+86400000;
+}
 import {writePhotoIndex} from './PhotoIndex.mjs';
 import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -130,7 +138,10 @@ async function main() {
   const dataPath = 'data/annals-approved.json';
   const data = JSON.parse(await readFile(dataPath, 'utf8'));
   const history = JSON.parse(await readFile('data/club-history.json', 'utf8'));
-  const result = await applyApprovedEntry({ event, data, secret: process.env.ANNALS_PUBLISH_SIGNING_KEY, history, now:new Date(), photosEnabled:process.env.ANNALS_PHOTOS_V2_RELEASE_ENABLED==='true' });
+  const now=new Date(),photosEnabled=photoReleaseAllowed({entryId:event.client_payload?.entry?.id,
+    photosEnabled:process.env.ANNALS_PHOTOS_V2_RELEASE_ENABLED==='true',securityVerified:process.env.ANNALS_SIGNING_REMEDIATION_VERIFIED==='true',
+    acceptanceEntryId:process.env.ANNALS_PHOTOS_ACCEPTANCE_ENTRY_ID,acceptanceUntil:process.env.ANNALS_PHOTOS_ACCEPTANCE_UNTIL,now});
+  const result = await applyApprovedEntry({ event, data, secret: process.env.ANNALS_PUBLISH_SIGNING_KEY, history, now, photosEnabled });
   for (const item of result.assetsToDelete) await rm(item.path, { force: true });
   for (const item of result.assetsToWrite) { await mkdir(path.dirname(item.path), { recursive: true }); await writeFile(item.path, item.bytes); }
   await writeFile(dataPath, JSON.stringify(result.data, null, 2) + '\n');

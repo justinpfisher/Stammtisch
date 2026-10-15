@@ -1,10 +1,25 @@
 function annalsSpeakerIdentities_(){return AnnalsProduction.portraitMap(AnnalsPilot.allowedSenders(annalsProps_().getProperty('ANNALS_ALLOWED_SENDERS')||''),JSON.parse(annalsProps_().getProperty('ANNALS_SPEAKER_IDENTITIES')||'null'));}
 /* In-place extension; all new capabilities default off. No trigger/setup API. */
-function annalsPhotosReady_(){
+function annalsPhotosReady_(id){
   var p=annalsProps_();
-  return p.getProperty('ANNALS_AUTO_MEDIA_ENABLED')==='true' && p.getProperty('ANNALS_PHOTOS_V2_ENABLED')==='true' &&
-    p.getProperty('ANNALS_PHOTOS_HOSTED_ACCEPTED')==='true' &&
-    Number.isFinite(Date.parse(p.getProperty('ANNALS_SIGNING_REMEDIATED_AT')));
+  if(!Number.isFinite(Date.parse(p.getProperty('ANNALS_SIGNING_REMEDIATED_AT'))))return false;
+  if(p.getProperty('ANNALS_AUTO_MEDIA_ENABLED')==='true' && p.getProperty('ANNALS_PHOTOS_V2_ENABLED')==='true' &&
+    p.getProperty('ANNALS_PHOTOS_HOSTED_ACCEPTED')==='true')return true;
+  // A separate, short-lived, exact-source acceptance lane after security work.
+  // It cannot enable another email or override consent, budget or one-shot gates.
+  var until=Date.parse(p.getProperty('ANNALS_PHOTOS_ACCEPTANCE_UNTIL'));
+  return /^[a-f0-9]{64}$/.test(id||'') && id===p.getProperty('ANNALS_PHOTOS_ACCEPTANCE_SOURCE_ID') &&
+    until>Date.now() && until<=Date.now()+86400000;
+}
+function annalsReadPhotoPublicationGates(nonce){
+  return annalsUiCall_(nonce,function(){var p=annalsProps_();return {
+    automaticMedia:p.getProperty('ANNALS_AUTO_MEDIA_ENABLED')==='true',
+    photosV2:p.getProperty('ANNALS_PHOTOS_V2_ENABLED')==='true',
+    photosHostedAccepted:p.getProperty('ANNALS_PHOTOS_HOSTED_ACCEPTED')==='true',
+    rulesV2:p.getProperty('ANNALS_RULES_V2_ENABLED')==='true',
+    rulesHostedAccepted:p.getProperty('ANNALS_RULES_HOSTED_ACCEPTED')==='true',
+    photoAcceptanceConfigured:!!p.getProperty('ANNALS_PHOTOS_ACCEPTANCE_SOURCE_ID')
+  };});
 }
 function annalsPhotoSubjectGrants_(at){
   var members=annalsConsentRegistry_().members,map=annalsSpeakerIdentities_();
@@ -13,6 +28,13 @@ function annalsPhotoSubjectGrants_(at){
     return {member:map[a],active:!!(g&&g.status==='active'&&!g.revokedAt&&m.status==='active'&&!m.revokedAt&&(!m.imagePublication||m.imagePublication.status!=='revoked')&&m.autoPublication&&m.autoPublication.status==='active'&&!m.autoPublication.revokedAt),
       atReceipt:!!(g&&Number.isFinite(Date.parse(g.consentedAt))&&Date.parse(g.consentedAt)<=Date.parse(at))};
   });
+}
+function annalsStandingGalleryCorrectionAllowed_(source){
+  if(!source||source.senderAuthenticated!==true||source.imageConsentAtReceipt!==true)return false;
+  var grants=annalsPhotoSubjectGrants_(source.source.receivedAt);
+  return !!source&&source.senderAuthenticated===true&&source.imageConsentAtReceipt===true&&
+    annalsImageConsentActive_(source.source.sender,source.source.receivedAt)&&
+    grants.length===6&&grants.every(function(g){return g.active&&g.atReceipt;});
 }
 /** Record the owner's 15 October standing attestation, not invented member mail.
  * Never calls this automatically or revives an individual revocation. */
@@ -33,7 +55,7 @@ function annalsRecordSixMemberPhotoAttestation(nonce,evidence){
   });});
 }
 function annalsPhotoSet_(id,source,create){
-  if(!annalsPhotosReady_()||!source.imageConsentAtReceipt||!annalsImageConsentActive_(source.source.sender,source.source.receivedAt))return [];
+  if(!annalsPhotosReady_(id)||!source.imageConsentAtReceipt||!annalsImageConsentActive_(source.source.sender,source.source.receivedAt))return [];
   var f=annalsFolder_(id),saved=annalsRead_(f,'photos-v2-private.json');
   if(saved){
     return saved.map(function(p){var file=annalsFile_(f,p.name);if(!file)throw new Error('Missing private derivative');

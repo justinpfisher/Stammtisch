@@ -1,5 +1,12 @@
 # October 2026 Annals QA — sanitized evidence register
 
+> **15 October GMKtec continuation:** The completed matrix is now accessible.
+> [Six-case reconciliation](annals-private-qualification-2026-10-15.md#qa-and-accessibility-evidence)
+> identifies Q03, M04, A01–A03 and H04: four classification false holds, one safe
+> invalid-output stop and one defensible category difference; no false publication
+> among these six. Historical diagnosis is reconciled; genuine post-fix acceptance
+> remains open. Earlier unavailable/unidentified statements below are historical.
+
 As of 15 October 2026. No raw submissions, private message identifiers,
 consents, credential values or private review links belong in this document.
 

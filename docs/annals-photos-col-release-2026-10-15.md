@@ -1,5 +1,11 @@
 # Annals photographs and member-initiated CoL revisions
 
+> **Current continuation:** [Observed private installation and qualification](annals-private-qualification-2026-10-15.md)
+> records PR #75 installed as existing deployment version 27, the supported manual
+> Sheet editor/independent Viewer route, reconciled original QA diagnoses and the
+> still-blocked rule activation/automation gaps. Earlier access/matrix limitations
+> below describe the earlier cloud session. New publication remains disabled.
+
 Authority: Justin's implementation-and-release instruction of 15 October 2026.
 This supersedes earlier per-image review for ordinary eligible photographs of
 the six members, and earlier proposal/owner-adoption requirements for prospective

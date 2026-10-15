@@ -567,7 +567,7 @@ function annalsStageProduction_(message, activation, allowed) {
     source.source.subjectTruncated !== true && source.source.excerptTruncated !== true;
   if (source.requiresClarification || attachments.length || !hasSourceText || !textComplete) {
     var hasEligibleSinglePhoto = source.imageConsentAtReceipt &&
-      attachments.length >= 1 && attachments.length <= (typeof annalsPhotosReady_==='function'&&annalsPhotosReady_()?3:1) && source.attachmentManifest.items.length >= 1 &&
+      attachments.length >= 1 && attachments.length <= (typeof annalsPhotosReady_==='function'&&annalsPhotosReady_(id)?3:1) && source.attachmentManifest.items.length >= 1 &&
       source.attachmentManifest.items[0].accepted &&
       ['image/jpeg','image/png','image/webp','image/heic','image/heif'].indexOf(source.attachmentManifest.items[0].mime) >= 0 &&
       source.attachmentManifest.items[0].size > 0 && source.attachmentManifest.items[0].size <= 8*1024*1024;
@@ -1102,8 +1102,8 @@ function annalsProcessConsentedText_(id) {
   // Drive is still preparing a thumbnail; defer until a safe one exists.
   var needsImage = !!(source.attachmentManifest && source.attachmentManifest.items.length &&
     (!fullText.trim() || !AnnalsAuto.independentText(fullText)));
-  if (needsImage && !derived && !(typeof annalsPhotosReady_==='function' && annalsPhotosReady_())) return false;
-  var set = typeof annalsPhotosReady_==='function' && annalsPhotosReady_() ? annalsPhotoSet_(id,source,true) : [];
+  if (needsImage && !derived && !(typeof annalsPhotosReady_==='function' && annalsPhotosReady_(id))) return false;
+  var set = typeof annalsPhotosReady_==='function' && annalsPhotosReady_(id) ? annalsPhotoSet_(id,source,true) : [];
   var images = derived ? [{mime:'image/jpeg',base64:derived.base64}] : [];
   if(set.length)images=set.map(function(p){return {mime:'image/jpeg',base64:p.base64};});
   if(needsImage&&!derived&&!set.length)return false;
@@ -1244,7 +1244,7 @@ function annalsDispatchApproved_(folder, entry, approval, eventType, markerName)
   if (!approval) return false;
   var payload = { entry: entry, approval: approval };
   if (entry.photos) {
-    if(!annalsPhotosReady_())return false;
+    if(!annalsPhotosReady_(folder.getName()))return false;
     var set=annalsPhotoSet_(folder.getName(),annalsRead_(folder,'source-private.json'),false);
     payload.images=entry.photos.map(function(p){var d=set.find(function(x){return x.sha256===p.sha256;});if(!d)throw new Error('Missing screened derivative');return {sha256:p.sha256,base64:d.base64};});
   }
@@ -1281,7 +1281,14 @@ function annalsSaveCorrection(nonce, id, rawEntry) {
     var folder = annalsFolder_(id), original = annalsRead_(folder, 'approval-private.json');
     if (!original || original.publicationState !== 'dispatch_accepted' || annalsFile_(folder, 'removal-private.json') ||
         annalsFile_(folder, 'correction-approval-private.json') || !annalsPrivateReceiptValid_(original.entry, original.receipt)) throw new Error('Only a verified published entry can be corrected');
-    var entry = AnnalsProduction.publicEntry(rawEntry);
+    var corrected = Object.assign({},rawEntry);
+    if(original.entry.photos){
+      if(!annalsStandingGalleryCorrectionAllowed_(annalsRead_(folder,'source-private.json')) || corrected.photo ||
+        corrected.photos && AnnalsProduction.serial(corrected.photos)!==AnnalsProduction.serial(original.entry.photos))throw new Error('Gallery rights or replacement require private clarification');
+      corrected.photos=original.entry.photos;corrected.submittedAt=original.entry.submittedAt;corrected.eventPeriod=rawEntry.eventPeriod===undefined?original.entry.eventPeriod:rawEntry.eventPeriod;
+      if(original.entry.correction)corrected.correction=original.entry.correction;else delete corrected.correction;
+    }
+    var entry = AnnalsProduction.publicEntry(corrected);
     if (entry.contributorPortrait && entry.contributorPortrait !==
         annalsContributorPortrait_(annalsRead_(annalsFolder_(id),'source-private.json')))
       throw new Error('Contributor illustration requires authenticated member permission');
@@ -1292,6 +1299,7 @@ function annalsSaveCorrection(nonce, id, rawEntry) {
         throw new Error('Corrected quotation speaker permission unverified');
     }
     if (entry.id !== original.entry.id || AnnalsProduction.serial(entry) === AnnalsProduction.serial(original.entry)) throw new Error('Correction must change this exact entry');
+    if(original.entry.photos)entry.correction={at:new Date().toISOString(),note:'Text corrected after private source review.'};
     var review = { entry: entry, hash: annalsHash_(AnnalsProduction.serial(entry)), savedAt: new Date().toISOString() };
     var prior = annalsFile_(folder, 'correction-review-private.json');
     if (prior) prior.setContent(JSON.stringify(review)); else annalsWriteOnce_(folder, 'correction-review-private.json', review);
@@ -1305,6 +1313,8 @@ function annalsApproveCorrection(nonce, id, expectedHash, consents, evidenceNote
         annalsFile_(folder, 'correction-approval-private.json') || annalsFile_(folder, 'removal-private.json') ||
         uncertaintiesReviewed !== true || typeof evidenceNote !== 'string' || evidenceNote.trim().length < 10 || evidenceNote.length > 2000 ||
         !annalsPrivateReceiptValid_(original.entry, original.receipt)) throw new Error('Exact correction review and private evidence required');
+    if(original.entry.photos && !annalsStandingGalleryCorrectionAllowed_(annalsRead_(folder,'source-private.json')))throw new Error('Gallery permission is no longer active');
+    if(original.entry.photos)consents=Object.assign({},consents,{photoPublication:true});
     var entry = AnnalsProduction.publicEntry(review.entry), key = annalsProps_().getProperty('ANNALS_APPROVAL_KEY') || '';
     var receipt = { entryId: entry.id, approvedAt: new Date().toISOString(), reviewedBy: annalsOwner_(),
       consents: AnnalsProduction.consents(entry, consents), contentSha256: expectedHash };
@@ -1398,7 +1408,7 @@ function annalsAutoPublishCandidate_(id, allowHeldRecovery) {
     if (!metadata || metadata.source !== 'automated_drive_thumbnail') derivative = null;
   }
   var decision = AnnalsMediaPolicy.enrich(source,draft,id,originalDecision,derivative);
-  if(typeof annalsPhotosReady_==='function' && annalsPhotosReady_())decision=annalsPhotoDecision_(source,draft,id,decision,annalsPhotoSet_(id,source,false));
+  if(typeof annalsPhotosReady_==='function' && annalsPhotosReady_(id))decision=annalsPhotoDecision_(source,draft,id,decision,annalsPhotoSet_(id,source,false));
   if (!decision.eligible) {
     annalsWriteOnce_(folder, heldRecovery ? 'auto-reassessment-private.json' : 'auto-decision-private.json',
       { state: 'held', reason: decision.reason, at: new Date().toISOString() });
