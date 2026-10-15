@@ -197,23 +197,6 @@
       },
       "credit": "anonymous",
       "contributorPortrait": "fish"
-    },
-    {
-      "id": "annal-3ecf898ee19104351aa4c6a3",
-      "category": "assembly",
-      "title": "Cottage weekend notes — diagnostic",
-      "summary": "This invented Annual Gentlemen's Assembly account describes a hypothetical\npacking checklist without any real trip, guests, dates or locations.",
-      "year": 2026,
-      "dateLabel": "Submitted 2026-10",
-      "sortDate": "",
-      "quoteVerbatim": "",
-      "recipe": {
-        "drinkIngredients": [],
-        "syrupIngredients": [],
-        "steps": []
-      },
-      "credit": "anonymous",
-      "contributorPortrait": "fish"
     }
   ],
   "approvals": [
@@ -370,20 +353,6 @@
       "entryId": "annal-2d309a7b824fb2443b58eff8",
       "mode": "standing-consent-text-v1",
       "signature": "b45f2555eb730f930796ee71c0fa09607d3d501969ea169481e99f69549bce49"
-    },
-    {
-      "approvedAt": "2026-10-15T07:16:31.653Z",
-      "consents": {
-        "namedAttribution": true,
-        "photoPublication": false,
-        "publication": true,
-        "quotePublication": false,
-        "recipeVerified": false
-      },
-      "contentSha256": "3f1c7a1bed464e1816b5dc403f9c057cb4ce9f42a63730fa786f44cb20b1c5b8",
-      "entryId": "annal-3ecf898ee19104351aa4c6a3",
-      "mode": "standing-consent-text-v1",
-      "signature": "c1a8ec0fd47c8b5ca65927c74cc98e6b3b9428668351edfcb4f42d9e858b18a9"
     }
   ]
 }
