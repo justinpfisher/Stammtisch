@@ -12,7 +12,8 @@ FILES = (
     "PilotCore.js", "ProductionCore.js", "AutoCore.js", "MediaCore.js",
     "MediaPolicy.js", "Production.gs", "ReviewUi.html", "HistoryCore.js",
     "GovernanceCore.js", "HistoryProduction.gs", "PublicDisplay.js",
-    "production-appsscript.json",
+    "production-appsscript.json", "PhotoContracts.js", "PhotoProduction.gs",
+    "RulesCore.js", "RulesProduction.gs",
 )
 
 
@@ -54,7 +55,8 @@ cursor/boundary, remove triggers, clear attempts or replay dispatches.
 
 Install the files under install/ into the matching existing Apps Script files.
 Public .js module names are mapped to native .gs files without content changes.
-Add PublicDisplay, HistoryCore, GovernanceCore and HistoryProduction before
+Add PhotoContracts, PhotoProduction, RulesCore, RulesProduction, PublicDisplay,
+HistoryCore, GovernanceCore and HistoryProduction before
 updating callers. Preserve the existing manifest/scopes and all Script
 Properties. Never open or export credential values to complete this update.
 If needed, use only a controlled ordinary-publication pause, preserving its
@@ -68,7 +70,9 @@ consent registry, trigger, cursor, activation and budget without logging
 private values. Do not run paid diagnostics or unknown earlier dispatches.
 Record actual deployment version and verification; never infer them from ZIP.
 
-Keep History and automatic media publication disabled. Do not change signing
+Keep History, automatic media, photographic v2 and rule v2 publication disabled.
+Do not change ANNALS_PHOTOS_V2_ENABLED, ANNALS_RULES_V2_ENABLED, their hosted
+acceptance markers or the separate new-rules boundary merely to install source. Do not change signing
 keys or set signing-remediation markers. Credential rotation remains a final,
 separate owner-controlled action; no remediation is certified by this package.
 After that stage, qualify legitimate future signing and any new authority.

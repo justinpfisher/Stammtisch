@@ -10,6 +10,9 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {chromium,webkit,devices} from 'playwright';
 import {buildPublishedAnnals,contentDigest} from '../../scripts/annals/ApprovedRenderer.mjs';
+import {renderRegister} from '../../scripts/annals/RulesPublisher.mjs';
+import {photoIndex} from '../../scripts/annals/PhotoIndex.mjs';
+import Media from '../../scripts/annals/MediaCore.js';
 import {renderHistory} from '../../scripts/annals/HistoryPublisher.mjs';
 
 const root=fileURLToPath(new URL('../../',import.meta.url));
@@ -32,15 +35,25 @@ const history={schemaVersion:1,revision:1,updatedAt:'2027-01-01T00:00:00Z',chapt
   {id:'origins',heading:'Origins',paragraphs:['A member recalls: This entirely fictional early passage tests a chapter added out of receipt order. (Historical uncertainty: an approximate period only.)']},
   {id:'traditions',heading:'Developing traditions',paragraphs:['This is fictional browser-layout prose. It must never become an actual club recollection. '.repeat(5)]}
 ]};
+const tinyBytes=Buffer.from(Media.sanitize(Buffer.from((await readFile(path.join(root,'tests/annals-safe-media.test.mjs'),'utf8')).match(/const photo=\(\)=>Buffer.from\('([^']+)'/)[1],'base64')).bytes);
+const fixturePhoto={sha256:'a'.repeat(64),alt:'Fictional browser photograph',width:1,height:1};
+entries.push({...base,id:'offline-browser-gallery',category:'assembly',title:'Fictional gallery',summary:'Fictional browser photograph fixture only.',photos:[fixturePhoto,{...fixturePhoto,sha256:'b'.repeat(64),alt:'Second fictional photograph'}]});
+const gallery=entries.at(-1),a={entryId:gallery.id,approvedAt:'2026-10-15T12:00:00Z',consents:{publication:true,quotePublication:false,recipeVerified:false,namedAttribution:false,photoPublication:true},contentSha256:contentDigest(gallery),mode:'standing-consent-photos-v2'};
+approvals.push({...a,signature:createHmac('sha256',fixtureKey).update(JSON.stringify(canonical({entry:gallery,approval:a}))).digest('hex')});
+const index=photoIndex(Array.from({length:2500},(_,i)=>({...gallery,id:'offline-photo-'+String(i).padStart(6,'0'),title:'Fictional photo '+i,summary:i===2499?'needle archival caption':'Fictional archived fixture',submittedAt:(2000+i%26)+'-10-15T12:00:00Z',year:2000+i%26})));
 const annals=buildPublishedAnnals(entries,approvals,fixtureKey,history).html;
-const documents=new Map([['/annals.html',annals],['/history.html',renderHistory(history)]]);
+const ruleRegister={schemaVersion:1,baseline:{id:'col-browser-baseline',recordedAt:'2026-10-15T12:00:00Z',description:'Fictional browser fixture baseline.'},revisions:[{id:'col-browser-fictional',member:'marc',submittedAt:'2026-10-15T12:00:00Z',publishedAt:null,effectiveAt:null,state:'awaiting_implementation',baseVersion:'col-browser-baseline',explanation:'Fictional rule-layout fixture only.',changes:[{provision:'PRIZE',before:'## PRIZE\n'+('Fictional unchanged source text. '.repeat(40)),after:'## PRIZE\n'+('Fictional revised layout text. '.repeat(40))}],correctionOf:null}],events:[]};
+const documents=new Map([['/annals.html',annals],['/history.html',renderHistory(history)],['/photos.html',await readFile(path.join(root,'photos.html'),'utf8')],['/col-revisions.html',renderRegister(ruleRegister)]]);
+const metadata=new Map([['/data/photos/index.json',index.manifest],...index.pages.map(p=>['/'+p.path,p.data])]);
 const server=createServer(async(req,res)=>{
   const pathname=new URL(req.url,'http://localhost').pathname;
   if(req.method!=='GET'){res.writeHead(405).end();return;}
+  if(metadata.has(pathname)){res.setHeader('Content-Type','application/json');res.end(JSON.stringify(metadata.get(pathname)));return;}
+  if(/^\/assets\/annals\/[ab]{64}\.jpg$/.test(pathname)){res.setHeader('Content-Type','image/jpeg');res.end(tinyBytes);return;}
   if(documents.has(pathname)){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(documents.get(pathname));return;}
   // Public stylesheet and public brand assets only. Never serve source/data files.
-  if(pathname==='/styles.css'||pathname.startsWith('/assets/')&&!pathname.includes('..')){
-    try{const bytes=await readFile(path.join(root,pathname));res.setHeader('Content-Type',pathname.endsWith('.css')?'text/css':'application/octet-stream');res.end(bytes);return;}catch{}
+  if(['/styles.css','/annals-photos.css','/annals-photos.mjs'].includes(pathname)||pathname.startsWith('/assets/')&&!pathname.includes('..')){
+    try{const bytes=await readFile(path.join(root,pathname));res.setHeader('Content-Type',pathname.endsWith('.css')?'text/css':pathname.endsWith('.mjs')?'text/javascript':'application/octet-stream');res.end(bytes);return;}catch{}
   }
   res.writeHead(404).end();
 });
@@ -69,6 +82,30 @@ try{
   for(const profile of profiles){
     const browser=await profile.engine.launch();
     try{
+      await check(browser,profile,'gallery keyboard viewer restores focus',async page=>{
+        await page.goto(origin+'/annals.html');
+        const opener=page.locator('#offline-browser-gallery [data-photo-view]').first();
+        await opener.focus();await page.keyboard.press('Enter');
+        const dialog=page.getByRole('dialog',{name:'Photograph viewer'});await dialog.waitFor({state:'visible'});
+        assert.match(await dialog.innerText(),/1 of 2/);await page.keyboard.press('ArrowRight');assert.match(await dialog.innerText(),/2 of 2/);
+        await page.keyboard.press('Escape');assert.equal(await opener.evaluate(e=>document.activeElement===e),true);await noOverflow(page);
+      });
+      await check(browser,profile,'bounded 2500-entry Photos archive and filters',async page=>{
+        const requests=[];page.on('request',r=>{if(r.url().includes('/data/photos/'))requests.push(r.url());});
+        await page.goto(origin+'/photos.html');await page.waitForFunction(()=>document.querySelector('#photo-status').textContent.includes('entries shown'));
+        assert.equal(requests.length,2);assert.ok(await page.locator('.photos-card').count()<=24);
+        await page.locator('[name=year]').selectOption('2025');await page.locator('[name=search]').fill('Fictional');await page.getByRole('button',{name:'Apply filters'}).click();
+        await page.waitForFunction(()=>document.querySelector('#photo-status').textContent.includes('entries shown'));
+        assert.ok(await page.locator('.photos-card').count()<=24);await noOverflow(page);
+        const first=page.locator('.photos-card [data-photo-view]').first();await first.click();await page.getByRole('dialog').waitFor({state:'visible'});await page.getByRole('button',{name:'Close',exact:true}).click();assert.equal(await first.evaluate(e=>document.activeElement===e),true);
+      });
+      await check(browser,profile,'revision register exact comparison and permanent links',async page=>{
+        await page.goto(origin+'/col-revisions.html#col-browser-fictional');
+        assert.equal(await page.locator('main').count(),1);assert.equal(await page.locator('#col-browser-fictional').count(),1);
+        assert.match(await page.locator('main').innerText(),/awaiting implementation/);assert.match(await page.locator('main').innerText(),/Toronto/);
+        await page.locator('details summary').focus();await page.keyboard.press('Enter');assert.equal(await page.locator('details').getAttribute('open'),'');
+        assert.match(await page.locator('pre').first().innerText(),/Fictional unchanged source text/);assert.match(await page.locator('pre').last().innerText(),/Fictional revised layout text/);await noOverflow(page);
+      });
       await check(browser,profile,'recipe fidelity and whole narrative',async page=>{
         await page.goto(origin+'/annals.html');
         const card=page.locator('#offline-browser-recipe');

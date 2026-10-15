@@ -1,0 +1,45 @@
+name: Coordinated verified-member CoL rule release
+on:
+  repository_dispatch:
+    types: [annals-col-rule-release, annals-col-rule-status]
+permissions:
+  contents: write
+  pages: write
+concurrency:
+  group: annals-approved-publication
+  cancel-in-progress: false
+jobs:
+  release:
+    if: vars.ANNALS_RULES_V2_RELEASE_ENABLED == 'true' && vars.ANNALS_SIGNING_REMEDIATION_VERIFIED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare constrained coordinated revision
+        env:
+          ANNALS_RULES_V2_RELEASE_ENABLED: ${{ vars.ANNALS_RULES_V2_RELEASE_ENABLED }}
+          ANNALS_SIGNING_REMEDIATION_VERIFIED: ${{ vars.ANNALS_SIGNING_REMEDIATION_VERIFIED }}
+          ANNALS_PUBLISH_SIGNING_KEY: ${{ secrets.ANNALS_PUBLISH_SIGNING_KEY }}
+          COL_VERIFIED_SOURCE_DIGEST: ${{ vars.COL_VERIFIED_SOURCE_DIGEST }}
+        run: node scripts/annals/RulesRelease.mjs
+      - name: Regressions before coordinated commit
+        run: node scripts/local-dev.mjs check
+      - name: Commit one coordinated version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- data/col-rules-register.json data/col-rules-versions.json col-revisions.html docs/celebration-of-life-rules.md celebration.html
+          git diff --cached --quiet && exit 1
+          git commit -m "Publish verified member CoL revision"
+          git push origin HEAD:main
+      - name: Request GitHub Pages build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method POST repos/justinpfisher/Stammtisch/pages/builds

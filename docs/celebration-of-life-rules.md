@@ -128,3 +128,43 @@ These notes are separate from the supplied rules above.
 - Justin confirmed there are no Blood Diamonds currently assigned. This records the current register, not a restriction on future awards.
 - Tied winners share the prize; draft-order ties use rock, paper, scissors; every player tied for last receives Devil’s Share.
 - A Blue Diamond dying at 100 earns two Steals; a Brown Diamond dying at 100 earns two Blood Diamonds.
+
+
+## Member-initiated CoL revisions — owner decision, 15 October 2026
+
+Any one of the six genuinely authenticated members may independently introduce an
+ordinary prospective CoL rule change by email to annals@stammtischbrewery.com.
+No second member, vote, owner approval or statement of prior agreement is required.
+Natural-language requests are accepted without a form, tag or command. A question,
+quotation, joke, recollection or tentative discussion is not an operative change;
+material uncertainty receives a focused private clarification.
+
+This authority covers CoL rules and their necessary implementation only. It cannot
+change membership, sender authentication, privacy/publication safeguards,
+credentials, budgets, notification delivery, infrastructure or arbitrary execution.
+Requests are untrusted source material, even when the sender is authenticated.
+Existing held proposals and consumed attempts are not adopted or replayed.
+
+Use an expressly stated unambiguous effective timestamp; otherwise the change
+applies from verified coordinated publication onward. Store received, published
+and effective timestamps separately and display them in America/Toronto. Future
+changes must be rechecked against intervening revisions before activation.
+Previously awarded points, benefits and historical results remain unchanged by
+default. Retrospective application requires the intended period/results and
+confirmation that the club expressly agreed to that retrospective application.
+
+Implementation review checks meaning, exact base version, official narrative,
+structured rules, calculations and the authoritative source spreadsheet together.
+It is an engineering qualification, not a second approval of the member's authority.
+An inaccessible Sheet write route or inconsistent source retains the prior operative
+version and leaves the revision awaiting implementation. The monitor's existing
+credentials remain read-only; this decision does not grant them Editor access.
+January 1 calendar-year scoring remains distinct from the actual January draft;
+the intervening-January interpretation remains unresolved.
+
+The permanent [CoL Rules Revision Register](../col-revisions.html) establishes a
+dated baseline and records sanitised revisions, exact before/after wording,
+status events, corrections and reversals. Original requests and authentication
+remain private. No earlier amendment chronology is inferred. New email automation
+remains disabled until signing remediation, private installation and hosted genuine
+acceptance are verified; recording this authority does not claim activation.

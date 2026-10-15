@@ -64,7 +64,8 @@ test('a text-only fictional cocktail with explicit review and signed receipt can
   assert.ok(result.html.includes('id="collection-cocktail"'));
   assert.ok(!result.html.includes('id="collection-quotation"'));
   assert.doesNotMatch(result.html, /class="annal-collections"/);
-  assert.ok(!result.html.includes('<script'));
+  assert.match(result.html, /<script type="module" src="annals-photos\.mjs"><\/script>/);
+  assert.doesNotMatch(result.html, /<script>/);
 });
 
 test('future or revised content cannot reuse old approval', () => {

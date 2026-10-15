@@ -1,3 +1,14 @@
+> **Current authority — 15 October 2026, photographs and CoL implementation:**
+> Read [the current photo/CoL release and handoff](docs/annals-photos-col-release-2026-10-15.md).
+> The owner authorises automatic eligible six-member photographs under standing
+> private attestation, subject to revocations and exceptional third-party/privacy
+> holds. One genuinely authenticated member may independently introduce a prospective
+> CoL change; no second member, vote or owner-adoption approval is required.
+> Older proposal-only/per-image restrictions below are superseded within that scope.
+> Preserve source consistency, exact meaning, historical results and all platform
+> safeguards. New capabilities stay disabled until signing remediation, hosted
+> acceptance and the documented private adapters are qualified.
+
 # Stammtisch Social Club
 
 Static website published through GitHub Pages at https://stammtischbrewery.com/.
