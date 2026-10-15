@@ -451,3 +451,59 @@ activation requires its own qualification after that security stage. The
 November 8 AI stop, November 9 dispatch expiry and US$5 monthly ceiling are
 unchanged. US$3.20 remains the last owner-reported reservation, not a fresh
 private balance verification.
+
+
+## Further account-independent qualification — 15 October 2026
+
+A separate GitHub-hosted browser workflow now exercises the real public
+renderers against fictional fixtures served only on an ephemeral loopback
+address. It has read-only repository permissions and no private credentials,
+mailbox, provider request, dispatch or live-data input. The browser contexts
+block all non-loopback requests. No generated fixture HTML or history JSON is
+written to the public archive or Pages. Test dependencies are pinned with a
+lockfile under `tests/browser/` and installed only for this optional workflow.
+
+The planned profiles are desktop Chromium, WebKit with an iPhone descriptor,
+and Chromium with an Android descriptor. Checks cover whole recipe narratives,
+exact quantities and syrup/preparation divisions, recipe-only introduction
+omission, December/January month display, event/receipt separation, black bars,
+lowercase selectable fallback, quotation notices, stylesheet loss, keyboard
+skip/focus/target size, populated 320px reflow and dark preference. A separate
+Chromium check exercises forced-colours fallback. This is browser emulation,
+not physical Safari/Chrome, VoiceOver or TalkBack acceptance. Hosted results
+must be observed before claiming these checks passed; source alone is not
+qualification. Genuine eligible-content hosted acceptance remains separate.
+
+The normal supported offline check now includes **66 Python and 249 Node tests**.
+The two additional Python cases verify the source package whitelist, unchanged
+file hashes/manifest, reproducibility and refusal to write artifacts into the
+public checkout. They do not authenticate or install a private project.
+
+### Ready-to-install source package
+
+Run from the checkout, using an exact reviewed commit and a destination outside
+it:
+
+```sh
+python scripts/annals/build-install-package.py --ref COMMIT --output /private/path/annals-install.zip
+```
+
+The builder reads only twelve explicitly allowed files from git objects. It
+maps public `.js` module names to native Apps Script `.gs` filenames, maps the
+existing production manifest to `appsscript.json`, and adds a source-commit/
+SHA-256 manifest plus in-place instructions. File content, OAuth scopes and
+private exception policy remain unchanged. Fixed archive metadata makes
+repeated builds with the same source and toolchain reproducible. The package
+contains no private originals, contacts, consent registry, account settings,
+credential-recovery file, signing value or QA evidence. Legacy `Code.gs` and
+`SyntheticPilot.gs` are excluded.
+
+The ZIP does not authenticate, install, change a deployment, create a trigger,
+rotate credentials, set remediation markers or activate a publisher. Actual
+installation still requires the authenticated existing owner project. Preserve
+its previous deployment for rollback, URL/access, consents, trigger, cursor,
+activation boundary, budget and one-shot evidence. Do not import the ZIP as a
+new project or run setup. Leave History and automatic media disabled. Neither
+package checks nor browser emulation closes the missing original QA matrix or
+the six case-level dispositions. November deadlines and spending limits remain
+unchanged.
