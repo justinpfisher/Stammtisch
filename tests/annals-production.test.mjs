@@ -933,3 +933,21 @@ test('captured repair refuses non-verbatim output, image attempt context and inv
     assert.ok(!files.has('captured-response-recovery-private.json'));
   }
 });
+
+
+test('diagnostic framing retains its subject category without resolving material safeguards',()=>{
+  const fictional='A fictional monthly account about an imaginary umbrella; no actual event is claimed.';
+  const req=core.request(fictional,[]);
+  assert.match(req.instructions,/classify its stated subject matter while retaining that framing/);
+  assert.match(req.instructions,/rather than selecting uncategorised solely because it is not genuine club history/);
+  assert.match(req.instructions,/never resolves a denied speaker attribution, uncertain measurement, privacy concern or image dependency/);
+  const policy=require('../scripts/annals/AutoCore.js');
+  const source={senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,
+    source:{subject:'Fictional monthly account',excerpt:fictional,receivedAt:'2026-10-10T15:00:00Z'},
+    attachmentManifest:{held:false,items:[]},requiresClarification:false};
+  const d={...candidate(),category:'uncategorised',title:'Fictional monthly account',quoteVerbatim:'',
+    interpretation:{intent:'description',speakerId:'unknown',evidenceField:'body'},
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]},riskFlags:['other_uncertainty']};
+  assert.equal(policy.propose(source,d,'e'.repeat(64)).reason,'classification_not_supported');
+  assert.equal(policy.propose(source,{...d,category:'monthly_gathering',riskFlags:['private_context']},'e'.repeat(64)).eligible,false);
+});
