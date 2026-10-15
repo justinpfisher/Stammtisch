@@ -119,23 +119,6 @@
       },
       "credit": "anonymous",
       "contributorPortrait": "fish"
-    },
-    {
-      "id": "annal-09e9fad19fffb4f2ed634506",
-      "category": "artefact",
-      "title": "Club artefact diagnostic — brass coaster",
-      "summary": "Fictional description: a plain brass coaster engraved with a simple circle.\nThis is a hypothetical object, not an actual Stammtisch keepsake.",
-      "year": 2026,
-      "dateLabel": "Submitted 2026-10",
-      "sortDate": "",
-      "quoteVerbatim": "",
-      "recipe": {
-        "drinkIngredients": [],
-        "syrupIngredients": [],
-        "steps": []
-      },
-      "credit": "anonymous",
-      "contributorPortrait": "fish"
     }
   ],
   "approvals": [
@@ -236,20 +219,6 @@
       "entryId": "annal-c53cc97bc6b9a9c2c3a0d15d",
       "mode": "standing-consent-text-v1",
       "signature": "6228fdb691e750dceb0cc9beee99ed30eacfdc3465a337bdef6e1af8b3993e4e"
-    },
-    {
-      "approvedAt": "2026-10-15T04:10:52.990Z",
-      "consents": {
-        "namedAttribution": true,
-        "photoPublication": false,
-        "publication": true,
-        "quotePublication": false,
-        "recipeVerified": false
-      },
-      "contentSha256": "8eea2a645e3bc0cc7c45b061a6246ff209cd80d48d965074285f961948f60548",
-      "entryId": "annal-09e9fad19fffb4f2ed634506",
-      "mode": "standing-consent-text-v1",
-      "signature": "b32103cb0eca01a5d482f6539fc6f79b52a9e0879d5a7624fb117be9b6221911"
     }
   ]
 }
