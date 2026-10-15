@@ -155,23 +155,6 @@
       "contributorPortrait": "fish"
     },
     {
-      "id": "annal-9c33967e081ef85e68bff530",
-      "category": "artefact",
-      "title": "an imaginary brass key tag with no initials or identifying marks",
-      "summary": "Artefact diagnostic: an imaginary brass key tag with no initials or identifying marks. Not a real club keepsake.",
-      "year": 2026,
-      "dateLabel": "Submitted 2026-10",
-      "sortDate": "",
-      "quoteVerbatim": "",
-      "recipe": {
-        "drinkIngredients": [],
-        "syrupIngredients": [],
-        "steps": []
-      },
-      "credit": "anonymous",
-      "contributorPortrait": "fish"
-    },
-    {
       "id": "annal-4acc742851da8b9fc1b8a322",
       "category": "cocktail",
       "title": "Recipe: diagnostic citrus mocktail",
@@ -325,20 +308,6 @@
       "entryId": "annal-d43273618b69fd821944f771",
       "mode": "standing-consent-text-v1",
       "signature": "6521d1934240ad225f7289ee1e5fd0eb7ef17f22bb053ab896c71b3206c6b0e8"
-    },
-    {
-      "approvedAt": "2026-10-15T04:21:33.445Z",
-      "consents": {
-        "namedAttribution": true,
-        "photoPublication": false,
-        "publication": true,
-        "quotePublication": false,
-        "recipeVerified": false
-      },
-      "contentSha256": "902beb5a94866faf1161366474423320cc416d441855816c3b672ff7a9890606",
-      "entryId": "annal-9c33967e081ef85e68bff530",
-      "mode": "standing-consent-text-v1",
-      "signature": "eb2babfc304a6f0ba1c5aa471b6f867c4ddd9d581ccc6893fc246692e176b0c4"
     },
     {
       "approvedAt": "2026-10-15T05:31:22.313Z",
