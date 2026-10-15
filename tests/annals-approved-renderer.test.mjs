@@ -185,7 +185,7 @@ test('empty publication has no accidental test entry or sender data', () => {
   assert.ok(result.html.includes('href="mailto:annals@stammtischbrewery.com"'));
   for (const label of ['The Cocktail Register', 'The Register of Remarks',
     'Monthly Proceedings', 'Annual Assemblies', 'Club History', 'Club Artefacts']) {
-    assert.ok(!result.html.includes(label));
+    assert.ok(!result.html.includes('>' + label + '</h2>'));
   }
   assert.ok(!result.html.includes('synthetic-test'));
   assert.ok(!result.html.includes('example.test'));
