@@ -9,8 +9,8 @@ function annalsPhotosReady_(){
 function annalsPhotoSubjectGrants_(at){
   var members=annalsConsentRegistry_().members,map=annalsSpeakerIdentities_();
   return Object.keys(map).map(function(a){
-    var g=members[a]&&members[a].photoSubjects;
-    return {member:map[a],active:!!(g&&g.status==='active'&&!g.revokedAt),
+    var m=members[a],g=m&&m.photoSubjects;
+    return {member:map[a],active:!!(g&&g.status==='active'&&!g.revokedAt&&m.status==='active'&&!m.revokedAt&&(!m.imagePublication||m.imagePublication.status!=='revoked')&&m.autoPublication&&m.autoPublication.status==='active'&&!m.autoPublication.revokedAt),
       atReceipt:!!(g&&Number.isFinite(Date.parse(g.consentedAt))&&Date.parse(g.consentedAt)<=Date.parse(at))};
   });
 }

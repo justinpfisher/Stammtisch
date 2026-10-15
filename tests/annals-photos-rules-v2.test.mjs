@@ -7,6 +7,7 @@ import {createHash,createHmac} from 'node:crypto';
 import Photos from '../scripts/annals/PhotoContracts.js';
 import Rules from '../scripts/annals/RulesCore.js';
 import Media from '../scripts/annals/MediaCore.js';
+import Auto from '../scripts/annals/AutoCore.js';
 import {photoIndex} from '../scripts/annals/PhotoIndex.mjs';
 import {contentDigest,validatePublicTextEntry,buildPublishedAnnals} from '../scripts/annals/ApprovedRenderer.mjs';
 import {applyApprovedEntry,approvedPhoto} from '../scripts/annals/apply-approved-entry.mjs';
@@ -146,8 +147,34 @@ test('deployment preparation failures, changed code, source mismatch and replay 
 });
 test('private live reconciliation needs every exact hosted file before final notice',()=>{
   const pending={state:'accepted',sourceId:'x',at,expectedFiles:{'celebration.html':'expected','data/col-rules-register.json':'expected'}};
-  let notices=0,writes=0;const context=vm.createContext({Date,annalsRoot_:()=>({}),annalsRead_:()=>pending,annalsHash_:v=>v,
+  let notices=0,writes=0;const context=vm.createContext({Date:class extends Date{static now(){return Date.parse(at);}},annalsRoot_:()=>({}),annalsRead_:()=>pending,annalsHash_:v=>v,
     UrlFetchApp:{fetch:()=>({getResponseCode:()=>200,getContentText:()=> 'mismatch'})},annalsWriteOnce_:()=>{writes++;},annalsRuleNotice_:()=>{notices++;}});
   vm.runInContext(readFileSync(new URL('../scripts/annals/RulesProduction.gs',import.meta.url),'utf8'),context);
   assert.equal(context.annalsReconcileRuleRelease_('x'),false);assert.equal(notices,0);assert.equal(writes,0);assert.equal(pending.state,'accepted');
+});
+test('integrated private rule intake consumes only one existing reservation and needs no owner adoption',()=>{
+  const files=new Map(),values={ANNALS_AI_ENABLED:'true',ANNALS_RULES_ACCEPT_FROM:'2026-10-15T17:00:00Z',ANNALS_OPENAI_API_KEY:'fictional-test-value',ANNALS_BUDGET_LEDGER:JSON.stringify({schemaVersion:1,month:'2026-10',reservedCents:0})};
+  const s={rulesAuthorityVersion:2,rulesActivationEligible:true,senderAuthenticated:true,aiConsentActive:true,source:{sender:'fictional@example.test',subject:'CoL rule change',excerpt:source.text,receivedAt:at}};
+  files.set('source-private.json',s);let fetches=0,notices=0;
+  const context=vm.createContext({AnnalsRules:Rules,Date:class extends Date{static now(){return Date.parse(at);}},
+    annalsProps_:()=>({getProperty:k=>values[k]||null,setProperty:(k,v)=>values[k]=v}),annalsFolder_:()=>({}),annalsRoot_:()=>({}),
+    annalsRead_:(_,name)=>files.get(name)||null,annalsFile_:(_,name)=>files.get(name)||null,
+    annalsWriteOnce_:(_,name,value)=>{assert.equal(files.has(name),false);files.set(name,value);},
+    annalsConsentActive_:()=>true,annalsStandingPublicationActive_:()=>true,annalsAiSourceText_:v=>v.source.subject+'\n'+v.source.excerpt,
+    AnnalsProduction:{MODEL:'existing-test-model',reserve:(ledger,month)=>({...ledger,month,reservedCents:ledger.reservedCents+10})},
+    Utilities:{formatDate:()=> '2026-10'},annalsSpeakerIdentities_:()=>({'fictional@example.test':'marc'}),annalsHash_:()=> 'a'.repeat(64),
+    annalsRecordAttemptOutcome_:()=>assert.fail('Unexpected failure'),
+    UrlFetchApp:{fetch:url=>{fetches++;return {getResponseCode:()=>200,getContentText:()=>JSON.stringify(url.includes('col-rules-versions')?{versions:[{...base,verified:true,effectiveAt:'2026-10-15T17:00:00Z'}]}:{status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(assessment())}]}]})};}}});
+  vm.runInContext(readFileSync(new URL('../scripts/annals/RulesProduction.gs',import.meta.url),'utf8'),context);
+  context.annalsRulesReady_=()=>true;context.annalsRuleNotice_=()=>{notices++;};
+  assert.equal(context.annalsProcessRuleRequest_('a'.repeat(64)),true);assert.equal(files.get('col-rule-request-private.json').state,'awaiting_implementation');assert.equal(notices,1);assert.equal(fetches,2);
+  assert.equal(JSON.parse(values.ANNALS_BUDGET_LEDGER).reservedCents,10);assert.equal(context.annalsProcessRuleRequest_('a'.repeat(64)),false);assert.equal(fetches,2);
+});
+test('integrated group photo uses six standing grants while guest images and extraction documents stay held',()=>{
+  const context=vm.createContext({AnnalsPhotos:Photos,AnnalsAuto:Auto,AnnalsMediaPolicy:{MODE:'standing-consent-image-v1'}});
+  vm.runInContext(readFileSync(new URL('../scripts/annals/PhotoProduction.gs',import.meta.url),'utf8'),context);context.annalsPhotoSubjectGrants_=()=>grants;
+  const s={senderAuthenticated:true,imageConsentAtReceipt:true,source:{subject:'Photographs',excerpt:'All six of us.',receivedAt:at}};
+  const d={category:'assembly',riskFlags:['faces_or_reflections'],imageReviews:[screen]},set=[{sha256:hash,width:1,height:1}];
+  const result=context.annalsPhotoDecision_(s,d,'a'.repeat(64),{eligible:false,reason:'material_uncertainty'},set);assert.equal(result.eligible,true);assert.equal(result.entry.photos.length,1);assert.equal(result.entry.eventPeriod,'');
+  for(const risk of [{childrenOrGuests:true},{kind:'document_or_text'}])assert.equal(context.annalsPhotoDecision_(s,{...d,imageReviews:[{...screen,...risk}]},'a'.repeat(64),{eligible:false,reason:'material_uncertainty'},set).eligible,false);
 });

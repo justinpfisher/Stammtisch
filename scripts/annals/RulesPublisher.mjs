@@ -19,9 +19,10 @@ export function validateRegister(register){
     safe(r.explanation);for(const c of r.changes){safe(c.before);safe(c.after);safe(c.provision);}
     if(r.correctionOf&&!seen.has(r.correctionOf))throw Error('Correction must link an existing record');
   }
+  const eventIds=new Set();
   for(const e of register.events){exact(e,['id','revisionId','at','state','reason','relatedRevision']);
-    if(!seen.has(e.revisionId)||statuses.indexOf(e.state)<0||typeof e.id!=='string'||e.id.length>100||register.events.filter(x=>x.id===e.id).length!==1)throw Error('Invalid status event');
-    Rules.stamp(e.at);safe(e.reason);if(e.relatedRevision!==null&&!seen.has(e.relatedRevision))throw Error('Unknown linked revision');
+    if(!seen.has(e.revisionId)||statuses.indexOf(e.state)<0||typeof e.id!=='string'||e.id.length>100||eventIds.has(e.id))throw Error('Invalid status event');
+    eventIds.add(e.id);Rules.stamp(e.at);safe(e.reason);if(e.relatedRevision!==null&&!seen.has(e.relatedRevision))throw Error('Unknown linked revision');
   }
   return register;
 }

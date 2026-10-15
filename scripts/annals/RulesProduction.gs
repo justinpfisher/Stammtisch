@@ -37,6 +37,8 @@ function annalsProcessRuleRequest_(id){
     annalsFile_(f,'quarantine-private.json')||annalsFile_(f,'ai-attempt-private.json')||annalsFile_(f,'col-proposal-private.json')||
     source.source.sourceTruncated||source.source.subjectTruncated||source.source.excerptTruncated||
     p.getProperty('ANNALS_AI_ENABLED')!=='true'||Date.now()>=Date.parse('2026-11-08T00:00:00Z'))return false;
+  var pendingRelease=annalsRead_(annalsRoot_(),'col-release-pending-private.json');
+  if(pendingRelease&&pendingRelease.state!=='verified_live')return false;
   var fetched=UrlFetchApp.fetch('https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/col-rules-versions.json',{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true});
   if(fetched.getResponseCode()!==200)return false;
   var body=fetched.getContentText();if(body.length>200000)return false;
@@ -114,7 +116,11 @@ function annalsReconcileRuleRelease_(id){
     var r=UrlFetchApp.fetch('https://stammtischbrewery.com/'+path,{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true});
     if(r.getResponseCode()!==200||annalsHash_(r.getContentText())!==pending.expectedFiles[path])exact=false;
   });
-  if(!exact)return false;
+  if(!exact){
+    if(Date.now()-Date.parse(pending.at)>1800000){var heldFolder=annalsFolder_(id),heldSource=annalsRead_(heldFolder,'source-private.json');
+      annalsRuleNotice_(heldFolder,heldSource.source.sender,'publication-unverified-'+annalsHash_(pending.at),'Your rule release could not yet be verified on the public site. Its status is being reconciled privately. No dispatch is automatically repeated.');}
+    return false;
+  }
   var f=annalsFolder_(id),request=annalsRead_(f,'col-rule-request-private.json'),source=annalsRead_(f,'source-private.json');
   var state=request.effectiveAt&&Date.parse(request.effectiveAt)>Date.now()?'scheduled':'active';
   var receipt={state:'verified_live',verifiedAt:new Date().toISOString(),revisionId:request.id,expectedFiles:pending.expectedFiles};
