@@ -1,5 +1,5 @@
-/** Stammtisch gathers on the third Friday of each month, Toronto local date.
- * The meeting hour and exact venue are confirmed privately; this is a date countdown.
+/** Stammtisch gathers on the third Friday of each month, Toronto local time.
+ * The confirmed monthly start is 8 p.m.; the exact venue is confirmed privately.
  */
 const TORONTO_TIME_ZONE = 'America/Toronto';
 const MS_PER_DAY = 86_400_000;
@@ -22,13 +22,13 @@ function torontoCalendarParts(now) {
 }
 
 // Third Fridays are outside Toronto's Sunday daylight-saving transitions.
-function torontoMidnight(year, month, day) {
+function torontoMeetingStart(year, month, day) {
   const noon = Date.UTC(year, month - 1, day, 12);
   const localHour = Number(new Intl.DateTimeFormat('en-CA', {
     timeZone: TORONTO_TIME_ZONE, hour: 'numeric', hourCycle: 'h23',
   }).format(new Date(noon)));
   const offsetHours = localHour - 12;
-  return Date.UTC(year, month - 1, day) - offsetHours * 3_600_000;
+  return Date.UTC(year, month - 1, day, 20) - offsetHours * 3_600_000;
 }
 
 export function monthlyCountdown(now = new Date()) {
@@ -37,7 +37,7 @@ export function monthlyCountdown(now = new Date()) {
   if (!next) return null;
   const [year, month, day] = next.isoDate.split('-').map(Number);
   const remainingMinutes = Math.max(0, Math.ceil(
-    (torontoMidnight(year, month, day) - instant.getTime()) / 60_000));
+    (torontoMeetingStart(year, month, day) - instant.getTime()) / 60_000));
   return {
     days: Math.floor(remainingMinutes / 1440),
     hours: Math.floor((remainingMinutes % 1440) / 60),
@@ -90,11 +90,12 @@ function mountMonthlyGathering() {
     dayCount.textContent = String(parts.days);
     hourCount.textContent = String(parts.hours).padStart(2, '0');
     minuteCount.textContent = String(parts.minutes).padStart(2, '0');
-    note.textContent = next.isToday ? 'The third Friday is today'
-      : 'Until the third Friday begins · Toronto time';
-    caption.textContent = next.isToday
-      ? 'The third Friday is today'
-      : `${parts.days} days, ${parts.hours} hours, and ${parts.minutes} minutes until the next third Friday begins in Toronto.`;
+    const started = next.isToday && parts.days === 0 && parts.hours === 0 && parts.minutes === 0;
+    note.textContent = started ? 'Stammtisch has begun · 8 p.m. Toronto time'
+      : 'Until we convene · 8 p.m. Toronto time';
+    caption.textContent = started
+      ? 'Stammtisch has begun. The start is 8 p.m. Toronto time.'
+      : `${parts.days} days, ${parts.hours} hours, and ${parts.minutes} minutes until the next Stammtisch at 8 p.m. Toronto time.`;
   };
   update();
   // A long-open page needs a refresh when Toronto passes midnight.
