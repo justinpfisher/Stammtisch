@@ -157,9 +157,7 @@ function annalsReconcileRuleRelease_(id){
     annalsRuleNotice_(f,source.source.sender,'recorded-'+annalsHash_(pending.at),'Your CoL revision is recorded as '+request.state.replace(/_/g,' ')+'. The previous operative rules remain in force. https://stammtischbrewery.com/col-revisions.html#'+request.id);
     return true;
   }
-  if(state==='scheduled'){
-    request.state='scheduled';request.publishedAt=pending.at;annalsSavePrivate_(f,'col-rule-request-private.json',request);
-  }
+  request.state=state;request.publishedAt=request.publishedAt||pending.at;annalsSavePrivate_(f,'col-rule-request-private.json',request);
   annalsRuleNotice_(f,source.source.sender,'published-'+annalsHash_(pending.at),
     'Your CoL rule revision is '+state+'. The coordinated public files were verified. https://stammtischbrewery.com/col-revisions.html#'+request.id);
   return true;

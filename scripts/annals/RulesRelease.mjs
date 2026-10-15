@@ -36,8 +36,9 @@ export function coordinate({register,versions,markdown,html,bundle,secret,enable
     (bundle.evidence.sourceRequired&&(bundle.sourceDigest!==sourceDigest||bundle.evidence.sourceDigest!==sourceDigest)))throw Error('Installed implementation or authoritative source mismatch');
   if(digest(Rules.provisions(markdown))!==digest(base.provisions))throw Error('Official narrative differs from operative structured rules');
   const existing=register.revisions.find(r=>r.id===bundle.revision.id);
-  const pending=existing&&['awaiting_implementation','awaiting_clarification'].includes(existing.state)&&!register.events.some(e=>e.revisionId===existing.id&&e.state==='active');
-  const scheduled=existing&&existing.state==='scheduled'&&!register.events.some(e=>e.revisionId===existing.id&&e.state==='active');
+  const recordedState=existing&&(register.events.filter(e=>e.revisionId===existing.id).at(-1)?.state||existing.state);
+  const pending=existing&&['awaiting_implementation','awaiting_clarification'].includes(recordedState)&&!register.events.some(e=>e.revisionId===existing.id&&e.state==='active');
+  const scheduled=existing&&recordedState==='scheduled'&&!register.events.some(e=>e.revisionId===existing.id&&e.state==='active');
   if(existing&&!scheduled&&!pending)throw Error('Revision already reserved or published');
   if(scheduled&&(Date.parse(existing.effectiveAt)>now.getTime()||digest(existing.changes)!==digest(Rules.publicRecord(bundle.revision).changes)||existing.baseVersion!==base.id))throw Error('Scheduled revision needs base/meaning requalification');
   if(pending&&(digest(existing.changes)!==digest(Rules.publicRecord(bundle.revision).changes)||existing.member!==bundle.revision.member||existing.baseVersion!==base.id))throw Error('Pending revision meaning/base changed');
@@ -45,7 +46,7 @@ export function coordinate({register,versions,markdown,html,bundle,secret,enable
   if(scheduled){qualified.revision.state='scheduled';qualified.revision.publishedAt=existing.publishedAt;qualified.revision.effectiveAt=existing.effectiveAt;}
   const result=Rules.publish(qualified,base,approval.issuedAt,base.id);
   const publicRevision=Rules.publicRecord(result.revision);
-  const nextRegister={...register,revisions:existing?register.revisions:[...register.revisions,publicRevision],events:existing?[...register.events,{id:existing.id+'-activation',revisionId:existing.id,at:approval.issuedAt,state:'active',reason:'Change qualified against the current base, implementation and source.',relatedRevision:null}]:[...register.events]},nextVersions={...versions,versions:[...versions.versions,
+  const nextRegister={...register,revisions:existing?register.revisions:[...register.revisions,publicRevision],events:existing?[...register.events,{id:existing.id+(result.revision.state==='scheduled'?'-scheduled':'-activation'),revisionId:existing.id,at:approval.issuedAt,state:result.revision.state,reason:'Change qualified against the current base, implementation and source.',relatedRevision:null}]:[...register.events]},nextVersions={...versions,versions:[...versions.versions,
     {...result.version,digest:digest(result.version),verified:result.revision.state==='active',behaviorDigest:behavior,parameters:base.parameters,januaryGap:base.januaryGap}]};
   if(publicRevision.correctionOf&&result.revision.state==='active'){
     const previous=register.revisions.find(r=>r.id===publicRevision.correctionOf);

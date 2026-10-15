@@ -154,6 +154,17 @@ test('source-blocked changes can be publicly pending, and status publication can
   const result=coordinate({...args,register:pending,bundle});assert.equal(result.register.revisions.length,1);assert.equal(result.register.revisions[0].state,'awaiting_implementation');assert.equal(result.register.events.at(-1).state,'active');
   assert.equal(pending.events.length,0,'adoption must not mutate the prior pending register');
 });
+test('a pending future revision stays scheduled until a separately qualified due-time activation',()=>{
+  const args=coordinatedFixture(),future='2027-01-01T05:00:00Z';
+  const record={...Rules.publicRecord(revision()),publishedAt:at,effectiveAt:future};
+  const register={...args.register,revisions:[record]};
+  const content={...args.bundle,revision:{...args.bundle.revision,effectiveAt:future}};delete content.approval;
+  function signed(reg,vers,issuedAt){const proof={mode:RELEASE_MODE,baseRegisterDigest:digest(reg),baseVersionsDigest:digest(vers),issuedAt};return {...content,approval:{...proof,signature:createHmac('sha256',key).update(JSON.stringify(canonical({content,approval:proof}))).digest('hex')}};}
+  const scheduled=coordinate({...args,register,bundle:signed(register,args.versions,at)});
+  assert.equal(scheduled.register.events.at(-1).state,'scheduled');assert.equal(scheduled.versions.versions.at(-1).verified,false);assert.equal(scheduled.markdown,args.markdown);
+  const active=coordinate({...args,register:scheduled.register,versions:scheduled.versions,bundle:signed(scheduled.register,scheduled.versions,future),now:new Date(future)});
+  assert.equal(active.register.events.at(-1).state,'active');assert.equal(active.versions.versions.at(-1).verified,true);assert.match(active.markdown,/twelve tokens/);assert.equal(scheduled.register.events.length,1);
+});
 test('coordinated rules narrative, structured version and register use one exact release',()=>{
   const args=coordinatedFixture(),result=coordinate(args);assert.match(result.markdown,/twelve tokens/);assert.match(result.html,/twelve tokens/);assert.equal(result.register.revisions[0].state,'active');assert.equal(result.versions.versions.at(-1).provisions.PRIZE,revision().changes[0].after);assert.match(result.markdown,/Unchanged editorial notes/);
   assert.equal('requestExcerpt' in result.register.revisions[0],false);
