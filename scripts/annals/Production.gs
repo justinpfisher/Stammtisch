@@ -602,7 +602,7 @@ function runAnnalsProductionIntake() {
       if (!thread) {
         p.deleteProperty('ANNALS_INBOX_CURSOR');
         summary.enabled = true;
-        summary.drafted = annalsResumeConsentedDrafts_(10);
+        summary.drafted = annalsResumeConsentedDrafts_(2);
         summary.verified = annalsVerifyAutomaticPublications_(3);
         console.log(JSON.stringify(summary));
         return summary;
@@ -616,7 +616,7 @@ function runAnnalsProductionIntake() {
         p.setProperty('ANNALS_INBOX_CURSOR', JSON.stringify(cursor));
       }
       if (end >= messages.length) p.setProperty('ANNALS_INBOX_CURSOR', JSON.stringify({ offset: cursor.offset + 1, message: 0, threadId: null }));
-      summary.drafted = annalsResumeConsentedDrafts_(10);
+      summary.drafted = annalsResumeConsentedDrafts_(2);
       summary.verified = annalsVerifyAutomaticPublications_(3);
       console.log(JSON.stringify(summary)); return summary;
     });
@@ -625,7 +625,7 @@ function runAnnalsProductionIntake() {
 function annalsResumeConsentedDrafts_(limit) {
   var p = annalsProps_(), cursor = p.getProperty('ANNALS_DRAFT_CURSOR');
   var folders = cursor ? DriveApp.continueFolderIterator(cursor) : annalsRoot_().getFolders(), done = 0, checked = 0;
-  while (folders.hasNext() && checked++ < 50 && done < limit) {
+  while (folders.hasNext() && checked++ < 12 && done < limit) {
     var folder = annalsPrivate_(folders.next()), id = folder.getName();
     if (!/^[a-f0-9]{64}$/.test(id)) continue;
     var source = annalsRead_(folder, 'source-private.json');
@@ -1433,7 +1433,7 @@ function annalsVerifyAutomaticPublications_(limit) {
   var p = annalsProps_(), token = p.getProperty('ANNALS_VERIFY_CURSOR');
   var folders = token ? DriveApp.continueFolderIterator(token) : annalsRoot_().getFolders();
   var checked = 0, verified = 0;
-  while (folders.hasNext() && checked++ < 35 && verified < limit) {
+  while (folders.hasNext() && checked++ < 12 && verified < limit) {
     var folder = annalsPrivate_(folders.next()), id = folder.getName();
     if (!/^[a-f0-9]{64}$/.test(id) || annalsFile_(folder, 'auto-live-verification-private.json')) continue;
     var saved = annalsRead_(folder, 'approval-private.json');

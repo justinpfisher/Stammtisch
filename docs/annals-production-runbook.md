@@ -127,3 +127,8 @@ For a request proven to have no image input, a provider none/true image-safety f
 ### Quarantining a withdrawn text diagnostic
 
 For a text test that was already published, complete the existing authenticated signed withdrawal and independently verify its successful publishing workflow, Pages deployment and absence from the current archive/site first. The owner desk then permits its quarantine provisionally; the backend requires a matching private prior `verified_live` proof, the exact valid signed withdrawal and accepted dispatch records, and fresh successful public reads whose archive entry IDs and rendered Pages entry IDs agree and exclude the withdrawn entry. A pending, uncertain, malformed, stale or mismatched result remains held. The private `withdrawal-live-verification-private.json` snapshot and every previous approval, AI attempt, consent and budget record are preserved before the permanent quarantine is written. Never delete approval or dispatch records to force quarantine. This verification path is text-only; entries containing public photographs remain outside it.
+
+
+### Bounded private backlog work
+
+Each normal intake cycle resumes at most two new AI drafts and scans at most twelve private folders for drafting and twelve for live reconciliation. Existing Drive continuation tokens carry unfinished walks into later cycles; do not clear them, the inbox cursor, attempt records or the ledger to accelerate a backlog. A single cycle need not process a wave or verify a publication that is still deploying. The single existing fifteen-minute Head trigger remains in place; use additional bounded manual cycles only when the preceding cycle and owner mutations are complete, with sufficient time before the next scheduled run.

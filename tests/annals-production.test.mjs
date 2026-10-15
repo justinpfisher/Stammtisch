@@ -453,6 +453,8 @@ test('empty inbox still resumes one private AI draft with no nested script-lock 
     autoConsentAtReceipt:false,requiresClarification:false,
     source:{sender,subject:'Fictional recipe',excerpt:'1 oz invented syrup and 1 oz juice.',excerptTruncated:false,receivedAt:'2026-10-09T00:00:00Z'},
     attachmentManifest:{held:false,items:[]}}));
+  const resume=x.context.annalsResumeConsentedDrafts_;
+  x.context.annalsResumeConsentedDrafts_=limit=>{assert.equal(limit,2);return resume(limit);};
   assert.equal(x.context.runAnnalsProductionIntake().drafted,1);
   assert.equal(x.calls.ai,1);
   assert.equal(lockHeld,false);
@@ -1077,4 +1079,50 @@ test('owner review pages bound folder work and preserve complete continuation wi
   assert.deepEqual(sizes,[9,10,6]);assert.deepEqual(seen,ids);
   assert.equal(new Set(seen).size,25);assert.equal(x.props.ANNALS_BUDGET_LEDGER,ledger);assert.equal(x.calls.ai,0);
   assert.throws(()=>x.context.annalsReviewList('invalid',null),/Reload the private review page/);
+});
+
+
+function boundedScanFixture(){
+  const x=mock(),ids=Array.from({length:27},(_,i)=>(i+1).toString(16).padStart(64,'0'));
+  const stores=ids.map(()=>new Map([['source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,source:{sender:'owner@example.test',subject:'Invented scan fixture',excerpt:'An invented non-identifying object.'},attachmentManifest:{items:[]}})]]));
+  const folders=ids.map((id,index)=>{const records=stores[index];
+    const file=name=>({...x.folder,getBlob:()=>({getDataAsString:()=>records.get(name)}),setContent:v=>records.set(name,v)});
+    return {...x.folder,getName:()=>id,getFilesByName:name=>iter(records.has(name)?[file(name)]:[]),createFile:(name,data)=>{records.set(name,data);return file(name);}};
+  });
+  let visited=0;
+  const walk=start=>{let at=start;return{hasNext:()=>at<folders.length,next:()=>{visited++;return folders[at++];},getContinuationToken:()=>String(at)};};
+  x.root.getFolders=()=>walk(0);x.root.getFoldersByName=id=>iter(ids.includes(id)?[folders[ids.indexOf(id)]]:[]);
+  x.context.DriveApp.continueFolderIterator=token=>walk(Number(token));
+  return {...x,ids,stores,folders,visited:()=>visited};
+}
+
+test('draft scan continuation bounds work and resumes every unused one-shot candidate exactly once',()=>{
+  const x=boundedScanFixture(),ledger=x.props.ANNALS_BUDGET_LEDGER,processed=[];
+  x.stores.forEach((records,i)=>{if(i<24)records.set('ai-attempt-private.json','{"state":"attempt_reserved"}');});
+  const original=x.stores.map(records=>new Map(records));
+  x.context.annalsConsentActive_=()=>true;
+  x.context.annalsProcessConsentedText_=id=>{const records=x.stores[x.ids.indexOf(id)];assert.equal(records.has('ai-attempt-private.json'),false);records.set('ai-attempt-private.json','{"state":"attempt_reserved"}');processed.push(id);return true;};
+  const results=[];
+  do{const before=x.visited();results.push(x.context.annalsResumeConsentedDrafts_(2));assert.ok(x.visited()-before<=12);}while(x.props.ANNALS_DRAFT_CURSOR);
+  assert.deepEqual(results,[0,0,2,1]);assert.deepEqual(processed,x.ids.slice(24));
+  assert.equal(x.context.annalsResumeConsentedDrafts_(2),0);assert.equal(processed.length,3);
+  original.forEach((records,i)=>{for(const [name,value] of records)assert.equal(x.stores[i].get(name),value);});
+  assert.equal(x.props.ANNALS_BUDGET_LEDGER,ledger);assert.equal(x.calls.ai,0);
+});
+
+test('live-verification scan resumes beyond bounded pages without redispatch or duplicate verification',()=>{
+  const x=boundedScanFixture(),ledger=x.props.ANNALS_BUDGET_LEDGER,e=entry(),target=25,gets=[];
+  x.props.ANNALS_AUTO_PUBLICATION_ENABLED='true';
+  x.stores.forEach(records=>records.set('auto-live-verification-private.json','{"state":"verified_live"}'));
+  x.stores[target].delete('auto-live-verification-private.json');
+  const signature='invented-public-signature-only-for-offline-scan-fixture',mode='standing-consent-text-v1';
+  x.stores[target].set('approval-private.json',JSON.stringify({entry:e,approvalMode:mode,publicationState:'dispatch_accepted',receipt:{approvedAt:'2026-10-09T00:10:00Z',contentSha256:contentDigest(e)},publication:{signature}}));
+  x.context.MailApp={sendEmail(){}};
+  x.context.UrlFetchApp.fetch=(url,options)=>{assert.equal(options.method,'get');gets.push(url);return{getResponseCode:()=>200,getContentText:()=>url.includes('raw.githubusercontent.com')?JSON.stringify({entries:[e],approvals:[{entryId:e.id,mode,signature}]}):'<article id="'+e.id+'"></article>'};};
+  const results=[];
+  do{const before=x.visited();results.push(x.context.annalsVerifyAutomaticPublications_(3));assert.ok(x.visited()-before<=12);}while(x.props.ANNALS_VERIFY_CURSOR);
+  assert.deepEqual(results,[0,0,1]);assert.equal(gets.length,2);
+  assert.equal(JSON.parse(x.stores[target].get('auto-live-verification-private.json')).contentSha256,contentDigest(e));
+  assert.equal(x.context.annalsVerifyAutomaticPublications_(3),0);assert.equal(gets.length,2);
+  assert.equal(x.props.ANNALS_BUDGET_LEDGER,ledger);assert.equal(x.calls.ai,0);
 });
