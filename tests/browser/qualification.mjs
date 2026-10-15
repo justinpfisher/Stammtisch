@@ -79,7 +79,7 @@ async function check(browser,profile,name,fn,options={}){
 }
 async function noOverflow(page){assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Horizontal overflow');}
 try{
-  for(const profile of profiles){
+  for(const profile of profiles.filter(p=>!process.argv.includes('--chromium-only')||p.engine===chromium)){
     const browser=await profile.engine.launch();
     try{
       await check(browser,profile,'gallery keyboard viewer restores focus',async page=>{
@@ -99,6 +99,40 @@ try{
         assert.ok(await page.locator('.photos-card').count()<=24);await noOverflow(page);
         const first=page.locator('.photos-card [data-photo-view]').first();await first.click();await page.getByRole('dialog').waitFor({state:'visible'});await page.getByRole('button',{name:'Close',exact:true}).click();assert.equal(await first.evaluate(e=>document.activeElement===e),true);
       });
+      await check(browser,profile,'Photos search reports unsearched older results until Load more completes',async page=>{
+        await page.goto(origin+'/photos.html');
+        await page.locator('[name=year] option[value="2003"]').waitFor({state:'attached'});
+        await page.locator('[name=year]').selectOption('2003');await page.locator('[name=search]').fill('needle archival caption');
+        await page.getByRole('button',{name:'Apply filters'}).click();
+        const status=page.locator('#photo-status'),more=page.getByRole('button',{name:'Load more',exact:true});
+        await page.waitForFunction(()=>document.querySelector('#photo-status').textContent.includes('Searched 24 of 97'));
+        assert.match(await status.innerText(),/0 entries shown.*Search incomplete.*older entries/);
+        assert.doesNotMatch(await status.innerText(),/No eligible photographs match/);
+        for(const covered of [48,72,96,97]){await more.click();await page.waitForFunction(n=>document.querySelector('#photo-status').textContent.includes('Searched '+n+' of 97'),covered);}
+        assert.match(await status.innerText(),/1 entries shown.*Search complete/);assert.equal(await more.isVisible(),false);
+        assert.equal(await page.locator('.photos-card').count(),1);await noOverflow(page);
+      });
+      if(profile.name==='desktop-chromium')await check(browser,profile,'a failed stale photo request cannot rewind a newer filter',async page=>{
+        await page.goto(origin+'/photos.html');await page.waitForFunction(()=>document.querySelector('#photo-status').textContent.includes('entries shown'));
+        const oldPath=index.pages.find(p=>p.year===2004).path;
+        let release,entered;const blocked=new Promise(r=>entered=r),resume=new Promise(r=>release=r);
+        await page.route('**/'+oldPath,async route=>{entered();await resume;await route.fulfill({status:503,body:'Fictional temporary failure'});});
+        await page.locator('[name=year]').selectOption('2004');await page.getByRole('button',{name:'Apply filters'}).click();await blocked;
+        await page.locator('[name=year]').selectOption('2003');await page.getByRole('button',{name:'Apply filters'}).click();
+        await page.waitForFunction(()=>document.querySelector('#photo-status').textContent.includes('Searched 24 of 97'));
+        release();await page.waitForLoadState('networkidle');
+        assert.match(await page.locator('#photo-status').innerText(),/Searched 24 of 97/);
+        await page.getByRole('button',{name:'Load more',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#photo-status').textContent.includes('Searched 48 of 97'));
+        const links=await page.locator('.photos-card h2 a').evaluateAll(a=>a.map(e=>e.getAttribute('href')));assert.equal(new Set(links).size,48);
+      });
+      await check(browser,profile,'photo dialog contains keyboard focus and supports reduced motion and 320px controls',async page=>{
+        await page.setViewportSize({width:320,height:740});await page.goto(origin+'/annals.html');
+        const opener=page.locator('#offline-browser-gallery [data-photo-view]').first();await opener.click();
+        const dialog=page.getByRole('dialog',{name:'Photograph viewer'});await dialog.waitFor({state:'visible'});
+        for(let i=0;i<5;i++){await page.keyboard.press('Tab');assert.equal(await dialog.evaluate(e=>e.contains(document.activeElement)),true);}
+        for(const button of await dialog.getByRole('button').all()){const box=await button.boundingBox();assert.ok(box.width>=44&&box.height>=44);}
+        await noOverflow(page);await page.keyboard.press('Escape');assert.equal(await opener.evaluate(e=>document.activeElement===e),true);
+      },{reducedMotion:'reduce'});
       await check(browser,profile,'revision register exact comparison and permanent links',async page=>{
         await page.goto(origin+'/col-revisions.html#col-browser-fictional');
         assert.equal(await page.locator('main').count(),1);assert.equal(await page.locator('#col-browser-fictional').count(),1);

@@ -25,6 +25,9 @@ jobs:
         env:
           ANNALS_PUBLISH_SIGNING_KEY: ${{ secrets.ANNALS_PUBLISH_SIGNING_KEY }}
           ANNALS_PHOTOS_V2_RELEASE_ENABLED: ${{ vars.ANNALS_PHOTOS_V2_RELEASE_ENABLED }}
+          ANNALS_SIGNING_REMEDIATION_VERIFIED: ${{ vars.ANNALS_SIGNING_REMEDIATION_VERIFIED }}
+          ANNALS_PHOTOS_ACCEPTANCE_ENTRY_ID: ${{ vars.ANNALS_PHOTOS_ACCEPTANCE_ENTRY_ID }}
+          ANNALS_PHOTOS_ACCEPTANCE_UNTIL: ${{ vars.ANNALS_PHOTOS_ACCEPTANCE_UNTIL }}
         run: node scripts/annals/apply-approved-entry.mjs
       - name: Commit consented public entry
         run: |
