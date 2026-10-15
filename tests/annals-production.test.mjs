@@ -1073,10 +1073,10 @@ test('owner review pages bound folder work and preserve complete continuation wi
   x.context.DriveApp.continueFolderIterator=token=>pageIterator(Number(token));
   const seen=[],sizes=[];let continuation=null;
   do{const before=visited,page=x.context.annalsReviewList('valid',continuation);
-    assert.ok(visited-before<=10,'one response never scans more than ten folders');
+    assert.ok(visited-before<=3,'one response never scans more than three folders');
     sizes.push(page.items.length);seen.push(...Array.from(page.items,item=>item.id));continuation=page.continuation;
   }while(continuation);
-  assert.deepEqual(sizes,[9,10,6]);assert.deepEqual(seen,ids);
+  assert.deepEqual(sizes,[2,3,3,3,3,3,3,3,2]);assert.deepEqual(seen,ids);
   assert.equal(new Set(seen).size,25);assert.equal(x.props.ANNALS_BUDGET_LEDGER,ledger);assert.equal(x.calls.ai,0);
   assert.throws(()=>x.context.annalsReviewList('invalid',null),/Reload the private review page/);
 });

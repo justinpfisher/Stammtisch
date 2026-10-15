@@ -142,3 +142,8 @@ The owner desk may obtain a fresh owner-authenticated session and retry one allo
 ### Notice delivery and existing Gmail permission
 
 Production notices use `GmailApp.sendEmail` with the already required `https://mail.google.com/` scope. The separate `MailApp` service requires `script.send_mail`, which is not in this manifest; do not add that permission merely to repair this transport. See the official [Gmail sending authorization](https://developers.google.com/apps-script/reference/gmail/gmail-app#sendEmail(String,String,String)) and [Mail service authorization](https://developers.google.com/apps-script/reference/mail/mail-app). Recipients, message content and one-shot markers are unchanged. Never clear an attempted or uncertain delivery record to resend an old notice, and never send prepared member drafts through this notification path.
+
+
+### Small private review pages
+
+The owner review queue reads at most three folders per request and carries its existing continuation token into More contributions. This keeps private Drive reads small when account or service latency is high. Pagination does not alter intake, stored evidence, consent, attempts, budget, signing or the existing trigger. A completed server execution alone does not prove that its result displayed in the browser.
