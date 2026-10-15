@@ -828,7 +828,7 @@ function annalsReviewList(nonce, continuation) {
   return annalsUiCall_(nonce, function () {
     annalsRoot_();
     var folders = continuation ? DriveApp.continueFolderIterator(continuation) : annalsRoot_().getFolders(), items = [], checked = 0;
-    while (folders.hasNext() && checked++ < 30) {
+    while (folders.hasNext() && checked++ < 10) {
       var f = annalsPrivate_(folders.next()), id = f.getName();
       if (!/^[a-f0-9]{64}$/.test(id)) continue;
       var source = annalsRead_(f, 'source-private.json');

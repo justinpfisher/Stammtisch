@@ -1058,3 +1058,23 @@ test('quarantine UI permits a withdrawn test provisionally but never an active, 
   assert.equal(available({approved:true,removal:{state:'dispatch_accepted'}}),true);
   assert.equal(available({approved:true,removal:{state:'dispatch_accepted'},quarantined:true}),false);
 });
+
+
+test('owner review pages bound folder work and preserve complete continuation without changing evidence or spend',()=>{
+  const x=mock(),ledger=x.props.ANNALS_BUDGET_LEDGER,ids=Array.from({length:25},(_,i)=>(i+1).toString(16).padStart(64,'0'));
+  const folders=['unrelated-folder',...ids].map(id=>({...x.folder,getName:()=>id,
+    getFilesByName:name=>iter(name==='source-private.json'?[{...x.folder,
+      getBlob:()=>({getDataAsString:()=>JSON.stringify({senderAuthenticated:true,source:{subject:'Invented review fixture',receivedAt:'2026-10-09T00:00:00Z'}})})}]:[])}));
+  let visited=0;
+  function pageIterator(start){let at=start;return{hasNext:()=>at<folders.length,next:()=>{visited++;return folders[at++];},getContinuationToken:()=>String(at)};}
+  x.root.getFolders=()=>pageIterator(0);
+  x.context.DriveApp.continueFolderIterator=token=>pageIterator(Number(token));
+  const seen=[],sizes=[];let continuation=null;
+  do{const before=visited,page=x.context.annalsReviewList('valid',continuation);
+    assert.ok(visited-before<=10,'one response never scans more than ten folders');
+    sizes.push(page.items.length);seen.push(...Array.from(page.items,item=>item.id));continuation=page.continuation;
+  }while(continuation);
+  assert.deepEqual(sizes,[9,10,6]);assert.deepEqual(seen,ids);
+  assert.equal(new Set(seen).size,25);assert.equal(x.props.ANNALS_BUDGET_LEDGER,ledger);assert.equal(x.calls.ai,0);
+  assert.throws(()=>x.context.annalsReviewList('invalid',null),/Reload the private review page/);
+});
