@@ -14,7 +14,11 @@ correction and withdrawal, and render under Club History.
 
 The private production source adds protective CoL routing, an owner-only
 proposal comparison, and a conservative source-first history ledger. These
-features are **not live merely because this source is merged**. The existing
+features are **not live merely because this source is merged**. Until the
+private source is updated, legacy automatic history/monthly/artefact requests
+are rejected by the public publisher because they lack distinct narrative
+authority. The older desk may show them awaiting verification; preserve their
+attempts and do not resend them. The existing
 private Apps Script project must be updated and its existing owner-only web-app
 deployment version advanced. Do not reinstall it or reset any live records,
 permissions, cursor, activation boundary, schedule or reservations.
@@ -200,3 +204,42 @@ hosted genuine-content acceptance for the new private workflows; iPhone Safari,
 Android Chrome and assistive-technology device checks. The cloud browser can
 inspect the live desktop site but cannot reach this workspace's private local
 server. Photographic qualification remains separate and disabled.
+
+
+## Release execution evidence — 15 October 2026
+
+- [PR #69](https://github.com/justinpfisher/Stammtisch/pull/69) merged at
+  `fef98b2285cdc44898155d1fadd24197e53b9b8b`; implementation head
+  `bf8ff3bb725ed622e9ffc91fc8a126a7de88a2df`. The remote source tree exactly matched
+  the locally tested tree (`b15b97f17238aef69b5802580972ca97ce23a129`).
+- [GitHub-hosted CI](https://github.com/justinpfisher/Stammtisch/actions/runs/38743520514)
+  passed all **64 Python and 237 Node tests**, plus the existing public CoL
+  register connectivity check. The implementation review is recorded on the PR;
+  it is not an independent production acceptance or a private-credential audit.
+- [Pages deployment](https://github.com/justinpfisher/Stammtisch/actions/runs/38743729887)
+  succeeded for the merged commit. The preceding Pages run was cancelled and
+  superseded by this successful deployment.
+- At **13:35:20 UTC**, all four public files below returned HTTP 200 and matched
+  the released bytes exactly. The live desktop browser independently showed the
+  new notice, empty Annals and empty dedicated History reader. No fabricated
+  history, recipe or member quotation was published for acceptance.
+
+| Public path | Verified SHA-256 |
+| --- | --- |
+| `annals.html` | `fd8c778b846fd79dfd5fadde0d9a07e435d083af9851e1b2b8b6f02a4c5997d7` |
+| `history.html` | `8b49391e65c60f25c36937b15421ab7445cfa0f97af0401978fae93fc0438f10` |
+| `data/club-history.json` | `96a743e83e479bf1d4f5d04803b485d46196817b1d9187d071d3193a39ad9281` |
+| `data/annals-approved.json` | `c7ef371fd3108000284e7f011095f668ef5f94e078d649847035cf7ca388c6e5` |
+
+Public locations: [Annals](https://stammtischbrewery.com/annals.html) and
+[Club History](https://stammtischbrewery.com/history.html). Empty collections
+remain hidden from Annals navigation. Rendered recipe/date/redaction behaviour
+is covered by fictional offline exact-signature tests; because the archive is
+empty, it is not claimed as genuine-content live acceptance.
+
+Private Apps Script installation, actual credential rotation, the six original
+case-level dispositions, genuine-content end-to-end acceptance, physical-device
+and screen-reader checks remain **blocked/unverified**. General unattended
+history interpretation is **not qualified**. No production setting, consent,
+cursor, trigger, activation timestamp, ledger, paid allowance or actual CoL rule
+was changed by this cloud release work.
