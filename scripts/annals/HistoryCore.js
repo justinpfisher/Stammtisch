@@ -9,13 +9,29 @@ var AnnalsHistory = (function () {
   var CHAPTERS = {origins:'Origins',gatherings:'Gathering together',assemblies:'Annual Assemblies',traditions:'Developing traditions'};
   function copy(value) { return JSON.parse(JSON.stringify(value)); }
   function empty() { return {schemaVersion:1, revision:0, claims:[], revisions:[]}; }
+  function validateClaim(c) {
+    if (!c || typeof c.id !== 'string' || !/^[a-f0-9]{64}$/.test(c.id) ||
+        typeof c.sourceId !== 'string' || !/^[a-f0-9]{64}$/.test(c.sourceId) ||
+        !Object.prototype.hasOwnProperty.call(CHAPTERS,c.chapter) ||
+        typeof c.factKey !== 'string' || !/^[a-z][a-z0-9-]{2,79}$/.test(c.factKey) ||
+        ['subject','excerpt'].indexOf(c.field) < 0 ||
+        typeof c.statement !== 'string' || !c.statement.trim() || c.statement.length > 1200 ||
+        typeof c.period !== 'string' || c.period.length > 80 ||
+        (c.period && c.statement.indexOf(c.period) < 0) ||
+        ['recollection','supported'].indexOf(c.status) < 0 ||
+        typeof c.uncertainty !== 'string' || c.uncertainty.length > 160 ||
+        typeof c.evidenceNote !== 'string' || c.evidenceNote.trim().length < 10 || c.evidenceNote.length > 1000 ||
+        !Number.isSafeInteger(c.order) || c.order < 0 || c.order > 100000 ||
+        typeof c.receivedAt !== 'string' || !Number.isFinite(Date.parse(c.receivedAt)) ||
+        typeof c.active !== 'boolean') throw new Error('Invalid private history claim');
+  }
   function claim(source, raw) {
     if (!source || source.senderAuthenticated !== true || source.aiConsentActive !== true ||
         source.autoConsentAtReceipt !== true || !source.source || !raw) throw new Error('Verified private source required');
     var s = source.source;
     if (s.sourceTruncated || s.subjectTruncated || s.excerptTruncated ||
         !/^[a-f0-9]{64}$/.test(raw.sourceId || '') ||
-        !/^[a-f0-9]{64}$/.test(raw.id || '') || !CHAPTERS[raw.chapter] ||
+        !/^[a-f0-9]{64}$/.test(raw.id || '') || !Object.prototype.hasOwnProperty.call(CHAPTERS,raw.chapter) ||
         !/^[a-z][a-z0-9-]{2,79}$/.test(raw.factKey || '') ||
         ['subject','excerpt'].indexOf(raw.field) < 0 ||
         typeof raw.statement !== 'string' || !raw.statement.trim() || raw.statement.length > 1200 ||
@@ -25,27 +41,32 @@ var AnnalsHistory = (function () {
         (raw.period && raw.statement.indexOf(raw.period) < 0)) throw new Error('Claim must match complete original evidence');
     if (typeof raw.uncertainty !== 'string' || raw.uncertainty.length > 160 ||
         ['recollection','supported'].indexOf(raw.status) < 0 ||
-        typeof raw.evidenceNote !== 'string' || raw.evidenceNote.length < 10 || raw.evidenceNote.length > 1000)
+        typeof raw.evidenceNote !== 'string' || raw.evidenceNote.trim().length < 10 || raw.evidenceNote.length > 1000)
       throw new Error('Private grounding and uncertainty assessment required');
     // No attribution, location or other protected field is de-identified by AI.
     if (policy.protectedRoute(s.subject,s.excerpt) !== 'annals' ||
         policy.sensitiveText(raw.statement) || /["“”«»]/.test(raw.statement) ||
         policy.sensitiveText(raw.uncertainty) || /\b(?:fictional|hypothetical|diagnostic|invented|test record)\b/i.test(raw.statement))
       throw new Error('Claim requires private reconciliation');
-    return {id:raw.id,sourceId:raw.sourceId,field:raw.field,statement:raw.statement,
+    var result = {id:raw.id,sourceId:raw.sourceId,field:raw.field,statement:raw.statement,
       factKey:raw.factKey,chapter:raw.chapter,period:raw.period,status:raw.status,
       uncertainty:raw.uncertainty,evidenceNote:raw.evidenceNote,order:raw.order,receivedAt:s.receivedAt,active:true};
+    validateClaim(result);
+    return result;
   }
   function validate(ledger) {
     if (!ledger || ledger.schemaVersion !== 1 || !Number.isSafeInteger(ledger.revision) || ledger.revision < 0 ||
-        !Array.isArray(ledger.claims) || ledger.claims.length > 600 || !Array.isArray(ledger.revisions) ||
-        new Set(ledger.claims.map(function(c){return c.id;})).size !== ledger.claims.length) throw new Error('Invalid private history ledger');
+        !Array.isArray(ledger.claims) || ledger.claims.length > 600 || !Array.isArray(ledger.revisions)) throw new Error('Invalid private history ledger');
+    ledger.claims.forEach(validateClaim);
+    if (new Set(ledger.claims.map(function(c){return c.id;})).size !== ledger.claims.length) throw new Error('Duplicate private history claim');
   }
   function propose(ledger, next) {
     validate(ledger);
+    validateClaim(next);
     var same = ledger.claims.filter(function(c){return c.active && c.factKey === next.factKey;});
     if (ledger.claims.some(function(c){return c.id === next.id;})) return {kind:'duplicate',affected:[]};
-    if (same.some(function(c){return c.statement !== next.statement || c.period !== next.period || c.chapter !== next.chapter;}))
+    if (same.some(function(c){return c.statement !== next.statement || c.period !== next.period || c.chapter !== next.chapter ||
+      c.status !== next.status || c.uncertainty !== next.uncertainty || c.order !== next.order;}))
       return {kind:'dispute',affected:Array.from(new Set(same.map(function(c){return c.chapter;}).concat([next.chapter])))};
     return {kind:same.length ? 'corroboration' : 'addition',affected:same.length ? [] : [next.chapter]};
   }
@@ -53,7 +74,7 @@ var AnnalsHistory = (function () {
     var decision = propose(ledger,next);
     if (decision.kind === 'duplicate') return {ledger:copy(ledger),decision:decision};
     if (decision.kind === 'dispute' || !ownerConfirmed && decision.kind !== 'corroboration') throw new Error('Owner reconciliation required');
-    if (ownerConfirmed && (typeof evidenceNote !== 'string' || evidenceNote.length < 10)) throw new Error('Private review evidence required');
+    if (ownerConfirmed && (typeof evidenceNote !== 'string' || evidenceNote.trim().length < 10)) throw new Error('Private review evidence required');
     var result = copy(ledger);
     result.claims.push(copy(next));
     result.revision++;
@@ -63,7 +84,7 @@ var AnnalsHistory = (function () {
   }
   function withdraw(ledger, sourceId, at, reason) {
     validate(ledger);
-    if (typeof reason !== 'string' || reason.length < 10) throw new Error('Private withdrawal reason required');
+    if (typeof reason !== 'string' || reason.trim().length < 10) throw new Error('Private withdrawal reason required');
     var result = copy(ledger), affected=[];
     result.claims.forEach(function(c){if(c.active && c.sourceId === sourceId){c.active=false;affected.push(c.chapter);}});
     if (!affected.length) throw new Error('No active source claims');
@@ -74,8 +95,9 @@ var AnnalsHistory = (function () {
   }
   function resolve(ledger, factKey, replacement, at, reason) {
     validate(ledger);
-    if (!replacement || replacement.factKey !== factKey || typeof reason !== 'string' || reason.length < 10)
+    if (!replacement || replacement.factKey !== factKey || typeof reason !== 'string' || reason.trim().length < 10)
       throw new Error('Owner resolution and grounded replacement required');
+    if(ledger.claims.some(function(c){return c.id===replacement.id;}))throw new Error('Correction requires a new grounded claim identity');
     var result=copy(ledger);
     result.claims.forEach(function(c){if(c.factKey===factKey)c.active=false;});
     var revised=apply(result,replacement,true,at,reason).ledger;
