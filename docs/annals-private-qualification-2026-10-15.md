@@ -286,3 +286,33 @@ unqualified.
 Review this protocol as an engineering design before relaxing the guard.
 No new signing credential, live rule amendment, activation marker, paid
 provider call or production switch was changed by the interim patch.
+
+
+### Public-only rule file observation utility (not activation authority)
+
+A separate read-only Node utility, `scripts/annals/observe-hosted-col.mjs`,
+compares the **five exact public CoL files** from the local approved checkout
+against the bytes observed at `https://stammtischbrewery.com/`. Run it only
+when checking a known already-deployed source revision:
+
+```sh
+node scripts/annals/observe-hosted-col.mjs
+```
+
+Alternatively, use GitHub **Actions → Observe public CoL rule files (read-only) → Run workflow**. That workflow runs on a GitHub-hosted runner against the current `main` and is manual-only; it has `contents: read` permissions and no signing or deployment access. A successful run is still one network-vantage observation, not an activation authorisation.
+
+It requests no Gmail, Google Sheet, credentials, API key, private source or
+GitHub write permission. Every public path is allowlisted. The observer rejects
+partial, missing, redirected, oversized or stale responses and returns only
+file paths, SHA-256 hashes, byte counts and an observation time. All five must
+match during the same run. Tests use fictional data and a mocked HTTP
+transport; no live mutation or paid provider call is made.
+
+**Limit:** One successful public read proves that exact bytes were observable
+from one network vantage at that instant. It does not demonstrate simultaneous
+availability from all GitHub Pages edges or browser caches. Its result is
+deliberately labelled `public-col-byte-observation-only` and cannot sign,
+release, activate, backdate or qualify any rule. The interim activation block
+remains in force. The final two-phase protocol still needs independent
+candidate/version proof, retained previous operative rules, correct staging
+and effective times, requalification, rollback and hosted acceptance.

@@ -1,0 +1,23 @@
+name: Observe public CoL rule files (read-only)
+
+# Owner/engineer-initiated observation only. No publication or automation gate.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compare all five current live rule files with committed public bytes
+        run: node scripts/annals/observe-hosted-col.mjs
