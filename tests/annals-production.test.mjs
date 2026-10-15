@@ -1483,3 +1483,14 @@ test('history signing rechecks every existing active claim against its immutable
   assert.throws(()=>x.context.annalsApproveHistoryRevision('valid',id,preview.hash,true));
   assert.equal(calls,0);assert.ok(!x.files.has('history-pending-private.json'));
 });
+
+test('informal proposal and rules-question messages cannot reach ordinary review or dispatch',()=>{
+  for(const text of ['Here is my new points formula.','Can we use a different draft order?','A question about the scoring rules.']){
+    const x=mock(),id='c'.repeat(64),before=x.props.ANNALS_BUDGET_LEDGER;
+    x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,source:{subject:'A cocktail',excerpt:text},attachmentManifest:{items:[]}}));
+    assert.throws(()=>x.context.annalsSaveReview('valid',id,entry()));
+    assert.throws(()=>x.context.annalsDispatchApproved_(x.folder,entry(),{},'annals-approved-entry','publication-dispatch-private.json'));
+    assert.equal(x.calls.ai,0);assert.equal(x.props.ANNALS_BUDGET_LEDGER,before);
+    assert.ok(!x.files.has('approval-private.json'));assert.ok(!x.files.has('publication-dispatch-private.json'));
+  }
+});

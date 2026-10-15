@@ -155,3 +155,11 @@ test('history rejects inherited chapter names and malformed active-state ledgers
   assert.throws(()=>history.chapters({...ledger,claims:[{...first,active:'false'}]}));
   assert.throws(()=>history.chapters({...ledger,claims:[{...first,receivedAt:'not a date'}]}));
 });
+
+// Fictional routing probes only; no provider request or official rules change.
+test('ordinary proposal wording and ambiguous rules references are privately routed in either field',()=>{
+  for(const text of ['Here is my new points formula.','I recommend a different drafting procedure.','Can we use a different draft order?','A question about the scoring rules.','My preferred selection method.','Let us award extra points.']){
+    for(const [subject,body] of [[text,''],['A cocktail',text]])assert.equal(auto.protectedRoute(subject,body),'col_proposal',text);
+  }
+  assert.equal(auto.protectedRoute('A cocktail','I recommend 2 oz water. Stir gently.'),'annals');
+});
