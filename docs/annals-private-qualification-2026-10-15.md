@@ -229,3 +229,60 @@ Head-trigger regression occurs; the two execution modes differ. Do not remove th
 trigger, restore an exposed key or replay unknown operations. A public presentation
 rollback uses a reviewed revert. Preserve retired IDs and append-only revision
 history; an adopted reversal must be a new linked record.
+
+
+## Interim fail-closed CoL activation boundary — 15 October 2026
+
+A qualified implementation bundle currently still produces an **active** version
+inside the offline `coordinate` model before any independent hosted Pages
+reconciliation can establish a trustworthy publication clock. The runtime
+`RulesRelease.mjs` now invokes `requireNonActivatingRuleRelease` **before
+writing any files** and refuses any result that would introduce a verified
+operative version, a new `active` status event, or changed official Markdown
+or `celebration.html` narrative. The existing private and GitHub rule release
+switches remain disabled. A scheduled, non-operative record still requires
+the pre-existing signing/acceptance gates.
+
+This interim guard **does not implement or qualify rule activation**. It
+prevents a premature active release even if someone sets the current gates.
+Existing ordinary Annals publication, photo-source/consent handling, live CoL
+scoring and notifications are unaffected. Do not turn on rule release flags
+merely because this guard exists; staging and first real release remain
+unqualified.
+
+### Requirements for replacing the interim guard
+
+1. Commit a **non-operative, source-bound candidate** without changing current
+   official narrative or executable scoring. Preserve the existing operative
+   version, immutable provenance, signed revisions and awarded history.
+2. Independently verify all hosted candidate assets, rule text, structured
+   parameters, implementation code/version, source spreadsheet evidence and
+   applicable permissions. Define what counts as an authoritative, observed
+   publication clock; **neither signature `issuedAt` nor GitHub dispatch
+   acceptance is hosted publication evidence**.
+3. Qualify a separately signed **activation transition** anchored to that
+   evidence and a fresh current-base check. Distinguish submission time,
+   staging time, first hosted observation and prospective effective time.
+   Do not backdate a default-effective change.
+4. Design for GitHub Pages delay and partial/failed deployment: prevent
+   pre-verification execution, retain the prior verified version, preserve
+   failure and unknown-delivery evidence, do not replay one-shot operations,
+   and require explicit requalification for recovery. Document any unavoidable
+   static-host consistency or activation-clock limitations rather than
+   claiming impossible atomicity.
+5. Reconcile successful **exact** hosted HTML/JSON/source/formula output
+   and owner-only evidence **before** a success notification. Ensure
+   scheduled revisions recheck the operative base and their affected period
+   at due time, and never become operative by time alone.
+6. Cover fail-closed/no-write, partial deployments, stale Pages caches,
+   interrupted runs, two competing amendments, rollback, delayed monitor,
+   explicit retrospective authority, Source Sheet Editor+Viewer read-back,
+   independent death verification and no erroneous web-push notices.
+7. The bounded typed-parameter and editorial-only release classes should
+   be assessed independently from formula/allocation/source-spreadsheet
+   changes. The current coordinator carries forward prior `parameters`;
+   **editing PRIZE prose alone cannot qualify a new executable prize amount**.
+
+Review this protocol as an engineering design before relaxing the guard.
+No new signing credential, live rule amendment, activation marker, paid
+provider call or production switch was changed by the interim patch.
