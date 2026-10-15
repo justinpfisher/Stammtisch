@@ -353,3 +353,101 @@ evidence; a deployment version / preflight record if the actual private
 project was updated; results of available independent accessibility and
 workflow testing; and a precise final security/activation handoff. Do not
 call history automation or private CoL routing live until directly verified.
+
+
+## Non-rotation acceptance continuation after PR #72 — 15 October 2026
+
+**Private installation remains blocked, not completed.** One navigation to
+Apps Script home in the available cloud browser returned Google's public
+Apps Script information page with a Sign in link. No authenticated project
+editor or deployment was available. No login retry, password operation,
+source installation, publication pause or deployment-version change occurred.
+The newly connected Drive service can read production evidence, but exposes no
+Apps Script source-update/deployment operation. Drive OAuth does not prove a
+signed-in browser session. No secret-recovery file, signing value or signing
+remediation marker was read or changed.
+
+The GMKtec Windows filesystem is not mounted or otherwise accessible. Searches
+of the accessible workspace, Library and connected Drive did not find the
+completed `private-results-matrix.html`. Do not substitute the unexecuted
+register or a new reconstruction for the missing original. The
+[sanitized QA summary](annals-october-2026-qa-summary.md) now includes a
+case-by-case read-only inventory of actual production evidence. All 30 sources
+matched uniquely; 18 have historical live verification and corresponding
+withdrawal evidence, and all 30 have quarantine evidence. Q02 additionally has
+an owner-confirmed, no-AI recovery and subsequent live verification. Four
+classification holds and one category discrepancy are identified for further
+matrix reconciliation. The exact original six strict dispositions remain open.
+A separately retained private evidence inventory contains no raw submissions
+or credentials and preserves the original records unchanged.
+
+The private consent registry was read without alteration. It contains six
+active AI-processing grants and six active grants each for standing text,
+quote attribution and contributor portraits. This is a current registry read,
+not a new consent registration, account preflight or publishing activation.
+No current Script Properties budget/cursor/activation value was inspected.
+
+### Independent routing correction
+
+Offline probes reproduced an ordinary-publication bypass for natural wording
+such as “Here is my new points formula”, “I recommend a different drafting
+procedure”, and “Can we use a different draft order?”. The prior detector also
+missed an ambiguous scoring-rules question. `AutoCore.js` now recognises these
+proposal cues and conservatively routes explicit rules/scoring/drafting
+references privately, independently of category. This may hold some harmless
+rule-related text; private clarification is preferable to accidental ordinary
+publication of a suspected amendment. An ordinary cocktail recommendation
+without a governance reference remains on the Annals path.
+
+Two new fictional regression cases exercise both subject/body routing and
+private review/lower-level dispatch refusal. The full cloud offline suite
+passes **64 Python and 249 Node tests**. All provider and dispatch services in
+these tests are mocks. No real AI call, reservation, mail, dispatch or CoL rule,
+score, allocation, spreadsheet or notification change occurred. This fix needs
+the pending private source installation before its live route can be claimed.
+
+### Available browser accessibility evidence
+
+Actual desktop Chrome observations at 1363 × 936 CSS pixels on the empty live
+Annals and History pages confirmed one H1 and main landmark per page, visible
+keyboard focus, working Skip to content followed by the first main-content
+link, and no horizontal overflow. Visible navigation/contribution links were
+at least 44 pixels high. History uses a 720-pixel reading column and 17-pixel
+body text; measured foreground colours on the live cream background give
+contrast ratios of 4.95:1 or higher for the inspected brass, muted, forest and
+link colours. Screenshots were inspected privately, not saved as deliverables.
+
+This is **desktop browser evidence**, not device emulation, physical iPhone/
+Android acceptance or VoiceOver/TalkBack testing. The available browser API
+exposes no viewport/device/forced-colours emulation control; an attempted zoom
+shortcut did not change the measured viewport and is not counted as coverage.
+The live archive is empty, so populated recipe/date/redaction/portrait layouts
+remain covered by offline fixtures, not by genuine-content browser acceptance.
+No fictional content was published to obtain those screenshots.
+
+### Remaining in-place installation and final security boundary
+
+Once the existing authenticated owner project is accessible, install the
+qualified files from current main without creating a new project or resetting
+state: `PilotCore.js`, `ProductionCore.js`, `AutoCore.js`, `MediaCore.js`,
+`MediaPolicy.js`, `Production.gs`, `ReviewUi.html`, `HistoryCore.js`,
+`GovernanceCore.js`, `HistoryProduction.gs`, `PublicDisplay.js`, and the existing
+`production-appsscript.json` manifest. Do not install legacy `Code.gs` or
+`SyntheticPilot.gs`. Add dependencies before changing their callers. Preserve
+OAuth scopes, owner-only access, URL, existing schedule and all properties and
+private files. A code update must not run setup, clear attempts or automatically
+reassess quarantined/uncertain submissions. Record the actual installed source,
+existing deployment's new version and safe boolean preflight results; source
+checksums and a merged PR alone are insufficient. No fresh installed version
+is claimed in this continuation.
+
+Signing rotation remains the explicitly deferred final stage. Do not invoke
+the rotation probe or set `ANNALS_SIGNING_REMEDIATED_AT` during this interim
+work. Leave History and automatic media publication disabled. After eventual
+rotation, verify old-key rejection and matching future exact-content signing
+through the existing secure settings, followed by genuine eligible hosted
+acceptance; never resend an uncertain earlier dispatch. Distinct History
+activation requires its own qualification after that security stage. The
+November 8 AI stop, November 9 dispatch expiry and US$5 monthly ceiling are
+unchanged. US$3.20 remains the last owner-reported reservation, not a fresh
+private balance verification.
