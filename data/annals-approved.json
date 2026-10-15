@@ -139,6 +139,23 @@
       },
       "credit": "anonymous",
       "contributorPortrait": "fish"
+    },
+    {
+      "id": "annal-f6e08358e568b5cc5e98f9aa",
+      "category": "club_history",
+      "title": "Club history diagnostic: the imaginary first ledger had no entries. This is not a historical assertion.",
+      "summary": "Club history diagnostic: the imaginary first ledger had no entries. This is not a historical assertion.",
+      "year": 2026,
+      "dateLabel": "Submitted 2026-10",
+      "sortDate": "",
+      "quoteVerbatim": "",
+      "recipe": {
+        "drinkIngredients": [],
+        "syrupIngredients": [],
+        "steps": []
+      },
+      "credit": "anonymous",
+      "contributorPortrait": "fish"
     }
   ],
   "approvals": [
@@ -239,6 +256,20 @@
       "entryId": "annal-53f2e10bcf943f83545ae101",
       "mode": "standing-consent-text-v1",
       "signature": "7ecbf21f6aa1555334aa236743cb78f5857fc07af0d96ccca89ed4884d7e66f7"
+    },
+    {
+      "approvedAt": "2026-10-15T04:01:33.392Z",
+      "consents": {
+        "namedAttribution": true,
+        "photoPublication": false,
+        "publication": true,
+        "quotePublication": false,
+        "recipeVerified": false
+      },
+      "contentSha256": "cdafcdc39b035a94bd67490d2c4d12f88f06a1985f4ac7db644a6b898d226aaa",
+      "entryId": "annal-f6e08358e568b5cc5e98f9aa",
+      "mode": "standing-consent-text-v1",
+      "signature": "95d5d96ae1d95a62f727303dc0e60672adc5c178b1ae7a01b0d83e5e2595e4f4"
     }
   ]
 }
