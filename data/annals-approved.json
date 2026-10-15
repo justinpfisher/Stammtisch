@@ -200,6 +200,23 @@
       },
       "credit": "anonymous",
       "contributorPortrait": "fish"
+    },
+    {
+      "id": "annal-c38fb5914f91f7e70d01f03f",
+      "category": "artefact",
+      "title": "Found something in the box — diagnostic",
+      "summary": "Imagine a paper menu with two blank lines and a decorative crest. This is\nan invented artefact description, not a recovered club document.",
+      "year": 2026,
+      "dateLabel": "Submitted 2026-10",
+      "sortDate": "",
+      "quoteVerbatim": "",
+      "recipe": {
+        "drinkIngredients": [],
+        "syrupIngredients": [],
+        "steps": []
+      },
+      "credit": "anonymous",
+      "contributorPortrait": "fish"
     }
   ],
   "approvals": [
@@ -356,6 +373,20 @@
       "entryId": "annal-9c33967e081ef85e68bff530",
       "mode": "standing-consent-text-v1",
       "signature": "eb2babfc304a6f0ba1c5aa471b6f867c4ddd9d581ccc6893fc246692e176b0c4"
+    },
+    {
+      "approvedAt": "2026-10-15T04:32:42.085Z",
+      "consents": {
+        "namedAttribution": true,
+        "photoPublication": false,
+        "publication": true,
+        "quotePublication": false,
+        "recipeVerified": false
+      },
+      "contentSha256": "843aede8549df56921fc806ee3a2ffb97e736ab924d540b79b5911bdbef41e21",
+      "entryId": "annal-c38fb5914f91f7e70d01f03f",
+      "mode": "standing-consent-text-v1",
+      "signature": "79d7ce07cdc05dfa2eebd10edbbecd2a216dafbc9f412c1f46cbd93a9a534d64"
     }
   ]
 }
