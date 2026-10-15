@@ -117,7 +117,36 @@ async function loadSpeakerMap(){
 }
 function censorForPublic(s){return String(s).replace(/\b(?:tastes?|smells?)\s+like\s+shit\b/gi,v=>v.replace(/\bshit\b/i,'[POOP]')).replace(/\b(?:motherfucker|motherfucking|fucking|fucked|fucker|fuck|bullshit|shitty|shit|asshole|bastard|bitch|cunt|dickhead)\b/gi,'[EXPLETIVE]')}
 function quarantineAvailable(item){return !!item&&!item.quarantined&&(!(item.approved||item.dispatchAttempted)||!!(item.removal&&item.removal.state==='dispatch_accepted'));}
-function call(name,...args){return new Promise((resolve,reject)=>google.script.run.withSuccessHandler(resolve).withFailureHandler(()=>reject(new Error('Operation held. Check the private configuration or reload this page.')))[name](...args));}
+const reviewReadMethods=['annalsReviewList','annalsReviewItem','annalsReviewConsentStatus','annalsReviewSpeakerIdentities'];
+function reviewErrorKind(error){
+  const message=String(error&&error.message||'');
+  if(message.includes('Reload the private review page'))return 'session';
+  if(message.includes('Owner sign-in required'))return 'owner';
+  if(/authorization is required|authorization required|insufficient permissions|not have permission/i.test(message))return 'authorization';
+  if(/too many|quota|limit exceeded/i.test(message))return 'limit';
+  if(/not supported return type|serializ|illegal value/i.test(message))return 'transfer';
+  if(/server error|try again later|temporarily unavailable|timed out|timeout/i.test(message))return 'temporary';
+  if(message.includes('Operation held'))return 'policy';
+  return 'unknown';
+}
+function reviewErrorMessage(kind){
+  const messages={session:'The private review session expired. Reload the desk; no action was automatically repeated.',owner:'Sign in as the dedicated Annals owner to continue.',authorization:'The owner account needs Google authorization before continuing.',limit:'A Google service limit was reached. Wait before trying again; no action was automatically repeated.',transfer:'The private result could not be displayed. Reload and check its saved status before repeating an action.',temporary:'Google could not complete the private request. Reload and check its saved status before repeating an action.',policy:'The private server held this operation. Check the private item and configuration before trying again.',unknown:'The private request failed. Reload and check its saved status before repeating an action.'};
+  return messages[kind]||messages.unknown;
+}
+function rpc(name,args){return new Promise((resolve,reject)=>google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[name](...args));}
+async function call(name,...args){
+  try{return await rpc(name,args);}catch(error){
+    if(reviewErrorKind(error)==='session'&&reviewReadMethods.includes(name)&&typeof args[0]==='string'){
+      let session;
+      try{session=await rpc('annalsReviewSession',[]);}catch(refreshError){throw new Error(reviewErrorMessage(reviewErrorKind(refreshError)));}
+      if(!session||typeof session.nonce!=='string'||!session.nonce)throw new Error(reviewErrorMessage('session'));
+      nonce=session.nonce;
+      const retryArgs=args.slice();retryArgs[0]=nonce;
+      try{return await rpc(name,retryArgs);}catch(retryError){throw new Error(reviewErrorMessage(reviewErrorKind(retryError)));}
+    }
+    throw new Error(reviewErrorMessage(reviewErrorKind(error)));
+  }
+}
 function attemptMessage(outcome){const messages={network_error:'The request could not reach the AI provider.',provider_response_error:'The provider response could not be read.',invalid_response:'The provider response did not pass validation.',private_storage_error:'The private draft could not be saved.'};let message=messages[outcome&&outcome.reason]||'The AI attempt was interrupted or held.';if(outcome&&outcome.reason==='provider_http_error')message='The AI provider returned HTTP '+(Number.isInteger(outcome.httpStatus)?outcome.httpStatus:'error')+'.';return message+' No automatic retry will spend more.';}
 async function act(fn){document.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn();}catch(e){say(e.message)}finally{document.querySelectorAll('button').forEach(b=>b.disabled=false);if(current&&current.attempted)el('prepare').disabled=true;if(current&&current.approved){el('prepare').disabled=true;el('save').disabled=true;el('approve').disabled=true;}}}
 async function list(reset){if(reset){el('items').replaceChildren();continuation=null;}const page=await call('annalsReviewList',nonce,continuation);page.items.forEach(item=>{const li=document.createElement('li'),b=document.createElement('button');b.textContent=item.subject+' — '+item.state;b.onclick=()=>act(()=>open(item.id));li.append(b);el('items').append(li)});continuation=page.continuation;el('more').hidden=!continuation;say('Private review is ready.');}

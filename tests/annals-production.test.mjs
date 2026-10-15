@@ -1126,3 +1126,53 @@ test('live-verification scan resumes beyond bounded pages without redispatch or 
   assert.equal(x.context.annalsVerifyAutomaticPublications_(3),0);assert.equal(gets.length,2);
   assert.equal(x.props.ANNALS_BUDGET_LEDGER,ledger);assert.equal(x.calls.ai,0);
 });
+
+
+function reviewClientFixture(responder){
+  const ui=readFileSync(new URL('../scripts/annals/ReviewUi.html',import.meta.url),'utf8');
+  const source=ui.slice(ui.indexOf('const reviewReadMethods='),ui.indexOf('function attemptMessage('));
+  assert.ok(source.includes('async function call('));
+  const calls=[],runner=(success,failure)=>new Proxy({}, {get(_,name){
+    if(name==='withSuccessHandler')return handler=>runner(handler,failure);
+    if(name==='withFailureHandler')return handler=>runner(success,handler);
+    return (...args)=>{calls.push({name,args:Array.from(args)});try{success(responder(name,Array.from(args)));}catch(error){failure(error);}};
+  }});
+  const context={google:{script:{run:runner()}},Error};vm.createContext(context);
+  vm.runInContext("let nonce='old-owner-nonce';\n"+source+'\nthis.runCall=call;this.readNonce=()=>nonce;',context);
+  return {calls,context};
+}
+
+test('expired owner sessions refresh once for allowlisted private reads and preserve exact arguments',async()=>{
+  for(const method of ['annalsReviewList','annalsReviewItem','annalsReviewConsentStatus','annalsReviewSpeakerIdentities']){
+    const x=reviewClientFixture((name,args)=>{
+      if(name==='annalsReviewSession')return{nonce:'renewed-owner-nonce'};
+      if(args[0]==='old-owner-nonce')throw new Error('Error: Reload the private review page');
+      return{ok:true};
+    });
+    assert.equal((await x.context.runCall(method,'old-owner-nonce','invented-id-or-continuation')).ok,true);
+    assert.deepEqual(x.calls.map(c=>c.name),[method,'annalsReviewSession',method]);
+    assert.deepEqual(x.calls[2].args,['renewed-owner-nonce','invented-id-or-continuation']);
+    assert.equal(x.context.readNonce(),'renewed-owner-nonce');
+  }
+});
+
+test('expired sessions never automatically repeat AI, consent, signing, publishing, withdrawal or quarantine mutations',async()=>{
+  for(const method of ['annalsPrepareDraft','annalsApproveExact','annalsPublishApproved','annalsApproveRemoval','annalsApproveCorrection','annalsQuarantineSubmission','annalsReassessHeldQuote','annalsSaveSpeakerIdentities','annalsInviteProcessingConsent']){
+    const x=reviewClientFixture(()=>{throw new Error('Error: Reload the private review page');});
+    await assert.rejects(x.context.runCall(method,'old-owner-nonce','invented-exact-id',true),/session expired/);
+    assert.equal(x.calls.length,1,method);assert.equal(x.context.readNonce(),'old-owner-nonce');
+  }
+});
+
+test('private review failures stay bounded and never echo source text, identifiers or provider errors',async()=>{
+  const secret='invented-private-marker owner@example.test https://private.example.test/token';
+  for(const message of [secret,'Operation held. '+secret,'Service invoked too many times: '+secret,'Server error: '+secret]){
+    const x=reviewClientFixture(()=>{throw new Error(message);});
+    await assert.rejects(x.context.runCall('annalsReviewItem','old-owner-nonce','invented-id'),error=>!error.message.includes('invented-private-marker')&&!error.message.includes('owner@example.test')&&!error.message.includes('private.example.test'));
+    assert.equal(x.calls.length,1);
+  }
+  const twice=reviewClientFixture(name=>name==='annalsReviewSession'?{nonce:'fresh'}:(()=>{throw new Error('Reload the private review page');})());
+  await assert.rejects(twice.context.runCall('annalsReviewList','old-owner-nonce'),/session expired/);assert.equal(twice.calls.length,3);
+  const noNonce=reviewClientFixture(name=>name==='annalsReviewSession'?{}:(()=>{throw new Error('Reload the private review page');})());
+  await assert.rejects(noNonce.context.runCall('annalsReviewList','old-owner-nonce'),/session expired/);assert.equal(noNonce.calls.length,2);
+});

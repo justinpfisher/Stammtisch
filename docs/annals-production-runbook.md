@@ -132,3 +132,8 @@ For a text test that was already published, complete the existing authenticated 
 ### Bounded private backlog work
 
 Each normal intake cycle resumes at most two new AI drafts and scans at most twelve private folders for drafting and twelve for live reconciliation. Existing Drive continuation tokens carry unfinished walks into later cycles; do not clear them, the inbox cursor, attempt records or the ledger to accelerate a backlog. A single cycle need not process a wave or verify a publication that is still deploying. The single existing fifteen-minute Head trigger remains in place; use additional bounded manual cycles only when the preceding cycle and owner mutations are complete, with sufficient time before the next scheduled run.
+
+
+### Private desk session recovery
+
+The owner desk may obtain a fresh owner-authenticated session and retry one allowlisted read when the server explicitly reports an expired review session. No AI, consent, signing, publication, correction, removal or quarantine action is automatically retried. Other failures show only a private-safe category; raw provider errors and source values are never reflected in the page. Check saved status before repeating an uncertain action.
