@@ -84,8 +84,8 @@ then reserves an immutable one-shot attempt. A distinct
 `source-grounded-history-revision-v1` signature binds the full public document
 and previous digest. A changed base, invalid/expired signature, wrong key,
 duplicate revision or uncertain operation stops publication. Pending evidence
-is never redispatched automatically. Only matching hosted JSON and HTML revision
-markers allow private reconciliation to commit the new ledger. Private source
+is never redispatched automatically. Only exact matching hosted JSON and
+generated HTML allow private reconciliation to commit the new ledger. Private source
 relationships do not enter the public document.
 
 Publication needs all of the following, **after** security remediation and
@@ -281,3 +281,11 @@ media setting, budget or deadline was changed by this follow-up.
 The cloud offline suite passed 64 Python and 247 Node tests. Private deployment,
 credential rotation and genuine-content acceptance remain unverified; merging
 this follow-up does not perform those owner-account operations.
+
+Follow-up implementation: [PR #71](https://github.com/justinpfisher/Stammtisch/pull/71),
+source `5772522004774832bfa40556ab28101c83ddf5bc`, tested tree
+`5d376cb5c52bce16a997ee82f89b92ab9e040f51`.
+[GitHub-hosted regression run 38752944919](https://github.com/justinpfisher/Stammtisch/actions/runs/38752944919)
+passed all 64 Python and 247 Node tests and the existing public CoL register
+connectivity check. A later documentation-only commit corrects the older
+revision-marker description to the exact-HTML check.
