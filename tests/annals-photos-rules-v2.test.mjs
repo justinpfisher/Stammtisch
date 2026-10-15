@@ -12,7 +12,7 @@ import {photoIndex} from '../scripts/annals/PhotoIndex.mjs';
 import {contentDigest,validatePublicTextEntry,buildPublishedAnnals} from '../scripts/annals/ApprovedRenderer.mjs';
 import {applyApprovedEntry,approvedPhoto} from '../scripts/annals/apply-approved-entry.mjs';
 import {applyRuleRelease,applyRuleStatus,renderRegister,digest,canonical,RULES_MODE,RULE_STATUS_MODE} from '../scripts/annals/RulesPublisher.mjs';
-import {coordinate,RELEASE_MODE} from '../scripts/annals/RulesRelease.mjs';
+import {coordinate,RELEASE_MODE,requireNonActivatingRuleRelease} from '../scripts/annals/RulesRelease.mjs';
 
 const at='2026-10-15T18:00:00Z',key='fictional-v2-test-key-not-a-real-production-secret';
 const base={id:'col-baseline-fictional',digest:'a'.repeat(64),provisions:{PRIZE:'## PRIZE\n\nThe fictional prize is ten tokens.'}};
@@ -168,6 +168,31 @@ test('a pending future revision stays scheduled until a separately qualified due
 test('coordinated rules narrative, structured version and register use one exact release',()=>{
   const args=coordinatedFixture(),result=coordinate(args);assert.match(result.markdown,/twelve tokens/);assert.match(result.html,/twelve tokens/);assert.equal(result.register.revisions[0].state,'active');assert.equal(result.versions.versions.at(-1).provisions.PRIZE,revision().changes[0].after);assert.match(result.markdown,/Unchanged editorial notes/);
   assert.equal('requestExcerpt' in result.register.revisions[0],false);
+});
+test('live rule release fails closed before writing any unverified active version or changed rules text',()=>{
+  const args=coordinatedFixture(),active=coordinate(args);
+  assert.throws(()=>requireNonActivatingRuleRelease(active,args),/hosted publication clock/);
+  assert.equal(args.register.revisions.length,0);
+  assert.equal(args.versions.versions.length,1);
+  assert.equal(args.markdown.includes('twelve tokens'),false);
+  const future='2027-01-01T05:00:00Z';
+  const {approval:oldApproval,...content}=args.bundle;
+  const proposal={...content,revision:{...content.revision,effectiveAt:future}};
+  const proof={...oldApproval};delete proof.signature;
+  const bundle={...proposal,approval:{...proof,signature:createHmac('sha256',key)
+    .update(JSON.stringify(canonical({content:proposal,approval:proof}))).digest('hex')}};
+  const staged=coordinate({...args,bundle});
+  assert.equal(staged.versions.versions.at(-1).verified,false);
+  assert.equal(staged.markdown,args.markdown);
+  assert.equal(requireNonActivatingRuleRelease(staged,args),staged);
+  for(const unsafe of [
+    {...staged,markdown:'Unverified operative text'},
+    {...staged,html:'<p>Unverified operative text</p>'},
+    {...staged,versions:{...staged.versions,versions:staged.versions.versions.map((v,i)=>i===staged.versions.versions.length-1?{...v,verified:true}:v)}},
+    {...staged,register:{...staged.register,events:[...staged.register.events,{state:'active'}]}}
+  ])assert.throws(()=>requireNonActivatingRuleRelease(unsafe,args),/hosted publication clock/);
+  const source=readFileSync(new URL('../scripts/annals/RulesRelease.mjs',import.meta.url),'utf8');
+  assert.match(source,/requireNonActivatingRuleRelease\(result,before\)/);
 });
 test('deployment preparation failures, changed code, source mismatch and replay produce no mutation',()=>{
   const args=coordinatedFixture(),original=JSON.stringify(args.register);
