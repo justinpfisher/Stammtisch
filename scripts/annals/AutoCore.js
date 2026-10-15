@@ -73,7 +73,10 @@ var AnnalsAuto = (function () {
     var suffix = original.match(/^([\s\S]+?)\s*[—–-]\s*(Justin|Fish|Marc|Matt|Ken|Jamie|Jerome)$/i);
     var quoted = self ? self[1] : prefix ? prefix[2] : suffix ? suffix[1] : original;
     var line = outerQuote(quoted);
-    if (line !== aiQuote) return null;
+    // A proposal may retain the complete original field, including its label
+    // and quote delimiters. Accept only the exact full field or extracted words;
+    // attribution and every content/consent gate still use the original source.
+    if (line !== aiQuote && original !== aiQuote) return null;
     return { speakerPortrait:prefix ? speakerId(prefix[1]) : suffix ? speakerId(suffix[2]) : null,
       self:!!self, quote:line };
   }
