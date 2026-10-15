@@ -2,23 +2,6 @@
   "schemaVersion": 1,
   "entries": [
     {
-      "id": "annal-412b78ef26a07de895fdd0b9",
-      "category": "quotation",
-      "title": "Recorded remark",
-      "summary": "An authenticated contribution to the Register of Remarks.",
-      "year": 2026,
-      "dateLabel": "Submitted 2026-10",
-      "sortDate": "",
-      "quoteVerbatim": "This is a diagnostic quotation for the Annals, not a historical club remark.",
-      "recipe": {
-        "drinkIngredients": [],
-        "syrupIngredients": [],
-        "steps": []
-      },
-      "credit": "anonymous",
-      "speakerPortrait": "fish"
-    },
-    {
       "id": "annal-41b9051734bb8159dc011d57",
       "category": "cocktail",
       "title": "Mocktail recipe diagnostic only; never served at a club gathering.",
@@ -142,20 +125,6 @@
     }
   ],
   "approvals": [
-    {
-      "approvedAt": "2026-10-15T02:27:02.428Z",
-      "consents": {
-        "namedAttribution": true,
-        "photoPublication": false,
-        "publication": true,
-        "quotePublication": true,
-        "recipeVerified": false
-      },
-      "contentSha256": "35cc89a6e6b931e823bf1e250444dc98dc2a6e2a5558c5bdea034cd3448f9c3d",
-      "entryId": "annal-412b78ef26a07de895fdd0b9",
-      "mode": "standing-consent-quote-v1",
-      "signature": "0fd1012f4ac4030470428cfa7103f60df9f7fb69c9a836dbb5570098ca6cd830"
-    },
     {
       "approvedAt": "2026-10-15T02:40:11.278Z",
       "consents": {
