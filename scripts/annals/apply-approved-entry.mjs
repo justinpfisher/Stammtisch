@@ -1,5 +1,7 @@
 import Media from './MediaCore.js';
 import Photos from './PhotoContracts.js';
+import {resolvePhotoBlobs} from './PhotoTransport.mjs';
+import {photoThumbnail} from './PhotoThumbnail.mjs';
 
 // Trusted deployment configuration only. An email/payload cannot arm this lane.
 export function photoReleaseAllowed({entryId,photosEnabled,securityVerified,acceptanceEntryId,acceptanceUntil,now=new Date()}){
@@ -53,7 +55,7 @@ export function assertFreshDispatch(event, now) {
     throw new Error('Expired or future publication approval');
 }
 
-export async function applyApprovedEntry({ event, data, secret, history = emptyHistory(), now, photosEnabled=false }) {
+export async function applyApprovedEntry({ event, data, secret, history = emptyHistory(), now, photosEnabled=false, blobTransportEnabled=false, fetchBlob }) {
   const actions = ['annals-approved-entry', 'annals-auto-entry', 'annals-correct-entry', 'annals-remove-entry'];
   if (!event || !actions.includes(event.action) || !event.client_payload) throw new Error('Invalid dispatch event');
   if (!data || data.schemaVersion !== 1 || !Array.isArray(data.entries) || !Array.isArray(data.approvals) ||
@@ -76,10 +78,10 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
     retiredIds.push(event.client_payload.entryId);
     const result = buildPublishedAnnals(entries, approvals, secret, history);
     return { data: { schemaVersion: 1, entries, approvals, retiredIds }, html: result.html,
-      assetsToDelete: [{ path: `assets/annals/${event.client_payload.entryId}.jpg` }, ...Photos.photos(removed).filter(p=>!entries.some(e=>Photos.photos(e).some(x=>x.sha256===p.sha256))).map(p=>({path:`assets/annals/${p.sha256}.jpg`}))], assetsToWrite: [] };
+      assetsToDelete: [{ path: `assets/annals/${event.client_payload.entryId}.jpg` }, ...Photos.photos(removed).filter(p=>!entries.some(e=>Photos.photos(e).some(x=>x.sha256===p.sha256))).flatMap(p=>[{path:`assets/annals/${p.sha256}.jpg`},{path:`assets/annals/${p.sha256}-thumb.jpg`}])], assetsToWrite: [] };
   } else {
     const keys = Object.keys(event.client_payload).sort().join(',');
-    if (keys !== 'approval,entry' && keys !== 'approval,entry,imageBase64' && keys !== 'approval,entry,images') throw new Error('Invalid entry payload');
+    if (keys !== 'approval,entry' && keys !== 'approval,entry,imageBase64' && keys !== 'approval,entry,images' && keys !== 'approval,entry,imageBlobs') throw new Error('Invalid entry payload');
     const entry = validatePublicTextEntry(event.client_payload.entry), approval = event.client_payload.approval;
     if(entry.photos && photosEnabled!==true)throw Error('Photographic v2 release remains disabled');
     if(retiredIds.includes(entry.id))throw new Error('Withdrawn identity cannot be replayed');
@@ -88,7 +90,7 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
       if (!entry.photos && ['club_history','monthly_gathering','artefact'].includes(entry.category))
         throw new Error('Living History requires distinct signed revision authority');
       if ((approval.mode === 'standing-consent-text-v1' && (entry.photo || entry.photos || event.client_payload.imageBase64 !== undefined || event.client_payload.images !== undefined)) ||
-          (['standing-consent-image-v1','standing-consent-photos-v2'].includes(approval.mode) && (!(entry.photo || entry.photos) || entry.photo && event.client_payload.imageBase64 === undefined || entry.photos && event.client_payload.images === undefined)) ||
+          (['standing-consent-image-v1','standing-consent-photos-v2'].includes(approval.mode) && (!(entry.photo || entry.photos) || entry.photo && event.client_payload.imageBase64 === undefined || entry.photos && event.client_payload.images === undefined && event.client_payload.imageBlobs === undefined)) ||
           (approval.mode === 'standing-consent-quote-v1' &&
             (entry.category !== 'quotation' || !entry.speakerPortrait || entry.photo || entry.photos ||
              event.client_payload.imageBase64 !== undefined)) ||
@@ -97,8 +99,22 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
     } else if (approval.mode !== undefined) {
       throw new Error('Standing-consent proof cannot be reused for manual publication or correction');
     }
+    const index = entries.findIndex(item => item.id === entry.id);
+    if(event.action!=='annals-correct-entry'&&(index>=0||approvals.some(item=>item.entryId===entry.id)))throw Error('Entry already exists; no duplicate publication');
+    if(event.action==='annals-correct-entry'){
+      const previousApproval=approvals.find(item=>item?.entryId===entry.id);
+      if(index<0||!previousApproval||Date.parse(approval.approvedAt)<=Date.parse(previousApproval.approvedAt)||contentDigest(entries[index])===contentDigest(entry))throw Error('Correction must replace an existing entry with changed exact text');
+      // Photo corrections change captions/date/text only. Replacing or adding
+      // an asset requires separately qualified source/rights engineering.
+      if((entries[index].photos||entry.photos)&&JSON.stringify(entries[index].photos)!==JSON.stringify(entry.photos))throw Error('Gallery replacement remains held');
+    }
     let imageBytes=null;
-    if(entry.photos){
+    if(event.client_payload.imageBlobs!==undefined){
+      if(!entry.photos||!blobTransportEnabled)throw Error('Photo blob transport remains disabled');
+      // Gate and signature validation above precede every network request. Each
+      // response is streamed under its declared bound before any file is written.
+      assetsToWrite.push(...await resolvePhotoBlobs(entry.photos,event.client_payload.imageBlobs,fetchBlob));
+    }else if(entry.photos){
       const payload=event.client_payload.images;
       if(event.client_payload.imageBase64!==undefined||!Array.isArray(payload)||payload.length!==entry.photos.length||new Set(payload.map(p=>p.sha256)).size!==payload.length)throw Error('Exact gallery payload required');
       let total=0;
@@ -113,7 +129,6 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
       if(event.client_payload.images!==undefined)throw Error('Unexpected gallery payload');
       imageBytes=approvedPhoto(entry,event.client_payload.imageBase64);
     }
-    const index = entries.findIndex(item => item.id === entry.id);
     if (event.action === 'annals-approved-entry' || event.action === 'annals-auto-entry') {
       if (index >= 0 || approvals.some(item => item.entryId === entry.id)) throw new Error('Entry already exists; no duplicate publication');
       entries.push(entry); approvals.push(approval);
@@ -125,11 +140,12 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
       if (entries[index].photo && !entry.photo) assetsToDelete.push({ path: `assets/annals/${entry.id}.jpg` });
       const priorPhotos=entries[index].photos || [];
       entries[index] = entry; approvals[approvalIndex] = approval;
-      for(const p of priorPhotos)if(!entries.some(e=>Photos.photos(e).some(x=>x.sha256===p.sha256)))assetsToDelete.push({path:`assets/annals/${p.sha256}.jpg`});
+      for(const p of priorPhotos)if(!entries.some(e=>Photos.photos(e).some(x=>x.sha256===p.sha256)))assetsToDelete.push({path:`assets/annals/${p.sha256}.jpg`},{path:`assets/annals/${p.sha256}-thumb.jpg`});
     }
     if (imageBytes) assetsToWrite.push({ path: `assets/annals/${entry.id}.jpg`, bytes: imageBytes });
   }
   const rendered = buildPublishedAnnals(entries, approvals, secret, history);
+  for(const asset of [...assetsToWrite]){const thumb=photoThumbnail(asset);if(thumb)assetsToWrite.push(thumb);}
   return { data: { schemaVersion: 1, entries, approvals, ...(retiredIds.length ? {retiredIds} : {}) }, html: rendered.html, assetsToWrite, assetsToDelete };
 }
 
@@ -141,7 +157,9 @@ async function main() {
   const now=new Date(),photosEnabled=photoReleaseAllowed({entryId:event.client_payload?.entry?.id,
     photosEnabled:process.env.ANNALS_PHOTOS_V2_RELEASE_ENABLED==='true',securityVerified:process.env.ANNALS_SIGNING_REMEDIATION_VERIFIED==='true',
     acceptanceEntryId:process.env.ANNALS_PHOTOS_ACCEPTANCE_ENTRY_ID,acceptanceUntil:process.env.ANNALS_PHOTOS_ACCEPTANCE_UNTIL,now});
-  const result = await applyApprovedEntry({ event, data, secret: process.env.ANNALS_PUBLISH_SIGNING_KEY, history, now, photosEnabled });
+  if(Buffer.byteLength(JSON.stringify({event_type:event.action,client_payload:event.client_payload}))>60000)throw Error('Dispatch envelope exceeds bound');
+  const result = await applyApprovedEntry({ event, data, secret: process.env.ANNALS_PUBLISH_SIGNING_KEY, history, now, photosEnabled,
+    blobTransportEnabled:process.env.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED==='true' });
   for (const item of result.assetsToDelete) await rm(item.path, { force: true });
   for (const item of result.assetsToWrite) { await mkdir(path.dirname(item.path), { recursive: true }); await writeFile(item.path, item.bytes); }
   await writeFile(dataPath, JSON.stringify(result.data, null, 2) + '\n');

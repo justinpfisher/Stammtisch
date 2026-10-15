@@ -260,7 +260,10 @@ function contributorCreditMarkup(credit) {
 function photoMarkup(entry) {
   return Photos.photos(entry).length ? '<div class="annal-gallery">' + Photos.photos(entry).map((p,i) => {
     const asset = 'assets/annals/' + (entry.photos ? p.sha256 : entry.id) + '.jpg';
-    return '<figure><a data-photo-view href="'+asset+'"><img src="'+asset+'" '+(p.width ? 'width="'+p.width+'" height="'+p.height+'" ' : '')+'alt="'+escapeHtml(p.alt)+'" loading="lazy" decoding="async"></a>'+(p.caption ? '<figcaption>'+editorialHtml(p.caption)+'</figcaption>' : '')+'</figure>';
+    const responsive=entry.photos&&Math.max(p.width,p.height)>=800;
+    const thumb=responsive?asset.replace(/\.jpg$/,'-thumb.jpg'):asset;
+    const thumbWidth=responsive?Math.round(p.width*400/Math.max(p.width,p.height)):p.width;
+    return '<figure><a data-photo-view href="'+asset+'"><img src="'+thumb+'" '+(responsive?'srcset="'+thumb+' '+thumbWidth+'w, '+asset+' '+p.width+'w" sizes="(max-width: 560px) 90vw, (max-width: 900px) 45vw, 360px" ':'')+(p.width ? 'width="'+p.width+'" height="'+p.height+'" ' : '')+'alt="'+escapeHtml(p.alt)+'" loading="lazy" decoding="async"></a>'+(p.caption ? '<figcaption>'+editorialHtml(p.caption)+'</figcaption>' : '')+'</figure>';
   }).join('') + '</div>' : '';
 }
 function approvedEntryMarkup(entry) {

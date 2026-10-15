@@ -1245,8 +1245,14 @@ function annalsDispatchApproved_(folder, entry, approval, eventType, markerName)
   var payload = { entry: entry, approval: approval };
   if (entry.photos) {
     if(!annalsPhotosReady_(folder.getName()))return false;
-    var set=annalsPhotoSet_(folder.getName(),annalsRead_(folder,'source-private.json'),false);
-    payload.images=entry.photos.map(function(p){var d=set.find(function(x){return x.sha256===p.sha256;});if(!d)throw new Error('Missing screened derivative');return {sha256:p.sha256,base64:d.base64};});
+    if(annalsFile_(folder,markerName))return false;
+    if(annalsProps_().getProperty('ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED')==='true'){
+      payload.imageBlobs=annalsPhotoBlobRefs_(folder,entry,approval,eventType);
+      if(!payload.imageBlobs)return false;
+    }else{
+      var set=annalsPhotoSet_(folder.getName(),annalsRead_(folder,'source-private.json'),false);
+      payload.images=entry.photos.map(function(p){var d=set.find(function(x){return x.sha256===p.sha256;});if(!d)throw new Error('Missing screened derivative');return {sha256:p.sha256,base64:d.base64};});
+    }
   }
   if (entry.photo) {
     var derivative = annalsPhotoDerivative_(folder);
@@ -1381,7 +1387,7 @@ function annalsAutoPublishCandidate_(id, allowHeldRecovery) {
   var folder = annalsFolder_(id);
   if (annalsFile_(folder, 'quarantine-private.json')) return false;
   var previous = annalsRead_(folder, 'approval-private.json');
-  if (previous) return [AnnalsAuto.MODE,AnnalsAuto.QUOTE_MODE,AnnalsMediaPolicy.MODE].indexOf(previous.approvalMode) >= 0 && previous.publicationState === 'dispatch_accepted';
+  if (previous) return [AnnalsAuto.MODE,AnnalsAuto.QUOTE_MODE,AnnalsMediaPolicy.MODE,'standing-consent-photos-v2'].indexOf(previous.approvalMode) >= 0 && previous.publicationState === 'dispatch_accepted';
   var source = annalsRead_(folder, 'source-private.json'), draft = annalsRead_(folder, 'draft-private.json');
   var priorDecision = annalsRead_(folder, 'auto-decision-private.json');
   var recoveryAttempt = annalsRead_(folder, 'reassessment-attempt-private.json');
@@ -1421,7 +1427,7 @@ function annalsAutoPublishCandidate_(id, allowHeldRecovery) {
   var entry = AnnalsProduction.publicEntry(decision.entry);
   var hash = annalsHash_(AnnalsProduction.serial(entry));
   var receipt = { entryId: entry.id, approvedAt: new Date().toISOString(),
-    reviewedBy: decision.mode === AnnalsMediaPolicy.MODE ? 'standing-consent-image-automation-v1' :
+    reviewedBy: (decision.mode === AnnalsMediaPolicy.MODE || decision.mode === 'standing-consent-photos-v2') ? 'standing-consent-image-automation-v1' :
       decision.mode === AnnalsAuto.QUOTE_MODE ? 'standing-consent-quote-automation-v1' :
       'standing-consent-automation-v1',
     consents: AnnalsProduction.consents(entry, {
@@ -1497,7 +1503,7 @@ function annalsVerifyAutomaticPublications_(limit) {
     var folder = annalsPrivate_(folders.next()), id = folder.getName();
     if (!/^[a-f0-9]{64}$/.test(id) || annalsFile_(folder, 'auto-live-verification-private.json')) continue;
     var saved = annalsRead_(folder, 'approval-private.json');
-    if (!saved || [AnnalsAuto.MODE,AnnalsAuto.QUOTE_MODE,AnnalsMediaPolicy.MODE].indexOf(saved.approvalMode) < 0 || saved.publicationState !== 'dispatch_accepted') continue;
+    if (!saved || [AnnalsAuto.MODE,AnnalsAuto.QUOTE_MODE,AnnalsMediaPolicy.MODE,'standing-consent-photos-v2'].indexOf(saved.approvalMode) < 0 || saved.publicationState !== 'dispatch_accepted') continue;
     // A queued/failed Pages run must not remain invisible indefinitely.
     // Private reminder only; never re-dispatch an uncertain publication.
     var approvedAt = Date.parse(saved.receipt && saved.receipt.approvedAt);
@@ -1527,6 +1533,7 @@ function annalsVerifyAutomaticPublications_(limit) {
       var pageResponse = UrlFetchApp.fetch('https://stammtischbrewery.com/annals.html' + query,
         { method: 'get', muteHttpExceptions: true, followRedirects: false, validateHttpsCertificates: true });
       if (pageResponse.getResponseCode() !== 200 || pageResponse.getContentText().indexOf('id="' + saved.entry.id + '"') < 0) continue;
+      if(entry.photos&&!annalsVerifyPhotoAssets_(entry,archive,query))continue;
       annalsWriteOnce_(folder, 'auto-live-verification-private.json', {
         state: 'verified_live', contentSha256: saved.receipt.contentSha256, verifiedAt: new Date().toISOString() });
       verified++;

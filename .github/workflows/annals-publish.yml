@@ -28,6 +28,7 @@ jobs:
           ANNALS_SIGNING_REMEDIATION_VERIFIED: ${{ vars.ANNALS_SIGNING_REMEDIATION_VERIFIED }}
           ANNALS_PHOTOS_ACCEPTANCE_ENTRY_ID: ${{ vars.ANNALS_PHOTOS_ACCEPTANCE_ENTRY_ID }}
           ANNALS_PHOTOS_ACCEPTANCE_UNTIL: ${{ vars.ANNALS_PHOTOS_ACCEPTANCE_UNTIL }}
+          ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED: ${{ vars.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED }}
         run: node scripts/annals/apply-approved-entry.mjs
       - name: Commit consented public entry
         run: |

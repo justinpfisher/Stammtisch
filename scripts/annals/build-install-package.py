@@ -13,7 +13,7 @@ FILES = (
     "MediaPolicy.js", "Production.gs", "ReviewUi.html", "HistoryCore.js",
     "GovernanceCore.js", "HistoryProduction.gs", "PublicDisplay.js",
     "production-appsscript.json", "PhotoContracts.js", "PhotoProduction.gs",
-    "RulesCore.js", "RulesProduction.gs",
+    "RulesCore.js", "RulesProduction.gs", "JpegCodec.js", "PhotoDerivative.js",
 )
 
 
@@ -55,7 +55,8 @@ cursor/boundary, remove triggers, clear attempts or replay dispatches.
 
 Install the files under install/ into the matching existing Apps Script files.
 Public .js module names are mapped to native .gs files without content changes.
-Add PhotoContracts, PhotoProduction, RulesCore, RulesProduction, PublicDisplay,
+Add JpegCodec and PhotoDerivative, then PhotoContracts, PhotoProduction,
+RulesCore, RulesProduction, PublicDisplay,
 HistoryCore, GovernanceCore and HistoryProduction before
 updating callers. Preserve the existing manifest/scopes and all Script
 Properties. Never open or export credential values to complete this update.

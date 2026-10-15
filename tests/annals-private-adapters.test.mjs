@@ -57,7 +57,7 @@ test('hosted controlled photo acceptance cannot widen to other entries or bypass
 });
 test('private gate inspection exposes booleans only and does not inspect any signing value or write state',()=>{
   const read=[],c=vm.createContext({annalsUiCall_:(n,fn)=>{assert.equal(n,'owner');return fn();},annalsProps_:()=>({getProperty:k=>{assert.doesNotMatch(k,/KEY|TOKEN|REMEDIAT/);read.push(k);return null;},setProperty:()=>assert.fail('Read-only gate inspection wrote state')})});
-  vm.runInContext(photoSource,c);const result=c.annalsReadPhotoPublicationGates('owner');assert.ok(Object.values(result).every(v=>v===false));assert.equal(read.length,6);
+  vm.runInContext(photoSource,c);const result=c.annalsReadPhotoPublicationGates('owner');assert.ok(Object.values(result).every(v=>v===false));assert.equal(read.length,7);
 });
 test('combined gallery overflow retains all derivatives privately and saves no public-ready manifest',()=>{
   const source={imageConsentAtReceipt:true,source:{sender:'fictional@example.test',receivedAt:at},attachmentManifest:{items:[1,2,3].map(index=>({index,storageName:String(index),mime:'image/jpeg',accepted:true,size:12000}))}},saved=[];
