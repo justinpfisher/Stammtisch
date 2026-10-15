@@ -51,23 +51,6 @@
       },
       "credit": "anonymous",
       "contributorPortrait": "fish"
-    },
-    {
-      "id": "annal-af139db66de06c5050f41783",
-      "category": "club_history",
-      "title": "Club history diagnostic — hypothetical first toast",
-      "summary": "This deliberately invented example imagines the origin of an annual toast.\nIt is a test record, not a verified Stammtisch tradition.",
-      "year": 2026,
-      "dateLabel": "Submitted 2026-10",
-      "sortDate": "",
-      "quoteVerbatim": "",
-      "recipe": {
-        "drinkIngredients": [],
-        "syrupIngredients": [],
-        "steps": []
-      },
-      "credit": "anonymous",
-      "contributorPortrait": "fish"
     }
   ],
   "approvals": [
@@ -112,20 +95,6 @@
       "entryId": "annal-a84799613765ad020da68ce7",
       "mode": "standing-consent-text-v1",
       "signature": "d170384cafb78136ed1c966a6994f65985753ee23e92483354a59521ff12b0a3"
-    },
-    {
-      "approvedAt": "2026-10-15T03:46:14.969Z",
-      "consents": {
-        "namedAttribution": true,
-        "photoPublication": false,
-        "publication": true,
-        "quotePublication": false,
-        "recipeVerified": false
-      },
-      "contentSha256": "6f807eb9d7d03d8054bfc3283cc8b13023169cef511996a1fb06a31ba5cec4c6",
-      "entryId": "annal-af139db66de06c5050f41783",
-      "mode": "standing-consent-text-v1",
-      "signature": "1b587121b7a517d5c3ab59e0960d90249b0ed6da3e3a3355bc0a845ed26f1ce0"
     }
   ]
 }
