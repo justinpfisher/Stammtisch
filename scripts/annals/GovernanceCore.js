@@ -7,7 +7,7 @@ var AnnalsGovernance = (function(){
         typeof heading !== 'string' || heading.length > 100 ||
         typeof replacement !== 'string' || replacement.length > 6000 ||
         typeof note !== 'string' || note.length > 2000) throw new Error('Invalid private proposal review');
-    var lines=rules.split('\n'), start=lines.findIndex(function(line){return /^#{2,3} /.test(line)&&line.replace(/^#+ /,'')===heading;}), end=start+1;
+    var lines=rules.replace(/\r\n/g,'\n').split('\n'), start=lines.findIndex(function(line){return /^#{2,3} /.test(line)&&line.replace(/^#+ /,'')===heading;}), end=start+1;
     if(start<0)throw new Error('Choose a current official provision');
     while(end<lines.length&&!/^#{1,3} /.test(lines[end]))end++;
     var current=lines.slice(start,end).join('\n').trim();

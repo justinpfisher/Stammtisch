@@ -20,11 +20,11 @@ class AnnalsInstallPackageTests(unittest.TestCase):
             result = PACKAGE.build_package("HEAD", first)
             PACKAGE.build_package("HEAD", second)
             self.assertEqual(first.read_bytes(), second.read_bytes())
-            self.assertEqual(result["files"], 12)
+            self.assertEqual(result["files"], len(PACKAGE.FILES))
             self.assertFalse(result["installed"])
             with zipfile.ZipFile(first) as archive:
                 manifest = json.loads(archive.read("source-manifest.json"))
-                self.assertEqual(len(archive.namelist()), 14)
+                self.assertEqual(len(archive.namelist()), len(PACKAGE.FILES) + 2)
                 self.assertFalse(any("private" in n or n.endswith("/Code.gs") or "SyntheticPilot" in n for n in archive.namelist()))
                 for item in manifest["files"]:
                     expected = PACKAGE.git("show", manifest["sourceCommit"] + ":" + item["source"])

@@ -1,3 +1,4 @@
+import Photos from './PhotoContracts.js';
 /* Public Annals HTML generator — approved public content only, not an email processor.
  * This module does not read Gmail, private Drive, API keys or external models.
  * It produces a string; callers must separately obtain authenticated human
@@ -19,7 +20,7 @@ const TYPES = Object.freeze({
 
 const PUBLIC_KEYS = new Set([
   'id', 'category', 'title', 'summary', 'year', 'dateLabel',
-  'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo', 'speakerPortrait', 'contributorPortrait'
+  'sortDate', 'quoteVerbatim', 'recipe', 'credit', 'photo', 'photos', 'submittedAt', 'eventPeriod', 'speakerPortrait', 'contributorPortrait'
 ]);
 const RECIPE_KEYS = new Set(['drinkIngredients', 'syrupIngredients', 'steps', 'suggestedSteps']);
 // Already-public illustrated portraits used in Celebration of Life; no private images.
@@ -79,7 +80,7 @@ export function validatePublicTextEntry(input) {
   if (input.category === 'quotation' && !quoteVerbatim.trim()) throw new Error('Quotation requires verbatim text');
   if (input.category !== 'quotation' && quoteVerbatim) throw new Error('Unexpected quotation text');
   if (input.category === 'cocktail' &&
-      !outputRecipe.drinkIngredients.length && !outputRecipe.steps.length && !input.photo) {
+      !outputRecipe.drinkIngredients.length && !outputRecipe.steps.length && !input.photo && !input.photos) {
     throw new Error('Cocktail requires an actual approved recipe');
   }
   if (input.category !== 'cocktail' && Object.values(outputRecipe).some(a => a.length)) {
@@ -93,6 +94,15 @@ export function validatePublicTextEntry(input) {
     year, dateLabel, sortDate, quoteVerbatim, recipe: outputRecipe,
     credit: limited(input.credit || 'anonymous', 'credit', 70, true),
   };
+  if (input.photos !== undefined) {
+    if (input.photo || input.category === 'quotation') throw new Error('Conflicting photo representation');
+    output.photos = Photos.validate(input.photos);
+  }
+  if (input.submittedAt !== undefined) {
+    if (typeof input.submittedAt !== 'string' || !/^\d{4}-\d\d-\d\dT/.test(input.submittedAt) || !Number.isFinite(Date.parse(input.submittedAt))) throw new Error('Invalid submission date');
+    output.submittedAt = input.submittedAt;
+  }
+  if (input.eventPeriod !== undefined) output.eventPeriod = Photos.period(input.eventPeriod);
   // A verified sender is shown without publishing their email address or name.
   if (input.contributorPortrait !== undefined && input.contributorPortrait !== null) {
     if (typeof input.contributorPortrait !== 'string' ||
@@ -113,7 +123,7 @@ export function validatePublicTextEntry(input) {
     output.photo = { sha256: input.photo.sha256, alt: limited(input.photo.alt, 'photo alt text', 180, true) };
   }
   const publicTexts = [output.title, output.summary, output.dateLabel, output.credit, output.quoteVerbatim,
-    ...outputRecipe.drinkIngredients, ...outputRecipe.syrupIngredients, ...outputRecipe.steps, ...(outputRecipe.suggestedSteps || []), ...(output.photo ? [output.photo.alt] : [])];
+    ...outputRecipe.drinkIngredients, ...outputRecipe.syrupIngredients, ...outputRecipe.steps, ...(outputRecipe.suggestedSteps || []), ...(output.photo ? [output.photo.alt] : []), ...(output.photos || []).flatMap(p => [p.alt,p.caption || ''])];
   if (publicTexts.some(s => UNCENSORED_STRONG.test(s))) throw new Error('Uncensored strong profanity must not enter the public archive');
   return Object.freeze(output);
 }
@@ -148,7 +158,7 @@ export function verifyApproval(publicEntry, receipt, secret) {
         receipt.consents.publication !== true) return false;
     if (entry.category === 'quotation' && receipt.consents.quotePublication !== true) return false;
     if (entry.category === 'cocktail' && receipt.consents.recipeVerified !== true) return false;
-    if (!!entry.photo !== (receipt.consents.photoPublication === true)) return false;
+    if (!!(entry.photo || entry.photos) !== (receipt.consents.photoPublication === true)) return false;
     if ((entry.credit !== 'anonymous' && entry.credit !== 'a club member' || entry.speakerPortrait || entry.contributorPortrait) &&
         receipt.consents.namedAttribution !== true) return false;
     const digest = contentDigest(entry);
@@ -178,24 +188,26 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
     allowedKeys(approval.consents, CONSENT_KEYS, 'consent');
     const automatedText = approval.mode === 'standing-consent-text-v1';
     const automatedImage = approval.mode === 'standing-consent-image-v1';
+    const automatedGallery = approval.mode === 'standing-consent-photos-v2';
     const automatedRemark = approval.mode === 'standing-consent-quote-v1';
-    const automated = automatedText || automatedImage || automatedRemark;
+    const automated = automatedText || automatedImage || automatedGallery || automatedRemark;
     if (approval.mode !== undefined && !automated) return false;
     // A distinct signed mode is required for an identified quotation speaker.
     if (automated && (entry.credit !== 'anonymous' ||
         approval.consents.quotePublication !== (entry.category === 'quotation') ||
         (automatedRemark && (entry.category !== 'quotation' || !entry.speakerPortrait ||
           entry.contributorPortrait ||
-          entry.photo || approval.consents.namedAttribution !== true ||
+          (entry.photo || entry.photos) || approval.consents.namedAttribution !== true ||
           approval.consents.photoPublication !== false)) ||
         (!automatedRemark && (entry.speakerPortrait || approval.consents.namedAttribution !== !!entry.contributorPortrait)) ||
-        (automatedText && (entry.photo || approval.consents.photoPublication !== false)) ||
-        (automatedImage && (entry.category === 'quotation' || !entry.photo || approval.consents.photoPublication !== true)))) return false;
+        (automatedText && ((entry.photo || entry.photos) || approval.consents.photoPublication !== false)) ||
+        (automatedImage && (entry.category === 'quotation' || !entry.photo || entry.photos || approval.consents.photoPublication !== true)) ||
+        (automatedGallery && (entry.category === 'quotation' || !entry.photos || entry.photo || approval.consents.photoPublication !== true)))) return false;
     if (approval.entryId !== entry.id || !/^\d{4}-\d{2}-\d{2}T/.test(approval.approvedAt ?? '') ||
         approval.consents.publication !== true ||
         (entry.category === 'quotation' && approval.consents.quotePublication !== true) ||
         (entry.category === 'cocktail' && approval.consents.recipeVerified !== true) ||
-        (!!entry.photo !== (approval.consents.photoPublication === true)) ||
+        (!!(entry.photo || entry.photos) !== (approval.consents.photoPublication === true)) ||
         ((entry.credit !== 'anonymous' && entry.credit !== 'a club member' || entry.speakerPortrait || entry.contributorPortrait) && approval.consents.namedAttribution !== true)) return false;
     if (approval.contentSha256 !== contentDigest(entry) || !/^[a-f0-9]{64}$/.test(approval.signature ?? '')) return false;
     const signedMaterial = JSON.stringify(canonical({
@@ -239,6 +251,12 @@ function contributorCreditMarkup(credit) {
   return '<p class="annal-credit">' + portrait + '<span>Recorded by ' + editorialHtml(credit) + '</span></p>';
 }
 
+function photoMarkup(entry) {
+  return Photos.photos(entry).length ? '<div class="annal-gallery">' + Photos.photos(entry).map((p,i) => {
+    const asset = 'assets/annals/' + (entry.photos ? p.sha256 : entry.id) + '.jpg';
+    return '<figure><a data-photo-view href="'+asset+'"><img src="'+asset+'" '+(p.width ? 'width="'+p.width+'" height="'+p.height+'" ' : '')+'alt="'+escapeHtml(p.alt)+'" loading="lazy" decoding="async"></a>'+(p.caption ? '<figcaption>'+editorialHtml(p.caption)+'</figcaption>' : '')+'</figure>';
+  }).join('') + '</div>' : '';
+}
 function approvedEntryMarkup(entry) {
   const esc = escapeHtml;
   const text = editorialHtml;
@@ -261,9 +279,9 @@ function approvedEntryMarkup(entry) {
   return '<article class="annal-entry' + (entry.category === 'quotation' ? ' annal-remark' : '') + '" id="' + esc(entry.id) + '">' +
     '<p class="annal-type">' + esc(TYPES[entry.category]) + '</p>' +
     (entry.category === 'quotation' ? '' : '<h4>' + text(entry.title) + '</h4>') +
-    (entry.dateLabel ? '<p class="annal-date">' + esc(displayDate(entry.dateLabel)) + '</p>' : '') +
+    (entry.submittedAt ? '<p class="annal-date">Submitted <time datetime="'+esc(entry.submittedAt)+'">'+esc(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',dateStyle:'long'}).format(new Date(entry.submittedAt)))+'</time> (Toronto)'+(entry.eventPeriod?' · Event: '+esc(entry.eventPeriod):' · Event date unrecorded')+'</p>' : entry.dateLabel ? '<p class="annal-date">' + esc(displayDate(entry.dateLabel)) + '</p>' : '') +
     (entry.category === 'quotation' || !introduction ? '' : '<p class="annal-summary">' + text(introduction) + '</p>') +
-    (entry.photo ? '<figure class="annal-photo"><img src="assets/annals/' + esc(entry.id) + '.jpg" alt="' + esc(entry.photo.alt) + '" loading="lazy" decoding="async"></figure>' : '') +
+    photoMarkup(entry) +
     (entry.category === 'quotation' ? quoteCard : '') +
     (entry.category === 'cocktail' ? '<div class="annal-recipe">' +
       section('Ingredients', entry.recipe.drinkIngredients) +
@@ -292,7 +310,7 @@ export function buildPublishedAnnals(entries, approvals, secret, history = empty
 
 function buildAnnals(entries, receipts, verifyReceipt, history = emptyHistory()) {
   if (!Array.isArray(entries) || !Array.isArray(receipts) || entries.length !== receipts.length ||
-      entries.length > 300) throw new Error('Invalid publication batch');
+      entries.length > 10000) throw new Error('Invalid publication batch');
   const ids = new Set();
   const accepted = [];
   for (let i = 0; i < entries.length; i++) {
@@ -330,11 +348,12 @@ function buildAnnals(entries, receipts, verifyReceipt, history = emptyHistory())
       '<h2 id="heading-' + collectionId + '">' + escapeHtml(label) + '</h2>' + archive + '</section>';
   }).join('');
   const historyLink = history.chapters.length ? '<a href="history.html">Read Club History →</a>' : '';
-  const navigation = populatedTypes.length > 1 || historyLink
+  const photosLink = accepted.some(e => Photos.photos(e).length) ? '<a href="photos.html">Photos →</a>' : '';
+  const navigation = populatedTypes.length > 1 || historyLink || photosLink
     ? '<nav class="annal-collections" aria-label="Browse Annals collections">' +
       populatedTypes.map(([category, label]) =>
         '<a href="#collection-' + category.replaceAll('_', '-') + '">' + escapeHtml(label) + '</a>').join('') +
-      historyLink + '</nav>'
+      historyLink + photosLink + '</nav>'
     : '';
   const emptyState = accepted.length === 0 && !history.chapters.length
     ? '<p class="annal-empty">The record awaits an approved contribution.</p>'
@@ -348,6 +367,8 @@ function buildAnnals(entries, receipts, verifyReceipt, history = emptyHistory())
 <title>The Annals of Stammtisch | Stammtisch Social Club</title>
 <meta name="description" content="A considered record of Stammtisch traditions, cocktails and shared occasions.">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="annals-photos.css">
+<script type="module" src="annals-photos.mjs"></script>
 <style>
 ${REDACTION_CSS}
 .annal-hero{padding-block:65px 45px;border-bottom:1px solid #d4d3c4}

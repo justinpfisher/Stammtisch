@@ -24,12 +24,13 @@ jobs:
       - name: Verify signed consent and render public-safe archive
         env:
           ANNALS_PUBLISH_SIGNING_KEY: ${{ secrets.ANNALS_PUBLISH_SIGNING_KEY }}
+          ANNALS_PHOTOS_V2_RELEASE_ENABLED: ${{ vars.ANNALS_PHOTOS_V2_RELEASE_ENABLED }}
         run: node scripts/annals/apply-approved-entry.mjs
       - name: Commit consented public entry
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A -- annals.html data/annals-approved.json assets
+          git add -A -- annals.html data/annals-approved.json data/photos assets
           git diff --cached --quiet && exit 1
           git commit -m "Publish approved Annals update"
           git push origin HEAD:main

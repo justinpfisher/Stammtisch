@@ -1,3 +1,14 @@
+> **Current authority — 15 October 2026, photographs and CoL implementation:**
+> Read [the current photo/CoL release and handoff](annals-photos-col-release-2026-10-15.md).
+> The owner authorises automatic eligible six-member photographs under standing
+> private attestation, subject to revocations and exceptional third-party/privacy
+> holds. One genuinely authenticated member may independently introduce a prospective
+> CoL change; no second member, vote or owner-adoption approval is required.
+> Older proposal-only/per-image restrictions below are superseded within that scope.
+> Preserve source consistency, exact meaning, historical results and all platform
+> safeguards. New capabilities stay disabled until signing remediation, hosted
+> acceptance and the documented private adapters are qualified.
+
 # Celebration Sheet monitor
 
 The Google Sheets monitor remains GitHub-only and **read-only toward the Celebration Google Sheet**. When publishing is enabled, a separate guarded step can update the website's two public data files and request a GitHub Pages build. The Sheet is never changed. Access uses Sheets `spreadsheets.get` with `includeGridData=true` and a service account restricted to `spreadsheets.readonly`.

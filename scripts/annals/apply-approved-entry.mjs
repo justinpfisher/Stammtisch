@@ -1,3 +1,6 @@
+import Media from './MediaCore.js';
+import Photos from './PhotoContracts.js';
+import {writePhotoIndex} from './PhotoIndex.mjs';
 import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -5,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { buildPublishedAnnals, contentDigest, validatePublicTextEntry, verifyPublicApproval, verifyPublicRemoval } from './ApprovedRenderer.mjs';
 import { emptyHistory } from './HistoryPublisher.mjs';
 
-function approvedPhoto(entry, base64) {
+export function approvedPhoto(entry, base64) {
   if (!entry.photo) {
     if (base64 !== undefined) throw new Error('Unexpected image payload');
     return null;
@@ -14,6 +17,8 @@ function approvedPhoto(entry, base64) {
   const bytes = Buffer.from(base64, 'base64');
   if (bytes.length > 32768 || bytes.toString('base64') !== base64 || createHash('sha256').update(bytes).digest('hex') !== entry.photo.sha256) throw new Error('Image digest mismatch');
   if (bytes.length < 8 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes.at(-2) !== 0xff || bytes.at(-1) !== 0xd9) throw new Error('Unsupported image');
+  const clean=Media.sanitize(bytes);
+  if(!Buffer.from(clean.bytes).equals(bytes))throw new Error('Derivative contains metadata');
   let offset = 2, width = 0, height = 0;
   while (offset < bytes.length - 2) {
     if (bytes[offset++] !== 0xff) throw new Error('Malformed JPEG');
@@ -40,7 +45,7 @@ export function assertFreshDispatch(event, now) {
     throw new Error('Expired or future publication approval');
 }
 
-export async function applyApprovedEntry({ event, data, secret, history = emptyHistory(), now }) {
+export async function applyApprovedEntry({ event, data, secret, history = emptyHistory(), now, photosEnabled=false }) {
   const actions = ['annals-approved-entry', 'annals-auto-entry', 'annals-correct-entry', 'annals-remove-entry'];
   if (!event || !actions.includes(event.action) || !event.client_payload) throw new Error('Invalid dispatch event');
   if (!data || data.schemaVersion !== 1 || !Array.isArray(data.entries) || !Array.isArray(data.approvals) ||
@@ -58,31 +63,48 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
     const index = entries.findIndex(item => item.id === event.client_payload.entryId);
     const approvalIndex = approvals.findIndex(item => item?.entryId === event.client_payload.entryId);
     if (index < 0 || approvalIndex < 0 || !verifyPublicRemoval(entries[index], event.client_payload.approval, secret)) throw new Error('Missing exact removal approval');
+    const removed=entries[index];
     entries.splice(index, 1); approvals.splice(approvalIndex, 1);
     retiredIds.push(event.client_payload.entryId);
     const result = buildPublishedAnnals(entries, approvals, secret, history);
     return { data: { schemaVersion: 1, entries, approvals, retiredIds }, html: result.html,
-      assetsToDelete: [{ path: `assets/annals/${event.client_payload.entryId}.jpg` }], assetsToWrite: [] };
+      assetsToDelete: [{ path: `assets/annals/${event.client_payload.entryId}.jpg` }, ...Photos.photos(removed).filter(p=>!entries.some(e=>Photos.photos(e).some(x=>x.sha256===p.sha256))).map(p=>({path:`assets/annals/${p.sha256}.jpg`}))], assetsToWrite: [] };
   } else {
     const keys = Object.keys(event.client_payload).sort().join(',');
-    if (keys !== 'approval,entry' && keys !== 'approval,entry,imageBase64') throw new Error('Invalid entry payload');
+    if (keys !== 'approval,entry' && keys !== 'approval,entry,imageBase64' && keys !== 'approval,entry,images') throw new Error('Invalid entry payload');
     const entry = validatePublicTextEntry(event.client_payload.entry), approval = event.client_payload.approval;
+    if(entry.photos && photosEnabled!==true)throw Error('Photographic v2 release remains disabled');
     if(retiredIds.includes(entry.id))throw new Error('Withdrawn identity cannot be replayed');
     if (!verifyPublicApproval(entry, approval, secret)) throw new Error('Missing exact public approval');
     if (event.action === 'annals-auto-entry') {
-      if (['club_history','monthly_gathering','artefact'].includes(entry.category))
+      if (!entry.photos && ['club_history','monthly_gathering','artefact'].includes(entry.category))
         throw new Error('Living History requires distinct signed revision authority');
-      if ((approval.mode === 'standing-consent-text-v1' && (entry.photo || event.client_payload.imageBase64 !== undefined)) ||
-          (approval.mode === 'standing-consent-image-v1' && (!entry.photo || event.client_payload.imageBase64 === undefined)) ||
+      if ((approval.mode === 'standing-consent-text-v1' && (entry.photo || entry.photos || event.client_payload.imageBase64 !== undefined || event.client_payload.images !== undefined)) ||
+          (['standing-consent-image-v1','standing-consent-photos-v2'].includes(approval.mode) && (!(entry.photo || entry.photos) || entry.photo && event.client_payload.imageBase64 === undefined || entry.photos && event.client_payload.images === undefined)) ||
           (approval.mode === 'standing-consent-quote-v1' &&
-            (entry.category !== 'quotation' || !entry.speakerPortrait || entry.photo ||
+            (entry.category !== 'quotation' || !entry.speakerPortrait || entry.photo || entry.photos ||
              event.client_payload.imageBase64 !== undefined)) ||
-          !['standing-consent-text-v1','standing-consent-image-v1','standing-consent-quote-v1'].includes(approval.mode))
+          !['standing-consent-text-v1','standing-consent-image-v1','standing-consent-photos-v2','standing-consent-quote-v1'].includes(approval.mode))
         throw new Error('Automated publication requires signed standing-consent proof and bounded media');
     } else if (approval.mode !== undefined) {
       throw new Error('Standing-consent proof cannot be reused for manual publication or correction');
     }
-    const imageBytes = approvedPhoto(entry, event.client_payload.imageBase64);
+    let imageBytes=null;
+    if(entry.photos){
+      const payload=event.client_payload.images;
+      if(event.client_payload.imageBase64!==undefined||!Array.isArray(payload)||payload.length!==entry.photos.length||new Set(payload.map(p=>p.sha256)).size!==payload.length)throw Error('Exact gallery payload required');
+      let total=0;
+      for(const p of entry.photos){const image=payload.find(x=>x.sha256===p.sha256);
+        if(!image||Object.keys(image).sort().join(',')!=='base64,sha256')throw Error('Unexpected image payload');
+        const bytes=approvedPhoto({photo:p},image.base64);total+=bytes.length;
+        const frame=Media.sanitize(bytes);if(frame.width!==p.width||frame.height!==p.height)throw Error('Photo dimensions mismatch');
+        assetsToWrite.push({path:`assets/annals/${p.sha256}.jpg`,bytes});
+      }
+      if(total>32768)throw Error('Gallery exceeds existing dispatch bound');
+    }else{
+      if(event.client_payload.images!==undefined)throw Error('Unexpected gallery payload');
+      imageBytes=approvedPhoto(entry,event.client_payload.imageBase64);
+    }
     const index = entries.findIndex(item => item.id === entry.id);
     if (event.action === 'annals-approved-entry' || event.action === 'annals-auto-entry') {
       if (index >= 0 || approvals.some(item => item.entryId === entry.id)) throw new Error('Entry already exists; no duplicate publication');
@@ -93,7 +115,9 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
         throw new Error('Correction must replace an existing entry with changed exact text');
       }
       if (entries[index].photo && !entry.photo) assetsToDelete.push({ path: `assets/annals/${entry.id}.jpg` });
+      const priorPhotos=entries[index].photos || [];
       entries[index] = entry; approvals[approvalIndex] = approval;
+      for(const p of priorPhotos)if(!entries.some(e=>Photos.photos(e).some(x=>x.sha256===p.sha256)))assetsToDelete.push({path:`assets/annals/${p.sha256}.jpg`});
     }
     if (imageBytes) assetsToWrite.push({ path: `assets/annals/${entry.id}.jpg`, bytes: imageBytes });
   }
@@ -106,11 +130,12 @@ async function main() {
   const dataPath = 'data/annals-approved.json';
   const data = JSON.parse(await readFile(dataPath, 'utf8'));
   const history = JSON.parse(await readFile('data/club-history.json', 'utf8'));
-  const result = await applyApprovedEntry({ event, data, secret: process.env.ANNALS_PUBLISH_SIGNING_KEY, history, now:new Date() });
+  const result = await applyApprovedEntry({ event, data, secret: process.env.ANNALS_PUBLISH_SIGNING_KEY, history, now:new Date(), photosEnabled:process.env.ANNALS_PHOTOS_V2_RELEASE_ENABLED==='true' });
   for (const item of result.assetsToDelete) await rm(item.path, { force: true });
   for (const item of result.assetsToWrite) { await mkdir(path.dirname(item.path), { recursive: true }); await writeFile(item.path, item.bytes); }
   await writeFile(dataPath, JSON.stringify(result.data, null, 2) + '\n');
   await writeFile('annals.html', result.html + '\n');
+  await writePhotoIndex(result.data.entries);
   console.log('Approved Annals entry rendered.');
 }
 

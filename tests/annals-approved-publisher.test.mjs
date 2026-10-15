@@ -1,3 +1,4 @@
+import Media from '../scripts/annals/MediaCore.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, createHmac } from 'node:crypto';
@@ -20,7 +21,8 @@ const makeApproval = (source,approvedAt='2026-10-09T12:00:00.000Z') => {
 };
 const eventFor = (source = entry, approval = makeApproval(source)) => ({ action: 'annals-approved-entry', client_payload: { entry: source, approval } });
 const emptyArchive = () => ({ schemaVersion: 1, entries: [], approvals: [] });
-const photoJpeg = () => Buffer.from([255,216,255,224,0,4,0,0,255,192,0,17,8,0,1,0,1,3,1,17,0,2,17,0,3,17,0,255,218,0,2,0,255,217]);
+const rawPhoto = () => Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABsSFBcUERsXFhceHBsgKEIrKCUlKFE6PTBCYFVlZF9VXVtqeJmBanGQc1tdhbWGkJ6jq62rZ4C8ybqmx5moq6T/2wBDARweHigjKE4rK06kbl1upKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKT/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAL/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAgP/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCgEQf/2Q==','base64');
+const photoJpeg = () => Buffer.from(Media.sanitize(rawPhoto()).bytes);
 const makeRemoval = source => {
   const unsigned={entryId:source.id,approvedAt:'2026-10-09T12:00:00.000Z',contentSha256:contentDigest(source)};
   return {...unsigned,signature:createHmac('sha256',secret).update(JSON.stringify(canonical({operation:'remove',removal:unsigned}))).digest('hex')};
@@ -60,7 +62,7 @@ test('publisher workflow is reachable only through the dedicated repository disp
   assert.match(workflow, /repository_dispatch:\s*\n\s*types:\s*\[annals-approved-entry, annals-auto-entry, annals-correct-entry, annals-remove-entry\]/);
   assert.match(workflow, /permissions:\s*\n\s*contents:\s*write/);
   assert.doesNotMatch(workflow, /actions:\s*write|workflow_dispatch|pull_request|schedule:/);
-  assert.match(workflow, /git add -A -- annals\.html data\/annals-approved\.json assets/);
+  assert.match(workflow, /git add -A -- annals\.html data\/annals-approved\.json data\/photos assets/);
   assert.match(workflow, /ANNALS_PUBLISH_SIGNING_KEY/);
 });
 
