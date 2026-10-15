@@ -122,23 +122,6 @@
       },
       "credit": "anonymous",
       "contributorPortrait": "fish"
-    },
-    {
-      "id": "annal-afcf28362283fe158c994a2a",
-      "category": "quotation",
-      "title": "Recorded remark",
-      "summary": "An authenticated contribution to the Register of Remarks.",
-      "year": 2026,
-      "dateLabel": "Submitted 2026-10",
-      "sortDate": "",
-      "quoteVerbatim": "This fictional [EXPLETIVE] is a censorship diagnostic, not a historical\nclub remark.",
-      "recipe": {
-        "drinkIngredients": [],
-        "syrupIngredients": [],
-        "steps": []
-      },
-      "credit": "anonymous",
-      "speakerPortrait": "fish"
     }
   ],
   "approvals": [
@@ -225,20 +208,6 @@
       "entryId": "annal-a84799613765ad020da68ce7",
       "mode": "standing-consent-text-v1",
       "signature": "d170384cafb78136ed1c966a6994f65985753ee23e92483354a59521ff12b0a3"
-    },
-    {
-      "approvedAt": "2026-10-15T03:04:29.446Z",
-      "consents": {
-        "namedAttribution": true,
-        "photoPublication": false,
-        "publication": true,
-        "quotePublication": true,
-        "recipeVerified": false
-      },
-      "contentSha256": "81c9a1d55329a85f1c635721649890def32d9b5f1399c418b8a34d2aea277049",
-      "entryId": "annal-afcf28362283fe158c994a2a",
-      "mode": "standing-consent-quote-v1",
-      "signature": "b53df910d420d2c1ebc531454e293362701ad7c146a03bda54b86d5e4c3f30c2"
     }
   ]
 }
