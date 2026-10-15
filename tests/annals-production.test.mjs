@@ -941,6 +941,11 @@ test('diagnostic framing retains its subject category without resolving material
   assert.match(req.instructions,/classify its stated subject matter while retaining that framing/);
   assert.match(req.instructions,/rather than selecting uncategorised solely because it is not genuine club history/);
   assert.match(req.instructions,/never resolves a denied speaker attribution, uncertain measurement, privacy concern or image dependency/);
+  assert.match(req.instructions,/assembly = the separate Annual Gentlemen's Assembly/);
+  assert.match(req.instructions,/an invented Assembly menu belongs to assembly/);
+  assert.match(req.instructions,/a fictional founding custom belongs to club_history/);
+  assert.match(req.instructions,/a hypothetical commemorative badge belongs to artefact/);
+  assert.match(req.text.format.schema.properties.category.description,/independent of whether the account is factual or explicitly fictional/);
   const policy=require('../scripts/annals/AutoCore.js');
   const source={senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,
     source:{subject:'Fictional monthly account',excerpt:fictional,receivedAt:'2026-10-10T15:00:00Z'},
