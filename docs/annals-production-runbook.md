@@ -147,3 +147,8 @@ Production notices use `GmailApp.sendEmail` with the already required `https://m
 ### Small private review pages
 
 The owner review queue reads at most three folders per request and carries its existing continuation token into More contributions. This keeps private Drive reads small when account or service latency is high. Pagination does not alter intake, stored evidence, consent, attempts, budget, signing or the existing trigger. A completed server execution alone does not prove that its result displayed in the browser.
+
+
+### Confirmed owner actions and queue navigation
+
+The desk displays the confirmed removal or quarantine result directly from the authenticated write response. It does not make a subsequent detail read part of that success or automatically repeat an uncertain action. A saved removal cannot be submitted again in the current view, and a quarantined test has its detail actions disabled. Returning to the queue preserves loaded pages and continuation; Refresh contributions explicitly reloads the queue. Opening an item still obtains its fresh private record before any exact-entry action. Public removal still requires independent signed workflow, Pages and private quarantine verification.
