@@ -289,3 +289,67 @@ source `5772522004774832bfa40556ab28101c83ddf5bc`, tested tree
 passed all 64 Python and 247 Node tests and the existing public CoL register
 connectivity check. A later documentation-only commit corrects the older
 revision-marker description to the exact-HTML check.
+
+
+## Owner sequencing decision — 15 October 2026 (rotation deliberately last)
+
+The owner explicitly requested that **all independent QA, readiness and private-installation
+work proceed now, while the two reported signing-key rotations are postponed
+until the final security step**. This changes the work sequence, **not** the
+assessment of exposed secrets or the authority to enable new publication.
+
+### Work authorised before rotation
+
+1. Obtain the *completed* private 30-case QA results matrix, leaving its
+   original unchanged. Reconcile the six strict mismatches case by case;
+   distinguish false publications, false holds and presentation differences.
+   The original unexecuted test register is insufficient evidence.
+2. Run focused offline and hosted regression checks, source-integrity checks,
+   accessibility checks that do not require physical devices, and private
+   owner-only workflow reviews. Avoid repeated paid AI requests or replaying
+   uncertain one-shot dispatches.
+3. Prepare the existing Apps Script project for an in-place qualified source
+   update, including `HistoryCore.js`, `GovernanceCore.js`,
+   `HistoryProduction.gs` and `PublicDisplay.js`, plus all required
+   current production source/UI files and manifest. **Only perform the
+   private installation through an authenticated owner session.** Preserve
+   the owner-only deployment URL, triggers, registry, ledger, inbox cursor,
+   activation timestamp, audit evidence and existing configuration.
+4. A controlled temporary pause of ordinary publication is permitted for
+   deployment and reconciliation. Preserve the existing text service; do
+   not introduce a new publishing permission or create new credentials.
+   Confirm private consent and CoL proposal routing with safe fictional
+   offline fixtures and owner-only private tests. Never publish such
+   fixtures to the public archive.
+5. Document exact independent checks, hosted acceptance still pending,
+   physical-device/screen-reader results when available, and any genuine
+   owner-access blocker. The code and public pages are already deployed
+   through PRs #69 and #71; do not confuse that with a private Apps Script
+   deployment.
+
+### Non-negotiable interim safeguards
+
+- **Do not rotate or reveal any signing credential yet.** Do not read
+  secret values into AI/tool output merely to identify them.
+- **Do not enable new history publication, new public-media publication,
+  broader CoL automation or unqualified automatic history rewriting.**
+  Keep `ANNALS_HISTORY_PUBLICATION_ENABLED` and
+  `ANNALS_HISTORY_RELEASE_ENABLED` disabled until the distinct
+  signing remediation and hosted qualification requirements are met.
+- A CoL rule email remains **only a private proposal**, never adoption.
+  Do not change adopted rules, scoring, recipient allocations,
+  deduplication or notification behaviour.
+- No inference that postponing rotation makes exposed credentials safe.
+  Preserve current incident evidence and include rotation, old-key
+  rejection and exact hosted signing verification as the **final**
+  security/activation stage, not as already completed.
+- Respect the 8 November AI processing stop, 9 November publishing-token
+  expiry and existing US$5 monthly application reservation ceiling.
+
+### Completion criteria for this interim stage
+
+Give a case-level QA reconciliation or explicitly state the missing private
+evidence; a deployment version / preflight record if the actual private
+project was updated; results of available independent accessibility and
+workflow testing; and a precise final security/activation handoff. Do not
+call history automation or private CoL routing live until directly verified.
