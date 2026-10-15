@@ -153,33 +153,6 @@
       },
       "credit": "anonymous",
       "contributorPortrait": "fish"
-    },
-    {
-      "id": "annal-4acc742851da8b9fc1b8a322",
-      "category": "cocktail",
-      "title": "Recipe: diagnostic citrus mocktail",
-      "summary": "Fictional diagnostic recipe, not a real Stammtisch drink.\n60 mL orange juice\n30 mL lemon juice\n15 mL simple syrup\nShake with ice.\nStrain into a glass.",
-      "year": 2026,
-      "dateLabel": "Submitted 2026-10",
-      "sortDate": "",
-      "quoteVerbatim": "",
-      "recipe": {
-        "drinkIngredients": [
-          "60 mL orange juice",
-          "30 mL lemon juice",
-          "15 mL simple syrup"
-        ],
-        "syrupIngredients": [],
-        "steps": [
-          "Shake with ice.",
-          "Strain into a glass."
-        ],
-        "suggestedSteps": [
-          "Suggested basic syrup, not the original: combine equal parts sugar and water by volume; cool before use. Fruit and herb syrups can differ."
-        ]
-      },
-      "credit": "anonymous",
-      "contributorPortrait": "fish"
     }
   ],
   "approvals": [
@@ -308,20 +281,6 @@
       "entryId": "annal-d43273618b69fd821944f771",
       "mode": "standing-consent-text-v1",
       "signature": "6521d1934240ad225f7289ee1e5fd0eb7ef17f22bb053ab896c71b3206c6b0e8"
-    },
-    {
-      "approvedAt": "2026-10-15T05:31:22.313Z",
-      "consents": {
-        "namedAttribution": true,
-        "photoPublication": false,
-        "publication": true,
-        "quotePublication": false,
-        "recipeVerified": true
-      },
-      "contentSha256": "19c76f339fc8707ea3bb3cac4a032ffdd381615d7f2d3a947ffd6ff7f74cc63e",
-      "entryId": "annal-4acc742851da8b9fc1b8a322",
-      "mode": "standing-consent-text-v1",
-      "signature": "761b469c745a01f1e6c2bee65adfdbc6f64b3ff7fa10376b92bf956dc4b1bdda"
     }
   ]
 }
