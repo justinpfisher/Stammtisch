@@ -24,13 +24,33 @@ were preserved. Normal intake may naturally advance its own cursor. No reset,
 backfill, token extension or budget increase was performed. The original dirty
 checkout remains untouched; code work uses the existing managed Stammtisch worktree.
 
-This follow-up adds the missing owner desk control for recording the already
+Merged [PR #76](https://github.com/justinpfisher/Stammtisch/pull/76) adds the missing owner desk control for recording the already
 authorised six-member standing attestation and a read-only view of the new gates.
 Recording it preserves existing individual grants/revocations and records actual
 time and owner provenance. It is not a fabricated member reply or per-image vote.
-Actual attestation and the follow-up private version must be evidenced separately
-after the qualified follow-up source is installed; this paragraph alone is not
-evidence that those actions occurred.
+The follow-up kit at released `ba3cea546e1b941be8b64cf7cb1780ec6c3b2422`
+has SHA-256 `bcb353f7032db7ecc1772fb19db1a0e731991986f20d88fb0f78fe7738d5f116`.
+Its three changed private files were installed in place; all 15 code/UI files
+passed persistent editor read-back again. The same owner-only deployment now runs
+**version 28**, observed at **17:16 America/Toronto**. One intermediate update
+changed the description while retaining version 27; this was detected by reading
+the actual version, then corrected by selecting and verifying **New version**
+before deployment. No version-28 claim rests on the description alone.
+
+The deployed desk recorded the authorised standing attestation once at
+**2026-10-15T21:18:38.965Z** (17:18 Toronto). Independent private Drive read-back
+confirmed six active `owner_attestation_2026_10_15` depiction grants, actual recorded
+time and unchanged pre-existing consent fields. No new member reply or per-image
+approval was requested. The attestation did not activate publication.
+The deployed read-only gate check subsequently returned false for automatic media,
+photos v2, photo hosted acceptance, rules v2, rule hosted acceptance and configured
+photo acceptance. The new corresponding GitHub variables remained unset. No signing
+value or remediation probe was needed for this check.
+
+Text/date correction now preserves the canonical gallery and submission timestamp,
+supports explicit event-date precision, adds a visible correction record and
+rechecks standing rights on preparation and signing. Replacing gallery assets is
+held for separate implementation/rights qualification; withdrawal remains available.
 
 ## What is automatic, and what remains engineering
 
@@ -173,6 +193,21 @@ VoiceOver/TalkBack or live genuine media acceptance. The existing physical-devic
 checklist is unexecuted; no physical/assistive result is inferred from it. Record
 device/OS/browser/AT version, content revision and actual observations privately.
 
+Release validation: [regression CI](https://github.com/justinpfisher/Stammtisch/actions/runs/38807882657)
+passed 66 Python and 294 Node tests, including 14 private-adapter cases.
+[Hosted browser qualification](https://github.com/justinpfisher/Stammtisch/actions/runs/38807882651)
+passed 38 cases across desktop Chromium, iPhone WebKit emulation and Android Chromium
+emulation; 26 available Chromium cases also passed locally. Review occurred within
+this implementation session; no independent second-person review is claimed.
+
+[Pages deployment](https://github.com/justinpfisher/Stammtisch/actions/runs/38808187556)
+succeeded at the PR #76 merge. All 16 checked public files matched exact merge bytes
+at verification; live 1280px/390px Chromium confirmed an empty archive, absent Photos
+navigation and complete zero-entry search coverage. Concurrent unrelated monthly
+countdown PRs subsequently advanced main; they were preserved. [Monitor attempt 2](https://github.com/justinpfisher/Stammtisch/actions/runs/38808142716)
+passed after its first attempt encountered the cancelled/superseded Pages build.
+No monitor source logic, notifications, Sheet data or scoring code was changed.
+
 ## Final owner-controlled action and recovery
 
 Use the existing [secure final signing sequence](annals-editorial-release-2026-10-15.md#signing-remediation--owner-controlled-still-pending).
@@ -187,7 +222,8 @@ or certified by this continuation.
 
 Rollback: leave/disarm the new gates and acceptance lane; never reset one-shot
 markers. The previous owner-only web-app version is 26; version 27 is the verified
-PR #75 installation. Retain the follow-up's actual new version separately. Restore
+PR #75 installation; the qualified follow-up is version 28. Revert the follow-up
+to version 27 and its recorded source if necessary. Restore
 the recorded qualified Head source as well as the selected web-app version if a
 Head-trigger regression occurs; the two execution modes differ. Do not remove the
 trigger, restore an exposed key or replay unknown operations. A public presentation
