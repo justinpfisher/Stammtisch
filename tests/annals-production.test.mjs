@@ -173,7 +173,7 @@ test('Porkbun forwarding preserves unique aligned Google authentication and reje
   assert.equal(accepts([route.replace('from fwd1.porkbun.com','from attacker.example'),route,google,forwarder]),false);
 });
 test('one-time private consent challenge activates only on exact reply and can be revoked', () => {
-  const x=mock(), sent=[];x.props.ANNALS_ALLOWED_SENDERS='member@example.test';x.context.MailApp={sendEmail:(...args)=>sent.push(args)};
+  const x=mock(), sent=[];x.props.ANNALS_ALLOWED_SENDERS='member@example.test';x.context.GmailApp={...(x.context.GmailApp||{}),sendEmail:(...args)=>sent.push(args)};
   x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{'member@example.test':{status:'pending',scope:'future_text_ai_drafting',challenge:'opaque-token'}}}));
   assert.equal(x.context.annalsHandleConsentReply_('member@example.test','I CONSENT TO PRIVATE AI DRAFTING FOR FUTURE TEXT SUBMISSIONS. CODE: wrong'),null);
   assert.equal(x.context.annalsHandleConsentReply_('member@example.test','I CONSENT TO PRIVATE AI DRAFTING FOR FUTURE TEXT SUBMISSIONS. CODE: opaque-token'),'consent_activated');
@@ -346,7 +346,7 @@ test('schedule installation is idempotent and stopping touches only the producti
 test('member standing consent is separate from AI consent, receipt-dated and independently revocable', () => {
   const x=mock(), sent=[], sender='member1@example.test';
   x.props.ANNALS_ALLOWED_SENDERS=['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test').join(',');
-  x.context.MailApp={sendEmail:(...args)=>sent.push(args)};
+  x.context.GmailApp={...(x.context.GmailApp||{}),sendEmail:(...args)=>sent.push(args)};
   const registry={schemaVersion:1,members:{
     [sender]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T18:00:00Z',
       autoPublication:{status:'pending',scope:'future_source_grounded_text_publication',challenge:'private-code',invitedAt:'2026-10-08T20:00:00Z'}}
@@ -410,7 +410,7 @@ test('live reconciliation verifies matching public archive and deployed page wit
     ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'justinpfisher/Stammtisch',
     ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z',
     ANNALS_ALLOWED_SENDERS:['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test').join(',')});
-  x.folder.getName=()=>id;x.root.getFolders=()=>iter([x.folder]);x.context.MailApp={sendEmail:(...args)=>mail.push(args)};
+  x.folder.getName=()=>id;x.root.getFolders=()=>iter([x.folder]);x.context.GmailApp={...(x.context.GmailApp||{}),sendEmail:(...args)=>mail.push(args)};
   x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{
     [sender]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T00:00:00Z',
       autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:'2026-10-08T01:00:00Z'}}}}));
@@ -446,7 +446,7 @@ test('empty inbox still resumes one private AI draft with no nested script-lock 
     ANNALS_REVIEW_URL:'https://script.google.com/macros/s/invented/exec',
     ANNALS_ALLOWED_SENDERS:sender,ANNALS_ACTIVATED_AT:'2026-10-08T00:00:00Z'});
   x.context.GmailApp={getInboxThreads:()=>[]};x.folder.getName=()=>id;x.root.getFolders=()=>iter([x.folder]);
-  x.context.MailApp={sendEmail(){}};
+  x.context.GmailApp={...(x.context.GmailApp||{}),sendEmail(){}};
   x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{
     [sender]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T00:00:00Z'}}}));
   x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,
@@ -475,7 +475,7 @@ test('one malformed private draft is held without blocking other intake or expos
 
 test('stale unverified publication privately alerts once and never re-dispatches',()=>{
   const x=mock(),id='a'.repeat(64),sent=[];
-  x.context.MailApp={sendEmail:(...args)=>sent.push(args)};
+  x.context.GmailApp={...(x.context.GmailApp||{}),sendEmail:(...args)=>sent.push(args)};
   x.props.ANNALS_AUTO_PUBLICATION_ENABLED='true';
   x.props.ANNALS_REVIEW_URL='https://script.google.com/macros/s/invented/exec';
   x.folder.getName=()=>id;
@@ -499,7 +499,7 @@ test('owner can privately record six already-obtained member permissions without
   const approved=Array.from({length:6},(_,i)=>'member'+(i+1)+'@example.test');
   x.props.ANNALS_ALLOWED_SENDERS=approved.join(',');
   x.props.ANNALS_AI_ENABLED='false';
-  x.context.MailApp={sendEmail:(...args)=>sent.push(args)};
+  x.context.GmailApp={...(x.context.GmailApp||{}),sendEmail:(...args)=>sent.push(args)};
   const evidence='I personally verified affirmative, revocable individual consent in a private conversation.';
   assert.throws(()=>x.context.annalsRecordVerifiedExistingConsents('valid',false,evidence),/Operation held/);
   assert.throws(()=>x.context.annalsRecordVerifiedExistingConsents('valid',true,'short'),/Operation held/);
@@ -655,7 +655,7 @@ test('speaker quote permission can be registered once by owner without activatin
     autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:'2026-10-07T00:00:00Z'}
   });
   x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members}));
-  x.context.MailApp={sendEmail:(...args)=>emails.push(args)};
+  x.context.GmailApp={...(x.context.GmailApp||{}),sendEmail:(...args)=>emails.push(args)};
   assert.throws(()=>x.context.annalsRecordVerifiedQuotePermissions('valid',false,'owner testimony for each member'),/Operation held/);
   assert.equal(x.files.has('verified-quote-speaker-consents-private.json'),false);
   const done=x.context.annalsRecordVerifiedQuotePermissions('valid',true,'Evidence personally verified outside public GitHub for all six speakers.');
@@ -727,7 +727,7 @@ test('only a verified allowlisted sender with prior private attribution permissi
   assert.equal(x.context.annalsContributorPortrait_(original),null);
   x.props.ANNALS_SPEAKER_IDENTITIES=JSON.stringify(saved);
   const notices=[];
-  x.context.MailApp={sendEmail:(...a)=>notices.push(a)};
+  x.context.GmailApp={...(x.context.GmailApp||{}),sendEmail:(...a)=>notices.push(a)};
   assert.equal(x.context.annalsHandleConsentReply_(sender,'HIDE MY ANNALS PORTRAIT'),'portrait_hidden');
   assert.equal(x.context.annalsContributorPortrait_(original),null);
   assert.equal(x.context.annalsHandleConsentReply_(sender,'SHOW MY ANNALS PORTRAIT'),'portrait_enabled');
@@ -778,7 +778,7 @@ test('private contributor portrait permissions require individual owner attestat
       consentedAt:'2026-10-08T00:00:00Z'}
   }});
   x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members}));
-  x.context.MailApp={sendEmail:()=>{}};
+  x.context.GmailApp={...(x.context.GmailApp||{}),sendEmail:()=>{}};
   const evidence='Directly confirmed each person gave standing illustrated contributor permission.';
   assert.throws(()=>x.context.annalsRecordVerifiedContributorPortraitPermissions('valid',false,evidence),/Operation held/);
   assert.equal(x.files.has('verified-contributor-portraits-private.json'),false);
@@ -1117,7 +1117,7 @@ test('live-verification scan resumes beyond bounded pages without redispatch or 
   x.stores[target].delete('auto-live-verification-private.json');
   const signature='invented-public-signature-only-for-offline-scan-fixture',mode='standing-consent-text-v1';
   x.stores[target].set('approval-private.json',JSON.stringify({entry:e,approvalMode:mode,publicationState:'dispatch_accepted',receipt:{approvedAt:'2026-10-09T00:10:00Z',contentSha256:contentDigest(e)},publication:{signature}}));
-  x.context.MailApp={sendEmail(){}};
+  x.context.GmailApp={...(x.context.GmailApp||{}),sendEmail(){}};
   x.context.UrlFetchApp.fetch=(url,options)=>{assert.equal(options.method,'get');gets.push(url);return{getResponseCode:()=>200,getContentText:()=>url.includes('raw.githubusercontent.com')?JSON.stringify({entries:[e],approvals:[{entryId:e.id,mode,signature}]}):'<article id="'+e.id+'"></article>'};};
   const results=[];
   do{const before=x.visited();results.push(x.context.annalsVerifyAutomaticPublications_(3));assert.ok(x.visited()-before<=12);}while(x.props.ANNALS_VERIFY_CURSOR);
@@ -1175,4 +1175,37 @@ test('private review failures stay bounded and never echo source text, identifie
   await assert.rejects(twice.context.runCall('annalsReviewList','old-owner-nonce'),/session expired/);assert.equal(twice.calls.length,3);
   const noNonce=reviewClientFixture(name=>name==='annalsReviewSession'?{}:(()=>{throw new Error('Reload the private review page');})());
   await assert.rejects(noNonce.context.runCall('annalsReviewList','old-owner-nonce'),/session expired/);assert.equal(noNonce.calls.length,2);
+});
+
+
+test('notice services match existing explicit OAuth grants without adding mail permissions',()=>{
+  const source=readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8');
+  const manifest=JSON.parse(readFileSync(new URL('../scripts/annals/production-appsscript.json',import.meta.url),'utf8'));
+  const required={GmailApp:'https://mail.google.com/',MailApp:'https://www.googleapis.com/auth/script.send_mail'};
+  const services=[...source.matchAll(/\b(GmailApp|MailApp)\.sendEmail\(/g)].map(match=>match[1]);
+  assert.ok(services.length>0);
+  for(const service of services)assert.ok(manifest.oauthScopes.includes(required[service]),service+' requires an explicit granted scope');
+  assert.equal(manifest.oauthScopes.includes('https://www.googleapis.com/auth/script.send_mail'),false,'keep the existing permission set');
+});
+
+test('one-shot acknowledgements send through the already authorized Gmail service and never operate drafts',()=>{
+  const x=mock(),sent=[],ledger=x.props.ANNALS_BUDGET_LEDGER;
+  x.context.GmailApp={sendEmail:(...args)=>sent.push(args),getDrafts:()=>{throw new Error('Prepared drafts must never be sent by this path');}};
+  x.context.MailApp={sendEmail:()=>{throw new Error('This service has no manifest scope');}};
+  assert.equal(x.context.annalsAckOnce_(x.folder,'member@example.test','a'.repeat(64),'consented_private_drafting'),true);
+  assert.equal(JSON.parse(x.files.get('acknowledgement-private.json').getBlob().getDataAsString()).delivery,'sent');
+  assert.equal(x.context.annalsAckOnce_(x.folder,'member@example.test','a'.repeat(64),'consented_private_drafting'),false);
+  assert.equal(sent.length,1);assert.equal(sent[0][0],'member@example.test');assert.equal(sent[0][1],'Annals submission received');
+  assert.equal(x.props.ANNALS_BUDGET_LEDGER,ledger);assert.equal(x.calls.ai,0);
+});
+
+test('notice transport repair never resends or overwrites previous uncertain delivery records',()=>{
+  const x=mock(),sent=[];
+  x.context.GmailApp={sendEmail:(...args)=>sent.push(args)};
+  const ack='{"state":"consented_private_drafting","delivery":"unknown_no_retry","at":"2026-10-08T00:00:00Z"}',notice='{"state":"unknown_no_retry","at":"2026-10-08T00:00:00Z"}';
+  x.folder.createFile('acknowledgement-private.json',ack);x.folder.createFile('draft-notice-private.json',notice);
+  assert.equal(x.context.annalsAckOnce_(x.folder,'member@example.test','a'.repeat(64),'consented_private_drafting'),false);
+  assert.equal(x.context.annalsNotifyDraftReady_(x.folder),false);assert.equal(sent.length,0);
+  assert.equal(x.files.get('acknowledgement-private.json').getBlob().getDataAsString(),ack);
+  assert.equal(x.files.get('draft-notice-private.json').getBlob().getDataAsString(),notice);
 });
