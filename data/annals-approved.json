@@ -88,6 +88,23 @@
       },
       "credit": "anonymous",
       "contributorPortrait": "fish"
+    },
+    {
+      "id": "annal-252455376e0e358099a6be69",
+      "category": "monthly_gathering",
+      "title": "Monthly Stammtisch diagnostic",
+      "summary": "Monthly Stammtisch diagnostic: an imaginary conversation focused on whether\na coaster needed an official registration certificate. No real gathering is\ndescribed.",
+      "year": 2026,
+      "dateLabel": "Submitted 2026-10",
+      "sortDate": "",
+      "quoteVerbatim": "",
+      "recipe": {
+        "drinkIngredients": [],
+        "syrupIngredients": [],
+        "steps": []
+      },
+      "credit": "anonymous",
+      "contributorPortrait": "fish"
     }
   ],
   "approvals": [
@@ -146,6 +163,20 @@
       "entryId": "annal-307f70ab6ca19ae3aadb375c",
       "mode": "standing-consent-text-v1",
       "signature": "a92cf7a2426d21e4f1d14a67a761b539f6d3e8aec0cc99978a8f1b6522054a46"
+    },
+    {
+      "approvedAt": "2026-10-15T02:53:37.037Z",
+      "consents": {
+        "namedAttribution": true,
+        "photoPublication": false,
+        "publication": true,
+        "quotePublication": false,
+        "recipeVerified": false
+      },
+      "contentSha256": "63736c756176adddf49f05c5996069f793a7e153854f1bff3feb1bb7b4c30ef7",
+      "entryId": "annal-252455376e0e358099a6be69",
+      "mode": "standing-consent-text-v1",
+      "signature": "72652c22161b2864bff38efdcc62499542ae3fcd6102c4023a0c2121a893263a"
     }
   ]
 }
