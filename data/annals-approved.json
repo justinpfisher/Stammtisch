@@ -17,6 +17,30 @@
       },
       "credit": "anonymous",
       "speakerPortrait": "fish"
+    },
+    {
+      "id": "annal-41b9051734bb8159dc011d57",
+      "category": "cocktail",
+      "title": "Mocktail recipe diagnostic only; never served at a club gathering.",
+      "summary": "Mocktail recipe diagnostic only; never served at a club gathering.\n45 mL pear juice\n60 mL soda water\n10 mL lime juice\nStir over ice.\nServe chilled.",
+      "year": 2026,
+      "dateLabel": "Submitted 2026-10",
+      "sortDate": "",
+      "quoteVerbatim": "",
+      "recipe": {
+        "drinkIngredients": [
+          "45 mL pear juice",
+          "60 mL soda water",
+          "10 mL lime juice"
+        ],
+        "syrupIngredients": [],
+        "steps": [
+          "Stir over ice.",
+          "Serve chilled."
+        ]
+      },
+      "credit": "anonymous",
+      "contributorPortrait": "fish"
     }
   ],
   "approvals": [
@@ -33,6 +57,20 @@
       "entryId": "annal-412b78ef26a07de895fdd0b9",
       "mode": "standing-consent-quote-v1",
       "signature": "0fd1012f4ac4030470428cfa7103f60df9f7fb69c9a836dbb5570098ca6cd830"
+    },
+    {
+      "approvedAt": "2026-10-15T02:40:11.278Z",
+      "consents": {
+        "namedAttribution": true,
+        "photoPublication": false,
+        "publication": true,
+        "quotePublication": false,
+        "recipeVerified": true
+      },
+      "contentSha256": "9a0a2a69b8add43125d40e5822f46f62db2d4d364f5a383fb71bc403d6efc859",
+      "entryId": "annal-41b9051734bb8159dc011d57",
+      "mode": "standing-consent-text-v1",
+      "signature": "05cb11dbb00958aceba4fbeef735731392cd296b4b1cddb5859c511b426b8c1d"
     }
   ]
 }
