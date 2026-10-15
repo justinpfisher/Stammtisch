@@ -1209,3 +1209,70 @@ test('notice transport repair never resends or overwrites previous uncertain del
   assert.equal(x.files.get('acknowledgement-private.json').getBlob().getDataAsString(),ack);
   assert.equal(x.files.get('draft-notice-private.json').getBlob().getDataAsString(),notice);
 });
+
+
+function ownerActionUiFixture(result){
+  const ui=readFileSync(new URL('../scripts/annals/ReviewUi.html',import.meta.url),'utf8');
+  const ids=[...ui.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
+  const controls=new Map(ids.map(id=>[id,{id,disabled:false,checked:true,hidden:false,textContent:'',dataset:{},children:[]}]));
+  const get=id=>{assert.ok(controls.has(id),'UI control exists: '+id);return controls.get(id);};
+  const queued={disabled:false,dataset:{itemId:'a'.repeat(64)},textContent:'Invented item — Verified live'};
+  get('items').children=[queued];get('items').querySelectorAll=()=>get('items').children;
+  const detailButtons=['prepare','save','approve','approveRemoval','quarantine','censorText'].map(get);
+  get('detail').querySelectorAll=()=>detailButtons;
+  const buttons=[...detailButtons,get('back'),get('more'),get('refreshList'),queued];
+  const calls=[],messages=[],lists=[];let refreshes=0;
+  const context=vm.createContext({console,document:{querySelectorAll:()=>buttons},el:get,
+    val:()=> 'An invented exact-entry owner reason.',say:m=>messages.push(m),
+    call:async(name,...args)=>{calls.push({name,args});return result;},
+    open:async()=>{refreshes++;throw new Error('Invented detail refresh failure');},
+    list:async reset=>lists.push(reset)});
+  const functions=ui.split(/\r?\n/).find(l=>l.startsWith('function quarantineAvailable'))+'\n'+ui.slice(ui.indexOf('function updateQueuedItem'),ui.indexOf('async function list'));
+  const lines=ui.split(/\r?\n/),handlers=["el('quarantine').onclick=","el('approveRemoval').onclick=","el('more').onclick="].map(prefix=>{const s=lines.find(l=>l.startsWith(prefix));assert.ok(s,prefix);return s;}).join('\n');
+  const initial={id:'a'.repeat(64),subject:'Invented item',status:'Verified live',approved:true,quarantined:false,
+    publishedEntry:{id:'annal-invented-test',summary:'An invented non-identifying object.'},publishedEntryHash:'invented-exact-digest',publicationState:'dispatch_accepted'};
+  vm.runInContext("let nonce='owner-nonce';let continuation='invented-next-page';let current="+JSON.stringify(initial)+';\n'+functions+'\n'+handlers+'\nthis.readCurrent=()=>current;this.readContinuation=()=>continuation;',context);
+  return {context,controls,get,queued,calls,messages,lists,refreshes:()=>refreshes,ui};
+}
+
+test('confirmed quarantine is acknowledged without a fallible follow-up read and blocks further detail actions',async()=>{
+  const x=ownerActionUiFixture({quarantined:true});
+  await x.get('quarantine').onclick();
+  assert.equal(x.calls.length,1);assert.equal(x.calls[0].name,'annalsQuarantineSubmission');assert.equal(x.refreshes(),0);
+  assert.equal(x.context.readCurrent().quarantined,true);assert.match(x.messages.at(-1),/Test quarantined privately/);
+  for(const id of ['quarantine','prepare','save','approveRemoval'])assert.equal(x.get(id).disabled,true,id);
+  assert.equal(x.get('back').disabled,false);assert.match(x.queued.textContent,/Quarantined/);
+});
+
+test('confirmed removal preserves the saved dispatch result and never needs a detail read to report it',async()=>{
+  for(const accepted of [true,false]){
+    const x=ownerActionUiFixture({approved:true,dispatchAccepted:accepted});
+    await x.get('approveRemoval').onclick();
+    assert.equal(x.calls.length,1);assert.equal(x.calls[0].name,'annalsApproveRemoval');assert.equal(x.refreshes(),0);
+    assert.equal(x.context.readCurrent().removal.state,accepted?'dispatch_accepted':'dispatch_not_configured_or_held');
+    assert.equal(x.get('approveRemoval').disabled,true);assert.equal(x.get('quarantine').disabled,!accepted);assert.match(x.get('publishedState').textContent,/Removal status:/);
+    assert.match(x.messages.at(-1),accepted?/accepted for publishing/:/dispatch was not confirmed/);
+  }
+});
+
+test('unconfirmed owner write responses never become success claims or trigger automatic action repeats',async()=>{
+  for(const [id,result] of [['quarantine',undefined],['approveRemoval',{approved:false,dispatchAccepted:true}]]){
+    const x=ownerActionUiFixture(result);await x.get(id).onclick();
+    assert.equal(x.calls.length,1);assert.equal(x.refreshes(),0);assert.match(x.messages.at(-1),/not confirmed/);
+    assert.equal(x.context.readCurrent().quarantined,false);assert.equal(x.context.readCurrent().removal,undefined);
+  }
+});
+
+test('back navigation keeps loaded queue pages and continuation while explicit refresh reloads them',async()=>{
+  const x=ownerActionUiFixture({});await x.get('back').onclick();
+  assert.equal(x.context.readCurrent(),null);assert.equal(x.get('items').children.length,1);
+  assert.equal(x.context.readContinuation(),'invented-next-page');assert.equal(x.lists.length,0);assert.equal(x.calls.length,0);
+  assert.equal(x.get('detail').hidden,true);assert.equal(x.get('queue').hidden,false);
+  await x.get('more').onclick();await x.get('refreshList').onclick();assert.deepEqual(x.lists,[false,true]);
+  assert.match(x.ui,/async function open\(id\)\{current=await call\('annalsReviewItem',nonce,id\)/,'opening any cached item still reads its current private source');
+});
+
+test('owner removal still requires explicit exact-entry confirmation before its only write',async()=>{
+  const x=ownerActionUiFixture({approved:true,dispatchAccepted:true});x.get('removalConfirmed').checked=false;
+  await x.get('approveRemoval').onclick();assert.equal(x.calls.length,0);assert.match(x.messages.at(-1),/confirm the exact currently published entry/);
+});
