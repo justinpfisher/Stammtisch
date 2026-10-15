@@ -4,8 +4,12 @@
  */
 var AnnalsMediaPolicy = (function () {
   'use strict';
-  var Auto = typeof AnnalsAuto !== 'undefined' ? AnnalsAuto :
-    (typeof module !== 'undefined' && module.exports ? require('./AutoCore.js') : null);
+  function editorialPolicy() {
+    var value = typeof AnnalsAuto !== 'undefined' ? AnnalsAuto :
+      (typeof module !== 'undefined' && module.exports ? require('./AutoCore.js') : null);
+    if (!value) throw new Error('Editorial policy unavailable');
+    return value;
+  }
   var MODE = 'standing-consent-image-v1';
   var DANGEROUS = /\b(?:private|confidential|address|phone|password|allegedly|accused|fraud|assault|family|guest|child|children|home address|license plate|licence plate|reflection|face)\b|[\w.+-]+@[\w.-]+\.[a-z]{2,}|https?:\/\/|\b(?:Justin|Marc|Matt|Ken|Jamie|Jerome)\b/i;
   var IMAGE_RISKS = ['faces_or_reflections', 'possible_personal_identifier','location_or_home_context','private_context',
@@ -59,6 +63,7 @@ var AnnalsMediaPolicy = (function () {
   }
   function enrich(source,candidate,id,decision,photo) {
     if (!source || !candidate || !decision || !source.source) return {eligible:false,reason:'invalid_media_source'};
+    var Auto = editorialPolicy();
     var permitted = eligibleImage(source,candidate,photo);
     var category = candidate.category;
     var imageCategory = ['cocktail','artefact','monthly_gathering','assembly','club_history'].indexOf(category) >= 0;

@@ -5,7 +5,13 @@
  */
 var AnnalsHistory = (function () {
   'use strict';
-  var policy = typeof AnnalsAuto !== 'undefined' ? AnnalsAuto : require('./AutoCore.js');
+  // Apps Script file evaluation order is not a dependency contract.
+  function editorialPolicy() {
+    var value = typeof AnnalsAuto !== 'undefined' ? AnnalsAuto :
+      (typeof module !== 'undefined' && module.exports ? require('./AutoCore.js') : null);
+    if (!value) throw new Error('Editorial policy unavailable');
+    return value;
+  }
   var CHAPTERS = {origins:'Origins',gatherings:'Gathering together',assemblies:'Annual Assemblies',traditions:'Developing traditions'};
   function copy(value) { return JSON.parse(JSON.stringify(value)); }
   function empty() { return {schemaVersion:1, revision:0, claims:[], revisions:[]}; }
@@ -29,6 +35,7 @@ var AnnalsHistory = (function () {
     if (!source || source.senderAuthenticated !== true || source.aiConsentActive !== true ||
         source.autoConsentAtReceipt !== true || !source.source || !raw) throw new Error('Verified private source required');
     var s = source.source;
+    var policy = editorialPolicy();
     if (s.sourceTruncated || s.subjectTruncated || s.excerptTruncated ||
         !/^[a-f0-9]{64}$/.test(raw.sourceId || '') ||
         !/^[a-f0-9]{64}$/.test(raw.id || '') || !Object.prototype.hasOwnProperty.call(CHAPTERS,raw.chapter) ||
@@ -108,6 +115,7 @@ var AnnalsHistory = (function () {
   }
   function chapters(ledger) {
     validate(ledger);
+    var policy = editorialPolicy();
     return Object.keys(CHAPTERS).map(function(id){
       var claims=ledger.claims.filter(function(c){return c.active && c.chapter===id;})
         .sort(function(a,b){return a.order-b.order || a.factKey.localeCompare(b.factKey);});

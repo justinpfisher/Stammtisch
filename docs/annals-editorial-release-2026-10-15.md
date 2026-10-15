@@ -474,7 +474,7 @@ not physical Safari/Chrome, VoiceOver or TalkBack acceptance. Hosted results
 must be observed before claiming these checks passed; source alone is not
 qualification. Genuine eligible-content hosted acceptance remains separate.
 
-The normal supported offline check now includes **66 Python and 249 Node tests**.
+The normal supported offline check now includes **66 Python and 251 Node tests**.
 The two additional Python cases verify the source package whitelist, unchanged
 file hashes/manifest, reproducibility and refusal to write artifacts into the
 public checkout. They do not authenticate or install a private project.
@@ -507,3 +507,27 @@ new project or run setup. Leave History and automatic media disabled. Neither
 package checks nor browser emulation closes the missing original QA matrix or
 the six case-level dispositions. November deadlines and spending limits remain
 unchanged.
+
+
+### Browser and installation qualification evidence
+
+[First hosted browser run 38765383921](https://github.com/justinpfisher/Stammtisch/actions/runs/38765383921)
+passed **22/22** fictional checks: eight desktop Chromium checks (including
+forced colours), seven WebKit/iPhone-descriptor checks and seven
+Chromium/Android-descriptor checks. All ran against ephemeral loopback fixtures;
+none were real phone, screen-reader or genuine-content production tests.
+The quotation check additionally inspects the browser accessibility tree for
+the harmless lowercase redaction token and non-verbatim notice. Final-head
+results after the installation-source fix must also pass before merge.
+
+Package review reproduced an order-dependent initialisation defect: loading
+History before AutoCore in an Apps Script-like context without Node's `require`
+threw before any service function could run. The existing media policy could
+also retain an unavailable policy reference if loaded first. Both now resolve
+the shared editorial dependency when used, and dependent operations fail closed
+if it is missing. This changes no permissions or media eligibility rules and
+does not enable media. Two new offline Node cases exercise complete production
+modules in normal, reverse and cyclic orders, and missing-dependency refusal.
+No Google account or secret is needed to reproduce them. The full supported
+suite passes **66 Python and 251 Node tests**. These source changes require the
+pending in-place installation; they are not proof of an updated live script.

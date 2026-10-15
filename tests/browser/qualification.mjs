@@ -98,6 +98,8 @@ try{
         assert.match(await page.locator('#offline-browser-quote').innerText(),/\[POOP\].*damn/);
         assert.doesNotMatch(await page.content(),/\[EXPLETIVE\]/);
         assert.equal(await bar.getAttribute('aria-hidden'),null);
+        const accessible=await page.locator('#offline-browser-quote').ariaSnapshot();
+        assert.match(accessible,/\[expletive\]/);assert.match(accessible,/Editorially redacted quotation/);
       });
       await check(browser,profile,'lowercase fallback with stylesheet unavailable',async page=>{
         await page.goto(origin+'/annals.html');
