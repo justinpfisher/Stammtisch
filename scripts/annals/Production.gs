@@ -1516,6 +1516,67 @@ function annalsStopProduction() {
   });
 }
 
+/** Verify a published text test's exact signed withdrawal before quarantine.
+ * Read-only checks never retry publication/removal or a provider request.
+ */
+function annalsVerifyWithdrawnTest_(folder, id) {
+  try {
+    var original = annalsRead_(folder, 'approval-private.json'),
+      correction = annalsRead_(folder, 'correction-approval-private.json'),
+      publication = annalsRead_(folder, 'publication-dispatch-private.json'),
+      removal = annalsRead_(folder, 'removal-private.json'),
+      dispatch = annalsRead_(folder, 'removal-dispatch-private.json'),
+      live = annalsRead_(folder, 'auto-live-verification-private.json');
+    var current = correction && correction.publicationState === 'dispatch_accepted' ? correction : original;
+    var entryId = 'annal-' + id.slice(0, 24);
+    if (!original || original.publicationState !== 'dispatch_accepted' ||
+        correction && correction.publicationState !== 'dispatch_accepted' ||
+        !current || !current.entry || current.entry.id !== entryId || current.entry.photo ||
+        !current.receipt || current.receipt.entryId !== entryId ||
+        !annalsPrivateReceiptValid_(current.entry, current.receipt) ||
+        !publication || publication.state !== 'accepted' ||
+        !removal || removal.state !== 'dispatch_accepted' || !removal.entry ||
+        !dispatch || dispatch.state !== 'accepted' || !live || live.state !== 'verified_live') return null;
+    var digest = annalsHash_(AnnalsProduction.serial(current.entry));
+    var approvedAt = Date.parse(current.receipt.approvedAt), verifiedAt = Date.parse(live.verifiedAt),
+      removedAt = Date.parse(removal.approvedAt);
+    if (live.contentSha256 !== digest || annalsHash_(AnnalsProduction.serial(removal.entry)) !== digest ||
+        !Number.isFinite(approvedAt) || !Number.isFinite(verifiedAt) || !Number.isFinite(removedAt) ||
+        approvedAt > verifiedAt || verifiedAt > removedAt || removedAt > Date.now()) return null;
+    var expectedProof = annalsPublicRemoval_(current.entry, removal.approvedAt,
+      annalsProps_().getProperty('ANNALS_PUBLISH_SIGNING_KEY') || '');
+    if (!expectedProof || AnnalsProduction.serial(removal.proof) !== AnnalsProduction.serial(expectedProof)) return null;
+    var query = '?checked=withdrawn-' + encodeURIComponent(id.slice(0, 16)) + '-' + String(Date.now());
+    var options = { method:'get', muteHttpExceptions:true, followRedirects:false, validateHttpsCertificates:true };
+    var archiveResponse = UrlFetchApp.fetch('https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/annals-approved.json' + query, options);
+    if (archiveResponse.getResponseCode() !== 200) return null;
+    var rawArchive = archiveResponse.getContentText();
+    if (!rawArchive || rawArchive.length > 1000000) return null;
+    var archive = JSON.parse(rawArchive);
+    if (!archive || archive.schemaVersion !== 1 || !Array.isArray(archive.entries) ||
+        !Array.isArray(archive.approvals) || archive.entries.length !== archive.approvals.length ||
+        archive.entries.some(function (e) { return !e || typeof e.id !== 'string' || !/^[a-z0-9][a-z0-9-]{5,63}$/.test(e.id) || e.id === entryId; }) ||
+        archive.approvals.some(function (a) { return !a || typeof a.entryId !== 'string' || a.entryId === entryId; })) return null;
+    var ids = archive.entries.map(function (e) { return e.id; }).sort(),
+      approvalIds = archive.approvals.map(function (a) { return a.entryId; }).sort();
+    if (ids.some(function (value, index) { return index && value === ids[index - 1]; }) ||
+        AnnalsProduction.serial(ids) !== AnnalsProduction.serial(approvalIds)) return null;
+    var pageResponse = UrlFetchApp.fetch('https://stammtischbrewery.com/annals.html' + query, options);
+    if (pageResponse.getResponseCode() !== 200) return null;
+    var html = pageResponse.getContentText();
+    if (!html || html.length > 1000000 || html.indexOf('The Annals of Stammtisch') < 0 ||
+        html.indexOf('class="annal-editorial-notice"') < 0 || html.indexOf('</html>') < 0 ||
+        html.indexOf('id="' + entryId + '"') >= 0) return null;
+    var renderedIds = [], pattern = /<article\b[^>]*\bid="([^"]+)"/g, match;
+    while ((match = pattern.exec(html))) renderedIds.push(match[1]);
+    renderedIds.sort();
+    if (AnnalsProduction.serial(renderedIds) !== AnnalsProduction.serial(ids)) return null;
+    return { state:'verified_removed', entryId:entryId, contentSha256:digest,
+      priorLiveVerifiedAt:live.verifiedAt, signedWithdrawalAt:removal.approvedAt,
+      verifiedAt:new Date().toISOString(), archiveSha256:annalsHash_(rawArchive), pageSha256:annalsHash_(html) };
+  } catch (ignored) { return null; }
+}
+
 /** A private, write-once exclusion. Gmail and all prior source/audit files remain intact.
  * May cover an existing staged item or a message hash not encountered by intake yet.
  * No automatic release exists; it never grants consent or retries a dispatch.
@@ -1527,8 +1588,11 @@ function annalsQuarantineSubmission_(id, reason, confirmed) {
     throw new Error('Exact submission hash and explicit test quarantine reason required');
   var folder = annalsFolder_(id, true);
   if (annalsFile_(folder, 'quarantine-private.json')) return { quarantined: true, alreadyRecorded: true };
-  if (annalsFile_(folder, 'approval-private.json') || annalsFile_(folder, 'publication-dispatch-private.json'))
-    throw new Error('Inspect existing publication approval or dispatch before quarantine; withdrawal may be required');
+  if (annalsFile_(folder, 'approval-private.json') || annalsFile_(folder, 'publication-dispatch-private.json')) {
+    var withdrawal = annalsVerifyWithdrawnTest_(folder, id);
+    if (!withdrawal) throw new Error('Verified prior publication, signed withdrawal and current archive/Pages absence required');
+    annalsWriteOnce_(folder, 'withdrawal-live-verification-private.json', withdrawal);
+  }
   annalsWriteOnce_(folder, 'quarantine-private.json', {
     state: 'quarantined_test', at: new Date().toISOString(), owner: owner, reason: reason.trim()
   });

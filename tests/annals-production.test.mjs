@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { createHash, createHmac } from 'node:crypto';
 import { createRequire } from 'node:module';
-import { contentDigest, validatePublicTextEntry, verifyApproval, verifyPublicApproval, verifyPublicRemoval } from '../scripts/annals/ApprovedRenderer.mjs';
+import { buildPublishedAnnals, contentDigest, validatePublicTextEntry, verifyApproval, verifyPublicApproval, verifyPublicRemoval } from '../scripts/annals/ApprovedRenderer.mjs';
 import { prepareApprovedBundle } from '../scripts/annals/prepare-publication.mjs';
 const require = createRequire(import.meta.url);
 const core = require('../scripts/annals/ProductionCore.js');
@@ -950,4 +950,106 @@ test('diagnostic framing retains its subject category without resolving material
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]},riskFlags:['other_uncertainty']};
   assert.equal(policy.propose(source,d,'e'.repeat(64)).reason,'classification_not_supported');
   assert.equal(policy.propose(source,{...d,category:'monthly_gathering',riskFlags:['private_context']},'e'.repeat(64)).eligible,false);
+});
+
+
+function withdrawnTestFixture(){
+  const x=mock(),id='a'.repeat(64),e=entry(),approvedAt='2026-10-08T12:00:00Z';
+  x.props.ANNALS_PUBLISH_SIGNING_KEY='p'.repeat(40);
+  const receipt={entryId:e.id,approvedAt,reviewedBy:x.props.ANNALS_OWNER_EMAIL,
+    consents:permissions,contentSha256:contentDigest(e)};
+  receipt.signature=createHmac('sha256',x.props.ANNALS_APPROVAL_KEY)
+    .update(core.serial({entry:e,receipt})).digest('hex');
+  const removalAt='2026-10-09T00:20:00Z';
+  const records={
+    'approval-private.json':{entry:e,receipt,publicationState:'dispatch_accepted'},
+    'publication-dispatch-private.json':{state:'accepted'},
+    'auto-live-verification-private.json':{state:'verified_live',contentSha256:contentDigest(e),verifiedAt:'2026-10-09T00:10:00Z'},
+    'removal-private.json':{entry:e,proof:x.context.annalsPublicRemoval_(e,removalAt,x.props.ANNALS_PUBLISH_SIGNING_KEY),approvedAt:removalAt,state:'dispatch_accepted'},
+    'removal-dispatch-private.json':{state:'accepted'},
+    'ai-attempt-private.json':{state:'attempt_reserved'}
+  };
+  for(const [name,data] of Object.entries(records))x.folder.createFile(name,JSON.stringify(data));
+  const responses={archiveStatus:200,pageStatus:200,
+    archive:JSON.stringify({schemaVersion:1,entries:[],approvals:[]}),
+    page:buildPublishedAnnals([],[],'invented-public-page-test-secret').html};
+  const gets=[];
+  x.context.UrlFetchApp.fetch=(url,options)=>{
+    assert.equal(options.method,'get');assert.equal(options.followRedirects,false);
+    assert.equal(options.validateHttpsCertificates,true);assert.equal(options.headers,undefined);
+    gets.push(url);
+    if(url.startsWith('https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/annals-approved.json?'))
+      return {getResponseCode:()=>responses.archiveStatus,getContentText:()=>responses.archive};
+    assert.ok(url.startsWith('https://stammtischbrewery.com/annals.html?'));
+    return {getResponseCode:()=>responses.pageStatus,getContentText:()=>responses.page};
+  };
+  return {...x,id,e,records,responses,gets};
+}
+
+test('withdrawn tests quarantine only after signed exact withdrawal and fresh matching archive and Pages absence',()=>{
+  const x=withdrawnTestFixture(),prior=new Map([...x.files].map(([name,f])=>[name,f.getBlob().getDataAsString()])),ledger=x.props.ANNALS_BUDGET_LEDGER;
+  assert.equal(x.context.annalsQuarantineSubmission('valid',x.id,'Owner confirmed this invented diagnostic.',true).quarantined,true);
+  const check=JSON.parse(x.files.get('withdrawal-live-verification-private.json').getBlob().getDataAsString());
+  assert.equal(check.state,'verified_removed');assert.equal(check.entryId,x.e.id);
+  assert.equal(check.contentSha256,contentDigest(x.e));
+  assert.equal(x.gets.length,2);
+  for(const [name,data] of prior)assert.equal(x.files.get(name).getBlob().getDataAsString(),data,name);
+  assert.equal(x.props.ANNALS_BUDGET_LEDGER,ledger);assert.equal(x.calls.ai,0);
+  assert.equal(x.context.annalsQuarantineSubmission('valid',x.id,'Cannot replace the original audit.',true).alreadyRecorded,true);
+  assert.equal(x.gets.length,2);
+});
+
+test('withdrawn-test quarantine rejects missing or uncertain publication, mismatched proofs and incomplete live absence',()=>{
+  const cases=['no_live','bad_live_hash','bad_live_time','bad_private_signature','bad_removal_signature',
+    'wrong_removed_entry','pending_removal','uncertain_removal_dispatch','uncertain_publication','uncertain_correction',
+    'archive_error','archive_empty','archive_malformed','archive_wrong_schema','still_indexed','page_error','page_error_body','still_on_page','stale_page','future_removal','unsupported_media'];
+  for(const type of cases){
+    const x=withdrawnTestFixture();
+    const change=(name,fn)=>{const value=JSON.parse(x.files.get(name).getBlob().getDataAsString());fn(value);x.files.get(name).setContent(JSON.stringify(value));};
+    if(type==='no_live')x.files.delete('auto-live-verification-private.json');
+    if(type==='bad_live_hash')change('auto-live-verification-private.json',v=>v.contentSha256='f'.repeat(64));
+    if(type==='bad_live_time')change('auto-live-verification-private.json',v=>v.verifiedAt='2026-10-09T00:25:00Z');
+    if(type==='bad_private_signature')change('approval-private.json',v=>v.receipt.signature='bad');
+    if(type==='bad_removal_signature')change('removal-private.json',v=>v.proof.signature='bad');
+    if(type==='wrong_removed_entry')change('removal-private.json',v=>v.entry={...v.entry,id:'annal-another-invented-entry'});
+    if(type==='pending_removal')change('removal-private.json',v=>v.state='approved_removal_pending');
+    if(type==='uncertain_removal_dispatch')change('removal-dispatch-private.json',v=>v.state='unknown_no_retry');
+    if(type==='uncertain_publication')change('publication-dispatch-private.json',v=>v.state='attempt_reserved');
+    if(type==='uncertain_correction')x.folder.createFile('correction-approval-private.json',JSON.stringify({publicationState:'unknown_no_retry'}));
+    if(type==='archive_error')x.responses.archiveStatus=503;
+    if(type==='archive_empty')x.responses.archive='';
+    if(type==='archive_malformed')x.responses.archive='{';
+    if(type==='archive_wrong_schema')x.responses.archive=JSON.stringify({entries:[],approvals:[]});
+    if(type==='still_indexed')x.responses.archive=JSON.stringify({schemaVersion:1,entries:[x.e],approvals:[{entryId:x.e.id}]});
+    if(type==='page_error')x.responses.pageStatus=503;
+    if(type==='page_error_body')x.responses.page='<html><body>Temporary failure</body></html>';
+    if(type==='still_on_page')x.responses.page=x.responses.page.replace('</main>','<article class="annal-entry" id="'+x.e.id+'"></article></main>');
+    if(type==='stale_page')x.responses.archive=JSON.stringify({schemaVersion:1,entries:[{...x.e,id:'annal-another-invented-entry'}],approvals:[{entryId:'annal-another-invented-entry'}]});
+    if(type==='future_removal')change('removal-private.json',v=>{v.approvedAt='2026-10-09T00:40:00Z';v.proof=x.context.annalsPublicRemoval_(x.e,v.approvedAt,x.props.ANNALS_PUBLISH_SIGNING_KEY);});
+    if(type==='unsupported_media'){
+      x.e.photo={sha256:'b'.repeat(64),alt:'An invented cup.'};
+      change('approval-private.json',v=>{v.entry=x.e;v.receipt.contentSha256=contentDigest(x.e);v.receipt.consents.photoPublication=true;delete v.receipt.signature;v.receipt.signature=createHmac('sha256',x.props.ANNALS_APPROVAL_KEY).update(core.serial({entry:x.e,receipt:v.receipt})).digest('hex');});
+      change('auto-live-verification-private.json',v=>v.contentSha256=contentDigest(x.e));
+      change('removal-private.json',v=>{v.entry=x.e;v.proof=x.context.annalsPublicRemoval_(x.e,v.approvedAt,x.props.ANNALS_PUBLISH_SIGNING_KEY);});
+    }
+    const preserved=new Map([...x.files].map(([name,f])=>[name,f.getBlob().getDataAsString()]));
+    assert.throws(()=>x.context.annalsQuarantineSubmission('valid',x.id,'Owner confirmed this invented diagnostic.',true),/Operation held/,type);
+    assert.equal(x.files.has('quarantine-private.json'),false,type);
+    assert.equal(x.files.has('withdrawal-live-verification-private.json'),false,type);
+    assert.equal(x.calls.ai,0,type);
+    for(const [name,data] of preserved)assert.equal(x.files.get(name).getBlob().getDataAsString(),data,type+': '+name);
+  }
+});
+
+test('quarantine UI permits a withdrawn test provisionally but never an active, uncertain or quarantined publication',()=>{
+  const ui=readFileSync(new URL('../scripts/annals/ReviewUi.html',import.meta.url),'utf8');
+  const source=ui.match(/function quarantineAvailable\(item\)\s*\{[^}]+\}/)?.[0];
+  assert.ok(source,'UI uses the tested availability predicate');
+  const available=vm.runInNewContext('('+source+')');
+  assert.equal(available({approved:false,dispatchAttempted:false}),true);
+  assert.equal(available({approved:true}),false);
+  assert.equal(available({dispatchAttempted:true}),false);
+  assert.equal(available({approved:true,removal:{state:'approved_removal_pending'}}),false);
+  assert.equal(available({approved:true,removal:{state:'dispatch_accepted'}}),true);
+  assert.equal(available({approved:true,removal:{state:'dispatch_accepted'},quarantined:true}),false);
 });
