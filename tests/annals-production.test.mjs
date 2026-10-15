@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { createHash, createHmac } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { buildPublishedAnnals, contentDigest, validatePublicTextEntry, verifyApproval, verifyPublicApproval, verifyPublicRemoval } from '../scripts/annals/ApprovedRenderer.mjs';
+import { renderHistory } from '../scripts/annals/HistoryPublisher.mjs';
 import { prepareApprovedBundle } from '../scripts/annals/prepare-publication.mjs';
 const require = createRequire(import.meta.url);
 const core = require('../scripts/annals/ProductionCore.js');
@@ -52,7 +53,7 @@ function mock() {
     } }
   };
   vm.createContext(context);
-  vm.runInContext(['PilotCore.js','ProductionCore.js','AutoCore.js','MediaCore.js','MediaPolicy.js','HistoryCore.js','GovernanceCore.js','HistoryProduction.gs','Production.gs'].map(name=>readFileSync(new URL('../scripts/annals/'+name,import.meta.url),'utf8')).join('\n'),context);
+  vm.runInContext(['PilotCore.js','ProductionCore.js','AutoCore.js','MediaCore.js','MediaPolicy.js','PublicDisplay.js','HistoryCore.js','GovernanceCore.js','HistoryProduction.gs','Production.gs'].map(name=>readFileSync(new URL('../scripts/annals/'+name,import.meta.url),'utf8')).join('\n'),context);
   folder.createFile('source-private.json', JSON.stringify({source:{subject:'Offline fixture',excerpt:'Source evidence only.',receivedAt:'2026-10-09T00:00:00Z'},attachmentManifest:{items:[]}}));
   return { context, props, files, folder, root, calls, logs };
 }
@@ -1339,7 +1340,7 @@ test('qualified history dispatch preserves pending evidence, rejects resend, and
   let publicDocument={schemaVersion:1,revision:0,chapters:[],updatedAt:''},dispatches=[];
   x.context.UrlFetchApp.fetch=(url,options)=>{
     if(url.endsWith('/dispatches')){dispatches.push(JSON.parse(options.payload));return {getResponseCode:()=>204};}
-    if(url.endsWith('history.html'))return {getResponseCode:()=>200,getContentText:()=>'<main data-history-revision="'+publicDocument.revision+'">Offline fixture only.</main>'};
+    if(url.endsWith('history.html'))return {getResponseCode:()=>200,getContentText:()=>renderHistory(publicDocument)+'\n'};
     return {getResponseCode:()=>200,getContentText:()=>JSON.stringify(publicDocument)};
   };
   const raw={chapter:'origins',factKey:'ledger-arrival',field:'excerpt',statement,period:'2021',status:'recollection',uncertainty:'',evidenceNote:'Reviewed offline source fixture.',order:100};
@@ -1406,4 +1407,79 @@ test('uncertain CoL provider delivery never retries or refunds the attempt',()=>
   assert.equal(x.context.annalsPrepareRuleDraftCore_(id),false);assert.equal(x.context.annalsPrepareRuleDraftCore_(id),false);assert.equal(paid,1);
   assert.equal(JSON.parse(x.props.ANNALS_BUDGET_LEDGER).reservedCents,10);assert.ok(!x.files.has('col-proposal-private.json'));
   assert.ok(!x.logs.join('').includes('PRIVATE provider failure'));
+});
+
+test('an interrupted source write resumes from an identical immutable original without blocking intake',()=>{
+  const x=mock(),id='c'.repeat(64);x.files.delete('source-private.json');
+  x.context.annalsAuthentication_=()=>true;x.context.annalsConsentActive_=()=>true;
+  x.context.annalsStandingPublicationActive_=()=>true;x.context.annalsImageConsentActive_=()=>false;
+  const msg={getFrom:()=> 'member@example.test',getId:()=> 'offline-interrupted-stage',getSubject:()=> 'A rule proposal',getPlainBody:()=> 'Could we change the celebrity draft?',getDate:()=>new Date('2026-10-09T00:00:00Z'),getAttachments:()=>[]};
+  const create=x.folder.createFile;x.folder.createFile=function(name,data){if(name==='source-private.json')throw Error('Offline simulated interrupted write');return create.call(this,name,data);};
+  assert.throws(()=>x.context.annalsStageProduction_(msg,Date.parse('2026-10-08'),['member@example.test']));
+  const original=x.files.get('original-email-private.json').getBlob().getDataAsString();
+  x.folder.createFile=create;
+  assert.equal(x.context.annalsStageProduction_(msg,Date.parse('2026-10-08'),['member@example.test']),'held');
+  assert.equal(x.files.get('original-email-private.json').getBlob().getDataAsString(),original);
+  assert.equal(x.context.annalsStageProduction_(msg,Date.parse('2026-10-08'),['member@example.test']),'duplicates');
+  assert.equal(x.calls.ai,0);
+});
+function pendingHistoryMock(){
+  const x=mock(),document={schemaVersion:1,revision:1,updatedAt:'2026-10-09T00:30:00.000Z',chapters:[{id:'origins',heading:'Origins',paragraphs:['Offline fictional history fixture only.']}]};
+  const pending={state:'dispatch_accepted',document,approval:{contentSha256:createHash('sha256').update(core.serial(document)).digest('hex')},review:{ledger:{schemaVersion:1,revision:0,claims:[],revisions:[]}}};
+  x.folder.createFile('history-pending-private.json',JSON.stringify(pending));
+  let html='<main data-history-revision="1">Different offline text.</main>';
+  x.context.UrlFetchApp.fetch=url=>({getResponseCode:()=>200,getContentText:()=>url.endsWith('history.html')?html:JSON.stringify(document)});
+  return {...x,document,pending,setHtml:value=>{html=value;}};
+}
+test('history live verification rejects changed HTML despite matching JSON and revision marker',()=>{
+  const x=pendingHistoryMock();
+  assert.equal(x.context.annalsReconcileHistory('valid').verified,false);
+  assert.ok(!x.files.has('history-ledger-private.json'));assert.ok(!x.files.has('history-live-1-private.json'));
+});
+test('history verification can finish after its final status save fails without rewriting audit or resending',()=>{
+  const x=pendingHistoryMock();
+  x.setHtml(renderHistory(x.document)+'\n');
+  const save=x.context.annalsSavePrivate_;let fail=true;
+  x.context.annalsSavePrivate_=(folder,name,value)=>{if(name==='history-pending-private.json'&&value.state==='verified_live'&&fail){fail=false;throw Error('Offline final-save interruption');}return save(folder,name,value);};
+  assert.throws(()=>x.context.annalsReconcileHistory('valid'));
+  const audit=x.files.get('history-live-1-private.json').getBlob().getDataAsString();
+  assert.equal(x.context.annalsReconcileHistory('valid').verified,true);
+  assert.equal(x.files.get('history-live-1-private.json').getBlob().getDataAsString(),audit);
+  assert.equal(x.calls.ai,0);assert.ok(!x.files.has('publication-dispatch-private.json'));
+});
+test('CoL response-read uncertainty is recorded privately and never charged twice',()=>{
+  const x=mock(),id='c'.repeat(64),rules=readFileSync(new URL('../docs/celebration-of-life-rules.md',import.meta.url),'utf8');
+  x.context.annalsConsentActive_=()=>true;
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,source:{subject:'Rule proposal',excerpt:'Could we change the draft?',sender:'member@example.test'},attachmentManifest:{items:[]}}));
+  let paid=0;x.context.UrlFetchApp.fetch=url=>{if(url.includes('raw.githubusercontent'))return {getResponseCode:()=>200,getContentText:()=>rules};paid++;return {getResponseCode:()=>200,getContentText:()=>{throw Error('Offline response-read interruption');}};};
+  assert.equal(x.context.annalsPrepareRuleDraftCore_(id),false);
+  assert.equal(x.context.annalsPrepareRuleDraftCore_(id),false);assert.equal(paid,1);
+  assert.equal(JSON.parse(x.files.get('ai-outcome-private.json').getBlob().getDataAsString()).reason,'provider_result_unknown');
+  assert.equal(JSON.parse(x.props.ANNALS_BUDGET_LEDGER).reservedCents,10);
+});
+
+test('interrupted intake refuses changed original evidence instead of replacing it',()=>{
+  const x=mock();x.files.delete('source-private.json');x.context.annalsAuthentication_=()=>true;
+  x.context.annalsConsentActive_=()=>true;x.context.annalsStandingPublicationActive_=()=>true;x.context.annalsImageConsentActive_=()=>false;
+  const original={subject:'Original proposal',body:'Original private fixture.',receivedAt:'2026-10-09T00:00:00.000Z'};
+  x.folder.createFile('original-email-private.json',JSON.stringify(original));
+  const msg={getFrom:()=> 'member@example.test',getId:()=> 'offline-interrupted-stage',getSubject:()=> 'Changed subject',getPlainBody:()=> 'Could we change the draft?',getDate:()=>new Date(original.receivedAt),getAttachments:()=>[]};
+  assert.throws(()=>x.context.annalsStageProduction_(msg,Date.parse('2026-10-08'),['member@example.test']));
+  assert.equal(x.files.get('original-email-private.json').getBlob().getDataAsString(),JSON.stringify(original));
+  assert.ok(!x.files.has('source-private.json'));assert.equal(x.calls.ai,0);
+});
+test('history signing rechecks every existing active claim against its immutable original',()=>{
+  const x=mock(),id='d'.repeat(64),statement='The blue ledger appeared in 2021.';
+  const source={senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,source:{subject:'A recollection',excerpt:statement,receivedAt:'2026-10-09T00:00:00Z',sender:'member@example.test'},attachmentManifest:{items:[]}};
+  x.context.annalsConsentActive_=()=>true;x.context.annalsStandingPublicationActive_=()=>true;
+  x.folder.createFile('source-private.json',JSON.stringify(source));
+  const raw={id:'a'.repeat(64),sourceId:id,chapter:'origins',factKey:'ledger-arrival',field:'excerpt',statement,period:'2021',status:'recollection',uncertainty:'',evidenceNote:'Reviewed offline evidence only.',order:100};
+  const claim=x.context.AnnalsHistory.claim(source,raw),ledger=x.context.AnnalsHistory.apply(x.context.AnnalsHistory.empty(),claim,true,'2026-10-09T00:00:00Z','Reviewed offline evidence only.').ledger;
+  ledger.claims[0].statement='The blue ledger appeared in 2021 beside a throne.';
+  x.root.createFile('history-ledger-private.json',JSON.stringify(ledger));
+  const preview=x.context.annalsSaveHistoryClaim('valid',id,{...raw,factKey:'another-source-topic',order:200},'add','Review another original passage.');
+  Object.assign(x.props,{ANNALS_HISTORY_PUBLICATION_ENABLED:'true',ANNALS_SIGNING_REMEDIATED_AT:'2026-10-08T00:00:00Z',ANNALS_HISTORY_SIGNING_KEY:'h'.repeat(40),ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40)});
+  let calls=0;x.context.UrlFetchApp.fetch=()=>{calls++;return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({schemaVersion:1,revision:0,chapters:[],updatedAt:''})};};
+  assert.throws(()=>x.context.annalsApproveHistoryRevision('valid',id,preview.hash,true));
+  assert.equal(calls,0);assert.ok(!x.files.has('history-pending-private.json'));
 });

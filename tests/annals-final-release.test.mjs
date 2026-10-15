@@ -127,3 +127,31 @@ test('withdrawn publication identities cannot be replayed and fresh requests rej
   await assert.rejects(applyApprovedEntry({event,data:empty,secret,now:new Date('2026-10-17')}));
   assert.equal(verifyPublicApproval(e,p,secret),true);
 });
+
+test('corroboration cannot silently change certainty, evidence status or passage order',()=>{
+  const first=history.claim(source(),raw());
+  const ledger=history.apply(history.empty(),first,true,at,'Reviewed offline source fixture.').ledger;
+  for(const change of [{status:'supported'},{uncertainty:''},{order:1}]){
+    const next=history.claim(source(),{...raw('b'),...change});
+    assert.equal(history.propose(ledger,next).kind,'dispute');
+    assert.throws(()=>history.apply(ledger,next,false,at,''));
+  }
+});
+test('a correction cannot reuse an existing claim identity and rewrite a previous revision',()=>{
+  const first=history.claim(source(),raw()),ledger=history.apply(history.empty(),first,true,at,'Reviewed offline source fixture.').ledger;
+  const before=JSON.stringify(ledger);
+  assert.throws(()=>history.resolve(ledger,first.factKey,first,at,'Repeat is not a new correction.'));
+  assert.equal(JSON.stringify(ledger),before);
+});
+test('recipe intro never manufactures a sentence by deleting an ingredient phrase from its middle',()=>{
+  const e={...entry(),summary:'A winter memory. Remember how 1 cup sugar looked like snow.'};
+  assert.equal(recipeIntroduction(e),'A winter memory.');
+  assert.equal(recipeIntroduction({...entry(),summary:'Inspired by the garden; 1/2 oz cordial; 2 oz water.'}),'Inspired by the garden');
+});
+
+test('history rejects inherited chapter names and malformed active-state ledgers',()=>{
+  assert.throws(()=>history.claim(source(),{...raw(),chapter:'constructor'}));
+  const first=history.claim(source(),raw()),ledger=history.apply(history.empty(),first,true,at,'Reviewed offline source fixture.').ledger;
+  assert.throws(()=>history.chapters({...ledger,claims:[{...first,active:'false'}]}));
+  assert.throws(()=>history.chapters({...ledger,claims:[{...first,receivedAt:'not a date'}]}));
+});

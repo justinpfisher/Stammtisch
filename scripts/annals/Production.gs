@@ -538,7 +538,11 @@ function annalsStageProduction_(message, activation, allowed) {
   source.aiConsentActive = source.senderAuthenticated && annalsConsentActive_(sender);
   source.autoConsentAtReceipt = source.senderAuthenticated && annalsStandingPublicationActive_(sender, message.getDate().toISOString());
   source.imageConsentAtReceipt = source.senderAuthenticated && annalsImageConsentActive_(sender, message.getDate().toISOString());
-  annalsWriteOnce_(folder, 'original-email-private.json', {subject:originalSubject,body:originalBody,receivedAt:message.getDate().toISOString()});
+  var original={subject:originalSubject,body:originalBody,receivedAt:message.getDate().toISOString()};
+  var captured=annalsRead_(folder,'original-email-private.json');
+  if(captured){
+    if(AnnalsProduction.serial(captured)!==AnnalsProduction.serial(original))throw new Error('Original evidence changed; private reconciliation required');
+  }else annalsWriteOnce_(folder,'original-email-private.json',original);
   source.protectiveRoute = AnnalsAuto.protectedRoute(originalSubject, originalBody);
   annalsWriteOnce_(folder, 'source-private.json', source);
   if (!source.senderAuthenticated) return 'unverified';

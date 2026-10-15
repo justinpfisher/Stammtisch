@@ -152,7 +152,8 @@ Secure owner actions, without sending any values to chat:
    Never paste or screenshot values in chat or public logs.
 4. Install the qualified source into the existing private project: the seven
    existing production source/UI files, plus `HistoryCore.js`,
-   `GovernanceCore.js`, and `HistoryProduction.gs`, and the existing manifest.
+   `GovernanceCore.js`, `HistoryProduction.gs`, and the shared pure
+   `PublicDisplay.js`, plus the existing manifest.
    Preserve deployment URL, owner-only access and the existing schedule. Do
    not install historical `Code.gs` or `SyntheticPilot.gs`.
 5. Use the owner-authenticated `annalsCheckSigningRotation` with an existing
@@ -171,7 +172,8 @@ History activation additionally needs its own hosted acceptance and remains off.
 
 ## Limits, regression and rollback
 
-The full cloud offline check currently passes **64 Python and 237 Node tests**.
+The full cloud offline check now passes **64 Python and 247 Node tests**.
+The original release below passed 237 Node tests; the continuation adds ten.
 These include integrated private service mocks, exact history signing/replay,
 revoked-consent withdrawal, protected proposal routing, unchanged recipe
 measurements, display-only digest preservation and ordinary CoL regressions.
@@ -243,3 +245,39 @@ and screen-reader checks remain **blocked/unverified**. General unattended
 history interpretation is **not qualified**. No production setting, consent,
 cursor, trigger, activation timestamp, ledger, paid allowance or actual CoL rule
 was changed by this cloud release work.
+
+
+## Interruption and source-integrity follow-up — 15 October 2026
+
+Ten additional fictional offline regression cases cover the following fixes.
+These findings are independent of the six original strict QA failures; the
+completed private matrix is still required to determine their disposition.
+
+- An intake retry can resume after saving an immutable original but before
+  saving its private source record. It reuses only an identical original and
+  refuses changed evidence; it does not replay a paid extraction or dispatch.
+- A CoL provider response that cannot be read is recorded as unknown delivery.
+  The existing one-shot reservation remains consumed, with no automatic retry.
+- History live reconciliation requires the exact generated HTML as well as
+  the exact public JSON. A matching revision marker alone is insufficient.
+  A retry can finish after an interrupted final status save while preserving
+  the original live audit timestamp and never re-dispatching publication.
+- Corroboration cannot change certainty, evidence status or passage order.
+  Corrections require a new claim identity. Private claim validation rejects
+  inherited chapter names, invalid receipt dates and non-boolean active flags.
+  Before signing, every active claim is rechecked against its immutable source
+  and current permissions, including claims in unchanged chapters.
+- Recipe filtering omits an entire duplicated or ambiguous recipe clause;
+  it never manufactures a sentence by cutting an ingredient phrase from its
+  middle. Distinct submitted introductory sentences remain intact.
+
+`PublicDisplay.js` is a pure shared renderer used by Node and the private script
+for exact history HTML comparison. It must be installed in the existing Apps
+Script project alongside the other qualified files. The current empty Annals
+and History HTML remain byte-identical to the preceding release. No signature
+format, signed record, official CoL provision, publication switch, consent,
+media setting, budget or deadline was changed by this follow-up.
+
+The cloud offline suite passed 64 Python and 247 Node tests. Private deployment,
+credential rotation and genuine-content acceptance remain unverified; merging
+this follow-up does not perform those owner-account operations.

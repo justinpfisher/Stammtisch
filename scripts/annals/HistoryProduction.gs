@@ -50,8 +50,12 @@ function annalsPrepareRuleDraftCore_(id){
   var response;
   try{response=UrlFetchApp.fetch('https://api.openai.com/v1/responses',{method:'post',contentType:'application/json',headers:{Authorization:'Bearer '+p.getProperty('ANNALS_OPENAI_API_KEY')},payload:JSON.stringify(request),muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true});}
   catch(ignored){annalsRecordAttemptOutcome_(f,'provider_result_unknown',0);return false;}
-  if(response.getResponseCode()!==200){annalsRecordAttemptOutcome_(f,'provider_http_failure',response.getResponseCode());return false;}
-  var text=response.getContentText();
+  var status,text;
+  try{
+    status=response.getResponseCode();
+    if(status!==200){annalsRecordAttemptOutcome_(f,'provider_http_failure',status);return false;}
+    text=response.getContentText();
+  }catch(ignored){annalsRecordAttemptOutcome_(f,'provider_result_unknown',0);return false;}
   if(typeof text!=='string'||text.length>100000){annalsRecordAttemptOutcome_(f,'invalid_response',200);return false;}
   annalsWriteOnce_(f,'ai-response-private.json',{responseText:text,httpStatus:200,purpose:'private_col_proposal'});
   try{
@@ -129,6 +133,7 @@ function annalsApproveHistoryRevision(nonce,id,expectedHash,confirmed){
     review.ledger.claims.filter(function(c){return c.active;}).forEach(function(c){
       var original=annalsRead_(annalsFolder_(c.sourceId),'source-private.json');
       if(!original||!annalsConsentActive_(original.source.sender)||!annalsStandingPublicationActive_(original.source.sender,original.source.receivedAt))throw new Error('Active history claim permission revoked');
+      if(AnnalsProduction.serial(AnnalsHistory.claim(original,c))!==AnnalsProduction.serial(c))throw new Error('History claim no longer matches immutable original');
     });
     annalsOrdinarySourceGate_(source);
     if(p.getProperty('ANNALS_HISTORY_PUBLICATION_ENABLED')!=='true'||!Number.isFinite(Date.parse(p.getProperty('ANNALS_SIGNING_REMEDIATED_AT'))))throw new Error('History publication awaits signing remediation and hosted qualification');
@@ -162,10 +167,13 @@ function annalsReconcileHistory(nonce){
     var html=UrlFetchApp.fetch('https://stammtischbrewery.com/history.html',{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true});
     if(response.getResponseCode()!==200||html.getResponseCode()!==200||
       annalsHash_(AnnalsProduction.serial(JSON.parse(response.getContentText())))!==pending.approval.contentSha256||
-      html.getContentText().indexOf('data-history-revision="'+pending.document.revision+'"')<0)return {verified:false,retryAllowed:false};
+      annalsHash_(html.getContentText())!==annalsHash_(AnnalsPublicDisplay.historyPage(pending.document)+'\n'))return {verified:false,retryAllowed:false};
     annalsSavePrivate_(root,'history-ledger-private.json',pending.review.ledger);
     annalsSavePrivate_(root,'history-published-private.json',pending.document);
-    annalsWriteOnce_(root,'history-live-'+pending.document.revision+'-private.json',{verifiedAt:new Date().toISOString(),digest:pending.approval.contentSha256});
+    var name='history-live-'+pending.document.revision+'-private.json',existing=annalsRead_(root,name);
+    if(existing){
+      if(existing.digest!==pending.approval.contentSha256||!Number.isFinite(Date.parse(existing.verifiedAt)))throw new Error('Conflicting history verification evidence');
+    }else annalsWriteOnce_(root,name,{verifiedAt:new Date().toISOString(),digest:pending.approval.contentSha256});
     // Preserve the pending attempt as evidence instead of deleting or replaying it.
     annalsSavePrivate_(root,'history-pending-private.json',Object.assign({},pending,{state:'verified_live'}));
     return {verified:true,revision:pending.document.revision};
