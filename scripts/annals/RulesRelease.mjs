@@ -62,6 +62,28 @@ export function coordinate({register,versions,markdown,html,bundle,secret,enable
   const nextHtml=html.slice(0,start)+topics(result.version.provisions)+'\n'+html.slice(end);
   return {register:nextRegister,versions:nextVersions,markdown:nextMarkdown,html:nextHtml,registerHtml:renderRegister(nextRegister)};
 }
+/** Temporary fail-closed runtime boundary.
+ * Engineering attestations and a successful GitHub commit do not establish
+ * a verified *hosted* activation clock or retention of the previous live
+ * version on deployment failure. The existing pure coordinator remains
+ * testable, but no live release may alter operative rules until a separately
+ * qualified two-phase publication protocol replaces this boundary.
+ * Scheduled, non-operative records can still be prepared under the existing
+ * disabled-by-default owner/security gates.
+ */
+export function requireNonActivatingRuleRelease(after,before){
+  if(!after||!before||!Array.isArray(before.versions?.versions)||
+    !Array.isArray(after.versions?.versions)||!Array.isArray(before.register?.events)||
+    !Array.isArray(after.register?.events)||typeof before.markdown!=='string'||
+    typeof before.html!=='string')throw Error('Incomplete CoL publication boundary');
+  const additions=after.versions.versions.slice(before.versions.versions.length);
+  if(additions.length!==1||additions[0].verified!==false||
+    after.markdown!==before.markdown||after.html!==before.html||
+    after.register.events.slice(before.register.events.length).some(e=>e.state==='active'))
+    throw Error('CoL activation blocked pending verified hosted publication clock and failure-safe prior-version retention');
+  return after;
+}
+
 async function main(){
   if(process.env.ANNALS_RULES_V2_RELEASE_ENABLED!=='true'||process.env.ANNALS_SIGNING_REMEDIATION_VERIFIED!=='true')throw Error('Final hosted authority is unverified');
   const event=JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH,'utf8'));
@@ -73,12 +95,18 @@ async function main(){
   }
   if(event.action!=='annals-col-rule-release'||Object.keys(event.client_payload||{}).join(',')!=='bundle')throw Error('Not a constrained rule release');
   const register=JSON.parse(await readFile('data/col-rules-register.json','utf8')),versions=JSON.parse(await readFile('data/col-rules-versions.json','utf8'));
-  const result=coordinate({register,versions,markdown:await readFile('docs/celebration-of-life-rules.md','utf8'),html:await readFile('celebration.html','utf8'),
+  const markdown=await readFile('docs/celebration-of-life-rules.md','utf8');
+  const html=await readFile('celebration.html','utf8');
+  const before={register,versions,markdown,html};
+  const result=coordinate({register,versions,markdown,html,
     bundle:event.client_payload.bundle,secret:process.env.ANNALS_PUBLISH_SIGNING_KEY,enabled:true,now:new Date(),
     implementationCommit:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),behavior:await behaviorDigest(),
     // Source proof is independently verified by the bounded implementation PR.
     // Existing read-only monitor credentials are never expanded or used to write.
     sourceDigest:process.env.COL_VERIFIED_SOURCE_DIGEST||''});
+  // A signed engineering bundle is necessary but insufficient for activation.
+  // Refuse to write any operative rule or active event before a verified clock.
+  requireNonActivatingRuleRelease(result,before);
   await writeFile('data/col-rules-register.json',JSON.stringify(result.register,null,2)+'\n');
   await writeFile('data/col-rules-versions.json',JSON.stringify(result.versions,null,2)+'\n');
   await writeFile('col-revisions.html',result.registerHtml+'\n');
