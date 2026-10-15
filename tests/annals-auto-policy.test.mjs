@@ -398,3 +398,42 @@ test('auto source-grounded submission can carry a signed anonymous sender likene
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
   assert.throws(()=>contentDigest(quoted),/contributor portrait/i);
 });
+
+
+test('an exact full labelled quotation field can retain its source wrappers',()=>{
+  const words='The imaginary umbrella earned a fucking medal.\nKeep its ribbon dry.';
+  const s={...sample(),source:{...sample().source,subject:'',excerpt:'I said: "'+words+'"'}};
+  const d={...draft(),category:'quotation',quoteVerbatim:s.source.excerpt,
+    interpretation:{intent:'direct_quote',speakerId:'self',evidenceField:'body'},
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  const result=policy.propose(s,d,id,{speakerPortrait:'fish'});
+  assert.equal(result.eligible,true);
+  assert.equal(result.entry.quoteVerbatim,'The imaginary umbrella earned a [EXPLETIVE] medal.\nKeep its ribbon dry.');
+  assert.equal(result.entry.speakerPortrait,'fish');
+  assert.match(buildPublishedAnnals([result.entry],[proof(result.entry)],secret).html,
+    /Editorially censored quotation — not verbatim/);
+  for(const changed of [
+    s.source.excerpt.replace('medal.','medal!'),
+    s.source.excerpt.replace('umbrella earned','umbrella  earned'),
+    s.source.excerpt.replace('I said:','I wrote:'),
+    s.source.excerpt.replace('I said:','Ken:'),
+    'The imaginary umbrella earned a fucking medal.'
+  ]) assert.equal(policy.propose(s,{...d,quoteVerbatim:changed},id,{speakerPortrait:'fish'}).eligible,false,changed);
+});
+
+test('full-field quotation wrappers preserve speaker, conflict, privacy and intent gates',()=>{
+  const s={...sample(),source:{...sample().source,subject:'Quote from Ken',excerpt:'Ken: "An imaginary ribbon deserves a certificate."'}};
+  const d={...draft(),category:'quotation',quoteVerbatim:s.source.excerpt,
+    interpretation:{intent:'direct_quote',speakerId:'ken',evidenceField:'body'},
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  assert.equal(policy.propose(s,d,id).eligible,false);
+  assert.equal(policy.propose(s,d,id,{speakerPortrait:'marc'}).eligible,false);
+  const accepted=policy.propose(s,d,id,{speakerPortrait:'ken'});
+  assert.equal(accepted.eligible,true);
+  assert.equal(accepted.entry.quoteVerbatim,'An imaginary ribbon deserves a certificate.');
+  assert.equal(accepted.entry.speakerPortrait,'ken');
+  assert.equal(policy.propose({...s,source:{...s.source,subject:'Quote from Marc'}},d,id,{speakerPortrait:'ken'}).eligible,false);
+  assert.equal(policy.propose(s,{...d,interpretation:{...d.interpretation,speakerId:'marc'}},id,{speakerPortrait:'ken'}).eligible,false);
+  assert.equal(policy.propose(s,{...d,interpretation:{...d.interpretation,intent:'reported_speech'}},id,{speakerPortrait:'ken'}).eligible,false);
+  assert.equal(policy.propose(s,{...d,riskFlags:['private_context']},id,{speakerPortrait:'ken'}).eligible,false);
+});
