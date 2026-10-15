@@ -11,7 +11,7 @@ import Auto from '../scripts/annals/AutoCore.js';
 import {photoIndex} from '../scripts/annals/PhotoIndex.mjs';
 import {contentDigest,validatePublicTextEntry,buildPublishedAnnals} from '../scripts/annals/ApprovedRenderer.mjs';
 import {applyApprovedEntry,approvedPhoto} from '../scripts/annals/apply-approved-entry.mjs';
-import {applyRuleRelease,renderRegister,digest,canonical,RULES_MODE} from '../scripts/annals/RulesPublisher.mjs';
+import {applyRuleRelease,applyRuleStatus,renderRegister,digest,canonical,RULES_MODE,RULE_STATUS_MODE} from '../scripts/annals/RulesPublisher.mjs';
 import {coordinate,RELEASE_MODE} from '../scripts/annals/RulesRelease.mjs';
 
 const at='2026-10-15T18:00:00Z',key='fictional-v2-test-key-not-a-real-production-secret';
@@ -141,6 +141,19 @@ const coordinatedFixture=()=>{
   const bundle={...content,approval:{...proof,signature:createHmac('sha256',key).update(JSON.stringify(canonical({content,approval:proof}))).digest('hex')}};
   return {register,versions,bundle,secret:key,enabled:true,now:new Date(at),implementationCommit:'b'.repeat(40),behavior:'c'.repeat(64),sourceDigest:'',markdown:'# STAMMTISCH\n\n'+base.provisions.PRIZE+'\n\n---\n\nUnchanged editorial notes.',html:'<main><details class="rule-topic">Old fictional rule</details>\n      <p class="rules-reference">Unchanged reference.</p></main>'};
 };
+test('source-blocked changes can be publicly pending, and status publication cannot activate them',()=>{
+  const args=coordinatedFixture(),record={...Rules.publicRecord(revision()),publishedAt:at};
+  const proof={mode:RULE_STATUS_MODE,baseDigest:digest(args.register),contentSha256:digest(record),issuedAt:at};
+  const approval={...proof,signature:createHmac('sha256',key).update(JSON.stringify(canonical({record,approval:proof}))).digest('hex')};
+  const params={current:args.register,record,approval,secret:key,enabled:true,now:new Date(at)};
+  const pending=applyRuleStatus(params);assert.equal(pending.revisions[0].state,'awaiting_implementation');assert.equal(args.versions.versions.length,1);
+  assert.throws(()=>applyRuleStatus({...params,current:pending}));assert.throws(()=>applyRuleStatus({...params,record:{...record,state:'active'}}));
+  const content={...args.bundle};delete content.approval;
+  const nextProof={...args.bundle.approval,baseRegisterDigest:digest(pending)};delete nextProof.signature;
+  const bundle={...content,approval:{...nextProof,signature:createHmac('sha256',key).update(JSON.stringify(canonical({content,approval:nextProof}))).digest('hex')}};
+  const result=coordinate({...args,register:pending,bundle});assert.equal(result.register.revisions.length,1);assert.equal(result.register.revisions[0].state,'awaiting_implementation');assert.equal(result.register.events.at(-1).state,'active');
+  assert.equal(pending.events.length,0,'adoption must not mutate the prior pending register');
+});
 test('coordinated rules narrative, structured version and register use one exact release',()=>{
   const args=coordinatedFixture(),result=coordinate(args);assert.match(result.markdown,/twelve tokens/);assert.match(result.html,/twelve tokens/);assert.equal(result.register.revisions[0].state,'active');assert.equal(result.versions.versions.at(-1).provisions.PRIZE,revision().changes[0].after);assert.match(result.markdown,/Unchanged editorial notes/);
   assert.equal('requestExcerpt' in result.register.revisions[0],false);

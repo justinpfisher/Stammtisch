@@ -114,6 +114,10 @@ editor route, independent read-back/reconciliation and an exact verified source
 digest bound to implementation evidence. Until available, they remain pending.
 `COL_VERIFIED_SOURCE_DIGEST` is evidence from that route, not permission to edit.
 An arbitrary “verified” flag, AI assertion or public register alone is insufficient.
+`annalsRecordPendingRule` publishes a sanitised pending status through a separate
+signed bounded dispatch; it cannot activate rules or change their narrative/code.
+The desk exposes this engineering action so a source-access blocker can be visible
+in the public register while the previous operative rules remain unchanged.
 
 Submission, publication and effective timestamps are distinct. Explicit timestamps
 need an offset; ambiguous dates ask clarification. Otherwise effectiveness begins

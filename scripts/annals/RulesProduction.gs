@@ -106,6 +106,32 @@ function annalsReleaseRuleImplementation(nonce,id,review){
     return {dispatchAccepted:sent,published:false};
   });});
 }
+/** Publish only a sanitised pending record when source access or implementation
+ * is blocked. This action cannot adopt a rule or alter executable behaviour. */
+function annalsRecordPendingRule(nonce,id,review){
+  return annalsUiCall_(nonce,function(){return annalsLocked_(function(){
+    if(!annalsRulesReady_())throw new Error('Final rule acceptance remains unverified');
+    var root=annalsRoot_(),f=annalsFolder_(id),request=annalsRead_(f,'col-rule-request-private.json'),source=annalsRead_(f,'source-private.json');
+    if(!request||['awaiting_clarification','awaiting_implementation'].indexOf(request.state)<0||!source||source.senderAuthenticated!==true||
+      source.rulesActivationEligible!==true||annalsFile_(f,'quarantine-private.json')||!annalsStandingPublicationActive_(source.source.sender,source.source.receivedAt))throw new Error('Authenticated pending revision required');
+    var pending=annalsRead_(root,'col-release-pending-private.json');if(pending&&pending.state!=='verified_live')throw new Error('Reconcile the prior operation first');
+    if(!review||Object.keys(review).sort().join(',')!=='expectedFiles,issuedAt'||Math.abs(Date.now()-Date.parse(AnnalsRules.stamp(review.issuedAt)))>60000)throw new Error('Exact fresh pending-record preview required');
+    var paths=['data/col-rules-register.json','data/col-rules-versions.json','docs/celebration-of-life-rules.md','celebration.html','col-revisions.html'];
+    if(Object.keys(review.expectedFiles||{}).sort().join(',')!==paths.slice().sort().join(',')||paths.some(function(p){return !/^[a-f0-9]{64}$/.test(review.expectedFiles[p]);}))throw new Error('Exact hosted-file digests required');
+    var response=UrlFetchApp.fetch('https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/col-rules-register.json',{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true});
+    if(response.getResponseCode()!==200)throw new Error('Current register unavailable');
+    var current=JSON.parse(response.getContentText()),record=AnnalsRules.publicRecord(request);record.publishedAt=review.issuedAt;
+    var approval={mode:'verified-member-col-status-v2',baseDigest:annalsHash_(AnnalsProduction.serial(current)),contentSha256:annalsHash_(AnnalsProduction.serial(record)),issuedAt:review.issuedAt};
+    var key=annalsProps_().getProperty('ANNALS_PUBLISH_SIGNING_KEY')||'';
+    if(key.length<32||key===annalsProps_().getProperty('ANNALS_APPROVAL_KEY'))throw new Error('Separate signing authority required');
+    approval.signature=annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial({record:record,approval:approval}),key,Utilities.Charset.UTF_8));
+    pending={state:'reserved',kind:'status',sourceId:id,revisionId:request.id,at:review.issuedAt,expectedFiles:review.expectedFiles};
+    annalsSavePrivate_(root,'col-release-pending-private.json',pending);
+    var sent=annalsDispatchEvent_(f,'annals-col-rule-status',{record:record,approval:approval},'col-status-dispatch-private.json');
+    pending.state=sent?'accepted':'unknown_or_held_no_retry';annalsSavePrivate_(root,'col-release-pending-private.json',pending);
+    return {dispatchAccepted:sent,adopted:false};
+  });});
+}
 /** Called during the existing bounded intake walk. Does not sign, adopt, retry,
  * clear attempts or issue notifications for any other channel. */
 function annalsReconcileRuleRelease_(id){
@@ -127,6 +153,10 @@ function annalsReconcileRuleRelease_(id){
   var liveName='col-live-'+annalsHash_(pending.at)+'-private.json',saved=annalsRead_(f,liveName);
   if(saved)receipt=saved;else annalsWriteOnce_(f,liveName,receipt);
   pending.state='verified_live';pending.verifiedAt=receipt.verifiedAt;annalsSavePrivate_(root,'col-release-pending-private.json',pending);
+  if(pending.kind==='status'){
+    annalsRuleNotice_(f,source.source.sender,'recorded-'+annalsHash_(pending.at),'Your CoL revision is recorded as '+request.state.replace(/_/g,' ')+'. The previous operative rules remain in force. https://stammtischbrewery.com/col-revisions.html#'+request.id);
+    return true;
+  }
   if(state==='scheduled'){
     request.state='scheduled';request.publishedAt=pending.at;annalsSavePrivate_(f,'col-rule-request-private.json',request);
   }

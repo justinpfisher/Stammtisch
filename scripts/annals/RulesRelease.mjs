@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import Rules from './RulesCore.js';
-import {digest,canonical,renderRegister,validateRegister} from './RulesPublisher.mjs';
+import {digest,canonical,renderRegister,validateRegister,applyRuleStatus} from './RulesPublisher.mjs';
 import {escapeHtml as esc} from './PrivatePreview.mjs';
 
 export const RELEASE_MODE='coordinated-col-implementation-v2';
@@ -36,14 +36,16 @@ export function coordinate({register,versions,markdown,html,bundle,secret,enable
     (bundle.evidence.sourceRequired&&(bundle.sourceDigest!==sourceDigest||bundle.evidence.sourceDigest!==sourceDigest)))throw Error('Installed implementation or authoritative source mismatch');
   if(digest(Rules.provisions(markdown))!==digest(base.provisions))throw Error('Official narrative differs from operative structured rules');
   const existing=register.revisions.find(r=>r.id===bundle.revision.id);
+  const pending=existing&&['awaiting_implementation','awaiting_clarification'].includes(existing.state)&&!register.events.some(e=>e.revisionId===existing.id&&e.state==='active');
   const scheduled=existing&&existing.state==='scheduled'&&!register.events.some(e=>e.revisionId===existing.id&&e.state==='active');
-  if(existing&&!scheduled)throw Error('Revision already reserved or published');
+  if(existing&&!scheduled&&!pending)throw Error('Revision already reserved or published');
   if(scheduled&&(Date.parse(existing.effectiveAt)>now.getTime()||digest(existing.changes)!==digest(Rules.publicRecord(bundle.revision).changes)||existing.baseVersion!==base.id))throw Error('Scheduled revision needs base/meaning requalification');
+  if(pending&&(digest(existing.changes)!==digest(Rules.publicRecord(bundle.revision).changes)||existing.member!==bundle.revision.member||existing.baseVersion!==base.id))throw Error('Pending revision meaning/base changed');
   const qualified=Rules.qualify(bundle.revision,base,bundle.evidence);
   if(scheduled){qualified.revision.state='scheduled';qualified.revision.publishedAt=existing.publishedAt;qualified.revision.effectiveAt=existing.effectiveAt;}
   const result=Rules.publish(qualified,base,approval.issuedAt,base.id);
   const publicRevision=Rules.publicRecord(result.revision);
-  const nextRegister={...register,revisions:existing?register.revisions:[...register.revisions,publicRevision],events:existing?[...register.events,{id:existing.id+'-activation',revisionId:existing.id,at:approval.issuedAt,state:'active',reason:'Scheduled change requalified against the current base, implementation and source.',relatedRevision:null}]:[...register.events]},nextVersions={...versions,versions:[...versions.versions,
+  const nextRegister={...register,revisions:existing?register.revisions:[...register.revisions,publicRevision],events:existing?[...register.events,{id:existing.id+'-activation',revisionId:existing.id,at:approval.issuedAt,state:'active',reason:'Change qualified against the current base, implementation and source.',relatedRevision:null}]:[...register.events]},nextVersions={...versions,versions:[...versions.versions,
     {...result.version,digest:digest(result.version),verified:result.revision.state==='active',behaviorDigest:behavior,parameters:base.parameters,januaryGap:base.januaryGap}]};
   if(publicRevision.correctionOf&&result.revision.state==='active'){
     const previous=register.revisions.find(r=>r.id===publicRevision.correctionOf);
@@ -62,6 +64,12 @@ export function coordinate({register,versions,markdown,html,bundle,secret,enable
 async function main(){
   if(process.env.ANNALS_RULES_V2_RELEASE_ENABLED!=='true'||process.env.ANNALS_SIGNING_REMEDIATION_VERIFIED!=='true')throw Error('Final hosted authority is unverified');
   const event=JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH,'utf8'));
+  if(event.action==='annals-col-rule-status'){
+    if(Object.keys(event.client_payload||{}).sort().join(',')!=='approval,record')throw Error('Bounded status payload required');
+    const current=JSON.parse(await readFile('data/col-rules-register.json','utf8'));
+    const next=applyRuleStatus({current,...event.client_payload,secret:process.env.ANNALS_PUBLISH_SIGNING_KEY,enabled:true});
+    await writeFile('data/col-rules-register.json',JSON.stringify(next,null,2)+'\n');await writeFile('col-revisions.html',renderRegister(next)+'\n');return;
+  }
   if(event.action!=='annals-col-rule-release'||Object.keys(event.client_payload||{}).join(',')!=='bundle')throw Error('Not a constrained rule release');
   const register=JSON.parse(await readFile('data/col-rules-register.json','utf8')),versions=JSON.parse(await readFile('data/col-rules-versions.json','utf8'));
   const result=coordinate({register,versions,markdown:await readFile('docs/celebration-of-life-rules.md','utf8'),html:await readFile('celebration.html','utf8'),

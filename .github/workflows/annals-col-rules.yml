@@ -1,7 +1,7 @@
 name: Coordinated verified-member CoL rule release
 on:
   repository_dispatch:
-    types: [annals-col-rule-release]
+    types: [annals-col-rule-release, annals-col-rule-status]
 permissions:
   contents: write
   pages: write

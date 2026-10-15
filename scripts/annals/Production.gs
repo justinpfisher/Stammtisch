@@ -1217,8 +1217,8 @@ function annalsDispatchEvent_(folder, eventType, clientPayload, markerName) {
   if (!token || (p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') || '').length < 32 ||
       p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') === p.getProperty('ANNALS_APPROVAL_KEY') ||
       !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo || '') ||
-      ['annals-approved-entry','annals-auto-entry','annals-correct-entry','annals-remove-entry','annals-history-revision','annals-col-rule-release'].indexOf(eventType) < 0 || annalsFile_(folder, markerName)) return false;
-  if(eventType==='annals-col-rule-release'&&!annalsRulesReady_())return false;
+      ['annals-approved-entry','annals-auto-entry','annals-correct-entry','annals-remove-entry','annals-history-revision','annals-col-rule-release','annals-col-rule-status'].indexOf(eventType) < 0 || annalsFile_(folder, markerName)) return false;
+  if(['annals-col-rule-release','annals-col-rule-status'].indexOf(eventType)>=0&&!annalsRulesReady_())return false;
   if (eventType === 'annals-history-revision' && (p.getProperty('ANNALS_HISTORY_PUBLICATION_ENABLED') !== 'true' || !Number.isFinite(Date.parse(p.getProperty('ANNALS_SIGNING_REMEDIATED_AT'))))) return false;
   var marker = { state: 'attempt_reserved', at: new Date().toISOString() };
   var requestBody = JSON.stringify({ event_type: eventType, client_payload: clientPayload });
