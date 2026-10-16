@@ -6,6 +6,10 @@ var AnnalsPhotos = (function () {
   var MODE = 'standing-consent-photos-v2';
   var MAX_BYTES = 524288, MAX_EDGE = 1600, MIN_LONG_EDGE = 800;
   function photos(entry) { return entry.photos || (entry.photo ? [entry.photo] : []); }
+  function sameAssets(a,b){
+    validate(a);validate(b);
+    return a.length===b.length&&a.every(function(p,i){return p.sha256===b[i].sha256&&p.width===b[i].width&&p.height===b[i].height;});
+  }
   function indexRow(e) {
     return {entryId:e.id,collection:['monthly_gathering','artefact'].indexOf(e.category)>=0?'club_history':e.category,
       title:e.title,text:[e.summary].concat(photos(e).reduce(function(a,p){return a.concat([p.alt,p.caption||'']);},[])).join(' '),
@@ -62,7 +66,7 @@ var AnnalsPhotos = (function () {
     });
     return refs;
   }
-  return Object.freeze({photos:photos,validate:validate,period:period,allowed:allowed,MEMBERS:MEMBERS,
+  return Object.freeze({photos:photos,sameAssets:sameAssets,validate:validate,period:period,allowed:allowed,MEMBERS:MEMBERS,
     MODE:MODE,MAX_BYTES:MAX_BYTES,MAX_EDGE:MAX_EDGE,MIN_LONG_EDGE:MIN_LONG_EDGE,blobRefs:blobRefs,indexRow:indexRow,indexOrder:indexOrder});
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=AnnalsPhotos;

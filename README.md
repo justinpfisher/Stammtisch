@@ -1,3 +1,7 @@
+> **Latest engineering continuation:** [Bounded photos, staged CoL release and final acceptance](docs/annals-automation-completion-2026-10-15.md).
+> This supersedes older 32 KiB transport and unfinished-protocol descriptions only within its stated scope.
+> Preserve historical observations below; all new publication gates remain off.
+
 > **Current authority — 15 October 2026, photographs and CoL implementation:**
 > Read [the current photo/CoL release and handoff](docs/annals-photos-col-release-2026-10-15.md).
 > The owner authorises automatic eligible six-member photographs under standing

@@ -647,13 +647,19 @@ function runAnnalsProductionIntake() {
 function annalsResumeConsentedDrafts_(limit) {
   var p = annalsProps_(), cursor = p.getProperty('ANNALS_DRAFT_CURSOR');
   var folders = cursor ? DriveApp.continueFolderIterator(cursor) : annalsRoot_().getFolders(), done = 0, checked = 0;
+  var priorityRule=null;
+  try{var pendingRule=annalsRead_(annalsRoot_(),'col-release-pending-private.json');
+    if(pendingRule&&pendingRule.kind==='v3'&&['verified_live','verified_cancelled'].indexOf(pendingRule.state)<0&&/^[a-f0-9]{64}$/.test(pendingRule.sourceId)){
+      priorityRule=pendingRule.sourceId;annalsReconcileRuleRelease_(priorityRule);
+    }
+  }catch(ignored){/* Retain pending evidence; no phase replay or scan starvation. */}
   while (folders.hasNext() && checked++ < 12 && done < limit) {
     var folder = annalsPrivate_(folders.next()), id = folder.getName();
     if (!/^[a-f0-9]{64}$/.test(id)) continue;
     var source = annalsRead_(folder, 'source-private.json');
     if (!source || annalsFile_(folder, 'quarantine-private.json')) continue;
     if (AnnalsAuto.protectedRoute(source.source.subject,source.source.excerpt) !== 'annals') {
-      if(source.rulesAuthorityVersion===2){try{annalsReconcileRuleRelease_(id);annalsScheduledRuleCheck_(id);}catch(ignored){}}
+      if(source.rulesAuthorityVersion===2&&id!==priorityRule){try{annalsReconcileRuleRelease_(id);annalsScheduledRuleCheck_(id);}catch(ignored){}}
       try {if(source.rulesAuthorityVersion===2 ? annalsProcessRuleRequest_(id) : annalsPrepareRuleDraftCore_(id))done++;}catch(ignored){}
       continue;
     }
@@ -1217,8 +1223,9 @@ function annalsDispatchEvent_(folder, eventType, clientPayload, markerName) {
   if (!token || (p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') || '').length < 32 ||
       p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') === p.getProperty('ANNALS_APPROVAL_KEY') ||
       !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo || '') ||
-      ['annals-approved-entry','annals-auto-entry','annals-correct-entry','annals-remove-entry','annals-history-revision','annals-col-rule-release','annals-col-rule-status'].indexOf(eventType) < 0 || annalsFile_(folder, markerName)) return false;
+      ['annals-approved-entry','annals-auto-entry','annals-correct-entry','annals-remove-entry','annals-history-revision','annals-col-rule-release','annals-col-rule-status','annals-col-candidate-v3','annals-col-activation-v3','annals-col-confirm-v3','annals-col-cancel-v3','annals-col-seal-v3'].indexOf(eventType) < 0 || annalsFile_(folder, markerName)) return false;
   if(['annals-col-rule-release','annals-col-rule-status'].indexOf(eventType)>=0&&!annalsRulesReady_())return false;
+  if(/^annals-col-(?:candidate|activation|confirm|cancel|seal)-v3$/.test(eventType)&&!annalsStagedRulesReady_())return false;
   if (eventType === 'annals-history-revision' && (p.getProperty('ANNALS_HISTORY_PUBLICATION_ENABLED') !== 'true' || !Number.isFinite(Date.parse(p.getProperty('ANNALS_SIGNING_REMEDIATED_AT'))))) return false;
   var marker = { state: 'attempt_reserved', at: new Date().toISOString() };
   var requestBody = JSON.stringify({ event_type: eventType, client_payload: clientPayload });
@@ -1259,6 +1266,7 @@ function annalsDispatchApproved_(folder, entry, approval, eventType, markerName)
     if (!derivative || derivative.sha256 !== entry.photo.sha256 || derivative.size > 32768) return false;
     payload.imageBase64 = derivative.base64;
   }
+  if(entry.photos&&(!annalsPhotosReady_(folder.getName())||payload.imageBlobs&&annalsProps_().getProperty('ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED')!=='true'||!annalsStandingGalleryCorrectionAllowed_(annalsRead_(folder,'source-private.json'),entry,folder)))return false;
   return annalsDispatchEvent_(folder, eventType, payload, markerName);
 }
 function annalsDispatchRemoval_(folder, entryId, approval) {
@@ -1289,9 +1297,9 @@ function annalsSaveCorrection(nonce, id, rawEntry) {
         annalsFile_(folder, 'correction-approval-private.json') || !annalsPrivateReceiptValid_(original.entry, original.receipt)) throw new Error('Only a verified published entry can be corrected');
     var corrected = Object.assign({},rawEntry);
     if(original.entry.photos){
-      if(!annalsStandingGalleryCorrectionAllowed_(annalsRead_(folder,'source-private.json')) || corrected.photo ||
-        corrected.photos && AnnalsProduction.serial(corrected.photos)!==AnnalsProduction.serial(original.entry.photos))throw new Error('Gallery rights or replacement require private clarification');
-      corrected.photos=original.entry.photos;corrected.submittedAt=original.entry.submittedAt;corrected.eventPeriod=rawEntry.eventPeriod===undefined?original.entry.eventPeriod:rawEntry.eventPeriod;
+      if(!annalsStandingGalleryCorrectionAllowed_(annalsRead_(folder,'source-private.json'),original.entry,folder) || corrected.photo ||
+        corrected.photos && !AnnalsPhotos.sameAssets(corrected.photos,original.entry.photos))throw new Error('Gallery rights or replacement require private clarification');
+      corrected.photos=corrected.photos||original.entry.photos;corrected.submittedAt=original.entry.submittedAt;corrected.eventPeriod=rawEntry.eventPeriod===undefined?original.entry.eventPeriod:rawEntry.eventPeriod;
       if(original.entry.correction)corrected.correction=original.entry.correction;else delete corrected.correction;
     }
     var entry = AnnalsProduction.publicEntry(corrected);
@@ -1319,7 +1327,7 @@ function annalsApproveCorrection(nonce, id, expectedHash, consents, evidenceNote
         annalsFile_(folder, 'correction-approval-private.json') || annalsFile_(folder, 'removal-private.json') ||
         uncertaintiesReviewed !== true || typeof evidenceNote !== 'string' || evidenceNote.trim().length < 10 || evidenceNote.length > 2000 ||
         !annalsPrivateReceiptValid_(original.entry, original.receipt)) throw new Error('Exact correction review and private evidence required');
-    if(original.entry.photos && !annalsStandingGalleryCorrectionAllowed_(annalsRead_(folder,'source-private.json')))throw new Error('Gallery permission is no longer active');
+    if(original.entry.photos && !annalsStandingGalleryCorrectionAllowed_(annalsRead_(folder,'source-private.json'),original.entry,folder))throw new Error('Gallery permission is no longer active');
     if(original.entry.photos)consents=Object.assign({},consents,{photoPublication:true});
     var entry = AnnalsProduction.publicEntry(review.entry), key = annalsProps_().getProperty('ANNALS_APPROVAL_KEY') || '';
     var receipt = { entryId: entry.id, approvedAt: new Date().toISOString(), reviewedBy: annalsOwner_(),
@@ -1501,7 +1509,13 @@ function annalsVerifyAutomaticPublications_(limit) {
   var checked = 0, verified = 0;
   while (folders.hasNext() && checked++ < 12 && verified < limit) {
     var folder = annalsPrivate_(folders.next()), id = folder.getName();
-    if (!/^[a-f0-9]{64}$/.test(id) || annalsFile_(folder, 'auto-live-verification-private.json')) continue;
+    if (!/^[a-f0-9]{64}$/.test(id)) continue;
+    var pendingCorrection=annalsRead_(folder,'correction-approval-private.json');
+    if(pendingCorrection&&pendingCorrection.entry&&pendingCorrection.entry.photos&&pendingCorrection.publicationState==='dispatch_accepted'){
+      if(typeof annalsVerifyGalleryCorrection_==='function'&&annalsVerifyGalleryCorrection_(folder,id))verified++;
+      continue;
+    }
+    if(annalsFile_(folder,'auto-live-verification-private.json'))continue;
     var saved = annalsRead_(folder, 'approval-private.json');
     if (!saved || [AnnalsAuto.MODE,AnnalsAuto.QUOTE_MODE,AnnalsMediaPolicy.MODE,'standing-consent-photos-v2'].indexOf(saved.approvalMode) < 0 || saved.publicationState !== 'dispatch_accepted') continue;
     // A queued/failed Pages run must not remain invisible indefinitely.

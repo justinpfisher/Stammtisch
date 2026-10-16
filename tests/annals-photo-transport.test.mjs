@@ -100,7 +100,7 @@ test('signed digest, Git blob hash, byte count, dimensions and metadata must all
 });
 
 test('caption/date correction keeps exact assets and timestamp; replacement is held before fetching',async()=>{
-  const corrected={...entry,title:'Fictional corrected caption',eventPeriod:'2026-09',correction:{at:'2026-10-15T22:00:00Z',note:'Fictional date correction.'}};
+  const corrected={...entry,title:'Fictional corrected caption',photos:photos.map(p=>({...p,alt:'Corrected fictional alt',caption:'Corrected source-grounded caption'})),eventPeriod:'2026-09',correction:{at:'2026-10-15T22:00:00Z',note:'Fictional date correction.'}};
   const options={...args(),now:new Date('2026-10-15T22:00:00Z'),data:{schemaVersion:1,entries:[entry],approvals:[sign(entry)]},
     event:{action:'annals-correct-entry',client_payload:{entry:corrected,approval:sign(corrected,null,'2026-10-15T22:00:00Z'),imageBlobs:refs}}};
   const result=await applyApprovedEntry(options);assert.equal(result.data.entries[0].submittedAt,at);assert.equal(result.assetsToDelete.length,0);
@@ -158,6 +158,26 @@ test('revocation after first upload stops remaining public writes and retains th
   assert.equal(h.run(),null);assert.equal(h.requests(),1);assert.equal(h.files.get('photo-upload-private.json').completed,1);
   assert.match(h.files.get('photo-upload-private.json').state,/no_retry/);assert.equal(h.run(),null);
 });
+test('disabling transport in the last upload response prevents dispatch without erasing the completed journal',()=>{
+  const h=uploadHarness(),fetch=h.c.UrlFetchApp.fetch;
+  h.c.UrlFetchApp.fetch=(...a)=>{const r=fetch(...a);if(h.requests()===3)h.values.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED='false';return r;};
+  assert.equal(h.run(),null);assert.equal(h.requests(),3);assert.equal(h.files.get('photo-upload-private.json').state,'uploaded');assert.equal(h.run(),null);
+  const c=vm.createContext({});vm.runInContext(readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8'),c);let dispatched=0,enabled=true;
+  Object.assign(c,{annalsFile_:()=>null,annalsRead_:()=>({}),annalsOrdinarySourceGate_:()=>{},annalsPhotosReady_:()=>true,
+    annalsProps_:()=>({getProperty:()=>enabled?'true':'false'}),annalsPhotoBlobRefs_:()=>{enabled=false;return refs;},
+    annalsStandingGalleryCorrectionAllowed_:()=>true,annalsDispatchEvent_:()=>{dispatched++;return true;}});
+  assert.equal(c.annalsDispatchApproved_({getName:()=> 'a'.repeat(64)},entry,sign(entry),'annals-auto-entry','publication-dispatch-private.json'),false);assert.equal(dispatched,0);
+});
+test('depiction revocation holds people while independently screened objects and scenery retain their own permissions',()=>{
+  const source={senderAuthenticated:true,imageConsentAtReceipt:true,source:{sender:'fictional@example.test',receivedAt:at,subject:'All six of us',excerpt:''}};
+  let kind='drink_or_object';const assessments=()=>photos.map(()=>({kind,safeToPublish:true,privateDetails:false,thirdPartyMaterial:false,childrenOrGuests:false}));
+  const c=vm.createContext({AnnalsPhotos:Photos,AnnalsAuto:{cleanText:s=>s}});vm.runInContext(readFileSync(new URL('../scripts/annals/PhotoProduction.gs',import.meta.url),'utf8'),c);
+  Object.assign(c,{annalsImageConsentActive_:()=>true,annalsPhotoSubjectGrants_:()=>Photos.MEMBERS.map((member,i)=>({member,active:i!==0,atReceipt:true})),
+    annalsRead_:(_,n)=>n==='photos-v2-private.json'?photos:{imageReviews:assessments()}});
+  assert.equal(c.annalsStandingGalleryCorrectionAllowed_(source,entry,'folder'),true);kind='scenery';assert.equal(c.annalsStandingGalleryCorrectionAllowed_(source,entry,'folder'),true);
+  kind='member_group';assert.equal(c.annalsStandingGalleryCorrectionAllowed_(source,entry,'folder'),false);kind='drink_or_object';c.annalsImageConsentActive_=()=>false;
+  assert.equal(c.annalsStandingGalleryCorrectionAllowed_(source,entry,'folder'),false);
+});
 
 test('a known thumbnail or decoder failure is held before any public blob is uploaded',()=>{
   const h=uploadHarness();h.c.AnnalsPhotoDerivative={thumbnail:()=>{throw Error('Fictional codec refusal');}};
@@ -177,6 +197,28 @@ test('private final reconciliation needs exact hosted gallery bytes and canonica
   bodies.set(index.pages[0].path,'[]\n');assert.equal(c.annalsVerifyPhotoAssets_(entry,{entries:[entry]},'?fictional'),false);
   bodies.set(index.pages[0].path,JSON.stringify(index.pages[0].data)+'\n');bodies.set('assets/annals/'+photos[0].sha256+'.jpg',images[1]);
   assert.equal(c.annalsVerifyPhotoAssets_(entry,{entries:[entry]},'?fictional'),false);
+});
+test('a correction needs its own exact hosted archive and markup proof; old IDs and old live markers cannot certify it',()=>{
+  const corrected={...entry,title:'Fictional corrected title'},approval=sign(corrected,null),digest=contentDigest(corrected),saved={entry:corrected,publication:approval,receipt:{contentSha256:digest},publicationState:'dispatch_accepted'};
+  const archive=JSON.stringify({entries:[corrected],approvals:[approval]}),html='<article id="'+entry.id+'">Fictional corrected title</article>';
+  const files=new Map([['correction-approval-private.json',saved]]);let stale=true,assets=true,writes=0;
+  const c=vm.createContext({AnnalsProduction:{serial},annalsRead_:(_,n)=>files.get(n)||null,annalsFile_:(_,n)=>files.get(n)||null,
+    annalsPrivateReceiptValid_:()=>true,annalsHash_:b=>hash(Buffer.from(b)),annalsWriteOnce_:(_,n,v)=>{writes++;files.set(n,v);},
+    UrlFetchApp:{fetch:url=>({getResponseCode:()=>200,getContentText:()=>url.includes('data/annals-approved.json')?archive:url.startsWith('https://stammtischbrewery.com/')&&stale?'<article id="'+entry.id+'">Old caption</article>':html})}});
+  vm.runInContext(readFileSync(new URL('../scripts/annals/PhotoProduction.gs',import.meta.url),'utf8'),c);c.annalsVerifyPhotoAssets_=()=>assets;
+  assert.equal(c.annalsVerifyGalleryCorrection_('folder','a'.repeat(64)),false);assert.equal(writes,0);stale=false;assets=false;
+  assert.equal(c.annalsVerifyGalleryCorrection_('folder','a'.repeat(64)),false);assets=true;
+  assert.equal(c.annalsVerifyGalleryCorrection_('folder','a'.repeat(64)),true);assert.equal(writes,1);
+  assert.equal(c.annalsVerifyGalleryCorrection_('folder','a'.repeat(64)),false);assert.equal(writes,1);
+});
+test('a fast gallery correction is reconciled even before the original automatic live marker exists',()=>{
+  let remaining=true,verified=0;const folder={getName:()=> 'a'.repeat(64)},c=vm.createContext({});
+  vm.runInContext(readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8'),c);
+  Object.assign(c,{annalsProps_:()=>({getProperty:k=>k==='ANNALS_AUTO_PUBLICATION_ENABLED'?'true':null,deleteProperty:()=>{}}),
+    annalsRoot_:()=>({getFolders:()=>({hasNext:()=>remaining,next:()=>{remaining=false;return folder;}})}),annalsPrivate_:x=>x,annalsFile_:()=>null,
+    annalsRead_:(_,n)=>n==='correction-approval-private.json'?{entry,publicationState:'dispatch_accepted'}:null,
+    annalsVerifyGalleryCorrection_:()=>{verified++;return true;}});
+  assert.equal(c.annalsVerifyAutomaticPublications_(3),1);assert.equal(verified,1);
 });
 
 test('large JPEG conversion failure never falls back to a Drive thumbnail or saves a ready manifest',()=>{

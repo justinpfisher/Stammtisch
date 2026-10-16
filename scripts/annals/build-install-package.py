@@ -66,12 +66,12 @@ trigger. Restore only the previously authorised ordinary service state.
 
 Advance the EXISTING owner-only web-app deployment version after source
 validation. Source saving alone does not update that deployed version.
-Check safe boolean preflight and privately reconcile installed modules,
+Use only the dedicated no-secret gate readers, not a signing preflight, and reconcile installed modules,
 consent registry, trigger, cursor, activation and budget without logging
 private values. Do not run paid diagnostics or unknown earlier dispatches.
 Record actual deployment version and verification; never infer them from ZIP.
 
-Keep History, automatic media, photographic v2 and rule v2 publication disabled.
+Keep History, automatic media, photographic v2, photo blob transport and rule v2/v3 publication disabled.
 Do not change ANNALS_PHOTOS_V2_ENABLED, ANNALS_RULES_V2_ENABLED, their hosted
 acceptance markers or the separate new-rules boundary merely to install source. Do not change signing
 keys or set signing-remediation markers. Credential rotation remains a final,

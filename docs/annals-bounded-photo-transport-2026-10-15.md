@@ -108,6 +108,24 @@ gallery assets remains held for separate source/rights qualification. A correcti
 has its own one-shot upload journal and signed dispatch. Withdrawal retains retired
 entry IDs and removes unused current assets/index shards; no image upload is needed.
 
+Caption and alternative-text edits pin ordered digests and dimensions rather than
+requiring descriptive text to remain identical. The private desk exposes those
+fields. Rights are rechecked for each selected screened image; a depiction-only
+revocation holds people, while independently eligible objects/scenery retain their
+own permissions. The transport stop is rechecked after the final upload and just
+before dispatch. A correction requires its own exact raw/hosted archive, approval,
+HTML, full images, thumbnails and index proof, even if it precedes initial live
+reconciliation. The old entry ID or original live marker is insufficient. The
+original final email is attempted at most once; corrections do not repeat it.
+
+The owner-only private runtime fixture (`annalsQualifyPhotoCodec`, or the
+editor-only `annalsQualifyPhotoCodecInEditor_`) reserves one diagnostic record,
+then converts three fictional 12-megapixel geometry images in memory. It stores
+only timing/dimensions and never calls AI, uploads images, sends mail, reads signing
+values/markers or changes gates. An interrupted reservation is not retried. Passing
+this fixture establishes only that workload in the actual V8 runtime; it cannot
+establish genuine photographic quality, phone decoding or worst-case performance.
+
 The gallery signing mode is now consistently `standing-consent-photos-v2` through
 decision, receipt, dispatch and pending/live recognition. This fixes the previous
 v1/v2 comparison that would reject a gallery after signing. Private success

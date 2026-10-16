@@ -28,7 +28,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 /* Vendored jpeg-js 0.4.4, https://github.com/jpeg-js/jpeg-js
  * npm tarball SHA512 WZzeDOEtTOBK4Mdsar0IqEU5sMr3vSV2RqkAIzUEV2BHnUfKGyswWFPFwK5EeDo93K3FohSHbLAjj0s1Wzd+dg==
- * Upstream decoder.js and encoder.js below are unchanged (LF-normalised).
+ * Upstream decoder.js and encoder.js below are LF-normalised. Local strict
+ * scan-completeness patch is marked below; see vendor/README.md.
  * All upstream license/copyright headers retained; see vendor/jpeg-js-LICENSE.txt.
  * Browser/CommonJS export targets are deliberately local/undefined. Only the
  * pure decode/encode functions are exposed; there is no I/O service here.
@@ -362,7 +363,9 @@ var JpegImage = (function jpegImage() {
         }
       }
 
-      if (mcu === mcuExpected) {
+      // Stammtisch local hardening: trailing scan recovery is forbidden in
+      // strict mode. Non-pixel payload must not survive as public image bytes.
+      if (mcu === mcuExpected && opts.tolerantDecoding) {
         // Skip trailing bytes at the end of the scan - until we reach the next marker
         do {
           if (data[offset] === 0xFF) {
@@ -388,6 +391,11 @@ var JpegImage = (function jpegImage() {
         break;
     }
 
+    // Stammtisch local hardening: upstream can stop at EOI after one restart
+    // interval and return zero-filled remaining MCUs even in strict mode.
+    // Never manufacture missing source pixels in a public derivative.
+    if (!opts.tolerantDecoding && mcu !== mcuExpected)
+      throw new Error('Incomplete JPEG scan');
     return offset - startOffset;
   }
 

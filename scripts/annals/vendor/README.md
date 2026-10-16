@@ -1,12 +1,20 @@
 # JPEG codec provenance
 
-`../JpegCodec.js` vendors the unchanged LF-normalised `lib/decoder.js` and
+`../JpegCodec.js` vendors the LF-normalised `lib/decoder.js` and
 `lib/encoder.js` from [jpeg-js 0.4.4](https://github.com/jpeg-js/jpeg-js), inside
 a local closure exposing only `decode` and `encode`. The closure leaves its
 CommonJS/browser export targets undefined so native Apps Script uses typed arrays
 without Node Buffer, a module loader or a browser. It does not execute the unused
 upstream browser helpers. License headers and the package license are embedded
 in the installation source; the package license is also retained here.
+
+Two marked local decoder hardening patches apply in strict mode. The first rejects a scan that ends before its
+declared MCU count when `tolerantDecoding:false`. Upstream strict mode could
+otherwise return zero-filled missing pixels after an early EOI at a restart
+boundary. A malformed 8×8 source claiming 800×800 is a regression fixture;
+it stays held rather than being turned into an invented enlarged photograph.
+The second disables upstream trailing-entropy recovery, rejecting non-pixel
+payload inserted before the final EOI instead of silently accepting hidden bytes.
 
 Source: `https://registry.npmjs.org/jpeg-js/-/jpeg-js-0.4.4.tgz`.
 Tarball SHA-512 (base64):

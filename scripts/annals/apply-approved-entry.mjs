@@ -106,7 +106,7 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
       if(index<0||!previousApproval||Date.parse(approval.approvedAt)<=Date.parse(previousApproval.approvedAt)||contentDigest(entries[index])===contentDigest(entry))throw Error('Correction must replace an existing entry with changed exact text');
       // Photo corrections change captions/date/text only. Replacing or adding
       // an asset requires separately qualified source/rights engineering.
-      if((entries[index].photos||entry.photos)&&JSON.stringify(entries[index].photos)!==JSON.stringify(entry.photos))throw Error('Gallery replacement remains held');
+      if((entries[index].photos||entry.photos)&&(!entries[index].photos||!entry.photos||!Photos.sameAssets(entries[index].photos,entry.photos)))throw Error('Gallery replacement remains held');
     }
     let imageBytes=null;
     if(event.client_payload.imageBlobs!==undefined){

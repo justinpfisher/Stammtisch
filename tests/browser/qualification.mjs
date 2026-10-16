@@ -17,6 +17,7 @@ import Codec from '../../scripts/annals/JpegCodec.js';
 import {photoThumbnail} from '../../scripts/annals/PhotoThumbnail.mjs';
 import {createHash} from 'node:crypto';
 import {renderHistory} from '../../scripts/annals/HistoryPublisher.mjs';
+import {browserRuleFixture} from './col-fixture.mjs';
 
 const root=fileURLToPath(new URL('../../',import.meta.url));
 // This literal is only an offline fixture key; no production key is read.
@@ -54,6 +55,8 @@ const annals=buildPublishedAnnals(entries,approvals,fixtureKey,history).html;
 const ruleRegister={schemaVersion:1,baseline:{id:'col-browser-baseline',recordedAt:'2026-10-15T12:00:00Z',description:'Fictional browser fixture baseline.'},revisions:[{id:'col-browser-fictional',member:'marc',submittedAt:'2026-10-15T12:00:00Z',publishedAt:null,effectiveAt:null,state:'awaiting_implementation',baseVersion:'col-browser-baseline',explanation:'Fictional rule-layout fixture only.',changes:[{provision:'PRIZE',before:'## PRIZE\n'+('Fictional unchanged source text. '.repeat(40)),after:'## PRIZE\n'+('Fictional revised layout text. '.repeat(40))}],correctionOf:null}],events:[]};
 const documents=new Map([['/annals.html',annals],['/history.html',renderHistory(history)],['/photos.html',await readFile(path.join(root,'photos.html'),'utf8')],['/col-revisions.html',renderRegister(ruleRegister)]]);
 const metadata=new Map([['/data/photos/index.json',index.manifest],...index.pages.map(p=>['/'+p.path,p.data])]);
+const ruleFixture=browserRuleFixture();
+documents.set('/col-reader-fixture.html','<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Fictional rule reader</title><link rel="stylesheet" href="styles.css"><main>'+ruleFixture.html+'</main><script type="module">import {refreshOfficialRules} from "./col-rules-reader.mjs"; await refreshOfficialRules(); document.documentElement.dataset.finished="true";</script></html>');
 const server=createServer(async(req,res)=>{
   const pathname=new URL(req.url,'http://localhost').pathname;
   if(req.method!=='GET'){res.writeHead(405).end();return;}
@@ -62,7 +65,7 @@ const server=createServer(async(req,res)=>{
   if(/^\/assets\/annals\/[ab]{64}\.jpg$/.test(pathname)){res.setHeader('Content-Type','image/jpeg');res.end(tinyBytes);return;}
   if(documents.has(pathname)){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(documents.get(pathname));return;}
   // Public stylesheet and public brand assets only. Never serve source/data files.
-  if(['/styles.css','/annals-photos.css','/annals-photos.mjs'].includes(pathname)||pathname.startsWith('/assets/')&&!pathname.includes('..')){
+  if(['/styles.css','/annals-photos.css','/annals-photos.mjs','/col-rules-reader.mjs','/col-rules-witness.mjs'].includes(pathname)||pathname.startsWith('/assets/')&&!pathname.includes('..')){
     try{const bytes=await readFile(path.join(root,pathname));res.setHeader('Content-Type',pathname.endsWith('.css')?'text/css':pathname.endsWith('.mjs')?'text/javascript':'application/octet-stream');res.end(bytes);return;}catch{}
   }
   res.writeHead(404).end();
@@ -92,6 +95,33 @@ try{
   for(const profile of profiles.filter(p=>!process.argv.includes('--chromium-only')||p.engine===chromium)){
     const browser=await profile.engine.launch();
     try{
+      await check(browser,profile,'CoL complete witnessed reader and failed-release fallback',async page=>{
+        let mode='failed';
+        await page.route('**/*',async route=>{
+          const url=route.request().url(),relative=url.startsWith(origin+'/')?url.slice(origin.length+1):url;
+          if(!ruleFixture.bodies.has(relative))return route.fallback();
+          let body=ruleFixture.bodies.get(relative);
+          if(relative==='data/col-rules-release-state.json')body=mode==='sealed'?ruleFixture.sealedState:ruleFixture.readyState;
+          if(relative.startsWith(ruleFixture.api)){
+            if(mode==='sealed')return route.fulfill({status:503,body:'Fictional expired metadata'});
+            if(mode==='failed'&&relative.endsWith('/jobs?per_page=100'))body=ruleFixture.failedJobs;
+          }
+          return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
+        });
+        for(const expected of ['failed','complete','sealed']){
+          mode=expected;await page.goto(origin+'/col-reader-fixture.html');await page.waitForSelector('html[data-finished=true]');
+          const boundary=page.locator('#official-rules');
+          if(expected==='failed'){
+            assert.match(await boundary.textContent(),/Previous complete fictional rule/);assert.equal(await page.locator('#rules-version-status').count(),0);
+          }else{
+            assert.match(await boundary.textContent(),/fictional.*member’s tokens stay unchanged/);assert.match(await page.locator('#rules-version-status').innerText(),/Toronto/);
+            assert.equal(await boundary.locator('.rule-topic').count(),1);
+            assert.equal(await boundary.locator('.rules-reference a').getAttribute('href'),'col-rules-version.html?version='+ruleFixture.revisionId+'&reference=1');
+            await boundary.locator('summary').focus();await page.keyboard.press('Enter');assert.equal(await boundary.locator('details').getAttribute('open'),'');
+          }
+          await noOverflow(page);
+        }
+      });
       await check(browser,profile,'responsive thumbnail and larger accessible viewer',async page=>{
         await page.goto(origin+'/annals.html');
         const card=page.locator('#offline-responsive-gallery'),img=card.locator('img');

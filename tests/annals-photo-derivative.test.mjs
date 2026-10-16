@@ -45,6 +45,19 @@ test('invalid, conflicting orientation and excessive decoded dimensions stay pri
   oversize.writeUInt16BE(8192,p+5);oversize.writeUInt16BE(8192,p+7);
   assert.throws(()=>derivative.convert(oversize,codec,media),/resolution/);
 });
+test('a short entropy scan cannot manufacture a larger photograph from missing source pixels',()=>{
+  const raw=Buffer.from(codec.encode(image(8,8),75).data);let p=2;
+  while(raw[p+1]!==192)p+=raw.readUInt16BE(p+2)+2;
+  raw.writeUInt16BE(800,p+5);raw.writeUInt16BE(800,p+7);
+  const malformed=Buffer.concat([raw.subarray(0,2),Buffer.from([255,221,0,4,0,1]),raw.subarray(2)]);
+  assert.throws(()=>derivative.convert(malformed,codec,media),/Incomplete JPEG scan/);
+});
+test('non-pixel bytes appended to a JPEG scan stay private instead of surviving in a public asset',()=>{
+  const raw=Buffer.from(codec.encode(image(800,800),75).data);
+  const extra=Buffer.concat([raw.subarray(0,-2),Buffer.from('SYNTHETIC_UNUSED_NONPIXEL_PAYLOAD'),raw.subarray(-2)]);
+  assert.throws(()=>derivative.convert(extra,codec,media),/marker/);
+  assert.throws(()=>derivative.thumbnail(extra,codec,media),/marker/);
+});
 test('native Apps Script context needs no Buffer, browser, network or module loader',()=>{
   const context=vm.createContext({});
   for(const name of ['JpegCodec.js','PhotoDerivative.js','MediaCore.js'])vm.runInContext(readFileSync(new URL('../scripts/annals/'+name,import.meta.url),'utf8'),context);

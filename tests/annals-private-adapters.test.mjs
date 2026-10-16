@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import Media from '../scripts/annals/MediaCore.js';
+import Photos from '../scripts/annals/PhotoContracts.js';
 import {photoReleaseAllowed} from '../scripts/annals/apply-approved-entry.mjs';
 const at='2026-10-15T21:00:00Z';
 const photoSource=readFileSync(new URL('../scripts/annals/PhotoProduction.gs',import.meta.url),'utf8');
@@ -59,6 +60,28 @@ test('private gate inspection exposes booleans only and does not inspect any sig
   const read=[],c=vm.createContext({annalsUiCall_:(n,fn)=>{assert.equal(n,'owner');return fn();},annalsProps_:()=>({getProperty:k=>{assert.doesNotMatch(k,/KEY|TOKEN|REMEDIAT/);read.push(k);return null;},setProperty:()=>assert.fail('Read-only gate inspection wrote state')})});
   vm.runInContext(photoSource,c);const result=c.annalsReadPhotoPublicationGates('owner');assert.ok(Object.values(result).every(v=>v===false));assert.equal(read.length,7);
 });
+test('private runtime fixture stores only geometry/timing, never invokes services or repeats a reserved attempt',()=>{
+  const files=new Map(),root={},encoded=[1,2,3],c=vm.createContext({
+    Uint8Array:class{constructor(){return {};}},annalsUiCall_:(_,fn)=>fn(),annalsLocked_:fn=>fn(),annalsRoot_:()=>root,
+    annalsRead_:(_,n)=>files.get(n)||null,annalsWriteOnce_:(_,n,v)=>{assert.equal(files.has(n),false);files.set(n,clone(v));},annalsSavePrivate_:(_,n,v)=>files.set(n,clone(v)),
+    AnnalsJpegCodec:{encode:()=>({data:encoded})},AnnalsMedia:Media,
+    AnnalsPhotoDerivative:{convert:()=>({bytes:encoded,width:1600,height:1200}),thumbnail:()=>({bytes:encoded,width:400,height:300})},
+    UrlFetchApp:{fetch:()=>assert.fail('Runtime fixture made a network request')},GmailApp:{sendEmail:()=>assert.fail('Runtime fixture sent email')},
+    annalsProps_:()=>assert.fail('Runtime fixture read configuration or keys')});
+  // Avoid spending time generating millions of fake cells in this contract
+  // fixture; real V8 timing is a separate once-only private deployed check.
+  vm.runInContext(photoSource.replace('width=4032,height=3024','width=1,height=1'),c);
+  const result=c.annalsQualifyPhotoCodec('owner');assert.equal(result.executed,true);assert.equal(result.record.state,'passed_fixture_only');assert.equal(result.record.results.length,3);
+  assert.equal(result.record.genuinePhotoAccepted,false);assert.doesNotMatch(JSON.stringify(result),/base64|pixels|sender|signature/);
+  assert.equal(c.annalsQualifyPhotoCodec('owner').executed,false);
+  files.clear();files.set('photo-codec-fixture-v1-private.json',{state:'attempt_reserved'});assert.equal(c.annalsQualifyPhotoCodec('owner').executed,false);
+});
+test('editor-only fixture and flag helpers retain owner authentication and expose no remote private helper or signing state',()=>{
+  const reads=[],c=vm.createContext({console:{log:()=>{}},annalsOwner_:()=>{},annalsProps_:()=>({getProperty:k=>{assert.doesNotMatch(k,/KEY|TOKEN|REMEDIAT/);reads.push(k);return null;}})});
+  vm.runInContext(photoSource,c);const result=c.annalsReadPhotoGatesInEditor_();assert.ok(Object.values(result).every(v=>v===false));assert.equal(reads.length,12);
+  c.annalsOwner_=()=>{throw Error('Wrong owner');};assert.throws(()=>c.annalsReadPhotoGatesInEditor_(),/owner/);assert.throws(()=>c.annalsQualifyPhotoCodecInEditor_(),/owner/);
+  assert.equal(typeof c.annalsQualifyPhotoCodecInEditor,'undefined');assert.equal(typeof c.annalsReadPhotoGatesInEditor,'undefined');
+});
 test('combined gallery overflow retains all derivatives privately and saves no public-ready manifest',()=>{
   const source={imageConsentAtReceipt:true,source:{sender:'fictional@example.test',receivedAt:at},attachmentManifest:{items:[1,2,3].map(index=>({index,storageName:String(index),mime:'image/jpeg',accepted:true,size:12000}))}},saved=[];
   const c=vm.createContext({AnnalsMedia:{sanitize:b=>({bytes:b,width:200,height:200})},annalsImageConsentActive_:()=>true,
@@ -95,6 +118,15 @@ test('transactional notices reserve once and never resend an unknown email outco
   assert.equal(h.c.annalsRuleNotice_(h.folder,'fictional@example.test','outcome','Fictional body'),false);
   assert.equal(h.sent.length,1);assert.equal(h.get(h.folder,'rules-outcome-notice-private.json').state,'unknown_no_retry');
 });
+test('the single pending rule is reconciled before the bounded historical folder walk can delay its lease',()=>{
+  const c=vm.createContext({});vm.runInContext(readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8'),c);
+  let visited=0;const pendingId='a'.repeat(64),reconciled=[],properties={};
+  const folders={hasNext:()=>visited<1000,next:()=>({getName:()=>String(++visited).padStart(64,'0')}),getContinuationToken:()=> 'fictional-next-page'},root={getFolders:()=>folders};
+  Object.assign(c,{annalsProps_:()=>({getProperty:()=>null,setProperty:(k,v)=>properties[k]=v,deleteProperty:()=>assert.fail('Cursor reset')}),
+    annalsRoot_:()=>root,annalsPrivate_:x=>x,annalsRead_:(_,name)=>name==='col-release-pending-private.json'?{kind:'v3',state:'accepted',sourceId:pendingId}:null,
+    annalsFile_:()=>null,annalsReconcileRuleRelease_:id=>reconciled.push(id)});
+  assert.equal(c.annalsResumeConsentedDrafts_(2),0);assert.deepEqual(reconciled,[pendingId]);assert.equal(visited,12);assert.equal(properties.ANNALS_DRAFT_CURSOR,'fictional-next-page');
+});
 test('scheduled due-time adapter queues engineering exactly once and never activates or dispatches',()=>{
   const h=ruleHarness();h.put(h.folder,'source-private.json',{source:{sender:'fictional@example.test'}});
   h.put(h.folder,'col-rule-request-private.json',{id:'col-fictional',state:'scheduled',effectiveAt:'2026-10-16T00:00:00Z'});
@@ -119,12 +151,13 @@ test('matching hosted pending-status bytes report only pending, with no adoption
 test('private text correction preserves the canonical gallery and dates, marks correction and refuses replacements or revocation',()=>{
   const old={id:'annal-fictional',title:'Fictional original caption',category:'assembly',photos:[{sha256:'a'.repeat(64),width:200,height:200,alt:'Fictional object'}],submittedAt:at,eventPeriod:''};
   const source={senderAuthenticated:true,imageConsentAtReceipt:true,source:{sender:'fictional@example.test',receivedAt:at}},files=new Map([['approval-private.json',{entry:old,receipt:{},publicationState:'dispatch_accepted'}],['source-private.json',source]]);
-  const c=vm.createContext({AnnalsProduction:{publicEntry:clone,serial:JSON.stringify}});vm.runInContext(readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8'),c);
+  const c=vm.createContext({AnnalsPhotos:Photos,AnnalsProduction:{publicEntry:clone,serial:JSON.stringify}});vm.runInContext(readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8'),c);
   Object.assign(c,{annalsUiCall_:(_,fn)=>fn(),annalsLocked_:fn=>fn(),annalsFolder_:()=> 'folder',annalsRead_:(_,name)=>files.get(name)||null,
     annalsFile_:(_,name)=>files.get(name)||null,annalsPrivateReceiptValid_:()=>true,annalsStandingGalleryCorrectionAllowed_:()=>true,annalsHash_:()=> 'fictional-hash',annalsWriteOnce_:(_,name,value)=>files.set(name,value)});
   const edited={id:old.id,title:'Fictional corrected caption',category:old.category},result=c.annalsSaveCorrection('owner','fictional',edited);
   assert.deepEqual(result.entry.photos,old.photos);assert.equal(result.entry.submittedAt,at);assert.equal(result.entry.eventPeriod,'');assert.match(result.entry.correction.note,/Text corrected/);
   files.delete('correction-review-private.json');const dateCorrection=c.annalsSaveCorrection('owner','fictional',{...edited,eventPeriod:'2026-09'});assert.equal(dateCorrection.entry.eventPeriod,'2026-09');assert.equal(dateCorrection.entry.submittedAt,at);
+  files.delete('correction-review-private.json');const captionCorrection=c.annalsSaveCorrection('owner','fictional',{...old,photos:[{...old.photos[0],alt:'Corrected fictional description',caption:'Source-confirmed fictional caption'}]});assert.equal(captionCorrection.entry.photos[0].caption,'Source-confirmed fictional caption');assert.equal(captionCorrection.entry.photos[0].sha256,old.photos[0].sha256);
   files.delete('correction-review-private.json');assert.throws(()=>c.annalsSaveCorrection('owner','fictional',{...edited,photos:[{...old.photos[0],sha256:'b'.repeat(64)}]}),/replacement/);
   assert.throws(()=>c.annalsSaveCorrection('owner','fictional',old),/must change/);c.annalsStandingGalleryCorrectionAllowed_=()=>false;assert.throws(()=>c.annalsSaveCorrection('owner','fictional',edited),/rights/);
 });

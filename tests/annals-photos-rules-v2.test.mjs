@@ -142,7 +142,7 @@ const coordinatedFixture=()=>{
   return {register,versions,bundle,secret:key,enabled:true,now:new Date(at),implementationCommit:'b'.repeat(40),behavior:'c'.repeat(64),sourceDigest:'',markdown:'# STAMMTISCH\n\n'+base.provisions.PRIZE+'\n\n---\n\nUnchanged editorial notes.',html:'<main><details class="rule-topic">Old fictional rule</details>\n      <p class="rules-reference">Unchanged reference.</p></main>'};
 };
 test('source-blocked changes can be publicly pending, and status publication cannot activate them',()=>{
-  const args=coordinatedFixture(),record={...Rules.publicRecord(revision()),publishedAt:at};
+  const args=coordinatedFixture(),record={...Rules.publicRecord(revision()),publishedAt:null};
   const proof={mode:RULE_STATUS_MODE,baseDigest:digest(args.register),contentSha256:digest(record),issuedAt:at};
   const approval={...proof,signature:createHmac('sha256',key).update(JSON.stringify(canonical({record,approval:proof}))).digest('hex')};
   const params={current:args.register,record,approval,secret:key,enabled:true,now:new Date(at)};
@@ -236,7 +236,7 @@ test('integrated private rule intake consumes only one existing reservation and 
     UrlFetchApp:{fetch:url=>{fetches++;return {getResponseCode:()=>200,getContentText:()=>JSON.stringify(url.includes('col-rules-versions')?{versions:[{...base,verified:true,effectiveAt:'2026-10-15T17:00:00Z'}]}:{status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(assessment())}]}]})};}}});
   vm.runInContext(readFileSync(new URL('../scripts/annals/RulesProduction.gs',import.meta.url),'utf8'),context);
   context.annalsRulesReady_=()=>true;context.annalsRuleNotice_=()=>{notices++;};
-  assert.equal(context.annalsProcessRuleRequest_('a'.repeat(64)),true);assert.equal(files.get('col-rule-request-private.json').state,'awaiting_implementation');assert.equal(notices,1);assert.equal(fetches,2);
+  assert.equal(context.annalsProcessRuleRequest_('a'.repeat(64)),true);assert.equal(files.get('col-rule-request-private.json').state,'awaiting_implementation');assert.equal(notices,2);assert.equal(fetches,2);
   assert.equal(JSON.parse(values.ANNALS_BUDGET_LEDGER).reservedCents,10);assert.equal(context.annalsProcessRuleRequest_('a'.repeat(64)),false);assert.equal(fetches,2);
 });
 test('integrated group photo uses six standing grants while guest images and extraction documents stay held',()=>{
