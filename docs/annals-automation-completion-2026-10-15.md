@@ -152,8 +152,53 @@ The only repository variables observed are the existing Sheet monitor and two
 CoL push settings; all Annals photo/rule/security release variables are absent.
 No variable was changed. Private v28 remains the latest verified installation.
 
-Release/Pages, source witness and exact-revision kit evidence are appended after
-those operations are actually observed.
+## Released source and observed deployment
+
+[PR #84](https://github.com/justinpfisher/Stammtisch/pull/84) merged as
+`ff4d48580d4339e934a7ce96d3b3b6b9237294f0` at
+`2026-10-16T00:10:56Z` (15 October, 20:10 Toronto). Its final-head
+[regression CI](https://github.com/justinpfisher/Stammtisch/actions/runs/38827799083)
+passed 71 Python + 365 Node tests, and
+[hosted browser qualification](https://github.com/justinpfisher/Stammtisch/actions/runs/38827799164)
+passed **44/44** Chromium, iPhone WebKit and Android emulation checks. The
+[existing Sheet monitor](https://github.com/justinpfisher/Stammtisch/actions/runs/38828006865)
+succeeded after merge. The first Pages run was cancelled/superseded by the
+successful [Pages deployment](https://github.com/justinpfisher/Stammtisch/actions/runs/38828060527)
+for that exact merged commit; no failed deployment was treated as success.
+
+A fresh read-only observation matched **all five exact public CoL files** to
+Git blobs at that commit, ending `2026-10-16T00:12:53.986Z`. Eight supporting
+reader/archive/ledger files also matched exact Git bytes at
+`2026-10-16T00:13:09.609Z`. These are one-vantage reads, not genuine release
+activation or globally atomic CDN evidence. The public archive remains empty,
+History has zero chapters, the CoL register has zero revisions, the v3 ledger
+has zero operations/events and the version catalog retains its single baseline.
+No fictional record, photograph, amendment or notification was published.
+
+The new manual [read-only source witness](https://github.com/justinpfisher/Stammtisch/actions/runs/38828017824)
+ran against `ff4d485…` using only the existing monitor Viewer identity and
+`spreadsheets.readonly`. It read the source from `2026-10-16T00:11:16.350012Z`
+to `00:11:21.197719Z`, recording semantic digest
+`2c7183156440db4332c08713a0b7804be3bcea2c8f26e1f8643c666ff8beaecd`.
+The safe receipt is retained as a workflow artifact; no raw cells or credentials
+are included. This is actual independent source access, **not** an edited-formula
+or allocation reconciliation test.
+
+The exact-revision **18-file kit** for `ff4d485…` was independently compared with
+all 18 Git blobs and manifest hashes. ZIP SHA-256:
+`13409d5f1a9bc88fd3564dd8de65882fe3f9a58e8ffe4e1458f0c881f5a272c4`.
+It is saved privately on the GMKtec under the Stammtisch release evidence folder.
+Its metadata correctly says `installed:false`. It has **not** replaced private
+v28; the owner-editor access failure described above blocks that action. The
+existing six-member standing attestation was already recorded at
+`2026-10-15T21:18:38.965Z`; it was preserved, not recreated or backdated.
+
+No signing secret or remediation marker was inspected or changed, no remediation
+probe was run, no new gate was enabled, and no AI request, Sheet edit or public
+photo/rule dispatch was made. Actual installed codec performance, genuine phone
+quality, a genuine fresh member amendment and physical-device/assistive acceptance
+remain unverified. Meaning/parameter/formula/allocation/scheduled automation remains
+an explicit engineering gap, separate from the installation/security dependencies.
 
 ## Illustrative emails only — not submitted or adopted
 
