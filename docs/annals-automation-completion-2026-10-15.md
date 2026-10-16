@@ -43,7 +43,7 @@ or routine adoption approval. No illustrative prize amendment has been adopted.
 Use the existing authorised owner's Sheet **Editor** access for exact reviewed
 formula/allocation work and the existing monitor identity's **Viewer** access for
 independent read-back. No account or scope expansion is needed or performed.
-The manual-only `Observe CoL source (read-only)` workflow produces a sanitised
+The manual-only `Observe CoL source Sheet (read-only)` workflow produces a sanitised
 semantic-snapshot digest, times, commit and run identity; it stores no raw cells,
 uses no signing key and sends no notification. A digest is not formula approval.
 Actual formula/row qualification still requires the concrete member request,
@@ -125,8 +125,35 @@ Head files **and** select the previous owner-only web-app version, because the
 trigger executes Head. Public code rollback uses a reviewed revert. Adopted
 rule corrections/reversals are new linked records; never erase adopted history.
 
-The observed released commit, private installation version, test counts and
-deployment/read-back evidence are recorded below when actually obtained.
+## Engineering qualification observed
+
+GMKtec `doctor` passed with Node 24.20.0, Python 3.12 and the verified repository
+origin. The full check passed **71 Python + 365 Node tests**. Local Chromium and
+Android emulation passed **30/30** fictional loopback checks, including complete
+CoL reader admission/failure fallback and retained-witness reading with the job
+API unavailable. Hosted WebKit remains a separate CI observation. The 2,500-entry
+photo fixture checks bounded initial reads, filters and explicit incomplete-search
+coverage until Load more finishes. No fixture is added to the public archive.
+
+Independent security/recovery review found no remaining material findings in the
+disabled implementation and separately passed 45 photo/adapter and 56 CoL/adapter
+checks (overlapping subsets, not additional unique test totals). The 37 staged
+CoL tests cover two successive releases through the actual Apps Script adapter
+and Node reducers, prior history with the first job API unavailable, failed and
+partial hosting, caches, source discrepancies, stale/concurrent requests, lost
+responses, delayed/missed-date holds, cancellation races and bounded seal recovery.
+These remain mock/offline proof, not a genuine hosted member amendment.
+
+Before implementation, all five baseline public CoL files matched deployed
+`236f7a1bf90176b83d81b0768ae3dadc43392850` in a read-only observation ending
+`2026-10-15T23:20:31.614Z`. A separate public Blob API read matched one existing
+brand asset's 10,170 bytes and hash. No blob upload or photo publication occurred.
+The only repository variables observed are the existing Sheet monitor and two
+CoL push settings; all Annals photo/rule/security release variables are absent.
+No variable was changed. Private v28 remains the latest verified installation.
+
+Release/Pages, source witness and exact-revision kit evidence are appended after
+those operations are actually observed.
 
 ## Illustrative emails only — not submitted or adopted
 
