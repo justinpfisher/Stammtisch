@@ -1,5 +1,7 @@
 # Annals automation engineering continuation
 
+> **Production v29 checkpoint:** [16 October installation and independent checks](annals-production-installation-evidence-2026-10-16.md). Historical installation blockers below are superseded by that verified record.
+
 This is the current continuation of PRs #76, #79 and #81–83. It supersedes
 their engineering-gap descriptions only where explicitly qualified below.
 Historical installation, consent and QA observations remain in
