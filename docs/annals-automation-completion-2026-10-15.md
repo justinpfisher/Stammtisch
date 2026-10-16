@@ -210,8 +210,11 @@ fresh live read from the CLI attempt. The qualified ZIP, pinned commit and all
 
 A restricted clasp 3.4.1 authorization was attempted for only the Apps Script
 project, deployment and process scopes. Google displayed **“This app is
-blocked”** and blocked the OAuth request. The attempt was stopped without a
-credential file or successful Apps Script API call. No complete current-Head or
+blocked”** and blocked the OAuth request. The same block appeared when the one-time link was explicitly opened in the
+Chrome window containing the accessible owner-controlled production editor.
+Edge alone is therefore not the cause; Google's underlying policy reason is
+unconfirmed. The attempt was stopped without a credential file or successful
+Apps Script API call. No complete current-Head or
 v28 source backup was retrieved, so the first production source write remains
 blocked. No source, manifest, deployment, trigger, gate, cursor, consent,
 budget, journal or signing setting was changed; no fixture or publication
