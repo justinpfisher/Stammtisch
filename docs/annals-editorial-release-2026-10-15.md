@@ -542,3 +542,13 @@ modules in normal, reverse and cyclic orders, and missing-dependency refusal.
 No Google account or secret is needed to reproduce them. The full supported
 suite passes **66 Python and 251 Node tests**. These source changes require the
 pending in-place installation; they are not proof of an updated live script.
+
+## Latest owner-session installation checkpoint — 15 October 2026
+
+The existing owner-controlled production project was reached through the authenticated dedicated Chrome session at the working Apps Script home and opened from its dashboard. Before source changes, the active project was observed with its existing owner-only web-app deployment at **version 28**, executing as the owner with **Only myself** access, and exactly one 15-minute `runAnnalsProductionIntake` trigger targeting Head. No execution was in flight at inspection.
+
+The separately qualified package was verified locally: source commit `ff4d48580d4339e934a7ce96d3b3b6b9237294f0`, ZIP SHA-256 `13409d5f1a9bc88fd3564dd8de65882fe3f9a58e8ffe4e1458f0c881f5a272c4`, all 18 file hashes and pinned-source correspondences verified, and its metadata declares `installed:false`, `credentialsIncluded:false`, and `publicationActivated:false`. The two package evidence files were not treated as Apps Script source.
+
+**Installation stopped before the first production source write.** A complete, independently verified private rollback copy of the live source and manifest could not be established through the available Apps Script history/editor and Windows file-save workflow. No project source, manifest, deployment, trigger, publication gate, consent, cursor, budget, ledger, or signing configuration was changed. No function, codec fixture, or publication operation was run. The existing version 28 deployment and single Head trigger remain the last observed state; no new version or installation is claimed.
+
+The outstanding step is to make a complete private rollback snapshot of every existing source file and the owner-specific manifest, verify that snapshot, and then resume the qualified dependency-ordered installation. Until then, the 18-file release remains **not installed**. The deployment identifier and URL, account identifier, private configuration, credentials, and source contents are intentionally omitted.
