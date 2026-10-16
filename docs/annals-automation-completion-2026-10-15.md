@@ -189,7 +189,7 @@ all 18 Git blobs and manifest hashes. ZIP SHA-256:
 `13409d5f1a9bc88fd3564dd8de65882fe3f9a58e8ffe4e1458f0c881f5a272c4`.
 It is saved privately on the GMKtec under the Stammtisch release evidence folder.
 Its metadata correctly says `installed:false`. It has **not** replaced private
-v28; the owner-editor access failure described above blocks that action. The
+v28; the later owner access and CLI authorization blockers described below still block that action. The
 existing six-member standing attestation was already recorded at
 `2026-10-15T21:18:38.965Z`; it was preserved, not recreated or backdated.
 
@@ -199,6 +199,30 @@ photo/rule dispatch was made. Actual installed codec performance, genuine phone
 quality, a genuine fresh member amendment and physical-device/assistive acceptance
 remain unverified. Meaning/parameter/formula/allocation/scheduled automation remains
 an explicit engineering gap, separate from the installation/security dependencies.
+
+## Owner-machine installation checkpoint — 16 October 2026
+
+The existing production editor was subsequently opened in the dedicated owner
+session. The owner-verified deployment was still v28, restricted to the owner,
+with one 15-minute Head intake trigger. These are prior observations, not a
+fresh live read from the CLI attempt. The qualified ZIP, pinned commit and all
+18 installation hashes were rechecked locally.
+
+A restricted clasp 3.4.1 authorization was attempted for only the Apps Script
+project, deployment and process scopes. Google displayed **“This app is
+blocked”** and blocked the OAuth request. The attempt was stopped without a
+credential file or successful Apps Script API call. No complete current-Head or
+v28 source backup was retrieved, so the first production source write remains
+blocked. No source, manifest, deployment, trigger, gate, cursor, consent,
+budget, journal or signing setting was changed; no fixture or publication
+operation ran. The existing owner-only v28 deployment remains the latest
+verified installation. See [Issue #24's checkpoint](https://github.com/justinpfisher/Stammtisch/issues/24#issuecomment-6213805980).
+
+The owner must resolve Google's block on this restricted OAuth client or
+explicitly authorize another secure backup/API route. Before any write, verify
+complete private Head and v28 rollback copies, including the owner manifest.
+Repeated blocked sign-ins, broader scopes and unapproved new credentials are
+not part of this handoff.
 
 ## Illustrative emails only — not submitted or adopted
 
