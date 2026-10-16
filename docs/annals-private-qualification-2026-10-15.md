@@ -1,3 +1,7 @@
+> **Latest engineering continuation:** [Bounded photos, staged CoL release and final acceptance](annals-automation-completion-2026-10-15.md).
+> This supersedes older 32 KiB transport and unfinished-protocol descriptions only within its stated scope.
+> Preserve historical observations below; all new publication gates remain off.
+
 # Private installation and remaining qualification — 15 October 2026
 
 This continues merged PR #75 under the owner's installation/release instruction.

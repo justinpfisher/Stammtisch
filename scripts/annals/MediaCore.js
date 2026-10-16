@@ -5,7 +5,10 @@
  */
 var AnnalsMedia = (function () {
   'use strict';
-  function sanitize(raw) {
+  function sanitize(raw, gallery) {
+    // Legacy inline publication retains its original bound. Larger derivatives
+    // are allowed only through the separately gated, bounded blob transport.
+    var maxBytes = gallery === true ? 524288 : 32768, maxEdge = gallery === true ? 1600 : 1000;
     if (!raw || typeof raw.length !== 'number' || raw.length < 24 ||
         raw.length > 1024 * 1024) throw new Error('Invalid private thumbnail');
     var bytes = Array.from(raw, function (x) { return x & 255; }), end = bytes.length;
@@ -29,7 +32,7 @@ var AnnalsMedia = (function () {
         foundFrame = true;
         height = bytes[pos + 3] * 256 + bytes[pos + 4];
         width = bytes[pos + 5] * 256 + bytes[pos + 6];
-        if (bytes[pos + 2] !== 8 || !width || !height || width > 1000 || height > 1000)
+        if (bytes[pos + 2] !== 8 || !width || !height || width > maxEdge || height > maxEdge)
           throw new Error('Image dimensions or format not allowed');
       }
       if (marker === 219) seenDqt = true;
@@ -58,7 +61,7 @@ var AnnalsMedia = (function () {
         break;
       }
     }
-    if (!foundScan || out.length > 32768) throw new Error('No suitably small clean thumbnail');
+    if (!foundScan || out.length > maxBytes) throw new Error('No suitably small clean thumbnail');
     return { bytes: out, width: width, height: height };
   }
   return Object.freeze({sanitize: sanitize});

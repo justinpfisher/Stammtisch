@@ -13,7 +13,11 @@ import {buildPublishedAnnals,contentDigest} from '../../scripts/annals/ApprovedR
 import {renderRegister} from '../../scripts/annals/RulesPublisher.mjs';
 import {photoIndex} from '../../scripts/annals/PhotoIndex.mjs';
 import Media from '../../scripts/annals/MediaCore.js';
+import Codec from '../../scripts/annals/JpegCodec.js';
+import {photoThumbnail} from '../../scripts/annals/PhotoThumbnail.mjs';
+import {createHash} from 'node:crypto';
 import {renderHistory} from '../../scripts/annals/HistoryPublisher.mjs';
+import {browserRuleFixture} from './col-fixture.mjs';
 
 const root=fileURLToPath(new URL('../../',import.meta.url));
 // This literal is only an offline fixture key; no production key is read.
@@ -40,19 +44,28 @@ const fixturePhoto={sha256:'a'.repeat(64),alt:'Fictional browser photograph',wid
 entries.push({...base,id:'offline-browser-gallery',category:'assembly',title:'Fictional gallery',summary:'Fictional browser photograph fixture only.',photos:[fixturePhoto,{...fixturePhoto,sha256:'b'.repeat(64),alt:'Second fictional photograph'}]});
 const gallery=entries.at(-1),a={entryId:gallery.id,approvedAt:'2026-10-15T12:00:00Z',consents:{publication:true,quotePublication:false,recipeVerified:false,namedAttribution:false,photoPublication:true},contentSha256:contentDigest(gallery),mode:'standing-consent-photos-v2'};
 approvals.push({...a,signature:createHmac('sha256',fixtureKey).update(JSON.stringify(canonical({entry:gallery,approval:a}))).digest('hex')});
+const geometry=new Uint8Array(1600*900*4);for(let i=0;i<geometry.length;i+=4){geometry[i]=50;geometry[i+1]=150;geometry[i+2]=100;geometry[i+3]=255;}
+const largeBytes=Buffer.from(Media.sanitize(Codec.encode({width:1600,height:900,data:geometry},80).data,true).bytes),largeHash=createHash('sha256').update(largeBytes).digest('hex');
+const largeAsset={path:'assets/annals/'+largeHash+'.jpg',bytes:largeBytes},thumbAsset=photoThumbnail(largeAsset);
+const responsiveEntry={...base,id:'offline-responsive-gallery',category:'assembly',title:'Fictional responsive image fixture',summary:'Fictional geometry only; no photographic quality claim.',photos:[{sha256:largeHash,width:1600,height:900,alt:'Fictional green geometry fixture'}]};
+entries.push(responsiveEntry);const responsiveApproval={...a,entryId:responsiveEntry.id,contentSha256:contentDigest(responsiveEntry)};
+approvals.push({...responsiveApproval,signature:createHmac('sha256',fixtureKey).update(JSON.stringify(canonical({entry:responsiveEntry,approval:responsiveApproval}))).digest('hex')});
 const index=photoIndex(Array.from({length:2500},(_,i)=>({...gallery,id:'offline-photo-'+String(i).padStart(6,'0'),title:'Fictional photo '+i,summary:i===2499?'needle archival caption':'Fictional archived fixture',submittedAt:(2000+i%26)+'-10-15T12:00:00Z',year:2000+i%26})));
 const annals=buildPublishedAnnals(entries,approvals,fixtureKey,history).html;
 const ruleRegister={schemaVersion:1,baseline:{id:'col-browser-baseline',recordedAt:'2026-10-15T12:00:00Z',description:'Fictional browser fixture baseline.'},revisions:[{id:'col-browser-fictional',member:'marc',submittedAt:'2026-10-15T12:00:00Z',publishedAt:null,effectiveAt:null,state:'awaiting_implementation',baseVersion:'col-browser-baseline',explanation:'Fictional rule-layout fixture only.',changes:[{provision:'PRIZE',before:'## PRIZE\n'+('Fictional unchanged source text. '.repeat(40)),after:'## PRIZE\n'+('Fictional revised layout text. '.repeat(40))}],correctionOf:null}],events:[]};
 const documents=new Map([['/annals.html',annals],['/history.html',renderHistory(history)],['/photos.html',await readFile(path.join(root,'photos.html'),'utf8')],['/col-revisions.html',renderRegister(ruleRegister)]]);
 const metadata=new Map([['/data/photos/index.json',index.manifest],...index.pages.map(p=>['/'+p.path,p.data])]);
+const ruleFixture=browserRuleFixture();
+documents.set('/col-reader-fixture.html','<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Fictional rule reader</title><link rel="stylesheet" href="styles.css"><main>'+ruleFixture.html+'</main><script type="module">import {refreshOfficialRules} from "./col-rules-reader.mjs"; await refreshOfficialRules(); document.documentElement.dataset.finished="true";</script></html>');
 const server=createServer(async(req,res)=>{
   const pathname=new URL(req.url,'http://localhost').pathname;
   if(req.method!=='GET'){res.writeHead(405).end();return;}
   if(metadata.has(pathname)){res.setHeader('Content-Type','application/json');res.end(JSON.stringify(metadata.get(pathname)));return;}
+  if(pathname==='/'+largeAsset.path||pathname==='/'+thumbAsset.path){res.setHeader('Content-Type','image/jpeg');res.end(pathname==='/'+largeAsset.path?largeBytes:thumbAsset.bytes);return;}
   if(/^\/assets\/annals\/[ab]{64}\.jpg$/.test(pathname)){res.setHeader('Content-Type','image/jpeg');res.end(tinyBytes);return;}
   if(documents.has(pathname)){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(documents.get(pathname));return;}
   // Public stylesheet and public brand assets only. Never serve source/data files.
-  if(['/styles.css','/annals-photos.css','/annals-photos.mjs'].includes(pathname)||pathname.startsWith('/assets/')&&!pathname.includes('..')){
+  if(['/styles.css','/annals-photos.css','/annals-photos.mjs','/col-rules-reader.mjs','/col-rules-witness.mjs'].includes(pathname)||pathname.startsWith('/assets/')&&!pathname.includes('..')){
     try{const bytes=await readFile(path.join(root,pathname));res.setHeader('Content-Type',pathname.endsWith('.css')?'text/css':pathname.endsWith('.mjs')?'text/javascript':'application/octet-stream');res.end(bytes);return;}catch{}
   }
   res.writeHead(404).end();
@@ -82,6 +95,43 @@ try{
   for(const profile of profiles.filter(p=>!process.argv.includes('--chromium-only')||p.engine===chromium)){
     const browser=await profile.engine.launch();
     try{
+      await check(browser,profile,'CoL complete witnessed reader and failed-release fallback',async page=>{
+        let mode='failed';
+        await page.route('**/*',async route=>{
+          const url=route.request().url(),relative=url.startsWith(origin+'/')?url.slice(origin.length+1):url;
+          if(!ruleFixture.bodies.has(relative))return route.fallback();
+          let body=ruleFixture.bodies.get(relative);
+          if(relative==='data/col-rules-release-state.json')body=mode==='sealed'?ruleFixture.sealedState:ruleFixture.readyState;
+          if(relative.startsWith(ruleFixture.api)){
+            if(mode==='sealed')return route.fulfill({status:503,body:'Fictional expired metadata'});
+            if(mode==='failed'&&relative.endsWith('/jobs?per_page=100'))body=ruleFixture.failedJobs;
+          }
+          return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
+        });
+        for(const expected of ['failed','complete','sealed']){
+          mode=expected;await page.goto(origin+'/col-reader-fixture.html');await page.waitForSelector('html[data-finished=true]');
+          const boundary=page.locator('#official-rules');
+          if(expected==='failed'){
+            assert.match(await boundary.textContent(),/Previous complete fictional rule/);assert.equal(await page.locator('#rules-version-status').count(),0);
+          }else{
+            assert.match(await boundary.textContent(),/fictional.*member’s tokens stay unchanged/);assert.match(await page.locator('#rules-version-status').innerText(),/Toronto/);
+            assert.equal(await boundary.locator('.rule-topic').count(),1);
+            assert.equal(await boundary.locator('.rules-reference a').getAttribute('href'),'col-rules-version.html?version='+ruleFixture.revisionId+'&reference=1');
+            await boundary.locator('summary').focus();await page.keyboard.press('Enter');assert.equal(await boundary.locator('details').getAttribute('open'),'');
+          }
+          await noOverflow(page);
+        }
+      });
+      await check(browser,profile,'responsive thumbnail and larger accessible viewer',async page=>{
+        await page.goto(origin+'/annals.html');
+        const card=page.locator('#offline-responsive-gallery'),img=card.locator('img');
+        await img.scrollIntoViewIfNeeded();await page.waitForFunction(()=>document.querySelector('#offline-responsive-gallery img').complete);
+        assert.match(await img.getAttribute('src'),/-thumb\.jpg$/);assert.match(await img.getAttribute('srcset'),/400w, .* 1600w$/);
+        assert.equal(await img.evaluate(e=>e.naturalWidth>0),true);
+        await card.locator('[data-photo-view]').click();const dialog=page.getByRole('dialog',{name:'Photograph viewer'});await dialog.waitFor({state:'visible'});
+        assert.match(await dialog.locator('img').getAttribute('src'),new RegExp(largeHash+'\\.jpg$'));
+        await page.keyboard.press('Escape');assert.equal(await card.locator('[data-photo-view]').evaluate(e=>document.activeElement===e),true);await noOverflow(page);
+      });
       await check(browser,profile,'gallery keyboard viewer restores focus',async page=>{
         await page.goto(origin+'/annals.html');
         const opener=page.locator('#offline-browser-gallery [data-photo-view]').first();

@@ -1,3 +1,7 @@
+> **Latest engineering continuation:** [Bounded photos, staged CoL release and final acceptance](annals-automation-completion-2026-10-15.md).
+> This supersedes older 32 KiB transport and unfinished-protocol descriptions only within its stated scope.
+> Preserve historical observations below; all new publication gates remain off.
+
 # Annals photographs and member-initiated CoL revisions
 
 > **Current continuation:** [Observed private installation and qualification](annals-private-qualification-2026-10-15.md)

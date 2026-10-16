@@ -10,6 +10,11 @@ on:
       - 'annals-photos.*'
       - 'photos.html'
       - 'col-revisions.html'
+      - 'col-rules-reader.mjs'
+      - 'col-rules-witness.mjs'
+      - 'col-rules-register.mjs'
+      - 'col-rules-version.*'
+      - 'celebration.html'
       - 'assets/**'
   workflow_dispatch:
 permissions:

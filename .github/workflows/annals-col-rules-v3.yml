@@ -1,0 +1,70 @@
+name: Staged literal CoL revision
+on:
+  repository_dispatch:
+    types: [annals-col-candidate-v3, annals-col-activation-v3, annals-col-confirm-v3, annals-col-seal-v3, annals-col-cancel-v3]
+permissions:
+  contents: write
+  pages: write
+concurrency:
+  group: annals-approved-publication
+  cancel-in-progress: false
+jobs:
+  staged:
+    # Absent/unqualified gates are OFF. The clock gate cannot be inferred from
+    # unit tests, a signed request, candidate hosting or a successful commit.
+    if: vars.ANNALS_RULES_V3_RELEASE_ENABLED == 'true' && vars.ANNALS_RULES_V3_HOSTED_ACCEPTED == 'true' && vars.ANNALS_RULES_V3_CLOCK_QUALIFIED == 'true' && vars.ANNALS_SIGNING_REMEDIATION_VERIFIED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline regressions before source observation
+        run: node scripts/local-dev.mjs check
+      - name: Install existing read-only monitor dependencies
+        if: github.event.action != 'annals-col-cancel-v3' && github.event.action != 'annals-col-seal-v3'
+        run: python -m pip install google-auth==2.35.0 requests==2.32.3
+      - name: Independently observe existing Viewer source
+        if: github.event.action != 'annals-col-cancel-v3' && github.event.action != 'annals-col-seal-v3'
+        env:
+          GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON }}
+        run: GITHUB_SHA="$(git rev-parse HEAD)" python scripts/observe-col-source.py > "$RUNNER_TEMP/col-source-observation.json"
+      - name: Apply one exact signed staged operation
+        env:
+          ANNALS_RULES_V3_RELEASE_ENABLED: ${{ vars.ANNALS_RULES_V3_RELEASE_ENABLED }}
+          ANNALS_RULES_V3_HOSTED_ACCEPTED: ${{ vars.ANNALS_RULES_V3_HOSTED_ACCEPTED }}
+          ANNALS_RULES_V3_CLOCK_QUALIFIED: ${{ vars.ANNALS_RULES_V3_CLOCK_QUALIFIED }}
+          ANNALS_SIGNING_REMEDIATION_VERIFIED: ${{ vars.ANNALS_SIGNING_REMEDIATION_VERIFIED }}
+          ANNALS_PUBLISH_SIGNING_KEY: ${{ secrets.ANNALS_PUBLISH_SIGNING_KEY }}
+          COL_SOURCE_WITNESS_PATH: ${{ runner.temp }}/col-source-observation.json
+        run: node scripts/annals/run-staged-col.mjs
+      - name: Commit immutable package and compare-and-swap ledger
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- data/col-rules-release-state.json
+          if [ -d data/col-releases ]; then git add -- data/col-releases; fi
+          git diff --cached --quiet && exit 1
+          git commit -m "Record independently qualified CoL release phase"
+          git push origin HEAD:main
+      - name: Request Pages deployment; never report rule activation from this step
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method POST repos/justinpfisher/Stammtisch/pages/builds
+      - name: Verify complete hosted ready snapshot
+        if: github.event.action == 'annals-col-confirm-v3'
+        run: node scripts/annals/verify-staged-col-hosted.mjs
+      - name: Verify final independent Viewer source
+        if: github.event.action == 'annals-col-confirm-v3'
+        env:
+          GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON }}
+          COL_FINAL_SOURCE_WITNESS_PATH: ${{ runner.temp }}/col-final-source-observation.json
+        run: |
+          GITHUB_SHA="$(git rev-parse HEAD)" python scripts/observe-col-source.py > "$COL_FINAL_SOURCE_WITNESS_PATH"
+          node scripts/annals/verify-staged-col-hosted.mjs --source

@@ -78,6 +78,24 @@ var AnnalsRules = (function () {
     applicable.sort(function(a,b){return Date.parse(b.effectiveAt)-Date.parse(a.effectiveAt);});
     if(!applicable.length)throw new Error('No verified operative rules version');return applicable[0];
   }
+  // This is a deliberately tiny, deterministic automatic class. It is not a
+  // semantic judgement: only spaces and the typography of an existing apostrophe
+  // may differ. Numbers, words, punctuation, paragraphs and headings stay exact.
+  function typography(value){return value.replace(/[\u2018\u2019]/g,"'").replace(/\u00a0/g,' ').replace(/[ \t]+/g,' ').replace(/ *\n */g,'\n').trim();}
+  function literalWording(source,revision,base){
+    if(!source||source.senderAuthenticated!==true||source.freshOperativeWindow!==true||source.replayed===true||source.truncated===true||
+      revision.state!=='awaiting_implementation'||revision.retrospective.requested||revision.baseVersion!==base.id||revision.baseDigest!==base.digest||revision.changes.length!==1)
+      throw new Error('Literal wording requires fresh prospective exact-base authority');
+    var c=revision.changes[0];
+    if(base.provisions[c.provision]!==c.before||c.before===c.after||typography(c.before)!==typography(c.after))
+      throw new Error('Meaning, parameter, formula or allocation changes require engineering');
+    // A full literal replacement is supplied by the member. An AI-created
+    // paraphrase, a quoted discussion, or an unrelated source excerpt cannot pass.
+    var directive='In the CoL rules, replace "'+c.before+'" with "'+c.after+'".';
+    if(typeof source.text!=='string'||source.text.trim()!==directive||revision.requestExcerpt!==directive)
+      throw new Error('Exact unquoted replacement instruction required for automatic wording');
+    return {kind:'literal-typography-v1',provision:c.provision};
+  }
   function publicRecord(r){
     [r.explanation].concat(r.changes.map(function(c){return c.after;})).forEach(function(s){if(typeof s!=='string'||/[\w.+-]+@[\w.-]+\.[a-z]{2,}|https?:\/\/|<[^>]+>|\b(?:password|passcode|api key|home address)\b/i.test(s))throw new Error('Private content cannot enter public revision');});
     if(MEMBERS.indexOf(r.member)<0||STATUS.indexOf(r.state)<0)throw new Error('Invalid public revision');
@@ -86,6 +104,6 @@ var AnnalsRules = (function () {
       explanation:text(r.explanation,1000),changes:r.changes.map(function(c){return {provision:text(c.provision,100),before:text(c.before,6000),after:text(c.after,6000)};}),
       correctionOf:r.correctionOf===null?null:id(r.correctionOf)};
   }
-  return Object.freeze({provisions:provisions,intake:intake,qualify:qualify,publish:publish,select:select,publicRecord:publicRecord,stamp:stamp});
+  return Object.freeze({provisions:provisions,intake:intake,qualify:qualify,publish:publish,select:select,publicRecord:publicRecord,stamp:stamp,typography:typography,literalWording:literalWording});
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=AnnalsRules;

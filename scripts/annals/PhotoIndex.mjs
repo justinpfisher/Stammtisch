@@ -4,11 +4,8 @@ import {mkdir,writeFile,readdir,unlink} from 'node:fs/promises';
 
 export function photoIndex(entries, pageSize=24) {
   if(!Number.isInteger(pageSize)||pageSize<1||pageSize>48)throw Error('Bounded photo index required');
-  const rows=entries.filter(e=>Photos.photos(e).length).map(e=>({entryId:e.id,collection:['monthly_gathering','artefact'].includes(e.category)?'club_history':e.category,
-    title:e.title,text:[e.summary,...Photos.photos(e).flatMap(p=>[p.alt,p.caption||''])].join(' '),
-    submittedAt:e.submittedAt||'',eventPeriod:e.eventPeriod||e.sortDate||'',year:e.eventPeriod?Number(e.eventPeriod.slice(0,4)):e.submittedAt?Number(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',year:'numeric'}).format(new Date(e.submittedAt))):e.year,
-    photos:Photos.photos(e).map(p=>({src:`assets/annals/${e.photos?p.sha256:e.id}.jpg`,alt:p.alt,...(p.width?{width:p.width,height:p.height}:{}),...(p.caption?{caption:p.caption}:{})}))}));
-  rows.sort((a,b)=>b.year-a.year||(b.submittedAt||b.eventPeriod).localeCompare(a.submittedAt||a.eventPeriod)||a.entryId.localeCompare(b.entryId));
+  const rows=entries.filter(e=>Photos.photos(e).length).map(Photos.indexRow);
+  rows.sort(Photos.indexOrder);
   const partitions=new Map();
   for(const row of rows){const key=row.collection+'/'+row.year;if(!partitions.has(key))partitions.set(key,[]);partitions.get(key).push(row);}
   const pages=[];

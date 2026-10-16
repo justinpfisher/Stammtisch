@@ -13,7 +13,7 @@ FILES = (
     "MediaPolicy.js", "Production.gs", "ReviewUi.html", "HistoryCore.js",
     "GovernanceCore.js", "HistoryProduction.gs", "PublicDisplay.js",
     "production-appsscript.json", "PhotoContracts.js", "PhotoProduction.gs",
-    "RulesCore.js", "RulesProduction.gs",
+    "RulesCore.js", "RulesProduction.gs", "JpegCodec.js", "PhotoDerivative.js",
 )
 
 
@@ -55,7 +55,8 @@ cursor/boundary, remove triggers, clear attempts or replay dispatches.
 
 Install the files under install/ into the matching existing Apps Script files.
 Public .js module names are mapped to native .gs files without content changes.
-Add PhotoContracts, PhotoProduction, RulesCore, RulesProduction, PublicDisplay,
+Add JpegCodec and PhotoDerivative, then PhotoContracts, PhotoProduction,
+RulesCore, RulesProduction, PublicDisplay,
 HistoryCore, GovernanceCore and HistoryProduction before
 updating callers. Preserve the existing manifest/scopes and all Script
 Properties. Never open or export credential values to complete this update.
@@ -65,12 +66,12 @@ trigger. Restore only the previously authorised ordinary service state.
 
 Advance the EXISTING owner-only web-app deployment version after source
 validation. Source saving alone does not update that deployed version.
-Check safe boolean preflight and privately reconcile installed modules,
+Use only the dedicated no-secret gate readers, not a signing preflight, and reconcile installed modules,
 consent registry, trigger, cursor, activation and budget without logging
 private values. Do not run paid diagnostics or unknown earlier dispatches.
 Record actual deployment version and verification; never infer them from ZIP.
 
-Keep History, automatic media, photographic v2 and rule v2 publication disabled.
+Keep History, automatic media, photographic v2, photo blob transport and rule v2/v3 publication disabled.
 Do not change ANNALS_PHOTOS_V2_ENABLED, ANNALS_RULES_V2_ENABLED, their hosted
 acceptance markers or the separate new-rules boundary merely to install source. Do not change signing
 keys or set signing-remediation markers. Credential rotation remains a final,

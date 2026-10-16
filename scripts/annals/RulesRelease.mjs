@@ -11,7 +11,7 @@ import {digest,canonical,renderRegister,validateRegister,applyRuleStatus} from '
 import {escapeHtml as esc} from './PrivatePreview.mjs';
 
 export const RELEASE_MODE='coordinated-col-implementation-v2';
-export const BEHAVIOR_FILES=['celebration-rules.mjs','celebration-awards.mjs','celebration.mjs','scripts/import-celebration.py','scripts/monitor-celebration-sheet.py'];
+export const BEHAVIOR_FILES=['celebration-rules.mjs','celebration-awards.mjs','celebration.mjs','scripts/import-celebration.py','scripts/monitor-celebration-sheet.py','scripts/annals/RulesCore.js','scripts/annals/RulesStaged.mjs','scripts/annals/run-staged-col.mjs','scripts/annals/RulesProduction.gs','scripts/annals/RulesPublisher.mjs','col-rules-reader.mjs','col-rules-version.mjs','col-rules-register.mjs','scripts/annals/RulesRelease.mjs','scripts/observe-col-source.py','.github/workflows/annals-col-rules-v3.yml','col-rules-witness.mjs','scripts/annals/verify-staged-col-hosted.mjs'];
 export async function behaviorDigest(){return digest(await Promise.all(BEHAVIOR_FILES.map(async name=>({name,text:(await readFile(name,'utf8')).replace(/\r\n/g,'\n')}))));}
 function exact(v,keys){if(!v||Object.keys(v).sort().join(',')!==keys.slice().sort().join(','))throw Error('Unexpected release shape');}
 function topics(provisions){
@@ -120,6 +120,7 @@ export function requireNonActivatingRuleRelease(after,before,now=new Date()){
 async function main(){
   if(process.env.ANNALS_RULES_V2_RELEASE_ENABLED!=='true'||process.env.ANNALS_SIGNING_REMEDIATION_VERIFIED!=='true')throw Error('Final hosted authority is unverified');
   const event=JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH,'utf8'));
+  if(event.action==='annals-col-rule-release')throw Error('Legacy implementation dispatch retired; staged hosted activation is required');
   if(event.action==='annals-col-rule-status'){
     if(Object.keys(event.client_payload||{}).sort().join(',')!=='approval,record')throw Error('Bounded status payload required');
     const current=JSON.parse(await readFile('data/col-rules-register.json','utf8'));

@@ -1,5 +1,10 @@
 # STAMMTISCH — Celebration of Life Pool
 
+This file preserves the dated official baseline and confirmations below. The
+[current operative rules and version-bound official reference](../col-rules-version.html?reference=1)
+and [permanent revision register](../col-revisions.html) also include any later
+fully qualified amendments. An incomplete candidate never replaces this baseline.
+
 Official rules supplied by Justin on September 20, 2026. Formatting and HTML
 spacing have been cleaned up. Justin confirmed the Brown Diamond wording
 correction and adoption of the youngest-death Blood Diamond rule on September 20,

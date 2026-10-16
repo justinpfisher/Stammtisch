@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
-const names=['PilotCore.js','ProductionCore.js','AutoCore.js','MediaCore.js','MediaPolicy.js','Production.gs','HistoryCore.js','GovernanceCore.js','HistoryProduction.gs','PublicDisplay.js','PhotoContracts.js','PhotoProduction.gs','RulesCore.js','RulesProduction.gs'];
+const names=['PilotCore.js','ProductionCore.js','AutoCore.js','MediaCore.js','MediaPolicy.js','Production.gs','HistoryCore.js','GovernanceCore.js','HistoryProduction.gs','PublicDisplay.js','PhotoContracts.js','PhotoProduction.gs','RulesCore.js','RulesProduction.gs','JpegCodec.js','PhotoDerivative.js'];
 const source=name=>readFileSync(new URL('../scripts/annals/'+name,import.meta.url),'utf8');
 const historySource={senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,source:{subject:'A ledger recollection',excerpt:'The blank ledger appeared in 2021.',receivedAt:'2026-10-15T12:00:00Z'}};
 const claim={id:'a'.repeat(64),sourceId:'b'.repeat(64),field:'excerpt',statement:historySource.source.excerpt,factKey:'ledger-arrival',chapter:'origins',period:'2021',status:'recollection',uncertainty:'',evidenceNote:'Offline fixture source inspection.',order:100};
