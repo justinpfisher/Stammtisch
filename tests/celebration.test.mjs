@@ -177,7 +177,7 @@ test('failed register fetch renders fallback rather than crashing', async () => 
     assert.equal(request[0], 'data/celebration.json');
     assert.equal(request[1]?.cache, 'no-store');
     for (const selector of selectors) assert.ok(nodes[selector].innerHTML.length, selector);
-    assert.match(nodes['#commemoration-list'].innerHTML, /original spreadsheet/);
+    assert.match(nodes['#commemoration-list'].innerHTML, /reload the page/i);
   } finally {
     if (previousDocument === undefined) delete globalThis.document;
     else globalThis.document = previousDocument;
