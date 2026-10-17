@@ -1228,11 +1228,11 @@ function ownerActionUiFixture(result){
     call:async(name,...args)=>{calls.push({name,args});return result;},
     open:async()=>{refreshes++;throw new Error('Invented detail refresh failure');},
     list:async reset=>lists.push(reset)});
-  const functions=ui.split(/\r?\n/).find(l=>l.startsWith('function quarantineAvailable'))+'\n'+ui.slice(ui.indexOf('function updateQueuedItem'),ui.indexOf('async function list'));
+  const functions=ui.split(/\r?\n/).find(l=>l.startsWith('function quarantineAvailable'))+'\n'+ui.slice(ui.indexOf('function updateQueuedItem'),ui.indexOf('async function list'))+'\n'+ui.slice(ui.indexOf('function updateRuleAcceptanceControls'),ui.indexOf("el('ruleAcceptanceSecurityConfirmed').onchange"));
   const lines=ui.split(/\r?\n/),handlers=["el('quarantine').onclick=","el('approveRemoval').onclick=","el('more').onclick="].map(prefix=>{const s=lines.find(l=>l.startsWith(prefix));assert.ok(s,prefix);return s;}).join('\n');
   const initial={id:'a'.repeat(64),subject:'Invented item',status:'Verified live',approved:true,quarantined:false,
     publishedEntry:{id:'annal-invented-test',summary:'An invented non-identifying object.'},publishedEntryHash:'invented-exact-digest',publicationState:'dispatch_accepted'};
-  vm.runInContext("let nonce='owner-nonce';let continuation='invented-next-page';let current="+JSON.stringify(initial)+';\n'+functions+'\n'+handlers+'\nthis.readCurrent=()=>current;this.readContinuation=()=>continuation;',context);
+  vm.runInContext("let nonce='owner-nonce';let continuation='invented-next-page';let ruleAcceptancePrepared=null,ruleAcceptanceState=null;let current="+JSON.stringify(initial)+';\n'+functions+'\n'+handlers+'\nthis.readCurrent=()=>current;this.readContinuation=()=>continuation;',context);
   return {context,controls,get,queued,calls,messages,lists,refreshes:()=>refreshes,ui};
 }
 

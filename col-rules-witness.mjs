@@ -22,7 +22,7 @@ export function validateSealedWitness(receipt,operation,{now=Date.now()}={}){
 }
 export function verifyJobWitness(producer,run,listing,{now=Date.now(),requireSuccess=true}={}){
   validateProducer(producer);
-  if(String(run?.id)!==producer.runId||run.run_attempt!==producer.runAttempt||run.path!==producer.workflow||run.event!=='repository_dispatch'||
+  if(String(run?.id)!==producer.runId||run.run_attempt!==producer.runAttempt||![producer.workflow,producer.workflow+'@main'].includes(run.path)||run.event!=='repository_dispatch'||
     run.head_sha!==producer.workflowHead||run.repository?.full_name!==producer.repository||run.status!=='completed'||!Array.isArray(listing?.jobs)||listing.total_count!==listing.jobs.length)
     throw Error('Release workflow identity or completion unavailable');
   const jobs=listing.jobs.filter(job=>job.name===producer.job);
