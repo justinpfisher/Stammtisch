@@ -194,7 +194,7 @@ function annalsCheckGithubSigningConsistency(nonce,challenge,artifactId,zipBase6
     if(!identity||!artifact.workflow_run||String(artifact.workflow_run.id)!==identity[1]||! /^[a-f0-9]{40}$/.test(artifact.workflow_run.head_sha||''))throw new Error('Invalid artifact producer');
     var runId=identity[1],attempt=identity[2],headSha=artifact.workflow_run.head_sha;
     var run=JSON.parse(get(api+'/actions/runs/'+runId+'/attempts/'+attempt));
-    if(!Number.isFinite(Date.parse(run.run_started_at))||!Number.isFinite(Date.parse(run.updated_at))||String(run.id)!==runId||String(run.run_attempt)!==attempt||run.event!=='workflow_dispatch'||run.path!=='.github/workflows/annals-signing-consistency.yml'||run.head_branch!=='main'||run.head_sha!==headSha||!run.repository||run.repository.full_name!=='justinpfisher/Stammtisch'||run.status!=='completed'||run.conclusion!=='success')throw new Error('Hosted run identity failed');
+    if(!Number.isFinite(Date.parse(run.run_started_at))||!Number.isFinite(Date.parse(run.updated_at))||String(run.id)!==runId||String(run.run_attempt)!==attempt||run.event!=='workflow_dispatch'||['.github/workflows/annals-signing-consistency.yml','.github/workflows/annals-signing-consistency.yml@main'].indexOf(run.path)<0||run.head_branch!=='main'||run.head_sha!==headSha||!run.repository||run.repository.full_name!=='justinpfisher/Stammtisch'||run.status!=='completed'||run.conclusion!=='success')throw new Error('Hosted run identity failed');
     var jobs=JSON.parse(get(api+'/actions/runs/'+runId+'/attempts/'+attempt+'/jobs?per_page=100'));
     if(jobs.total_count!==1||!Array.isArray(jobs.jobs)||jobs.jobs.length!==1)throw new Error('Unexpected challenge jobs');
     var job=jobs.jobs[0];
