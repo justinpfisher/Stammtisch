@@ -232,7 +232,7 @@ test('oldest-death Steal is dormant until a verified rule policy activates it', 
   assert.equal(card(enabled,'youngest').value,'younger');
 });
 
-test('verified exact age ties give each eligible holder one provisional oldest-death Steal', () => {
+test('verified exact age ties remain provisional without an invented shared Steal award', () => {
   const data=season([
     member('a',10,[pick('First fictional pick',{born:'1920-01-01',actualDeathDate:'2026-02-01'})]),
     member('b',10,[pick('Second fictional pick',{born:'1920-01-01',actualDeathDate:'2026-02-01'})]),
@@ -240,7 +240,8 @@ test('verified exact age ties give each eligible holder one provisional oldest-d
   ]);
   const result=calculateAwards(data,{}, {oldestDeathSteal:true});
   assert.equal(card(result,'oldest').value,'a & b');
-  assert.match(card(result,'oldest').details.join(' '),/Exact age ties share the benefit/);
+  assert.equal(card(result,'oldest').status,'Tie unresolved');
+  assert.match(card(result,'oldest').details.join(' '),/An exact tie remains unresolved/);
   for (const id of ['a','b']) {
     const benefits=result.draft.find(m=>m.id===id).benefits.filter(x=>x.reason==='Oldest celebrity death of the year');
     assert.equal(benefits.length,1);

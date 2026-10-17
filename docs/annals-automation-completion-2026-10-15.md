@@ -1,3 +1,5 @@
+> **17 October 2026, subsequent non-operative work:** Public CoL visitor-copy cleanup and a dormant oldest-death Steal calculator have been merged. A source-bound `oldest-death-steal-v1` semantic candidate route is prepared behind a distinct OFF-by-default gate. This changes neither operative rules nor the private installed version or unresolved signing state. See [oldest-death implementation](col-oldest-steal-implementation-2026-10-17.md) and [staged release protocol](col-two-stage-release.md).
+
 # Annals automation engineering continuation
 
 > **Production v29 checkpoint:** [16 October installation and independent checks](annals-production-installation-evidence-2026-10-16.md). Historical installation blockers below are superseded by that verified record.

@@ -280,10 +280,10 @@ test('actual private adapters and hosted reducers complete separate signed phase
   assert.equal(privateFiles.get('folder2/col-rule-request-private.json').effectiveAt,'2026-10-15T19:31:00.000Z');assert.equal(c.annalsRuleContext_().base.id,nextRequest.id);
 
 });
-test('desk gate inspection reads only six booleans, with no signing marker, source, network or mutation',()=>{
+test('desk gate inspection reads only seven booleans, with no signing marker, source, network or mutation',()=>{
   const reads=[],c=vm.createContext({annalsUiCall_:(nonce,fn)=>{assert.equal(nonce,'fictional-owner-session');return fn();},annalsProps_:()=>({getProperty:name=>{reads.push(name);if(/SIGN|KEY|REMEDIAT/.test(name))assert.fail('Forbidden gate probe');return null;}})});
   vm.runInContext(readFileSync(new URL('../scripts/annals/RulesProduction.gs',import.meta.url),'utf8'),c);
-  const result=c.annalsReadStagedRuleGates('fictional-owner-session');assert.equal(result.ready,false);assert.equal(result.configurationOnly,true);assert.equal(reads.length,6);
+  const result=c.annalsReadStagedRuleGates('fictional-owner-session');assert.equal(result.ready,false);assert.equal(result.configurationOnly,true);assert.equal(reads.length,7);assert.equal(result.automaticOldestEnabled,false);
   assert.ok(Object.values(result).every(v=>typeof v==='boolean'));
 });
 test('public completion clock rejects failed, running, altered, future and incomplete producer evidence',()=>{
@@ -392,4 +392,85 @@ test('an in-flight stage winning a cancellation race permits one freshly authent
   now='2026-10-15T18:13:00.000Z';assert.throws(()=>c.annalsCancelStagedRule('fictional-owner','fixture','deployment_failed'),/exhausted/);
   now='2026-10-15T18:07:00.000Z';state=cancelStaged({state,envelope:dispatches[1].payload.envelope,secret:key,enabled:true,now:new Date(now)}).state;
   now='2026-10-15T18:13:00.000Z';assert.equal(c.annalsCancelStagedRule('fictional-owner','fixture','deployment_failed'),true,'An already committed tombstone is reconciled instead of consuming another attempt');assert.equal(privateFiles.get('root/col-release-pending-private.json').state,'verified_cancelled');assert.equal(dispatches.length,2);
+});
+
+function oldestFixture(){
+  const before='## DRAFT - ORDER OF BUSINESS\n\n### FIRST - Blood Diamonds\n\nExisting fictional protection.\n\n### SECOND - Steals\n\nExisting fictional Steal order.\n\n### THIRD - Devil’s Share\n\nExisting fictional award.';
+  const base={id:'col-baseline-fictional',digest:'a'.repeat(64),previous:null,verified:true,
+    effectiveAt:'2026-10-15T17:00:00.000Z',publishedAt:'2026-10-15T17:00:00.000Z',
+    provisions:{'DRAFT - ORDER OF BUSINESS':before},parameters:{fictionalTokens:7},januaryGap:'unresolved'};
+  const source={senderAuthenticated:true,freshOperativeWindow:true,member:'marc',
+    text:'Whoever had the oldest death in the year gets a steal. This is effective immediately',receivedAt:t0};
+  const revision=Rules.oldestSteal(source,base,'col-fictional-oldest-0001');
+  const register={schemaVersion:1,baseline:{id:base.id,recordedAt:base.effectiveAt,description:'Fictional baseline only.'},revisions:[],events:[]};
+  const versions={schemaVersion:1,versions:[base]};
+  const files={'data/col-rules-register.json':JSON.stringify(register),'data/col-rules-versions.json':JSON.stringify(versions),
+    'docs/celebration-of-life-rules.md':'# Fictional only\n\n'+before+'\n\n---\n\nPreserve this note.',
+    'celebration.html':'<section id="official-rules"><details class="rule-topic"><summary>DRAFT - ORDER OF BUSINESS</summary><p>Old fictional rules</p></details>\n      <p class="rules-reference">Preserve this reference.</p></section>',
+    'col-revisions.html':renderRegister(register)};
+  const content={revision:{...Rules.publicRecord(revision),baseDigest:base.digest},qualification:'oldest-death-steal-v1',
+    baseFiles:snapshotHashes(files),implementationCommit:commit,behaviorDigest:behavior,source:null};
+  const state=clone(EMPTY_STATE);
+  const args={state,files,envelope:sign('stage',state,content,t0),secret:key,enabled:true,now:new Date(t0),
+    implementationCommit:commit,behaviorDigest:behavior,sourceWitness:witness(t0)};
+  return {source,base,revision,args};
+}
+
+test('authenticated oldest-death email is mapped to the single canonical semantic rule',()=>{
+  const f=oldestFixture(),change=f.revision.changes[0];
+  assert.equal(f.revision.state,'awaiting_implementation');
+  assert.equal(change.before,f.base.provisions['DRAFT - ORDER OF BUSINESS']);
+  assert.equal(change.after.split(Rules.OLDEST_DEATH_STEAL_CLAUSE).length,2);
+  assert.ok(change.after.includes('### FIRST - Blood Diamonds'));
+  assert.ok(change.after.includes('### THIRD - Devil’s Share'));
+  assert.equal(f.revision.effectiveAt,null);
+  assert.equal(f.revision.retrospective.requested,false);
+  for(const source of [{text:'Is whoever has the oldest death entitled to a Steal?'},{text:'Someone joked: whoever had the oldest death in the year gets a steal.'},
+    {senderAuthenticated:false},{freshOperativeWindow:false},{replayed:true},{truncated:true}]){
+    assert.throws(()=>Rules.oldestSteal({...f.source,...source},f.base,f.revision.id),/exact authenticated/);
+  }
+  assert.throws(()=>Rules.oldestSteal(f.source,{...f.base,provisions:{'DRAFT - ORDER OF BUSINESS':change.after}},f.revision.id),/unchanged base/);
+});
+
+test('canonical oldest-death change stages without changing the old operative rules',()=>{
+  const f=oldestFixture(),original=JSON.stringify(f.args),stage=stageCandidate(f.args);
+  assert.equal(JSON.stringify(f.args),original);
+  const version=JSON.parse(stage.candidate.files['data/col-rules-versions.json']).versions.at(-1);
+  assert.equal(version.verified,false);assert.equal(version.publishedAt,null);assert.equal(version.effectiveAt,null);
+  assert.deepEqual(version.parameters,f.base.parameters);
+  assert.ok(stage.candidate.files['docs/celebration-of-life-rules.md'].includes(Rules.OLDEST_DEATH_STEAL_CLAUSE));
+  assert.equal(Rules.select(JSON.parse(stage.candidate.files['data/col-rules-versions.json']).versions,t1).id,f.base.id);
+  assert.throws(()=>stageCandidate({...f.args,state:stage.state,
+    envelope:sign('stage',stage.state,f.args.envelope.content,t1),now:new Date(t1),sourceWitness:witness(t1)}),/pending operation/);
+});
+
+test('mutated oldest-death semantic data, stale base and mismatched class cannot stage',()=>{
+  const f=oldestFixture();
+  for(const mutator of [
+    c=>{c.revision.changes[0].after=c.revision.changes[0].after.replace('one Steal','two Steals');},
+    c=>{c.revision.changes[0].after=c.revision.changes[0].after.replace('calendar year','calendar month');},
+    c=>{c.revision.explanation='Model claims this is safe';},
+    c=>{c.revision.effectiveAt='2026-10-01T00:00:00.000Z';},
+    c=>{c.revision.retrospective={requested:true};},
+    c=>{c.qualification='literal-typography-v1';},
+    c=>{c.revision.baseDigest='f'.repeat(64);}
+  ]){
+    const content=clone(f.args.envelope.content);mutator(content);
+    assert.throws(()=>stageCandidate({...f.args,envelope:sign('stage',f.args.state,content,t0)}));
+  }
+  assert.throws(()=>stageCandidate({...f.args,enabled:false}),/disabled/);
+});
+
+test('oldest-death ready snapshot becomes operative only after the independent complete job witness',async()=>{
+  const f=oldestFixture(),stage=stageCandidate(f.args),authorizationArgs=authorization(stage),authorized=authorizeActivation(authorizationArgs);
+  const content={candidateDigest:stage.candidateDigest,activationDigest:authorized.activationDigest,observedAt:t2,
+    source:stage.candidate.source,baseFiles:stage.candidate.baseFiles};
+  const confirmArgs={...authorizationArgs,state:authorized.state,activation:authorized.activation,
+    envelope:sign('confirm',authorized.state,content,t2),now:new Date(t2),sourceWitness:witness(t2),producer};
+  const result=confirmActivation(confirmArgs),w={stage,authorized,result};
+  const admitted=await loadOperativeSnapshot({fetchImpl:hosted(w),now:Date.parse(t3)});
+  assert.equal(admitted.version.verified,true);
+  assert.equal(admitted.version.effectiveAt,t3);
+  assert.equal(admitted.version.provisions['DRAFT - ORDER OF BUSINESS'].includes(Rules.OLDEST_DEATH_STEAL_CLAUSE),true);
+  assert.equal((await loadOperativeSnapshot({fetchImpl:hosted(w,{fail:'data/col-releases/'+stage.candidateDigest+'-confirmed.json'}),now:Date.parse(t3)})),null);
 });

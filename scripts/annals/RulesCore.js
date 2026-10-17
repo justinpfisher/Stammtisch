@@ -96,6 +96,27 @@ var AnnalsRules = (function () {
       throw new Error('Exact unquoted replacement instruction required for automatic wording');
     return {kind:'literal-typography-v1',provision:c.provision};
   }
+  // A narrowly defined semantic amendment. No model is permitted to author
+  // executable code or choose an alternative calculation for this template.
+  var OLDEST_DEATH_STEAL_CLAUSE='Whoever had the oldest celebrity death in the previous calendar year also gets one Steal at the next draft. If needed, compare ages at death to the day level.';
+  var OLDEST_DEATH_STEAL_EXPLANATION='One Steal at the next January draft for the member with the oldest celebrity death of the previous calendar year.';
+  function oldestSteal(source,base,revisionId){
+    if(!source||source.senderAuthenticated!==true||source.freshOperativeWindow!==true||
+      source.replayed===true||source.truncated===true||typeof source.text!=='string'||
+      !/^whoever had the oldest death in the year gets a steal\. this is effective immediately\.?$/i.test(source.text.trim().replace(/\s+/g,' ')))
+      throw new Error('Oldest-death Steal requires the exact authenticated operative instruction');
+    var before=base&&base.provisions&&base.provisions['DRAFT - ORDER OF BUSINESS'];
+    var marker='\n\n### THIRD - Devil’s Share';
+    if(typeof before!=='string'||before.indexOf('### SECOND - Steals')<0||
+      before.split(marker).length!==2||before.indexOf(OLDEST_DEATH_STEAL_CLAUSE)>=0)
+      throw new Error('Oldest-death award must bind an eligible unchanged base');
+    var after=before.replace(marker,'\n\n'+OLDEST_DEATH_STEAL_CLAUSE+marker);
+    var assessment={intent:'operative',requestExcerpt:source.text,
+      changes:[{provision:'DRAFT - ORDER OF BUSINESS',before:before,after:after,sourceExcerpt:source.text}],
+      explanation:OLDEST_DEATH_STEAL_EXPLANATION,clarification:'',effectiveAt:'',
+      retrospective:{requested:false,period:'',results:'',clubAgreementExcerpt:''},correctionOf:''};
+    return intake(source,assessment,base,revisionId);
+  }
   function publicRecord(r){
     [r.explanation].concat(r.changes.map(function(c){return c.after;})).forEach(function(s){if(typeof s!=='string'||/[\w.+-]+@[\w.-]+\.[a-z]{2,}|https?:\/\/|<[^>]+>|\b(?:password|passcode|api key|home address)\b/i.test(s))throw new Error('Private content cannot enter public revision');});
     if(MEMBERS.indexOf(r.member)<0||STATUS.indexOf(r.state)<0)throw new Error('Invalid public revision');
@@ -104,6 +125,6 @@ var AnnalsRules = (function () {
       explanation:text(r.explanation,1000),changes:r.changes.map(function(c){return {provision:text(c.provision,100),before:text(c.before,6000),after:text(c.after,6000)};}),
       correctionOf:r.correctionOf===null?null:id(r.correctionOf)};
   }
-  return Object.freeze({provisions:provisions,intake:intake,qualify:qualify,publish:publish,select:select,publicRecord:publicRecord,stamp:stamp,typography:typography,literalWording:literalWording});
+  return Object.freeze({provisions:provisions,intake:intake,qualify:qualify,publish:publish,select:select,publicRecord:publicRecord,stamp:stamp,typography:typography,literalWording:literalWording,oldestSteal:oldestSteal,OLDEST_DEATH_STEAL_CLAUSE:OLDEST_DEATH_STEAL_CLAUSE,OLDEST_DEATH_STEAL_EXPLANATION:OLDEST_DEATH_STEAL_EXPLANATION});
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=AnnalsRules;

@@ -74,7 +74,10 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}, polic
   const oldestEvents = oldestCandidates.filter(x => x.ageInDays === oldestAgeDays);
   const oldestOwners = unique(oldestEvents.flatMap(x => x.owners.map(p => p.memberId)));
   const oldestIncomplete = undated > 0 || events.some(x => x.owners.length && (!x.diedOn || !x.ageConfirmed || !Number.isFinite(x.ageInDays)));
-  const oldestFinal = final && !oldestIncomplete;
+  // A tie-breaking rule was not supplied. Show contenders but do not
+  // invent an award when distinct members share the oldest verified age.
+  const oldestTieUnresolved = oldestOwners.length > 1;
+  const oldestFinal = final && !oldestIncomplete && !oldestTieUnresolved;
   const cards = [{ id:'pool-prize', title:'The $100 prize', status:leader.length > 1 ? (final ? 'Shared winners' : 'Tied on points') : final ? 'Winner' : 'Leading',
     value:names(leader), description:`${leader[0]?.score ?? 0} points · ${final ? 'Final register' : 'Year to date'}`,
     details:leader.length > 1 ? ['Tied winners share the $100 prize.'] : ['The highest score from January 1 to December 31 wins.'] },
@@ -90,11 +93,11 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}, polic
     details:lowest.length > 1 ? ['Every player tied for the lowest score receives Devil’s Share and chooses their own Steal or Blood Diamond.'] : ['Based on the lowest score for the year. The player makes the choice at the draft.'] }];
   if (policy.oldestDeathSteal === true) cards.push({
     id:'oldest', title:'Oldest celebrity',
-    status:oldestAgeDays === null ? 'Awaiting verified dates' : oldestFinal ? 'Eligible at the next draft' : 'Provisional contenders',
+    status:oldestAgeDays === null ? 'Awaiting verified dates' : oldestTieUnresolved ? 'Tie unresolved' : oldestFinal ? 'Eligible at the next draft' : 'Provisional contenders',
     value:oldestOwners.length ? names(members.filter(m => oldestOwners.includes(m.id))) : 'No confirmed contender yet',
     description:oldestAgeDays === null ? 'One Steal at the next draft.' : 'Oldest verified age: '+oldestEvents[0].age+' years · One Steal at the next draft',
     details:oldestEvents.map(x => x.name+' · '+x.ageInDays.toLocaleString('en-CA')+' days old · '+names(x.owners.map(p => ({name:p.memberName}))))
-      .concat(oldestEvents.length > 1 ? ['Exact age ties share the benefit; each eligible member receives one Steal.'] : [],
+      .concat(oldestTieUnresolved ? ['An exact tie remains unresolved; no Steal is final until the club records a tie decision.'] : [],
         oldestIncomplete ? ['Some dates or ages remain unverified; final eligibility is not yet established.'] : [])
   });
 

@@ -10,7 +10,7 @@ pending-status route remains available.
 
 ## Exactly what this implementation can qualify
 
-The automatic class is `literal-typography-v1`: one existing CoL provision with
+The original automatic class is `literal-typography-v1`: one existing CoL provision with
 unchanged words, numbers, punctuation, paragraph boundaries, headings,
 qualifications and exceptions. Only horizontal spacing, nonbreaking spaces and
 straight/curly typography of an existing apostrophe may differ. The authenticated
@@ -23,9 +23,28 @@ model-invented public explanatory claims.
 This recognized form is an automatic implementation class, not a requirement that
 members use a form or command. Other natural prose still receives interpretation
 and a private outcome. An exact source excerpt, an AI `meaningVerified` assertion,
-or a source digest does **not** prove semantic equivalence. Changed meaning,
+or a source digest does **not** prove semantic equivalence. Arbitrary changed meaning,
 parameters, amounts, formulas, allocations, qualifications, retrospective effects
-and corrections/reversals remain awaiting bounded engineering. No such operative
+and corrections/reversals remain awaiting bounded engineering.
+
+**Prepared but not activated (17 October):** the new exact `oldest-death-steal-v1`
+semantic template adds one previously absent, precisely specified annual draft
+benefit to the existing Steals section, leaving all other rule words intact.
+It is accepted only for the exact standalone authenticated source directive
+“Whoever had the oldest death in the year gets a steal. This is effective
+immediately” and a fresh rule-intake boundary. Private `RulesCore.js` and
+hosted `RulesStaged.mjs` independently enforce the canonical clause,
+unchanged current base, default prospective timestamp, unaltered executable
+parameters, signed source, one-shot IDs and complete hosted witness. The
+calculation remains dormant until the reader independently admits the exact
+clause in a verified operative version. Uncertain ties or deaths are not
+silently decided.
+
+The member's original 16 October source was staged before these eligibility
+gates and is **not** automatically replayed or promoted by this work. It needs
+an appropriately authorised private continuation without resetting its source
+or consumption history. There has been no genuine staged release, audit entry,
+new private Apps Script installation, signing remediation or activation. No such operative
 implementation is enabled here.
 
 The six-member authority remains sufficient; engineering qualification is not
@@ -227,7 +246,10 @@ unchanged.
 
 Private gates: existing rules readiness plus `ANNALS_RULES_V3_ENABLED`,
 `ANNALS_RULES_V3_HOSTED_ACCEPTED`, `ANNALS_RULES_V3_CLOCK_QUALIFIED`; automatic
-initial staging also requires `ANNALS_RULES_V3_AUTO_LITERAL_ENABLED`. Hosted gates:
+initial typography staging also requires `ANNALS_RULES_V3_AUTO_LITERAL_ENABLED`.
+The independent oldest-death template additionally requires the private
+`ANNALS_RULES_V3_AUTO_OLDEST_ENABLED` gate (default false/unset); it must not
+be enabled before complete signing and genuine hosted acceptance. Hosted gates:
 `ANNALS_RULES_V3_RELEASE_ENABLED`, `ANNALS_RULES_V3_HOSTED_ACCEPTED`,
 `ANNALS_RULES_V3_CLOCK_QUALIFIED`, and the existing independently verified signing
 remediation gate. Missing means false. No property, variable, key or remediation

@@ -18,9 +18,10 @@ clock. The incumbent rules and previous awards remain operative.
   evidence. Compare full birth and independently confirmed death dates in days.
 - Award only for eligible numbered picks; Birthday Buffet allocations are not
   automatically converted into draft Steals.
-- An exact age tie can include more than one holder. Each tied eligible member
-  is shown as a contender and receives at most one oldest-death Steal; a member
-  holding two equally old passings does not receive two Steals from this rule.
+- An exact age tie between members leaves the award provisional until the club
+  has recorded an actual tie decision. Do not manufacture a shared-award rule.
+  A member holding two equally old passings does not receive two Steals from
+  this single annual distinction.
 - Show a provisional preview when the season or required source dates remain
   unfinalised; never invent missing facts or claim an award is final prematurely.
 - The change concerns next-draft benefits, not signed points, historical awards,
@@ -34,12 +35,15 @@ clock. The incumbent rules and previous awards remain operative.
 
 ## Remaining work before genuine adoption
 
-1. Extend the currently typography-only implementation pathway with a narrowly
-   typed, source-grounded oldest-death-benefit release class, or use the existing
-   bounded engineering bundle with independent meaning, code and source checks.
-   Any AI-produced change must be examined by independent tests and a current
-   authoritative source witness; arbitrary email-supplied code is forbidden.
-2. Complete genuine end-to-end v3 release acceptance and signing remediation.
+1. The prepared `oldest-death-steal-v1` candidate builder and gated private
+   intake provide a narrowly typed implementation class. The exact member
+   directive becomes canonical wording attached to authenticated source data;
+   hosted staging checks that wording against the current rules and independent
+   source/implementation witnesses. This is neither an arbitrary generative
+   code publisher nor a live adoption.
+2. Install the updated private source in the same owner-only deployment,
+   preserving the manifest, one trigger and one-shot history. Complete genuine
+   end-to-end v3 release acceptance and signing remediation.
    Per owner instruction, **all credential replacement is deferred to the final
    security stage**. Leave all new CoL, Photo and History gates disabled until
    that stage is genuinely complete.
