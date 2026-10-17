@@ -1,3 +1,18 @@
+> **Latest release checkpoint — 17 October 2026 (GitHub merged; private acceptance incomplete):**
+> Public `main` contains [PR #94](https://github.com/justinpfisher/Stammtisch/pull/94) (supervised CoL acceptance)
+> and [PR #95](https://github.com/justinpfisher/Stammtisch/pull/95) (owner-only signing diagnostic).
+> The last independently verified private installation is **Stammtisch Annals — Production v32**;
+> newer merged private source is **not confirmed installed**. A genuine 17 October
+> read-only check confirmed old private/public signatures rejected, new private
+> signing valid and GitHub signing-key consistency at that moment. **This is not**
+> the required immutable signing-qualification record or permission to activate.
+> Do not re-rotate keys based solely on stale incident notes. Verify live owner-only
+> state, outstanding/uncertain operations and the historical missing withdrawal
+> proof; then diagnose the blocked recorder using a newly fresh challenge.
+> Leave ordinary, photo, History and CoL publication gates closed until separately
+> qualified. See [current signing handoff](docs/annals-signing-consistency.md)
+> and [Issue #24](https://github.com/justinpfisher/Stammtisch/issues/24).
+
 > **Latest engineering continuation:** [Bounded photos, staged CoL release and final acceptance](docs/annals-automation-completion-2026-10-15.md).
 > This supersedes older 32 KiB transport and unfinished-protocol descriptions only within its stated scope.
 > Preserve historical observations below; all new publication gates remain off.
