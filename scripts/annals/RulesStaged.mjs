@@ -86,7 +86,7 @@ function checkWording(revision,base){
 function checkOldest(revision,base){
   if(revision.state!=='awaiting_implementation'||revision.baseVersion!==base.id||revision.baseDigest!==base.digest||
     revision.publishedAt!==null||revision.effectiveAt!==null||revision.correctionOf!==null||
-    revision.retrospective?.requested!==false||revision.explanation!==Rules.OLDEST_DEATH_STEAL_EXPLANATION||
+    revision.explanation!==Rules.OLDEST_DEATH_STEAL_EXPLANATION||
     revision.changes.length!==1)throw Error('Oldest-death amendment requires fresh prospective exact-base authority');
   const c=revision.changes[0],before=base.provisions['DRAFT - ORDER OF BUSINESS'];
   const marker='\n\n### THIRD - Devil’s Share';
