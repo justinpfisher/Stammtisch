@@ -1,6 +1,6 @@
 /* V3 immutable candidate + independently authenticated activation protocol.
  * No live call is made when imported. No supplied code/HTML is executed.
- * Only the literal typography class is implemented; semantic changes stay held.
+ * Only registered deterministic templates may change meaning. Other semantic changes stay held.
  */
 import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
 import Rules from './RulesCore.js';
@@ -83,19 +83,35 @@ function checkWording(revision,base){
   if(c.before!==base.provisions[c.provision]||c.after===c.before||Rules.typography(c.after)!==Rules.typography(c.before)||c.after.split('\n')[0]!==c.before.split('\n')[0])throw Error('Parameters, formulas, allocations and semantic edits require engineering');
   const clean=Rules.publicRecord(revision);if(digest({...clean,baseDigest:revision.baseDigest})!==digest(revision))throw Error('Private or extra candidate fields');
 }
+function checkOldest(revision,base){
+  if(revision.state!=='awaiting_implementation'||revision.baseVersion!==base.id||revision.baseDigest!==base.digest||
+    revision.publishedAt!==null||revision.effectiveAt!==null||revision.correctionOf!==null||
+    revision.retrospective?.requested!==false||revision.explanation!==Rules.OLDEST_DEATH_STEAL_EXPLANATION||
+    revision.changes.length!==1)throw Error('Oldest-death amendment requires fresh prospective exact-base authority');
+  const c=revision.changes[0],before=base.provisions['DRAFT - ORDER OF BUSINESS'];
+  const marker='\n\n### THIRD - Devil’s Share';
+  if(c.provision!=='DRAFT - ORDER OF BUSINESS'||c.before!==before||typeof before!=='string'||
+    before.indexOf('### SECOND - Steals')<0||before.split(marker).length!==2||
+    before.indexOf(Rules.OLDEST_DEATH_STEAL_CLAUSE)>=0||
+    c.after!==before.replace(marker,'\n\n'+Rules.OLDEST_DEATH_STEAL_CLAUSE+marker))
+    throw Error('Exact supported oldest-death calculation and wording required');
+  const clean=Rules.publicRecord(revision);
+  if(digest({...clean,baseDigest:revision.baseDigest})!==digest(revision))throw Error('Unexpected oldest-death candidate fields');
+}
 export function stageCandidate({state,files,envelope,secret,enabled=false,now=new Date(),implementationCommit,behaviorDigest,sourceWitness,basePublishedAt=null}){
   if(enabled!==true)throw Error('Staged rules disabled');
   const content=verifyEnvelope(envelope,'stage',state,secret,now);
   exact(content,['revision','qualification','baseFiles','implementationCommit','behaviorDigest','source']);
   if(state.operations.length>=5000||state.events.length>=19996||serializedBytes(state)>MAX_LEDGER_BYTES-16384)throw Error('Release ledger capacity reached; preserve current version');
   if(state.operations.some(op=>!['release_pending','failed'].includes(op.phase)))throw Error('Reconcile the single pending operation first');
-  if(content.qualification!=='literal-typography-v1'||content.implementationCommit!==implementationCommit||content.behaviorDigest!==behaviorDigest||!hex(behaviorDigest)||digest(content.baseFiles)!==digest(snapshotHashes(files)))throw Error('Candidate implementation or exact base mismatch');
+  if(!['literal-typography-v1','oldest-death-steal-v1'].includes(content.qualification)||content.implementationCommit!==implementationCommit||content.behaviorDigest!==behaviorDigest||!hex(behaviorDigest)||digest(content.baseFiles)!==digest(snapshotHashes(files)))throw Error('Candidate implementation or exact base mismatch');
   if(content.source!==null)throw Error('Candidate source comes only from the independent Viewer observation');
   validateSource(sourceWitness,sourceWitness,implementationCommit,now);
   const projected=currentOperation(state)?materializeFiles(files,currentOperation(state),basePublishedAt):files;
   const {register,versions,markdown,html}=snapshot(projected),base=Rules.select(versions.versions,clock(now));
   if(currentOperation(state)&&currentOperation(state).revisionId!==base.id)throw Error('Current snapshot differs from operative release');
-  checkWording(content.revision,base);
+  if(content.qualification==='literal-typography-v1')checkWording(content.revision,base);
+  else checkOldest(content.revision,base);
   if(digest(Rules.provisions(markdown))!==digest(base.provisions)||register.revisions.some(r=>r.id===content.revision.id)||state.events.some(op=>op.revisionId===content.revision.id)||state.operations.some(op=>op.revisionId===content.revision.id))throw Error('Stale narrative or replayed revision');
   const c=content.revision.changes[0],provisions={...base.provisions,[c.provision]:c.after};
   if(markdown.split(c.before).length!==2)throw Error('Exact narrative boundary required');
