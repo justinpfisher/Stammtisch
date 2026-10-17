@@ -18,9 +18,10 @@ clock. The incumbent rules and previous awards remain operative.
   evidence. Compare full birth and independently confirmed death dates in days.
 - Award only for eligible numbered picks; Birthday Buffet allocations are not
   automatically converted into draft Steals.
-- An exact age tie can include more than one holder. Each tied eligible member
-  is shown as a contender and receives at most one oldest-death Steal; a member
-  holding two equally old passings does not receive two Steals from this rule.
+- An exact age tie between members leaves the award provisional until the club
+  has recorded an actual tie decision. Do not manufacture a shared-award rule.
+  A member holding two equally old passings does not receive two Steals from
+  this single annual distinction.
 - Show a provisional preview when the season or required source dates remain
   unfinalised; never invent missing facts or claim an award is final prematurely.
 - The change concerns next-draft benefits, not signed points, historical awards,
