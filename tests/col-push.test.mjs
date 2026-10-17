@@ -153,3 +153,11 @@ test('public subscription includes Android instructions and requires no pilot UR
   assert.match(html, /Home Screen is optional/);
   assert.match(html, /Each device has its own subscription/);
 });
+
+
+test('public fallback does not claim that the active public push service is still pilot-only', () => {
+  if (config.mode === 'public') {
+    assert.doesNotMatch(html, /Pilot only\. Public notifications are off/);
+    assert.match(html, /Web notifications are optional and depend on your browser\./);
+  }
+});
