@@ -22,6 +22,33 @@ export const SITE_FILES=Object.freeze([
 const MAX_BYTES=1024*1024;
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 
+/** Consume a Fetch stream incrementally and cancel before retaining oversized bodies. */
+async function readBoundedBody(response,name){
+  const reader=response.body?.getReader?.();
+  if(!reader)throw Error('Live public file unreadable: '+name);
+  const chunks=[];
+  let total=0;
+  try{
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      const chunk=Buffer.from(value);
+      total+=chunk.length;
+      if(total>MAX_BYTES){
+        try{await reader.cancel();}catch{}
+        throw Error('Live public file exceeds bound: '+name);
+      }
+      chunks.push(chunk);
+    }
+  }catch(error){
+    if(error?.message==='Live public file exceeds bound: '+name)throw error;
+    throw Error('Live public file unreadable: '+name);
+  }finally{
+    try{reader.releaseLock?.();}catch{}
+  }
+  return Buffer.concat(chunks,total);
+}
+
 /** Fixed, publicly accessible inputs only. No caller-selected URL or path. */
 export async function observeHostedSite({fetchImpl=fetch,readFileImpl=readFile,clock=()=>new Date()}={}){
   const started=clock();
@@ -43,16 +70,14 @@ export async function observeHostedSite({fetchImpl=fetch,readFileImpl=readFile,c
       });
     }catch{throw Error('Live public file unavailable: '+name);}
     if(!response||response.status!==200||response.redirected===true||
-       typeof response.arrayBuffer!=='function')
+       typeof response.body?.getReader!=='function')
       throw Error('Live public file unavailable: '+name);
     const reported=response.headers?.get?.('content-length');
     if(reported!==null&&reported!==undefined&&
-       (!/^\d+$/.test(String(reported))||Number(reported)>MAX_BYTES))
+       (!/^\\d+$/.test(String(reported))||Number(reported)>MAX_BYTES))
       throw Error('Live public file exceeds bound: '+name);
-    let bytes;
-    try{bytes=Buffer.from(await response.arrayBuffer());}
-    catch{throw Error('Live public file unreadable: '+name);}
-    if(bytes.length===0||bytes.length>MAX_BYTES||digest(bytes)!==expected)
+    const bytes=await readBoundedBody(response,name);
+    if(bytes.length===0||digest(bytes)!==expected)
       throw Error('Live public file differs from source: '+name);
     observed.push(Object.freeze({path:name,sha256:expected,bytes:bytes.length}));
   }
@@ -77,7 +102,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   let accepted=false;
   for(let attempt=1;attempt<=18;attempt++){
     try{
-      process.stdout.write(JSON.stringify(await observeHostedSite(),null,2)+'\n');
+      process.stdout.write(JSON.stringify(await observeHostedSite(),null,2)+'\\n');
       accepted=true;break;
     }catch{
       if(attempt<18)await new Promise(resolve=>setTimeout(resolve,10000));
