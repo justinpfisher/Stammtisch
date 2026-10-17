@@ -298,9 +298,63 @@ function annalsRuleContext_(){
   if(current){var latest=versions[versions.length-1];if(latest.id!==current.revisionId||latest.verified!==false||latest.effectiveAt!==null)throw new Error('Unexpected ready version');versions[versions.length-1]=Object.assign({},latest,{verified:true,publishedAt:publicationAt,effectiveAt:publicationAt,confirmedAt:publicationAt});}
   return {commit:commit,state:state,files:files,baseFiles:hashes,behaviorDigest:behavior,base:AnnalsRules.select(versions,new Date().toISOString()),publicationAt:publicationAt};
 }
+/** One-time owner-only continuation of an already authenticated but pre-gate
+ * source. The saved intake/source is never edited or replayed. No other historic
+ * proposal becomes eligible merely because this function exists. */
+function annalsHistoricOldestSource_(f,source){
+  return !!(source&&source.rulesAuthorityVersion===2&&source.rulesActivationEligible===false&&
+    source.senderAuthenticated===true&&source.aiConsentActive===true&&source.autoConsentAtReceipt===true&&
+    source.protectiveRoute==='col_proposal'&&source.source&&!source.source.sourceTruncated&&
+    !source.source.subjectTruncated&&!source.source.excerptTruncated&&
+    typeof source.source.excerpt==='string'&&
+    /^whoever had the oldest death in the year gets a steal\\. this is effective immediately\\.?$/i.test(source.source.excerpt.trim().replace(/\\s+/g,' '))&&
+    !annalsFile_(f,'quarantine-private.json')&&!annalsFile_(f,'col-proposal-private.json')&&
+    !annalsFile_(f,'ai-attempt-private.json'));
+}
+function annalsHistoricOldestContinuationReady_(f,source){
+  return annalsHistoricOldestSource_(f,source)&&
+    !annalsFile_(f,'col-oldest-continuation-private.json')&&
+    !annalsFile_(f,'col-rule-request-private.json')&&
+    !annalsFile_(f,'col-v3-stage-dispatch-private.json')&&
+    !annalsFile_(f,'col-v3-live-private.json')&&
+    annalsConsentActive_(source.source.sender)&&
+    annalsStandingPublicationActive_(source.source.sender,source.source.receivedAt);
+}
+function annalsContinueHistoricOldestRule(nonce,id){
+  return annalsUiCall_(nonce,function(){return annalsLocked_(function(){
+    var p=annalsProps_();
+    if(!annalsStagedRulesReady_()||p.getProperty('ANNALS_RULES_V3_AUTO_OLDEST_ENABLED')!=='true')
+      throw new Error('Current signing, hosted and template qualification required');
+    var f=annalsFolder_(id),source=annalsRead_(f,'source-private.json');
+    if(!annalsHistoricOldestContinuationReady_(f,source))
+      throw new Error('Only one unconsumed authenticated historic oldest-death request may continue');
+    var pending=annalsRead_(annalsRoot_(),'col-release-pending-private.json');
+    if(pending&&['verified_live','verified_cancelled'].indexOf(pending.state)<0)
+      throw new Error('Another rule release needs exact reconciliation');
+    var context=annalsRuleContext_(),member=annalsSpeakerIdentities_()[source.source.sender];
+    var request=AnnalsRules.oldestSteal({senderAuthenticated:true,member:member,
+      freshOperativeWindow:true,replayed:false,truncated:false,
+      text:source.source.excerpt,receivedAt:source.source.receivedAt},
+      context.base,'col-'+id.slice(0,24));
+    // This is a new, explicitly authenticated engineering continuation, not
+    // retroactive modification of the source's false initial eligibility.
+    annalsWriteOnce_(f,'col-oldest-continuation-private.json',{
+      schemaVersion:1,kind:'historic-owner-oldest-v1',sourceId:id,
+      receivedAt:source.source.receivedAt,authorizedAt:new Date().toISOString(),
+      state:'reserved'});
+    annalsWriteOnce_(f,'col-rule-request-private.json',request);
+    var result=annalsStageOldestRule_(id);
+    return {continuationRecorded:true,dispatchAccepted:!!(result&&result.dispatchAccepted),
+      published:false,retryAllowed:false};
+  });});
+}
 function annalsRuleFreshSource_(id){
   var f=annalsFolder_(id),source=annalsRead_(f,'source-private.json'),request=annalsRead_(f,'col-rule-request-private.json');
-  if(!source||source.rulesAuthorityVersion!==2||source.rulesActivationEligible!==true||source.senderAuthenticated!==true||!source.aiConsentActive||
+  var historic=annalsRead_(f,'col-oldest-continuation-private.json');
+  var resumed=!!(historic&&historic.schemaVersion===1&&historic.kind==='historic-owner-oldest-v1'&&
+    historic.state==='reserved'&&historic.sourceId===id&&source&&source.source&&
+    historic.receivedAt===source.source.receivedAt&&annalsHistoricOldestSource_(f,source));
+  if(!source||source.rulesAuthorityVersion!==2||(!source.rulesActivationEligible&&!resumed)||source.senderAuthenticated!==true||!source.aiConsentActive||
     !annalsConsentActive_(source.source.sender)||!annalsStandingPublicationActive_(source.source.sender,source.source.receivedAt)||annalsFile_(f,'quarantine-private.json'))throw new Error('Current authenticated private request and permissions required');
   return {folder:f,source:source,request:request};
 }
