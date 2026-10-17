@@ -215,3 +215,54 @@ test('empty records give no invented badge holders, and names are escaped in bot
   assert.doesNotMatch(awardsMarkup(model)+draftMarkup(model),/<img/);
   assert.match(awardsMarkup(model),/&lt;img/);
 });
+
+test('oldest-death Steal is dormant until a verified rule policy activates it', () => {
+  const data=season([
+    member('older',10,[pick('Older fictional pick',{born:'1920-01-01',actualDeathDate:'2026-03-01'})]),
+    member('younger',11,[pick('Younger fictional pick',{born:'1930-01-01',actualDeathDate:'2026-03-01'})])
+  ]);
+  const baseline=calculateAwards(data);
+  assert.equal(card(baseline,'oldest'),undefined);
+  assert.equal(baseline.draft.flatMap(x=>x.benefits).some(x=>x.reason==='Oldest celebrity death of the year'),false);
+  const enabled=calculateAwards(data,{}, {oldestDeathSteal:true});
+  assert.equal(card(enabled,'oldest').value,'older');
+  assert.equal(enabled.officialAwardCards,4);
+  assert.equal(enabled.draft.find(x=>x.id==='older').benefits.filter(x=>x.reason==='Oldest celebrity death of the year').length,1);
+  assert.equal(enabled.draft.find(x=>x.id==='younger').benefits.some(x=>x.reason==='Oldest celebrity death of the year'),false);
+  assert.equal(card(enabled,'youngest').value,'younger');
+});
+
+test('verified exact age ties give each eligible holder one provisional oldest-death Steal', () => {
+  const data=season([
+    member('a',10,[pick('First fictional pick',{born:'1920-01-01',actualDeathDate:'2026-02-01'})]),
+    member('b',10,[pick('Second fictional pick',{born:'1920-01-01',actualDeathDate:'2026-02-01'})]),
+    member('c',10,[pick('Later fictional pick',{born:'1930-01-01',actualDeathDate:'2026-02-01'})])
+  ]);
+  const result=calculateAwards(data,{}, {oldestDeathSteal:true});
+  assert.equal(card(result,'oldest').value,'a & b');
+  assert.match(card(result,'oldest').details.join(' '),/Exact age ties share the benefit/);
+  for (const id of ['a','b']) {
+    const benefits=result.draft.find(m=>m.id===id).benefits.filter(x=>x.reason==='Oldest celebrity death of the year');
+    assert.equal(benefits.length,1);
+    assert.equal(benefits[0].confirmed,false);
+  }
+  assert.equal(result.draft.find(m=>m.id==='c').benefits.some(x=>x.reason==='Oldest celebrity death of the year'),false);
+});
+
+test('missing death evidence prevents a final oldest-death award without altering scores', () => {
+  const data=season([
+    member('a',10,[pick('Dated fictional pick',{born:'1920-01-01',actualDeathDate:'2026-02-01'})]),
+    member('b',10,[pick('Undated fictional pick',{born:'1910-01-01',actualDeathDate:undefined})])
+  ]);
+  data.asOf='2026-12-31';
+  const before=JSON.stringify(data);
+  let result=calculateAwards(data,{finalizedYear:2026},{oldestDeathSteal:true});
+  assert.notEqual(card(result,'oldest').status,'Eligible at the next draft');
+  assert.equal(result.draft.find(m=>m.id==='a').benefits.filter(x=>x.reason==='Oldest celebrity death of the year')[0].confirmed,false);
+  data.members[1].picks[0].actualDeathDate='2026-02-01';
+  result=calculateAwards(data,{finalizedYear:2026},{oldestDeathSteal:true});
+  assert.equal(card(result,'oldest').value,'b');
+  assert.equal(card(result,'oldest').status,'Eligible at the next draft');
+  assert.equal(result.draft.find(m=>m.id==='b').benefits.filter(x=>x.reason==='Oldest celebrity death of the year')[0].confirmed,true);
+  assert.equal(JSON.parse(before).members[0].score,data.members[0].score);
+});
