@@ -1,0 +1,43 @@
+name: Public site exact-byte witness (read-only)
+
+# Verifies published static bytes; never deploys content or changes gates.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'annals.html'
+      - 'celebration.html'
+      - 'history.html'
+      - 'photos.html'
+      - 'data/annals-approved.json'
+      - 'data/club-history.json'
+      - 'data/photos/index.json'
+      - 'data/col-rules-register.json'
+      - 'data/col-rules-versions.json'
+      - 'data/col-rules-release-state.json'
+      - 'scripts/annals/observe-hosted-site.mjs'
+      - '.github/workflows/annals-site-exact-witness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-site-exact-witness
+  cancel-in-progress: true
+
+jobs:
+  observe:
+    if: github.repository == 'justinpfisher/Stammtisch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compare 11 deployed pages and indexes to checked-out public bytes
+        run: node scripts/annals/observe-hosted-site.mjs
