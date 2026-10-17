@@ -40,6 +40,29 @@ function annalsProcessRuleRequest_(id){
   annalsRuleNotice_(f,source.source.sender,'received','Your authenticated CoL request has been received for interpretation and implementation checks. The previous operative rules remain in force until a complete release is independently verified.');
   var pendingRelease=annalsRead_(annalsRoot_(),'col-release-pending-private.json');
   if(pendingRelease&&['verified_live','verified_cancelled'].indexOf(pendingRelease.state)<0)return false;
+  // One deterministic semantic template avoids a paid AI call or arbitrary code
+  // generation for this exact authenticated member instruction. All usual
+  // security/hosted gates and one-shot journals still govern publication.
+  var oldestText=(source.source.excerpt||'').trim().replace(/\s+/g,' ');
+  if(p.getProperty('ANNALS_RULES_V3_AUTO_OLDEST_ENABLED')==='true'&&annalsStagedRulesReady_()&&
+    /^whoever had the oldest death in the year gets a steal\. this is effective immediately\.?$/i.test(oldestText)){
+    try{
+      var semanticContext=annalsRuleContext_(),semanticMember=annalsSpeakerIdentities_()[source.source.sender];
+      var semanticSource={senderAuthenticated:true,member:semanticMember,freshOperativeWindow:true,replayed:false,
+        truncated:source.source.sourceTruncated===true,text:source.source.excerpt,receivedAt:source.source.receivedAt};
+      var semantic=AnnalsRules.oldestSteal(semanticSource,semanticContext.base,'col-'+id.slice(0,24));
+      annalsWriteOnce_(f,'col-rule-request-private.json',semantic);
+      var dispatched=annalsStageOldestRule_(id);
+      annalsRuleNotice_(f,source.source.sender,'outcome',dispatched&&dispatched.dispatchAccepted?
+        'Your oldest-death Steal amendment is being checked for publication. The existing rules remain in force until all independent checks complete.':
+        'Your oldest-death Steal amendment is recorded but could not yet be published. Do not resend it; the recorded attempt must be checked.');
+      return true;
+    }catch(held){
+      // If an exact source has already reserved its request or dispatch,
+      // never try a second route through the paid AI path.
+      return false;
+    }
+  }
   var fetched=UrlFetchApp.fetch('https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/col-rules-versions.json',{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true});
   if(fetched.getResponseCode()!==200)return false;
   var body=fetched.getContentText();if(body.length>200000)return false;
@@ -190,6 +213,7 @@ function annalsReadStagedRuleGates(nonce){
     var p=annalsProps_(),result={enabled:p.getProperty('ANNALS_RULES_V3_ENABLED')==='true',
       hostedAccepted:p.getProperty('ANNALS_RULES_V3_HOSTED_ACCEPTED')==='true',clockQualified:p.getProperty('ANNALS_RULES_V3_CLOCK_QUALIFIED')==='true',
       automaticLiteralEnabled:p.getProperty('ANNALS_RULES_V3_AUTO_LITERAL_ENABLED')==='true',
+      automaticOldestEnabled:p.getProperty('ANNALS_RULES_V3_AUTO_OLDEST_ENABLED')==='true',
       existingRulesEnabled:p.getProperty('ANNALS_RULES_V2_ENABLED')==='true',existingHostedAccepted:p.getProperty('ANNALS_RULES_HOSTED_ACCEPTED')==='true'};
     // Configuration view only. No credential, signing/remediation marker,
     // consent/source record or remote probe is touched by this desk action.
@@ -305,6 +329,21 @@ function annalsRuleStagedDispatch_(id,phase,content,state,pending){
   pending.state=sent?'accepted':'unknown_or_held_no_retry';annalsSavePrivate_(annalsRoot_(),'col-release-pending-private.json',pending);
   return {dispatchAccepted:sent,published:false,phase:phase};
 }
+function annalsStageOldestRule_(id){
+  if(!annalsStagedRulesReady_()||annalsProps_().getProperty('ANNALS_RULES_V3_AUTO_OLDEST_ENABLED')!=='true')return false;
+  var pending=annalsRead_(annalsRoot_(),'col-release-pending-private.json');
+  if(pending&&['verified_live','verified_cancelled'].indexOf(pending.state)<0)return false;
+  var privateData=annalsRuleFreshSource_(id),request=privateData.request,source=privateData.source;
+  if(!request||request.state!=='awaiting_implementation')return false;
+  var context=annalsRuleContext_(),member=annalsSpeakerIdentities_()[source.source.sender];
+  var exact=AnnalsRules.oldestSteal({senderAuthenticated:true,member:member,freshOperativeWindow:true,replayed:false,
+    truncated:source.source.sourceTruncated===true,text:source.source.excerpt,receivedAt:source.source.receivedAt},context.base,request.id);
+  if(annalsRuleDigest_(exact)!==annalsRuleDigest_(request))throw new Error('Recorded oldest-death instruction changed');
+  var clean=AnnalsRules.publicRecord(request);clean.baseDigest=request.baseDigest;
+  var content={revision:clean,qualification:'oldest-death-steal-v1',baseFiles:context.baseFiles,
+    implementationCommit:context.commit,behaviorDigest:context.behaviorDigest,source:null};
+  return annalsRuleStagedDispatch_(id,'stage',content,context.state,{revisionId:request.id,stageContent:content});
+}
 function annalsStageLiteralRule_(id){
   if(!annalsStagedRulesReady_())return false;
   var pending=annalsRead_(annalsRoot_(),'col-release-pending-private.json');if(pending&&['verified_live','verified_cancelled'].indexOf(pending.state)<0)return false;
@@ -408,6 +447,6 @@ function annalsReconcileStagedRule_(id,pending){
     pending.state='verified_live';pending.verifiedAt=new Date().toISOString();annalsSavePrivate_(annalsRoot_(),'col-release-pending-private.json',pending);
     var request=privateData.request;request.state='active';request.publishedAt=context.publicationAt;request.effectiveAt=context.publicationAt;annalsSavePrivate_(privateData.folder,'col-rule-request-private.json',request);
     annalsWriteOnce_(privateData.folder,'col-v3-live-private.json',{state:'verified_live',revisionId:request.id,candidateDigest:op.candidateDigest,snapshotDigest:op.confirmation.snapshotDigest,observedAt:view.observedAt,publishedAt:context.publicationAt,verifiedAt:pending.verifiedAt});
-    annalsRuleNotice_(privateData.folder,privateData.source.source.sender,'v3-verified','Your literal CoL wording revision has passed independent hosted readback. Version '+request.id+' is available at https://stammtischbrewery.com/col-rules-version.html?version='+request.id);return true;
+    annalsRuleNotice_(privateData.folder,privateData.source.source.sender,'v3-verified','Your CoL rule revision has passed independent hosted readback. Version '+request.id+' is available at https://stammtischbrewery.com/col-rules-version.html?version='+request.id);return true;
   }catch(ignored){return false;}
 }
