@@ -9,7 +9,7 @@ if(snapshot){
     if(reference){reference.href='col-rules-version.html?version='+encodeURIComponent(snapshot.version.id)+'&reference=1';reference.textContent='Read the official rules';}
     const article=replacement.querySelector('#'+snapshot.version.id);
     if(article){
-      for(const p of article.querySelectorAll('p'))if(p.textContent.startsWith('Status: '))p.textContent='In effect';
+      for(const p of article.querySelectorAll('p'))if(p.matches('[data-rule-status]')||p.textContent.startsWith('Status: ')||p.textContent==='Not yet in effect')p.textContent='In effect';
       for(const dt of article.querySelectorAll('dt'))if(['Published','Effective'].includes(dt.textContent)){
         const time=document.createElement('time');time.dateTime=snapshot.version.effectiveAt;time.textContent=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',dateStyle:'long',timeStyle:'short'}).format(new Date(time.dateTime))+' (Toronto)';dt.nextElementSibling.replaceChildren(time);
       }

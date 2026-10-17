@@ -68,12 +68,13 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}, polic
   const unconfirmedAges = events.filter(x => !x.ageConfirmed).length;
   // A semantic amendment has no effect until the independent verified release
   // supplies the matching award policy; the baseline has no such benefit.
+  const oldestAgeVerified = x => Number.isInteger(x.age) && x.age === ageAt(x.born,x.diedOn) && x.entries.every(p => p.ageAtDeath == null || p.ageAtDeath === x.age);
   const oldestCandidates = policy.oldestDeathSteal === true
-    ? events.filter(x => x.owners.length && x.diedOn && x.ageConfirmed && Number.isFinite(x.ageInDays)) : [];
+    ? events.filter(x => x.owners.length && x.diedOn && x.ageConfirmed && oldestAgeVerified(x) && Number.isFinite(x.ageInDays)) : [];
   const oldestAgeDays = oldestCandidates.length ? Math.max(...oldestCandidates.map(x => x.ageInDays)) : null;
   const oldestEvents = oldestCandidates.filter(x => x.ageInDays === oldestAgeDays);
   const oldestOwners = unique(oldestEvents.flatMap(x => x.owners.map(p => p.memberId)));
-  const oldestIncomplete = undated > 0 || events.some(x => x.owners.length && (!x.diedOn || !x.ageConfirmed || !Number.isFinite(x.ageInDays)));
+  const oldestIncomplete = undated > 0 || events.some(x => x.owners.length && (!x.diedOn || !x.ageConfirmed || !oldestAgeVerified(x) || !Number.isFinite(x.ageInDays)));
   // A tie-breaking rule was not supplied. Show contenders but do not
   // invent an award when distinct members share the oldest verified age.
   const oldestTieUnresolved = oldestOwners.length > 1;

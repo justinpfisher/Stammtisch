@@ -267,3 +267,17 @@ test('missing death evidence prevents a final oldest-death award without alterin
   assert.equal(result.draft.find(m=>m.id==='b').benefits.filter(x=>x.reason==='Oldest celebrity death of the year')[0].confirmed,true);
   assert.equal(JSON.parse(before).members[0].score,data.members[0].score);
 });
+
+test('conflicting age claims cannot finalize an oldest-death Steal',()=>{
+  const data=season([
+    member('a',10,[pick('Conflicting fictional pick',{born:'1920-01-01',actualDeathDate:'2026-02-01',ageAtDeath:106})]),
+    member('b',10,[pick('Conflicting fictional pick',{born:'1920-01-01',actualDeathDate:'2026-02-01',ageAtDeath:99})]),
+    member('c',10,[pick('Younger fictional pick',{born:'1930-01-01',actualDeathDate:'2026-02-01'})])
+  ]);
+  data.asOf='2026-12-31';const before=JSON.stringify(data);
+  const result=calculateAwards(data,{finalizedYear:2026},{oldestDeathSteal:true});
+  assert.doesNotMatch(card(result,'oldest').description,/null years/);
+  assert.notEqual(card(result,'oldest').status,'Eligible at the next draft');
+  assert.equal(result.draft.flatMap(x=>x.benefits).some(x=>x.reason==='Oldest celebrity death of the year'&&x.confirmed),false);
+  assert.equal(JSON.stringify(data),before);
+});

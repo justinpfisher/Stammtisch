@@ -9,6 +9,8 @@ try{
   const version=versions.at(-1);
   if(!version){status.textContent='This edition is not yet available. The current rules are listed on the Celebration of Life page.';}
   else{
+    // Supported amendment classes preserve the baseline preamble exactly.
+    document.querySelector('#rules-preamble').hidden=false;
     const date=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',dateStyle:'long'});
     status.textContent='Rules in effect from '+date.format(new Date(version.effectiveAt))+'.';
     for(const [heading,source] of Object.entries(version.provisions)){
