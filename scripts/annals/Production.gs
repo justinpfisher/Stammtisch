@@ -908,6 +908,15 @@ function annalsReviewItem(nonce, id) {
       protectiveRoute: AnnalsAuto.protectedRoute(source.source.subject,source.source.excerpt),
       ruleProposal: annalsRead_(f,'col-proposal-private.json'),
       ruleRequest: annalsRead_(f,'col-rule-request-private.json'),
+      // Boolean only: never return a signing value or signed record. Preserve
+      // the live v30 rotation-button entitlement when installing later source.
+      signedRotationEvidenceAvailable: !!(originalApproval&&originalApproval.entry&&
+        originalApproval.receipt&&originalApproval.publication),
+      historicOldestContinuationAvailable: typeof annalsHistoricOldestContinuationReady_==='function'&&
+        annalsHistoricOldestContinuationReady_(f,source),
+      historicOldestContinuationReady: typeof annalsHistoricOldestContinuationReady_==='function'&&
+        annalsHistoricOldestContinuationReady_(f,source)&&typeof annalsStagedRulesReady_==='function'&&
+        annalsStagedRulesReady_()&&annalsProps_().getProperty('ANNALS_RULES_V3_AUTO_OLDEST_ENABLED')==='true',
       rulesReady: typeof annalsRulesReady_==='function'&&annalsRulesReady_(),
       historyReview: annalsRead_(f,'history-review-private.json'),
       truncated: source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated,
