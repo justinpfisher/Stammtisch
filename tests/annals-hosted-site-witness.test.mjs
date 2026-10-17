@@ -53,7 +53,7 @@ test('fixed public-only source scope, no private files, user URLs or credentials
   assert.equal(SITE_ORIGIN,'https://stammtischbrewery.com/');
   assert.equal(SITE_FILES.length,11);
   assert.equal(new Set(SITE_FILES).size,SITE_FILES.length);
-  for(const name of SITE_FILES)assert.match(name,/^(?:[a-z0-9.-]+\\.html|data\\/[a-z0-9/.-]+\\.json)$/);
+  for(const name of SITE_FILES)assert.match(name,/^(?:[a-z0-9.-]+\.html|data\/[a-z0-9/.-]+\.json)$/);
 });
 test('matching live 11-file archive yields only source-bound public hashes and times',async()=>{
   const f=fixture(),result=await f.run();
