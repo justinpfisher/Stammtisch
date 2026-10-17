@@ -1,3 +1,18 @@
+> **Latest release checkpoint — 17 October 2026 (GitHub merged; private acceptance incomplete):**
+> Public `main` contains [PR #94](https://github.com/justinpfisher/Stammtisch/pull/94) (supervised CoL acceptance)
+> and [PR #95](https://github.com/justinpfisher/Stammtisch/pull/95) (owner-only signing diagnostic).
+> The last independently verified private installation is **Stammtisch Annals — Production v32**;
+> newer merged private source is **not confirmed installed**. A genuine 17 October
+> read-only check confirmed old private/public signatures rejected, new private
+> signing valid and GitHub signing-key consistency at that moment. **This is not**
+> the required immutable signing-qualification record or permission to activate.
+> Do not re-rotate keys based solely on stale incident notes. Verify live owner-only
+> state, outstanding/uncertain operations and the historical missing withdrawal
+> proof; then diagnose the blocked recorder using a newly fresh challenge.
+> Leave ordinary, photo, History and CoL publication gates closed until separately
+> qualified. See [current signing handoff](docs/annals-signing-consistency.md)
+> and [Issue #24](https://github.com/justinpfisher/Stammtisch/issues/24).
+
 > **Current authority — 15 October 2026, photographs and CoL implementation:**
 > Read [the current photo/CoL release and handoff](docs/annals-photos-col-release-2026-10-15.md).
 > The owner authorises automatic eligible six-member photographs under standing
@@ -17,9 +32,12 @@ The owner's final QA/editorial/history/CoL assignment supersedes older category
 and display proposals below. Read `docs/annals-editorial-release-2026-10-15.md`
 and `docs/annals-october-2026-qa-summary.md` first. Ordinary text production was
 already activated; never repeat setup or reset live state. New merged private
-source is not proof of an updated Apps Script deployment. The two reported
-signing exposures still need owner-controlled remediation; do not enable new
-publishing capabilities until verified. History signing is separately gated and
+source is not proof of an updated Apps Script deployment. The reported signing exposures required owner-controlled remediation;
+point-in-time historical-signature rejection and GitHub publishing-key equality
+were subsequently verified on 17 October. The one-time immutable security
+qualification and feature-specific hosted acceptance remain unverified; do not
+repeat rotations merely because older incident notes described them as pending,
+and do not enable new publishing capabilities before all current gates qualify. History signing is separately gated and
 disabled by default. Use four surviving collections, display-only recipe/date/
 redaction transformations, and private protective CoL proposal routing. A
 proposal is never adoption. Automatic media remains off. Preserve all CoL rules,
