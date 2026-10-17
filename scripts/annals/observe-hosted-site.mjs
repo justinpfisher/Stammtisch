@@ -74,7 +74,7 @@ export async function observeHostedSite({fetchImpl=fetch,readFileImpl=readFile,c
       throw Error('Live public file unavailable: '+name);
     const reported=response.headers?.get?.('content-length');
     if(reported!==null&&reported!==undefined&&
-       (!/^\\d+$/.test(String(reported))||Number(reported)>MAX_BYTES))
+       (!/^\d+$/.test(String(reported))||Number(reported)>MAX_BYTES))
       throw Error('Live public file exceeds bound: '+name);
     const bytes=await readBoundedBody(response,name);
     if(bytes.length===0||digest(bytes)!==expected)
@@ -102,7 +102,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   let accepted=false;
   for(let attempt=1;attempt<=18;attempt++){
     try{
-      process.stdout.write(JSON.stringify(await observeHostedSite(),null,2)+'\\n');
+      process.stdout.write(JSON.stringify(await observeHostedSite(),null,2)+'\n');
       accepted=true;break;
     }catch{
       if(attempt<18)await new Promise(resolve=>setTimeout(resolve,10000));
