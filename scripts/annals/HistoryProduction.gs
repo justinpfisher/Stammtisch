@@ -242,3 +242,63 @@ function annalsRecordSigningQualification(nonce,id,challenge,artifactId,zipBase6
     });
   });
 }
+
+/** Owner-only observation of recorder preconditions. No writes, dispatches,
+ * credentials, exception text, source identifiers or fetched bodies are returned.
+ * Storage creation permissions are deliberately NOT tested by this read-only path. */
+function annalsDiagnoseSigningQualification(nonce,id,challenge,artifactId,zipBase64){
+  return annalsUiCall_(nonce,function(){
+    var result={readOnly:true,publicationActivated:false,writePermissionTested:false,
+      crossCheck:'unavailable',rotationCheck:'unavailable',lock:'unavailable',privateRoot:'unavailable',
+      gates:{},pending:{},priorMarkerPresent:null,priorPointerPresent:null,priorRecordPresent:null,
+      historicalEvidencePresent:null,historicalEvidenceDigestComputable:null,http:{},
+      archiveBytesEqual:false,archiveShapeValid:false,archiveEmpty:false,pageRecognized:false,pageEmpty:false};
+    var cross=null;
+    try{cross=annalsCheckGithubSigningConsistency(nonce,challenge,artifactId,zipBase64);
+      result.crossCheck=cross.githubSecretConsistencyVerified===true?'verified':'mismatch';
+    }catch(held){/* Safe stage only; exceptions can contain private service details. */}
+    try{var rotation=annalsCheckSigningRotation(nonce,id);
+      result.rotation={separateKeys:rotation.separateKeys===true,oldPrivateSignatureRejected:rotation.oldPrivateSignatureRejected===true,
+        oldPublicSignatureRejected:rotation.oldPublicSignatureRejected===true,newPrivateSignatureValid:rotation.newPrivateSignatureValid===true};
+      result.rotationCheck=Object.keys(result.rotation).every(function(k){return result.rotation[k];})?'verified':'mismatch';
+    }catch(held){}
+    try{annalsLocked_(function(){
+      result.lock='acquired';
+      var p;try{p=annalsProps_();
+        ['ANNALS_AUTO_PUBLICATION_ENABLED','ANNALS_AUTO_MEDIA_ENABLED','ANNALS_HISTORY_PUBLICATION_ENABLED','ANNALS_RULES_V2_ENABLED','ANNALS_RULES_V3_ENABLED'].forEach(function(k){result.gates[k]=p.getProperty(k)!=='true';});
+        result.priorMarkerPresent=!!p.getProperty('ANNALS_SIGNING_REMEDIATED_AT');
+        result.priorPointerPresent=!!p.getProperty('ANNALS_SIGNING_QUALIFICATION_RECORD');
+      }catch(held){result.properties='unavailable';}
+      var root;try{root=annalsRoot_();result.privateRoot='verified_owner_only';}catch(held){return;}
+      [['col','col-release-pending-private.json'],['history','history-pending-private.json']].forEach(function(pair){
+        try{var pending=annalsRead_(root,pair[1]);result.pending[pair[0]]=!pending?'absent':['verified_live','verified_cancelled'].indexOf(pending.state)>=0?'terminal':'unresolved';}
+        catch(held){result.pending[pair[0]]='unavailable';}
+      });
+      if(cross&&/^\d{1,20}$/.test(cross.workflowRunId||'')&&/^\d{1,5}$/.test(cross.workflowRunAttempt||'')){
+        try{result.priorRecordPresent=!!annalsFile_(root,'signing-qualification-'+cross.workflowRunId+'-'+cross.workflowRunAttempt+'-private.json');}catch(held){}
+      }
+      try{var saved=annalsRead_(annalsFolder_(id),'approval-private.json');
+        result.historicalEvidencePresent=!!(saved&&saved.entry&&saved.receipt&&saved.publication);
+        if(result.historicalEvidencePresent)result.historicalEvidenceDigestComputable=typeof annalsHash_(AnnalsProduction.serial(saved))==='string';
+      }catch(held){}
+    });}catch(held){if(result.lock!=='acquired')result.lock='unavailable';}
+    function read(label,url){
+      var status={status:'unavailable',httpStatus:null,redirect:false,bounded:false};result.http[label]=status;
+      try{var response=UrlFetchApp.fetch(url,{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true,headers:{'Cache-Control':'no-cache'}}),code=response.getResponseCode();
+        status.httpStatus=Number.isInteger(code)&&code>=100&&code<=599?code:null;status.redirect=code>=300&&code<400;
+        if(code!==200){status.status=status.redirect?'redirect':'http_error';return null;}
+        var text=response.getContentText();status.bounded=typeof text==='string'&&text.length>0&&text.length<=1000000;
+        if(!status.bounded){status.status='invalid_size';return null;}status.status='ok';return text;
+      }catch(held){return null;}
+    }
+    var suffix='?signing-observation='+Date.now();
+    var committed=read('committedArchive','https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/annals-approved.json'+suffix);
+    var live=read('liveArchive','https://stammtischbrewery.com/data/annals-approved.json'+suffix);
+    var page=read('livePage','https://stammtischbrewery.com/annals.html'+suffix);
+    result.archiveBytesEqual=committed!==null&&live!==null&&committed===live;
+    if(live!==null){try{var archive=JSON.parse(live);result.archiveShapeValid=!!(archive&&archive.schemaVersion===1&&Array.isArray(archive.entries)&&Array.isArray(archive.approvals));
+      result.archiveEmpty=result.archiveShapeValid&&archive.entries.length===0&&archive.approvals.length===0;}catch(held){}}
+    if(page!==null){result.pageRecognized=page.indexOf('The Annals of Stammtisch')>=0&&page.indexOf('</html>')>=0;result.pageEmpty=result.pageRecognized&&!/<article\b[^>]*\bid=/.test(page);}
+    return result;
+  });
+}
