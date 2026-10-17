@@ -911,7 +911,8 @@ function annalsReviewItem(nonce, id) {
       // Boolean only: never return a signing value or signed record. Preserve
       // the live v30 rotation-button entitlement when installing later source.
       signedRotationEvidenceAvailable: !!(originalApproval&&originalApproval.entry&&
-        originalApproval.receipt&&originalApproval.publication),
+        originalApproval.receipt&&typeof originalApproval.receipt.signature==='string'&&originalApproval.receipt.signature&&
+        originalApproval.publication&&typeof originalApproval.publication.signature==='string'&&originalApproval.publication.signature),
       historicOldestContinuationAvailable: typeof annalsHistoricOldestContinuationReady_==='function'&&
         annalsHistoricOldestContinuationReady_(f,source),
       historicOldestContinuationReady: typeof annalsHistoricOldestContinuationReady_==='function'&&

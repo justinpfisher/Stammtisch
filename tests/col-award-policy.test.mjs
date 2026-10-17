@@ -25,3 +25,11 @@ test('prequalified full operative snapshots may enable only the canonical suppor
   assert.equal(verifiedAwardPolicy(snapshot,Date.parse('2026-10-17T18:59:59Z')).oldestDeathSteal,false);
   assert.equal(verifiedAwardPolicy({...snapshot,candidateDigest:'not-a-hash'},now).oldestDeathSteal,false);
 });
+
+test('a permitted typography successor preserves the adopted benefit',()=>{
+  const first=witnessed(),next=witnessed({provisions:{'DRAFT - ORDER OF BUSINESS':OLDEST_DEATH_STEAL_CLAUSE.replace('Whoever had','Whoever  had').replace('also gets','also\tgets')}});
+  assert.equal(verifiedAwardPolicy(first,now).oldestDeathSteal,true);
+  assert.equal(verifiedAwardPolicy(next,now).oldestDeathSteal,true);
+  next.version.provisions['DRAFT - ORDER OF BUSINESS']=OLDEST_DEATH_STEAL_CLAUSE.replace('one Steal','two Steals');
+  assert.equal(verifiedAwardPolicy(next,now).oldestDeathSteal,false);
+});

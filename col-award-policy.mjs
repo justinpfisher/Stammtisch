@@ -9,6 +9,6 @@ export function verifiedAwardPolicy(snapshot, now=Date.now()) {
   const effective=version?.effectiveAt&&Number.isFinite(Date.parse(version.effectiveAt))&&Date.parse(version.effectiveAt)<=now;
   const words=version?.provisions?.['DRAFT - ORDER OF BUSINESS'];
   const oldestDeathSteal=witnessed&&version?.verified===true&&effective&&
-    typeof words==='string'&&words.includes(OLDEST_DEATH_STEAL_CLAUSE);
+    typeof words==='string'&&words.replace(/[\u2018\u2019]/g,"'").replace(/\u00a0/g,' ').replace(/[ \t]+/g,' ').replace(/ *\n */g,'\n').trim().includes(OLDEST_DEATH_STEAL_CLAUSE);
   return Object.freeze({oldestDeathSteal:oldestDeathSteal===true});
 }

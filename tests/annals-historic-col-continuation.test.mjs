@@ -14,7 +14,7 @@ const body='Whoever had the oldest death in the year gets a steal. This is effec
 const source=()=>({
   rulesAuthorityVersion:2,rulesActivationEligible:false,senderAuthenticated:true,
   aiConsentActive:true,autoConsentAtReceipt:true,protectiveRoute:'col_proposal',
-  source:{sender:from,receivedAt,subject:'Fictional CoL request',excerpt:body,
+  source:{sender:from,receivedAt,subject:'Col rule refinement.',excerpt:body,
     sourceTruncated:false,subjectTruncated:false,excerptTruncated:false}
 });
 
@@ -93,4 +93,14 @@ test('private desk preserves v30 quarantine-safe signing verifier and offers the
   assert.match(ui,/annalsContinueHistoricOldestRule/);
   assert.match(ui,/el\('checkSigningRotation'\)\.disabled=!current\.signedRotationEvidenceAvailable/);
   assert.match(ui,/el\('continueHistoricOldestRule'\)\.disabled=!current\.historicOldestContinuationReady/);
+});
+
+test('subject context cannot be discarded by deterministic oldest-death continuation',()=>{
+  for(const subject of ['Question only - do not implement the following example','A joke','Re: Col rule refinement.','Cancel this change','Not effective immediately']){
+    const {context,map,folder}=setup();map.get('source-private.json').source.subject=subject;
+    assert.equal(context.annalsOldestSubjectIsNeutral_(subject),false);
+    assert.equal(context.annalsHistoricOldestContinuationReady_(folder,map.get('source-private.json')),false);
+    assert.throws(()=>context.annalsContinueHistoricOldestRule('owner-only-fictitious-nonce',id),/Only one unconsumed/);
+    assert.equal(map.has('col-oldest-continuation-private.json'),false);
+  }
 });

@@ -65,7 +65,7 @@ const server=createServer(async(req,res)=>{
   if(/^\/assets\/annals\/[ab]{64}\.jpg$/.test(pathname)){res.setHeader('Content-Type','image/jpeg');res.end(tinyBytes);return;}
   if(documents.has(pathname)){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(documents.get(pathname));return;}
   // Public stylesheet and public brand assets only. Never serve source/data files.
-  if(['/styles.css','/annals-photos.css','/annals-photos.mjs','/col-rules-reader.mjs','/col-rules-witness.mjs'].includes(pathname)||pathname.startsWith('/assets/')&&!pathname.includes('..')){
+  if(['/styles.css','/annals-photos.css','/annals-photos.mjs','/col-rules-reader.mjs','/col-rules-witness.mjs','/col-rules-register.mjs'].includes(pathname)||pathname.startsWith('/assets/')&&!pathname.includes('..')){
     try{const bytes=await readFile(path.join(root,pathname));res.setHeader('Content-Type',pathname.endsWith('.css')?'text/css':pathname.endsWith('.mjs')?'text/javascript':'application/octet-stream');res.end(bytes);return;}catch{}
   }
   res.writeHead(404).end();
@@ -121,6 +121,21 @@ try{
           }
           await noOverflow(page);
         }
+      });
+      await check(browser,profile,'operative register status and fixed baseline link',async page=>{
+        await page.route('**/*',async route=>{
+          const url=route.request().url(),relative=url.startsWith(origin+'/')?url.slice(origin.length+1):url;
+          if(!ruleFixture.bodies.has(relative))return route.fallback();
+          const body=relative==='data/col-rules-release-state.json'?ruleFixture.sealedState:ruleFixture.bodies.get(relative);
+          return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
+        });
+        await page.goto(origin+'/col-revisions.html');
+        const article=page.locator('#'+ruleFixture.revisionId);
+        await article.waitFor();
+        assert.equal(await article.locator('[data-rule-status]').innerText(),'In effect');
+        assert.doesNotMatch(await article.innerText(),/Not yet in effect|Not yet established/);
+        assert.equal(await page.locator('#col-browser-baseline a').getAttribute('href'),'col-rules-version.html?version=col-browser-baseline&reference=1');
+        await noOverflow(page);
       });
       await check(browser,profile,'responsive thumbnail and larger accessible viewer',async page=>{
         await page.goto(origin+'/annals.html');
