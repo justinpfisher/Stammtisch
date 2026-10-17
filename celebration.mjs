@@ -1,8 +1,8 @@
 import { ageAt, basePoints, distinctionReason } from './celebration-rules.mjs';
 export { ageAt, basePoints } from './celebration-rules.mjs';
-import { calculateAwards, awardsMarkup, draftMarkup } from './celebration-awards.mjs';
+import { calculateAwards, awardsMarkup, draftMarkup } from './celebration-awards.mjs?v=col-release-20261017';
 import {loadOperativeSnapshot} from './col-rules-reader.mjs';
-import {verifiedAwardPolicy} from './col-award-policy.mjs';
+import {verifiedAwardPolicy} from './col-award-policy.mjs?v=col-release-20261017';
 
 export function multiplierFor(pick) {
   return pick.pick === 1 || pick.pick === 50 || ['diamond', 'orange'].includes(pick.marker) ? 2 : 1;
