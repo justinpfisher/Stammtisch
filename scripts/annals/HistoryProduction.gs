@@ -183,37 +183,51 @@ function annalsReconcileHistory(nonce){
 /** Owner-only, non-publishing proof check. No properties, Drive records, gates,
  * credentials or histories are changed. ZIP commitment is bound to GitHub's
  * artifact digest before parsing; keys and raw HMACs never leave this runtime. */
-function annalsCheckGithubSigningConsistency(nonce,challenge,artifactId,zipBase64){
+function annalsCheckGithubSigningConsistency(nonce,challenge,artifactId,zipBase64,diagnostic){
   return annalsUiCall_(nonce,function(){
+    // An optional server-local collector reports only fixed stages and HTTP codes.
+    // It cannot alter validation, credentials, network destinations or return values.
+    function stage(name){if(diagnostic)diagnostic.stage=name;}
+    if(diagnostic){diagnostic.stage='input';diagnostic.http={};}
     if(!/^[a-f0-9]{64}$/.test(challenge)||!/^\d{1,20}$/.test(artifactId)||typeof zipBase64!=='string'||zipBase64.length>90000||! /^[A-Za-z0-9+/]+={0,2}$/.test(zipBase64))throw new Error('Invalid bounded challenge input');
     var api='https://api.github.com/repos/justinpfisher/Stammtisch';
-    function get(url){var response=UrlFetchApp.fetch(url,{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true,headers:{Accept:'application/vnd.github+json'}});if(response.getResponseCode()!==200)throw new Error('Public verification evidence unavailable');var text=response.getContentText();if(text.length>200000)throw new Error('Verification evidence exceeds bound');return text;}
+    function get(url){
+      var label=url.indexOf('/actions/artifacts/')>=0?'artifact':url.indexOf('/jobs?')>=0?'jobs':url.indexOf('/actions/runs/')>=0?'run':url.indexOf('/.github/workflows/')>=0?'workflow_source':'verifier_source';
+      stage(label+'_http');
+      var response=UrlFetchApp.fetch(url,{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true,headers:{Accept:'application/vnd.github+json'}}),code=response.getResponseCode();
+      if(diagnostic)diagnostic.http[label]=Number.isInteger(code)&&code>=100&&code<=599?code:null;
+      if(code!==200)throw new Error('Public verification evidence unavailable');
+      stage(label+'_body');var text=response.getContentText();if(text.length>200000)throw new Error('Verification evidence exceeds bound');return text;
+    }
     var artifact=JSON.parse(get(api+'/actions/artifacts/'+artifactId)),bytes=Utilities.base64Decode(zipBase64);
+    stage('artifact_validation');
     if(bytes.length>65536||String(artifact.id)!==artifactId||artifact.expired!==false||artifact.size_in_bytes!==bytes.length||artifact.digest!=='sha256:'+annalsHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,bytes)))throw new Error('Artifact byte identity failed');
     var identity=/^signing-consistency-(\d{1,20})-(\d{1,5})$/.exec(artifact.name||'');
     if(!identity||!artifact.workflow_run||String(artifact.workflow_run.id)!==identity[1]||! /^[a-f0-9]{40}$/.test(artifact.workflow_run.head_sha||''))throw new Error('Invalid artifact producer');
     var runId=identity[1],attempt=identity[2],headSha=artifact.workflow_run.head_sha;
     var run=JSON.parse(get(api+'/actions/runs/'+runId+'/attempts/'+attempt));
+    stage('run_validation');
     if(!Number.isFinite(Date.parse(run.run_started_at))||!Number.isFinite(Date.parse(run.updated_at))||String(run.id)!==runId||String(run.run_attempt)!==attempt||run.event!=='workflow_dispatch'||['.github/workflows/annals-signing-consistency.yml','.github/workflows/annals-signing-consistency.yml@main'].indexOf(run.path)<0||run.head_branch!=='main'||run.head_sha!==headSha||!run.repository||run.repository.full_name!=='justinpfisher/Stammtisch'||run.status!=='completed'||run.conclusion!=='success')throw new Error('Hosted run identity failed');
     var jobs=JSON.parse(get(api+'/actions/runs/'+runId+'/attempts/'+attempt+'/jobs?per_page=100'));
+    stage('jobs_validation');
     if(jobs.total_count!==1||!Array.isArray(jobs.jobs)||jobs.jobs.length!==1)throw new Error('Unexpected challenge jobs');
     var job=jobs.jobs[0];
     if(String(job.run_id)!==runId||String(job.run_attempt)!==attempt||job.head_sha!==headSha||job.name!=='challenge'||job.status!=='completed'||job.conclusion!=='success'||!Number.isFinite(Date.parse(job.started_at))||!Number.isFinite(Date.parse(job.completed_at)))throw new Error('Incomplete challenge job');
     ['Compute non-publishing key commitment','Retain bounded challenge receipt'].forEach(function(name){var steps=(job.steps||[]).filter(function(step){return step.name===name;});if(steps.length!==1||steps[0].status!=='completed'||steps[0].conclusion!=='success')throw new Error('Incomplete challenge step');});
     var raw='https://raw.githubusercontent.com/justinpfisher/Stammtisch/'+headSha+'/';
     if(annalsHash_(get(raw+'.github/workflows/annals-signing-consistency.yml').replace(/\r\n/g,'\n'))!=='07568cb8f9eb3cf845c4aa6e1efa401faaeaf1bb5feccb61de0b75ebe002ce47'||annalsHash_(get(raw+'scripts/annals/signing-consistency.mjs').replace(/\r\n/g,'\n'))!=='9f79b645a4b3d18a4427db32428fe19768329d5c47685c0c01d8754253769a6b')throw new Error('Unreviewed challenge implementation');
-    var files=Utilities.unzip(Utilities.newBlob(bytes,'application/zip'));
+    stage('archive_parse');var files=Utilities.unzip(Utilities.newBlob(bytes,'application/zip'));
     if(files.length!==1||files[0].getName()!=='signing-consistency.json'||files[0].getBytes().length>4096)throw new Error('Unexpected receipt archive');
-    var proof=JSON.parse(files[0].getDataAsString('UTF-8'));
+    stage('receipt_validation');var proof=JSON.parse(files[0].getDataAsString('UTF-8'));
     if(Object.keys(proof).sort().join(',')!=='attempt,challenge,commitment,createdAt,headSha,kind,repository,runId'||proof.kind!=='annals-key-consistency-v1'||proof.repository!=='justinpfisher/Stammtisch'||proof.challenge!==challenge||!/^\d{1,20}$/.test(proof.runId)||!/^\d{1,5}$/.test(proof.attempt)||! /^[a-f0-9]{40}$/.test(proof.headSha)||! /^[a-f0-9]{64}$/.test(proof.commitment)||!Number.isFinite(Date.parse(proof.createdAt)))throw new Error('Invalid challenge receipt');
-    var now=Date.now(),created=Date.parse(proof.createdAt);
+    stage('freshness');var now=Date.now(),created=Date.parse(proof.createdAt);
     if(created<Date.parse(job.started_at)||created>Date.parse(job.completed_at)||created>now||now-created>15*60*1000||Date.parse(run.run_started_at)>created||Date.parse(run.updated_at)<created||artifact.name!=='signing-consistency-'+proof.runId+'-'+proof.attempt||!artifact.workflow_run||String(artifact.workflow_run.id)!==proof.runId||artifact.workflow_run.head_sha!==proof.headSha)throw new Error('Stale or unrelated artifact');
-    var p=annalsProps_(),key=p.getProperty('ANNALS_PUBLISH_SIGNING_KEY')||'',privateKey=p.getProperty('ANNALS_APPROVAL_KEY')||'';
+    stage('key_configuration');var p=annalsProps_(),key=p.getProperty('ANNALS_PUBLISH_SIGNING_KEY')||'',privateKey=p.getProperty('ANNALS_APPROVAL_KEY')||'';
     if(key.length<32||privateKey.length<32||key===privateKey)throw new Error('Independent signing configuration required');
     var message='ANNALS NON-PUBLISHING KEY CONSISTENCY V1\n'+JSON.stringify([proof.repository,proof.challenge,proof.runId,proof.attempt,proof.headSha,proof.createdAt]);
     var mac=annalsHex_(Utilities.computeHmacSha256Signature(message,key,Utilities.Charset.UTF_8));
     var expected=annalsHash_(mac),difference=0;for(var i=0;i<64;i++)difference|=expected.charCodeAt(i)^proof.commitment.charCodeAt(i);
-    return {publishesAnything:false,changesCredentials:false,changesReleaseGates:false,separateKeys:true,githubSecretConsistencyVerified:difference===0,verifiedAt:new Date().toISOString(),workflowRunId:proof.runId,workflowRunAttempt:proof.attempt,implementationCommit:proof.headSha};
+    stage('complete');return {publishesAnything:false,changesCredentials:false,changesReleaseGates:false,separateKeys:true,githubSecretConsistencyVerified:difference===0,verifiedAt:new Date().toISOString(),workflowRunId:proof.runId,workflowRunAttempt:proof.attempt,implementationCommit:proof.headSha};
   });
 }
 
@@ -253,8 +267,8 @@ function annalsDiagnoseSigningQualification(nonce,id,challenge,artifactId,zipBas
       gates:{},pending:{},priorMarkerPresent:null,priorPointerPresent:null,priorRecordPresent:null,
       historicalEvidencePresent:null,historicalEvidenceDigestComputable:null,http:{},
       archiveBytesEqual:false,archiveShapeValid:false,archiveEmpty:false,pageRecognized:false,pageEmpty:false};
-    var cross=null;
-    try{cross=annalsCheckGithubSigningConsistency(nonce,challenge,artifactId,zipBase64);
+    var cross=null,crossEvidence={stage:'unavailable',http:{}};result.crossEvidence=crossEvidence;
+    try{cross=annalsCheckGithubSigningConsistency(nonce,challenge,artifactId,zipBase64,crossEvidence);
       result.crossCheck=cross.githubSecretConsistencyVerified===true?'verified':'mismatch';
     }catch(held){/* Safe stage only; exceptions can contain private service details. */}
     try{var rotation=annalsCheckSigningRotation(nonce,id);
