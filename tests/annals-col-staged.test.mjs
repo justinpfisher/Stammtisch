@@ -280,10 +280,10 @@ test('actual private adapters and hosted reducers complete separate signed phase
   assert.equal(privateFiles.get('folder2/col-rule-request-private.json').effectiveAt,'2026-10-15T19:31:00.000Z');assert.equal(c.annalsRuleContext_().base.id,nextRequest.id);
 
 });
-test('desk gate inspection reads only six booleans, with no signing marker, source, network or mutation',()=>{
+test('desk gate inspection reads only seven booleans, with no signing marker, source, network or mutation',()=>{
   const reads=[],c=vm.createContext({annalsUiCall_:(nonce,fn)=>{assert.equal(nonce,'fictional-owner-session');return fn();},annalsProps_:()=>({getProperty:name=>{reads.push(name);if(/SIGN|KEY|REMEDIAT/.test(name))assert.fail('Forbidden gate probe');return null;}})});
   vm.runInContext(readFileSync(new URL('../scripts/annals/RulesProduction.gs',import.meta.url),'utf8'),c);
-  const result=c.annalsReadStagedRuleGates('fictional-owner-session');assert.equal(result.ready,false);assert.equal(result.configurationOnly,true);assert.equal(reads.length,6);
+  const result=c.annalsReadStagedRuleGates('fictional-owner-session');assert.equal(result.ready,false);assert.equal(result.configurationOnly,true);assert.equal(reads.length,7);assert.equal(result.automaticOldestEnabled,false);
   assert.ok(Object.values(result).every(v=>typeof v==='boolean'));
 });
 test('public completion clock rejects failed, running, altered, future and incomplete producer evidence',()=>{
@@ -451,7 +451,7 @@ test('mutated oldest-death semantic data, stale base and mismatched class cannot
     c=>{c.revision.changes[0].after=c.revision.changes[0].after.replace('calendar year','calendar month');},
     c=>{c.revision.explanation='Model claims this is safe';},
     c=>{c.revision.effectiveAt='2026-10-01T00:00:00.000Z';},
-    c=>{c.revision.retrospective.requested=true;},
+    c=>{c.revision.retrospective={requested:true};},
     c=>{c.qualification='literal-typography-v1';},
     c=>{c.revision.baseDigest='f'.repeat(64);}
   ]){
