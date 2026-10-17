@@ -32,13 +32,14 @@ The owner's final QA/editorial/history/CoL assignment supersedes older category
 and display proposals below. Read `docs/annals-editorial-release-2026-10-15.md`
 and `docs/annals-october-2026-qa-summary.md` first. Ordinary text production was
 already activated; never repeat setup or reset live state. New merged private
-source is not proof of an updated Apps Script deployment. The reported signing exposures required owner-controlled remediation;
+source is not proof of an updated Apps Script deployment. The reported
+signing exposures required owner-controlled remediation. On 17 October,
 point-in-time historical-signature rejection and GitHub publishing-key equality
-were subsequently verified on 17 October. The one-time immutable security
-qualification and feature-specific hosted acceptance remain unverified; do not
-repeat rotations merely because older incident notes described them as pending,
-and do not enable new publishing capabilities before all current gates qualify. History signing is separately gated and
-disabled by default. Use four surviving collections, display-only recipe/date/
+were verified. The one-time immutable security qualification and feature-specific
+hosted acceptance remain unverified; do not repeat rotations merely because
+older incident notes described them as pending. Do not enable new publishing
+capabilities before all current gates qualify. History signing is separately
+gated and disabled by default. Use four surviving collections, display-only recipe/date/
 redaction transformations, and private protective CoL proposal routing. A
 proposal is never adoption. Automatic media remains off. Preserve all CoL rules,
 records, awards and notifications. Do not close the six original QA failures
