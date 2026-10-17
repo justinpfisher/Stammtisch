@@ -35,12 +35,15 @@ clock. The incumbent rules and previous awards remain operative.
 
 ## Remaining work before genuine adoption
 
-1. Extend the currently typography-only implementation pathway with a narrowly
-   typed, source-grounded oldest-death-benefit release class, or use the existing
-   bounded engineering bundle with independent meaning, code and source checks.
-   Any AI-produced change must be examined by independent tests and a current
-   authoritative source witness; arbitrary email-supplied code is forbidden.
-2. Complete genuine end-to-end v3 release acceptance and signing remediation.
+1. The prepared `oldest-death-steal-v1` candidate builder and gated private
+   intake provide a narrowly typed implementation class. The exact member
+   directive becomes canonical wording attached to authenticated source data;
+   hosted staging checks that wording against the current rules and independent
+   source/implementation witnesses. This is neither an arbitrary generative
+   code publisher nor a live adoption.
+2. Install the updated private source in the same owner-only deployment,
+   preserving the manifest, one trigger and one-shot history. Complete genuine
+   end-to-end v3 release acceptance and signing remediation.
    Per owner instruction, **all credential replacement is deferred to the final
    security stage**. Leave all new CoL, Photo and History gates disabled until
    that stage is genuinely complete.
