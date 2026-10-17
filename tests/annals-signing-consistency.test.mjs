@@ -14,8 +14,8 @@ function fixture(change=()=>{}){
  state.run={id:12345,run_attempt:1,event:'workflow_dispatch',path:'.github/workflows/annals-signing-consistency.yml',head_branch:'main',head_sha:sha,repository:{full_name:env.GITHUB_REPOSITORY},status:'completed',conclusion:'success',run_started_at:new Date(Date.now()-1000).toISOString(),updated_at:new Date(Date.now()+1000).toISOString()};
  state.job={run_id:12345,run_attempt:1,head_sha:sha,name:'challenge',status:'completed',conclusion:'success',started_at:state.run.run_started_at,completed_at:state.run.updated_at,steps:['Compute non-publishing key commitment','Retain bounded challenge receipt'].map(name=>({name,status:'completed',conclusion:'success'}))};
  change(state);
- const context={Date,console,annalsUiCall_:(n,f)=>{assert.equal(n,'owner-session');return f();},annalsProps_:()=>({getProperty:n=>n==='ANNALS_PUBLISH_SIGNING_KEY'?state.key:'private-key'.repeat(8)}),annalsHash_:hash,annalsHex_:b=>Buffer.from(b).toString('hex'),Utilities:{Charset:{UTF_8:'utf8'},DigestAlgorithm:{SHA_256:'sha256'},base64Decode:s=>Buffer.from(s,'base64'),computeDigest:(a,b)=>createHash(a).update(b).digest(),computeHmacSha256Signature:(m,k)=>createHmac('sha256',k).update(m).digest(),newBlob:b=>b,unzip:()=>{state.unzipCalls++;return state.files||[{getName:()=> 'signing-consistency.json',getBytes:()=>Buffer.from(JSON.stringify(state.proof)),getDataAsString:()=>JSON.stringify(state.proof)}];}},UrlFetchApp:{fetch:url=>{let value;if(url.endsWith('/actions/artifacts/6789'))value=JSON.stringify(state.artifact);else if(url.endsWith('/actions/runs/12345/attempts/1'))value=JSON.stringify(state.run);else if(url.endsWith('/attempts/1/jobs?per_page=100'))value=JSON.stringify({total_count:1,jobs:[state.job]});else if(url.includes('/raw')||url.startsWith('https://raw.githubusercontent.com/'))value=readFileSync(new URL('../'+url.split(sha+'/')[1],import.meta.url),'utf8');else throw Error('Unexpected external route');return {getResponseCode:()=>200,getContentText:()=>value};}}};
- vm.createContext(context);vm.runInContext(source,context);return {state,run:(c=challenge,z=bytes.toString('base64'))=>context.annalsCheckGithubSigningConsistency('owner-session',c,'6789',z)};
+ const context={Date,console,annalsUiCall_:(n,f)=>{assert.equal(n,'owner-session');return f();},annalsProps_:()=>({getProperty:n=>n==='ANNALS_PUBLISH_SIGNING_KEY'?state.key:'private-key'.repeat(8)}),annalsHash_:hash,annalsHex_:b=>Buffer.from(b).toString('hex'),Utilities:{Charset:{UTF_8:'utf8'},DigestAlgorithm:{SHA_256:'sha256'},base64Decode:s=>Buffer.from(s,'base64'),computeDigest:(a,b)=>createHash(a).update(b).digest(),computeHmacSha256Signature:(m,k)=>createHmac('sha256',k).update(m).digest(),newBlob:b=>b,unzip:()=>{state.unzipCalls++;return state.files||[{getName:()=> 'signing-consistency.json',getBytes:()=>Buffer.from(JSON.stringify(state.proof)),getDataAsString:()=>JSON.stringify(state.proof)}];}},UrlFetchApp:{fetch:url=>{let value;if(url.endsWith('/actions/artifacts/6789'))value=JSON.stringify(state.artifact);else if(url.endsWith('/actions/runs/12345/attempts/1'))value=JSON.stringify(state.run);else if(url.endsWith('/attempts/1/jobs?per_page=100'))value=JSON.stringify({total_count:1,jobs:[state.job]});else if(url.includes('/raw')||url.startsWith('https://raw.githubusercontent.com/'))value=readFileSync(new URL('../'+url.split(sha+'/')[1],import.meta.url),'utf8');else throw Error('Unexpected external route');return {getResponseCode:()=>state.httpStatus||200,getContentText:()=>value};}}};
+ vm.createContext(context);vm.runInContext(source,context);return {state,run:(c=challenge,z=bytes.toString('base64'),diagnostic)=>context.annalsCheckGithubSigningConsistency('owner-session',c,'6789',z,diagnostic)};
 }
 test('Node and Apps Script agree without returning key or HMAC or changing state',()=>{const f=fixture(),r=f.run();assert.equal(r.githubSecretConsistencyVerified,true);assert.equal(r.publishesAnything,false);assert.equal(r.changesCredentials,false);assert.equal(r.changesReleaseGates,false);assert.ok(!JSON.stringify(r).includes(key));assert.deepEqual(Object.keys(r).sort(),['changesCredentials','changesReleaseGates','githubSecretConsistencyVerified','implementationCommit','publishesAnything','separateKeys','verifiedAt','workflowRunAttempt','workflowRunId'].sort());});
 test('different publishing key fails equality without publication',()=>assert.equal(fixture(s=>s.key='different'.repeat(8)).run().githubSecretConsistencyVerified,false));
@@ -26,3 +26,18 @@ test('producer rejects missing key, wrong branch and command-like nonce',()=>{fo
 
 test('fixed workflow path with main suffix is accepted',()=>assert.equal(fixture(s=>s.run.path+='@main').run().githubSecretConsistencyVerified,true));
 test('unreviewed workflow suffix is rejected',()=>assert.throws(()=>fixture(s=>s.run.path+='@evil').run()));
+
+test('HTTP failure diagnostics identify the fixed endpoint and status without bypassing rejection',()=>{
+ const f=fixture(s=>s.httpStatus=403),diagnostic={};
+ assert.throws(()=>f.run(undefined,undefined,diagnostic),/Public verification evidence unavailable/);
+ assert.equal(diagnostic.stage,'artifact_http');assert.equal(diagnostic.http.artifact,403);
+ assert.equal(f.state.unzipCalls,0);assert.ok(!JSON.stringify(diagnostic).includes(key));
+ assert.deepEqual(Object.keys(diagnostic).sort(),['http','stage']);
+});
+test('artifact failure and successful verification expose different bounded stages',()=>{
+ let diagnostic={};assert.throws(()=>fixture(s=>delete s.artifact.digest).run(undefined,undefined,diagnostic));
+ assert.equal(diagnostic.stage,'artifact_validation');
+ diagnostic={};assert.equal(fixture().run(undefined,undefined,diagnostic).githubSecretConsistencyVerified,true);
+ assert.equal(diagnostic.stage,'complete');assert.deepEqual(Object.values(diagnostic.http),[200,200,200,200,200]);
+ assert.ok(!JSON.stringify(diagnostic).includes(key));
+});
