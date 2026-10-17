@@ -2,17 +2,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {SITE_FILES,SITE_ORIGIN,observeHostedSite} from '../scripts/annals/observe-hosted-site.mjs';
 
-function responseFor(bytes,{status=200,redirected=false,length=null}={}){
+function responseFor(bytes,{status=200,redirected=false,length=null,onCancel=()=>{}}={}){
+  let consumed=false;
   return {
     status,redirected,headers:{get:key=>key==='content-length'?length:null},
-    arrayBuffer:async()=>{
-      const b=Buffer.from(bytes);
-      return b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);
-    }
+    body:{getReader:()=>({
+      read:async()=>{
+        if(consumed)return {done:true};
+        consumed=true;
+        return {done:false,value:Buffer.from(bytes)};
+      },
+      cancel:async()=>onCancel(),
+      releaseLock:()=>{}
+    })}
   };
 }
 function fixture(override={}){
   const calls=[];
+  let cancelled=false;
   const fakeSource=name=>Buffer.from('fixture-'+name);
   const readFileImpl=async name=>{
     if(override.missing===name)throw Error('private fixture');
@@ -28,22 +35,25 @@ function fixture(override={}){
     assert.equal(options.credentials,'omit');
     assert.equal(options.cache,'no-store');
     if(override.network===name)throw Error('network');
-    const bytes=override.changed===name?Buffer.from('wrong'):fakeSource(name);
+    const bytes=override.actualOversized===name
+      ?Buffer.alloc(1024*1024+1,97)
+      :override.changed===name?Buffer.from('wrong'):fakeSource(name);
     return responseFor(bytes,{
       status:override.http===name?404:200,
       redirected:override.redirect===name,
-      length:override.oversized===name?'2000000':null
+      length:override.oversized===name?'2000000':null,
+      onCancel:()=>{cancelled=true}
     });
   };
   let count=0;
   const clock=()=>new Date(1700000000000+(override.reverseClock?(count++===0?1000:0):count++*1000));
-  return {calls,run:()=>observeHostedSite({fetchImpl,readFileImpl,clock})};
+  return {calls,run:()=>observeHostedSite({fetchImpl,readFileImpl,clock}),cancelled:()=>cancelled};
 }
 test('fixed public-only source scope, no private files, user URLs or credentials',()=>{
   assert.equal(SITE_ORIGIN,'https://stammtischbrewery.com/');
   assert.equal(SITE_FILES.length,11);
   assert.equal(new Set(SITE_FILES).size,SITE_FILES.length);
-  for(const name of SITE_FILES)assert.match(name,/^(?:[a-z0-9.-]+\.html|data\/[a-z0-9/.-]+\.json)$/);
+  for(const name of SITE_FILES)assert.match(name,/^(?:[a-z0-9.-]+\\.html|data\\/[a-z0-9/.-]+\\.json)$/);
 });
 test('matching live 11-file archive yields only source-bound public hashes and times',async()=>{
   const f=fixture(),result=await f.run();
@@ -63,9 +73,12 @@ for(const [label,change] of [
   ['HTTP denial',{http:SITE_FILES[0]}],
   ['redirect',{redirect:SITE_FILES[0]}],
   ['oversize declaration',{oversized:SITE_FILES[0]}],
+  ['oversized streamed body',{actualOversized:SITE_FILES[0]}],
   ['unreachable network',{network:SITE_FILES[0]}],
   ['missing checked-out source',{missing:SITE_FILES[0]}],
   ['backwards clock',{reverseClock:true}]
 ])test('holds rather than attests '+label,async()=>{
-  await assert.rejects(fixture(change).run());
+  const f=fixture(change);
+  await assert.rejects(f.run());
+  if(change.actualOversized)assert.equal(f.cancelled(),true);
 });
