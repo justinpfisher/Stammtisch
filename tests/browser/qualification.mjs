@@ -114,7 +114,7 @@ try{
           if(expected==='failed'){
             assert.match(await boundary.textContent(),/Previous complete fictional rule/);assert.equal(await page.locator('#rules-version-status').count(),0);
           }else{
-            assert.match(await boundary.textContent(),/fictional.*member’s tokens stay unchanged/);assert.match(await page.locator('#rules-version-status').innerText(),/Toronto/);
+            assert.match(await boundary.textContent(),/fictional.*member’s tokens stay unchanged/);assert.match(await page.locator('#rules-version-status').innerText(),/Rules updated January 15, 2026/);
             assert.equal(await boundary.locator('.rule-topic').count(),1);
             assert.equal(await boundary.locator('.rules-reference a').getAttribute('href'),'col-rules-version.html?version='+ruleFixture.revisionId+'&reference=1');
             await boundary.locator('summary').focus();await page.keyboard.press('Enter');assert.equal(await boundary.locator('details').getAttribute('open'),'');
@@ -186,7 +186,7 @@ try{
       await check(browser,profile,'revision register exact comparison and permanent links',async page=>{
         await page.goto(origin+'/col-revisions.html#col-browser-fictional');
         assert.equal(await page.locator('main').count(),1);assert.equal(await page.locator('#col-browser-fictional').count(),1);
-        assert.match(await page.locator('main').innerText(),/awaiting implementation/);assert.match(await page.locator('main').innerText(),/Toronto/);
+        assert.match(await page.locator('main').innerText(),/Not yet in effect/);assert.match(await page.locator('main').innerText(),/Toronto/);
         await page.locator('details summary').focus();await page.keyboard.press('Enter');assert.equal(await page.locator('details').getAttribute('open'),'');
         assert.match(await page.locator('pre').first().innerText(),/Fictional unchanged source text/);assert.match(await page.locator('pre').last().innerText(),/Fictional revised layout text/);await noOverflow(page);
       });
