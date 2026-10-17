@@ -1,6 +1,8 @@
 import { ageAt, basePoints, distinctionReason } from './celebration-rules.mjs';
 export { ageAt, basePoints } from './celebration-rules.mjs';
 import { calculateAwards, awardsMarkup, draftMarkup } from './celebration-awards.mjs';
+import {loadOperativeSnapshot} from './col-rules-reader.mjs';
+import {verifiedAwardPolicy} from './col-award-policy.mjs';
 
 export function multiplierFor(pick) {
   return pick.pick === 1 || pick.pick === 50 || ['diamond', 'orange'].includes(pick.marker) ? 2 : 1;
@@ -117,10 +119,19 @@ export async function mountCelebration() {
   }
   const e = escapeHtml;
   const members = rankedMembers(data.members);
-  const awards = calculateAwards(data);
-  document.querySelector('#award-leaders').innerHTML = awardsMarkup({ ...awards, cards:awards.cards.slice(0,3) });
-  document.querySelector('#badge-leaders').innerHTML = awardsMarkup({ ...awards, cards:awards.cards.slice(3) });
-  document.querySelector('#draft-benefits').innerHTML = draftMarkup(awards);
+  const renderAwardViews=awards=>{
+    const official=awards.officialAwardCards??3;
+    document.querySelector('#award-leaders').innerHTML = awardsMarkup({ ...awards, cards:awards.cards.slice(0,official) });
+    document.querySelector('#badge-leaders').innerHTML = awardsMarkup({ ...awards, cards:awards.cards.slice(official) });
+    document.querySelector('#draft-benefits').innerHTML = draftMarkup(awards);
+  };
+  renderAwardViews(calculateAwards(data));
+  // Refresh award benefits only after the existing reader admits a fully
+  // witnessed rule release. The initial standings never wait for this read.
+  loadOperativeSnapshot().then(snapshot=>{
+    const policy=verifiedAwardPolicy(snapshot);
+    if(policy.oldestDeathSteal)renderAwardViews(calculateAwards(data,data.awardSettings??{},policy));
+  }).catch(()=>{});
   document.querySelector('#awards-date').textContent = data.year + ' season · Register updated ' + dateLabel(data.asOf) + '.';
   let selectedMember = 'all';
   let query = '';

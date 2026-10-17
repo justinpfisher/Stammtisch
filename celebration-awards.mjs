@@ -50,7 +50,7 @@ export function awardEvents(data) {
   });
 }
 
-export function calculateAwards(data, settings = data.awardSettings ?? {}) {
+export function calculateAwards(data, settings = data.awardSettings ?? {}, policy = {}) {
   const members = data.members;
   const allEvents = awardEvents(data);
   const events = allEvents.filter(x => x.inSeason && !x.dateConflict);
@@ -66,6 +66,15 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}) {
   const youngest = canCompareDays ? youngestByYear.filter(x => x.ageInDays === Math.min(...youngestByYear.map(x => x.ageInDays))) : youngestByYear;
   const youngestOwners = unique(youngest.flatMap(x => x.owners.map(p => p.memberId)));
   const unconfirmedAges = events.filter(x => !x.ageConfirmed).length;
+  // A semantic amendment has no effect until the independent verified release
+  // supplies the matching award policy; the baseline has no such benefit.
+  const oldestCandidates = policy.oldestDeathSteal === true
+    ? events.filter(x => x.owners.length && x.diedOn && x.ageConfirmed && Number.isFinite(x.ageInDays)) : [];
+  const oldestAgeDays = oldestCandidates.length ? Math.max(...oldestCandidates.map(x => x.ageInDays)) : null;
+  const oldestEvents = oldestCandidates.filter(x => x.ageInDays === oldestAgeDays);
+  const oldestOwners = unique(oldestEvents.flatMap(x => x.owners.map(p => p.memberId)));
+  const oldestIncomplete = undated > 0 || events.some(x => x.owners.length && (!x.diedOn || !x.ageConfirmed || !Number.isFinite(x.ageInDays)));
+  const oldestFinal = final && !oldestIncomplete;
   const cards = [{ id:'pool-prize', title:'The $100 prize', status:leader.length > 1 ? (final ? 'Shared winners' : 'Tied on points') : final ? 'Winner' : 'Leading',
     value:names(leader), description:`${leader[0]?.score ?? 0} points · ${final ? 'Final register' : 'Year to date'}`,
     details:leader.length > 1 ? ['Tied winners share the $100 prize.'] : ['The highest score from January 1 to December 31 wins.'] },
@@ -79,6 +88,15 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}) {
   { id:'devils-share', title:'Devil’s Share', status:final ? 'Eligible' : lowest.length > 1 ? 'Tied on points' : 'If the year ended now',
     value:names(lowest), description:`${lowest[0]?.score ?? 0} points · Choose one Steal or one Blood Diamond`,
     details:lowest.length > 1 ? ['Every player tied for the lowest score receives Devil’s Share and chooses their own Steal or Blood Diamond.'] : ['Based on the lowest score for the year. The player makes the choice at the draft.'] }];
+  if (policy.oldestDeathSteal === true) cards.push({
+    id:'oldest', title:'Oldest celebrity',
+    status:oldestAgeDays === null ? 'Awaiting verified dates' : oldestFinal ? 'Eligible at the next draft' : 'Provisional contenders',
+    value:oldestOwners.length ? names(members.filter(m => oldestOwners.includes(m.id))) : 'No confirmed contender yet',
+    description:oldestAgeDays === null ? 'One Steal at the next draft.' : 'Oldest verified age: '+oldestEvents[0].age+' years · One Steal at the next draft',
+    details:oldestEvents.map(x => x.name+' · '+x.ageInDays.toLocaleString('en-CA')+' days old · '+names(x.owners.map(p => ({name:p.memberName}))))
+      .concat(oldestEvents.length > 1 ? ['Exact age ties share the benefit; each eligible member receives one Steal.'] : [],
+        oldestIncomplete ? ['Some dates or ages remain unverified; final eligibility is not yet established.'] : [])
+  });
 
   const draft = [...members].sort((a,b) => a.score-b.score || a.name.localeCompare(b.name)).map(member => {
     const owned = events.filter(x => x.owners.some(p => p.memberId === member.id));
@@ -93,6 +111,11 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}) {
         benefits.push({ kind:brown ? 'Blood Diamond' : 'Steal', event:event.name, at:event.diedOn,
           confirmed:event.ageConfirmed && Boolean(event.diedOn) && (event.diamond || Boolean(event.discoveredOn)), reason:brown ? 'Brown Diamond at 100: second Blood Diamond' : blue ? 'Blue Diamond at 100: second Steal' : 'Age 100' });
       }
+    }
+    if (policy.oldestDeathSteal === true && oldestOwners.includes(member.id)) {
+      const matching = oldestEvents.filter(x => x.owners.some(p => p.memberId === member.id));
+      benefits.push({kind:'Steal',event:matching.map(x => x.name).join(' & '),at:matching[0]?.diedOn,
+        confirmed:oldestFinal,reason:'Oldest celebrity death of the year'});
     }
     const rank = 1 + members.filter(m => m.score < member.score).length;
     const replacements = owned.flatMap(x => x.owners.filter(p => p.memberId === member.id).map(p => ({pick:p.pick, name:x.name})));
@@ -160,7 +183,8 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}) {
   cards.push({id:'birthday-buffet', title:'Birthday Buffet', status:buffet.length ? 'Recorded birthday matches' : 'No dated matches',
     value:buffet.length ? names(buffet.map(x => ({name:x.recipient}))) : 'No match yet', description:'Uses the group’s discovery date. Diamonds are excluded.',
     details:buffet.map(x => `${x.name} · ${dateText(x.date)} · Birthday: ${x.recipient}. Recorded allocation: ${x.allocations.map(a => `${a.name} ${a.points}`).join(', ') || 'none'}${x.decision ? `. ${x.decision}` : x.expected === null ? '. Age at death needs confirmation.' : `. Rule value: ${x.expected} points.`}`).concat(buffet.some(x => !x.decision) ? ['Undecided birthday matches are flagged for review; recorded scores are not reassigned automatically.'] : [])});
-  return { year:data.year, asOf:data.asOf, final, cards, draft, events, undated };
+  return { year:data.year, asOf:data.asOf, final, cards, draft, events, undated,
+    officialAwardCards:policy.oldestDeathSteal === true ? 4 : 3 };
 }
 
 export function awardsMarkup(model) {
