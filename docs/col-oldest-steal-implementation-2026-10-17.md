@@ -60,3 +60,43 @@ clock. The incumbent rules and previous awards remain operative.
 
 Do not use this preparatory note as proof that the new Steal is currently an
 official rule.
+
+
+## Exact historical intake continuation (prepared, not performed)
+
+The 16 October authenticated member message arrived before the private rule
+activation boundary and has `rulesActivationEligible:false`. Retrospectively
+changing that field, resetting the email cursor, or replaying the original
+message would destroy trustworthy intake evidence.
+
+`annalsContinueHistoricOldestRule` is an authenticated, owner-only, once-only
+private desk operation prepared for **after** full signing and hosted
+qualification. It requires the originally authenticated source, then-current
+and receipt-time publication rights, the exact unchanged oldest-death directive,
+no quarantine, no earlier AI/CoL request/dispatch and the single empty active
+release slot. It creates a **separate** private continuation journal and rule
+request, retaining the original source byte-for-byte. A failure or unknown
+signed dispatch is never retried or reset. The ordinary 15-minute reconciler
+continues only that preserved, source-bound operation and records the actual
+independently observed publication clock when verified.
+
+The button will remain disabled while any security/hosted gate is unqualified;
+there is no unattended grandfathering of other held proposals. Its activation
+is engineering continuation of an already-authorised member instruction, not
+another club vote. Review of the private exact source before the first
+continuation remains an audit prerequisite.
+
+**Production source parity warning:** the owner-only Apps Script v30
+quarantine-safe signing-verifier repair was deployed privately after the older
+public repository source. The new source package carries the same
+signed-evidence boolean/UI entitlement, but installation must first compare
+the **current private Head and deployed v30** against the candidate, preserve
+complete private rollback, and ensure no unrelated v30 fix is lost. Never
+overwrite the owner-owned manifest, settings, deployment URL, trigger,
+journals or keys by copying an unverified older kit.
+
+After this code and its tests have been merged and deployed to public GitHub
+Pages, the updated **private** Apps Script source still requires its own
+verified in-place installation in the existing production project. A Pages
+deployment is not evidence of that installation, and this code must not be
+marked live until the actual version/read-back is observed.
