@@ -92,7 +92,7 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}, polic
     id:'oldest', title:'Oldest celebrity',
     status:oldestAgeDays === null ? 'Awaiting verified dates' : oldestFinal ? 'Eligible at the next draft' : 'Provisional contenders',
     value:oldestOwners.length ? names(members.filter(m => oldestOwners.includes(m.id))) : 'No confirmed contender yet',
-    description:oldestAgeDays === null ? 'One Steal at the next draft.' : 'Oldest verified age: '+Math.floor(oldestAgeDays/365.2425)+' years · One Steal at the next draft',
+    description:oldestAgeDays === null ? 'One Steal at the next draft.' : 'Oldest verified age: '+oldestEvents[0].age+' years · One Steal at the next draft',
     details:oldestEvents.map(x => x.name+' · '+x.ageInDays.toLocaleString('en-CA')+' days old · '+names(x.owners.map(p => ({name:p.memberName}))))
       .concat(oldestEvents.length > 1 ? ['Exact age ties share the benefit; each eligible member receives one Steal.'] : [],
         oldestIncomplete ? ['Some dates or ages remain unverified; final eligibility is not yet established.'] : [])
