@@ -92,11 +92,11 @@ export function pickMarkup(pick, member, data) {
   return `<li><details class="pick-entry${hasPassing ? ' remembered' : ''}">
     <summary><span class="pick-number">${e(pick.pick)}</span><span class="pick-name-block"><span class="pick-name">${e(pick.name)} ${badge}</span><span class="record-meta">${meta}</span>${status}</span><span class="pick-points"><strong>${pointsLabel(value)}</strong><small>${pick.counted ? 'Awarded' : deathDate ? 'Not yet awarded' : 'Value'}</small></span><span class="disclosure-icon" aria-hidden="true">+</span></summary>
     <div class="pick-entry-body"><dl><div><dt>Selected by</dt><dd>${e(member.name)} · ${typeof pick.pick === 'number' ? 'Selection' : 'Entry'} ${e(pick.pick)}</dd></div><div><dt>Date of birth</dt><dd>${dateLabel(pick.born)}</dd></div><div><dt>${pick.dateOfPassing ? 'Date recorded by group' : deathDate ? 'Verified date of death' : 'Age on ' + dateLabel(data.asOf)}</dt><dd>${pick.dateOfPassing ? dateLabel(pick.dateOfPassing) + (deathDate ? ' · Actual death: ' + dateLabel(deathDate) : ' · Actual death date unverified') + ' · Aged ' + age : deathDate ? dateLabel(deathDate) + ' · Group discovery date not yet recorded · Aged ' + age : e(pick.ageText || age)}</dd></div><div><dt>${pick.counted ? 'Points in the standings' : deathDate ? 'Potential points (not yet in standings)' : 'Points at this age'}</dt><dd>${pointsLabel(value)}${multiplier === 2 ? ' · Double-point selection' : ''}</dd></div></dl>
-    ${sourceDiffers ? `<p>The spreadsheet shows ${pointsLabel(pick.points)}. The value above applies the Club’s age rule to the date shown.</p>` : ''}
-    ${pick.pick === 'BB' ? '<p>This additional selection is labelled “BB” in the spreadsheet.</p>' : ''}
+    ${sourceDiffers ? `<p>The club has recorded ${pointsLabel(pick.points)} points. The value above follows the age-at-death rule for the date shown.</p>` : ''}
+    ${pick.pick === 'BB' ? '<p>This additional selection is recorded as “BB”.</p>' : ''}
     ${pick.needsReview ? '<p>These points are included in the recorded total; a date of passing is still to be confirmed.</p>' : ''}
     ${hasPassing ? `<p class="record-source">${deathDate ? 'Actual death source: ' + dateSource : 'The group-recorded date is not an independently verified date of death'}.</p>` : ''}
-    ${deathDate && !pick.dateOfPassing ? `<p class="record-source">Independently verified after the club’s ${dateLabel(data.asOf)} register snapshot; no change has been made to the club’s recorded score.</p>` : ''}
+    ${deathDate && !pick.dateOfPassing ? `<p class="record-source">The passing has been verified, but the club has not yet assigned its points.</p>` : ''}
     </div></details></li>`;
 }
 
@@ -111,8 +111,8 @@ export async function mountCelebration() {
     document.querySelector('#award-leaders').innerHTML = '<p>Award progress is unavailable until the register loads.</p>';
     document.querySelector('#draft-benefits').innerHTML = '<p>Please reload the page to see the draft preview.</p>';
     document.querySelector('#standings').innerHTML = '<p>The standings could not be loaded.</p>';
-    document.querySelector('#member-lists').innerHTML = '<p class="load-message">The register is temporarily unavailable. Please reload the page or use the original spreadsheet linked below.</p>';
-    document.querySelector('#commemoration-list').innerHTML = '<p>Please use the original spreadsheet linked below.</p>';
+    document.querySelector('#member-lists').innerHTML = '<p class="load-message">The register is temporarily unavailable. Please reload the page.</p>';
+    document.querySelector('#commemoration-list').innerHTML = '<p>Please reload the page to see commemorations.</p>';
     return;
   }
   const e = escapeHtml;
@@ -131,7 +131,7 @@ export async function mountCelebration() {
   const statusControl = document.querySelector('#status-filter');
   document.querySelector('[data-year]').textContent = data.year;
   document.querySelector('[data-snapshot-date]').textContent = `Register updated ${dateLabel(data.asOf)}.`;
-  document.querySelector('#source-date').textContent = `Club scores and discovery dates reflect the ${dateLabel(data.asOf)} register snapshot. Independently verified deaths may be newer and do not affect standings until the club updates its register.`;
+  document.querySelector('#source-date').textContent = `Standings as recorded ${dateLabel(data.asOf)}. Newly confirmed passings appear in the totals when the club records their awards.`;
   document.querySelector('#standings').innerHTML = members.map(member => `<a class="standing-card" href="#the-lists" data-member-link="${e(member.id)}" aria-label="${e(member.name)}, rank ${member.rank}, ${member.score} points. View full list."><span class="standing-rank">${String(member.rank).padStart(2, '0')}</span><img src="${e(member.avatar)}" width="240" height="240" alt=""><span class="standing-name">${e(member.name)}</span><span class="standing-score">${pointsLabel(member.score)}<small>points</small></span><span class="standing-cta">View list <span aria-hidden="true">↗</span></span></a>`).join('');
   filters.innerHTML = [{ id: 'all', name: 'Everyone' }, ...members].map(member => `<button type="button" data-member="${e(member.id)}" aria-pressed="${member.id === 'all'}">${e(member.name)}</button>`).join('');
   document.querySelector('#register-controls').hidden = false;

@@ -78,7 +78,7 @@ export async function refreshOfficialRules(){
   if(!topics.length||!old.length)return;
   // All network and schema checks completed before a single visible node changes.
   const fragment=document.createDocumentFragment();for(const topic of topics)fragment.append(document.importNode(topic,true));old[0].before(fragment);for(const node of old)node.remove();
-  const note=boundary.querySelector('#rules-version-status')||document.createElement('p');note.id='rules-version-status';note.className='rules-reference';note.textContent='Version '+current.version.id+' · Independently observed '+new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',dateStyle:'long',timeStyle:'short'}).format(new Date(current.version.confirmedAt))+' (Toronto).';if(!note.parentNode)boundary.append(note);
+  const note=boundary.querySelector('#rules-version-status')||document.createElement('p');note.id='rules-version-status';note.className='rules-reference';note.textContent='Rules updated '+new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',dateStyle:'long'}).format(new Date(current.version.confirmedAt))+'.';if(!note.parentNode)boundary.append(note);
   const reference=boundary.querySelector('a[href="docs/celebration-of-life-rules.md"]');
-  if(reference){reference.href='col-rules-version.html?version='+encodeURIComponent(current.version.id)+'&reference=1';reference.textContent='Official reference for '+current.version.id;}
+  if(reference){reference.href='col-rules-version.html?version='+encodeURIComponent(current.version.id)+'&reference=1';reference.textContent='Read the official rules';}
 }

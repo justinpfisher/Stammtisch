@@ -5,14 +5,15 @@ try{
   let data;
   if(hosted)data={versions:hosted.versions};
   else{const response=await fetch('data/col-rules-versions.json',{cache:'no-store'});if(!response.ok)throw Error('Unavailable');data=await response.json();}
-  const versions=data.versions.filter(v=>id?v.id===id:v.verified&&Date.parse(v.effectiveAt)<=Date.now());
+  const versions=data.versions.filter(version=>version.verified===true&&version.effectiveAt&&Date.parse(version.effectiveAt)<=Date.now()&&(!id||version.id===id));
   const version=versions.at(-1);
-  if(!version){status.textContent='This version is awaiting implementation or has not been recorded. The previous operative rules remain in force.';}
+  if(!version){status.textContent='This edition is not yet available. The current rules are listed on the Celebration of Life page.';}
   else{
-    const date=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',dateStyle:'long',timeStyle:'short'});
-    status.textContent=version.id+' · '+(version.verified?'Verified operative version for its recorded period':'Scheduled; awaiting due-time requalification')+' · Effective '+date.format(new Date(version.effectiveAt))+' (Toronto).';
-    if(hosted&&query.get('reference')==='1'){
-      const source=document.createElement('pre');source.textContent=hosted.files['docs/celebration-of-life-rules.md'];container.append(source);
-    }else for(const [heading,text] of Object.entries(version.provisions)){const section=document.createElement('section'),h=document.createElement('h2'),p=document.createElement('pre');h.textContent=heading;p.textContent=text.slice(text.indexOf('\n')+1).trim();section.append(h,p);container.append(section);}
+    const date=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',dateStyle:'long'});
+    status.textContent='Rules in effect from '+date.format(new Date(version.effectiveAt))+'.';
+    for(const [heading,source] of Object.entries(version.provisions)){
+      const section=document.createElement('section'),h=document.createElement('h2'),p=document.createElement('pre');
+      h.textContent=heading;p.textContent=source.slice(source.indexOf('\n')+1).trim();section.append(h,p);container.append(section);
+    }
   }
-}catch{status.textContent='The recorded version is temporarily unavailable. Please consult the current official rules.';}
+}catch{status.textContent='This edition is temporarily unavailable. Read the current rules on the Celebration of Life page.';}
