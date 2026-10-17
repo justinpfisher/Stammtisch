@@ -12,7 +12,9 @@ jobs:
   staged:
     # Absent/unqualified gates are OFF. The clock gate cannot be inferred from
     # unit tests, a signed request, candidate hosting or a successful commit.
-    if: vars.ANNALS_RULES_V3_RELEASE_ENABLED == 'true' && vars.ANNALS_RULES_V3_HOSTED_ACCEPTED == 'true' && vars.ANNALS_RULES_V3_CLOCK_QUALIFIED == 'true' && vars.ANNALS_SIGNING_REMEDIATION_VERIFIED == 'true'
+    # The runner independently validates every phase against the exact private
+    # reservation's public-safe descriptor. This is not a hosted/clock assertion.
+    if: vars.ANNALS_SIGNING_REMEDIATION_VERIFIED == 'true' && ((vars.ANNALS_RULES_V3_RELEASE_ENABLED == 'true' && vars.ANNALS_RULES_V3_HOSTED_ACCEPTED == 'true' && vars.ANNALS_RULES_V3_CLOCK_QUALIFIED == 'true') || vars.ANNALS_RULES_V3_ACCEPTANCE != '')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,6 +43,7 @@ jobs:
           ANNALS_RULES_V3_HOSTED_ACCEPTED: ${{ vars.ANNALS_RULES_V3_HOSTED_ACCEPTED }}
           ANNALS_RULES_V3_CLOCK_QUALIFIED: ${{ vars.ANNALS_RULES_V3_CLOCK_QUALIFIED }}
           ANNALS_SIGNING_REMEDIATION_VERIFIED: ${{ vars.ANNALS_SIGNING_REMEDIATION_VERIFIED }}
+          ANNALS_RULES_V3_ACCEPTANCE: ${{ vars.ANNALS_RULES_V3_ACCEPTANCE }}
           ANNALS_PUBLISH_SIGNING_KEY: ${{ secrets.ANNALS_PUBLISH_SIGNING_KEY }}
           COL_SOURCE_WITNESS_PATH: ${{ runner.temp }}/col-source-observation.json
         run: node scripts/annals/run-staged-col.mjs

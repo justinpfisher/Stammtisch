@@ -213,6 +213,128 @@ function annalsStagedRulesReady_(){
   var p=annalsProps_();return annalsRulesReady_()&&p.getProperty('ANNALS_RULES_V3_ENABLED')==='true'&&
     p.getProperty('ANNALS_RULES_V3_HOSTED_ACCEPTED')==='true'&&p.getProperty('ANNALS_RULES_V3_CLOCK_QUALIFIED')==='true';
 }
+// One immutable, source-bound first production acceptance. No generic flag,
+// new intake boundary, remediation marker or automatic retry is created here.
+function annalsRuleAcceptanceSecurity_(){
+  var p=annalsProps_(),at=p.getProperty('ANNALS_SIGNING_REMEDIATED_AT'),name=p.getProperty('ANNALS_SIGNING_QUALIFICATION_RECORD');
+  if(!/^signing-qualification-\d{1,20}-\d{1,10}-private\.json$/.test(name||'')||!Number.isFinite(Date.parse(at))||Date.parse(at)>Date.now())
+    throw new Error('Genuine signing qualification record required');
+  var evidence=annalsRead_(annalsRoot_(),name);
+  if(!evidence||evidence.schemaVersion!==1||evidence.state!=='verified_signing_only'||evidence.verifiedAt!==at||
+    evidence.oldPrivateSignatureRejected!==true||evidence.oldPublicSignatureRejected!==true||evidence.newPrivateSignatureValid!==true||
+    evidence.separateKeys!==true||evidence.outstandingDispatchReconciliationConfirmed!==true||evidence.historicalWithdrawalReceiptGapPreserved!==true||
+    evidence.publicationActivated!==false||!evidence.crossPlatform||evidence.crossPlatform.githubSecretConsistencyVerified!==true||evidence.crossPlatform.separateKeys!==true)
+    throw new Error('Verified signing and truthful record reconciliation required');
+  return at;
+}
+function annalsRuleAcceptanceRecord_(id,phase){
+  var root=annalsRead_(annalsRoot_(),'col-acceptance-private.json');
+  var saved=annalsRead_(annalsFolder_(id),'col-acceptance-private.json');
+  if(!saved){if(root&&root.sourceId===id)throw new Error('Incomplete acceptance reservation');return null;}
+  if(!root||annalsRuleDigest_(root)!==annalsRuleDigest_(saved)||root.sourceId!==id||root.kind!=='supervised-col-acceptance-v1'||root.securityReconciliationAcknowledged!==true)
+    throw new Error('Original acceptance reservation required');
+  var security=annalsRuleAcceptanceSecurity_();
+  if(security!==root.signingRemediatedAt||!Number.isFinite(Date.parse(security))||Date.parse(security)>Date.now()||
+    annalsRuleDigest_(annalsRead_(annalsFolder_(id),'source-private.json'))!==root.sourceDigest)
+    throw new Error('Acceptance source or verified security evidence changed');
+  AnnalsRules.acceptanceDescriptor(root.descriptor,Date.now(),phase);
+  return root;
+}
+function annalsRuleExecutionReady_(id,phase){
+  try{return !!annalsRuleAcceptanceRecord_(id,phase)||annalsStagedRulesReady_();}catch(held){return false;}
+}
+function annalsRuleOldestReady_(id){
+  try{return !!annalsRuleAcceptanceRecord_(id,'stage')||annalsStagedRulesReady_()&&annalsProps_().getProperty('ANNALS_RULES_V3_AUTO_OLDEST_ENABLED')==='true';}catch(held){return false;}
+}
+function annalsRuleAcceptancePreparation_(id){
+  var f=annalsFolder_(id),source=annalsRead_(f,'source-private.json');
+  if(!annalsHistoricOldestContinuationReady_(f,source)||annalsFile_(f,'col-acceptance-private.json')||annalsFile_(annalsRoot_(),'col-acceptance-private.json'))
+    throw new Error('One unconsumed original and no earlier acceptance reservation required');
+  var pending=annalsRead_(annalsRoot_(),'col-release-pending-private.json');
+  if(pending)throw new Error('Existing release journal requires reconciliation; never reset it');
+  var context=annalsRuleContext_();
+  if(context.state.operations.length||context.state.events.length)throw new Error('Acceptance is limited to the first production release');
+  var request=AnnalsRules.oldestSteal({senderAuthenticated:true,member:annalsSpeakerIdentities_()[source.source.sender],
+    freshOperativeWindow:true,replayed:false,truncated:false,text:source.source.excerpt,receivedAt:source.source.receivedAt},context.base,'col-'+id.slice(0,24));
+  var clean=AnnalsRules.publicRecord(request);clean.baseDigest=request.baseDigest;
+  var content={revision:clean,qualification:'oldest-death-steal-v1',baseFiles:context.baseFiles,
+    implementationCommit:context.commit,behaviorDigest:context.behaviorDigest,source:null};
+  return {sourceDigest:annalsRuleDigest_(source),content:content,initialStateDigest:annalsRuleDigest_(context.state)};
+}
+function annalsPrepareRuleAcceptance(nonce,id){
+  return annalsUiCall_(nonce,function(){
+    var prepared=annalsRuleAcceptancePreparation_(id);
+    return {prepared:true,preparationDigest:annalsRuleDigest_(prepared),revisionId:prepared.content.revision.id,
+      implementationCommit:prepared.content.implementationCommit,contentDigest:annalsRuleDigest_(prepared.content),
+      initialStateDigest:prepared.initialStateDigest,behaviorDigest:prepared.content.behaviorDigest,
+      readOnly:true,published:false};
+  });
+}
+function annalsArmRuleAcceptance(nonce,id,preparationDigest,securityReconciliationAcknowledged){
+  return annalsUiCall_(nonce,function(){return annalsLocked_(function(){
+    var security=annalsRuleAcceptanceSecurity_(),now=Date.now();
+    if(securityReconciliationAcknowledged!==true||!Number.isFinite(Date.parse(security))||Date.parse(security)>now)
+      throw new Error('Genuine completed signing remediation and record reconciliation are required before arming');
+    ['ANNALS_RULES_V2_ENABLED','ANNALS_RULES_HOSTED_ACCEPTED','ANNALS_RULES_V3_ENABLED','ANNALS_RULES_V3_HOSTED_ACCEPTED','ANNALS_RULES_V3_CLOCK_QUALIFIED','ANNALS_RULES_V3_AUTO_OLDEST_ENABLED','ANNALS_RULES_V3_AUTO_LITERAL_ENABLED'].forEach(function(k){
+      if(annalsProps_().getProperty(k)==='true')throw new Error('Broad rule qualification must remain off during first acceptance');
+    });
+    var prepared=annalsRuleAcceptancePreparation_(id);
+    if(annalsRuleDigest_(prepared)!==preparationDigest)throw new Error('Prepared source, base or implementation changed; inspect again');
+    var descriptor={schemaVersion:1,kind:'col-oldest-acceptance-v1',revisionId:prepared.content.revision.id,
+      contentDigest:annalsRuleDigest_(prepared.content),initialStateDigest:prepared.initialStateDigest,
+      implementationCommit:prepared.content.implementationCommit,behaviorDigest:prepared.content.behaviorDigest,
+      nonce:annalsHash_(Utilities.getUuid()+Utilities.getUuid()),armedAt:new Date(now).toISOString(),expiresAt:new Date(now+2700000).toISOString()};
+    AnnalsRules.acceptanceDescriptor(descriptor,now,'stage');
+    var record={schemaVersion:1,kind:'supervised-col-acceptance-v1',sourceId:id,sourceDigest:prepared.sourceDigest,
+      signingRemediatedAt:security,securityReconciliationAcknowledged:true,descriptor:descriptor};
+    // Partial writes are evidence too: a failed reservation is never cleared or rearmed.
+    annalsWriteOnce_(annalsFolder_(id),'col-acceptance-private.json',record);
+    annalsWriteOnce_(annalsRoot_(),'col-acceptance-private.json',record);
+    return {armed:true,descriptor:descriptor,dispatchAccepted:false,published:false,broadGatesChanged:false};
+  });});
+}
+function annalsReadRuleAcceptance(nonce,id){
+  return annalsUiCall_(nonce,function(){
+    var saved=annalsRuleAcceptanceRecord_(id,'read'),pending=annalsRead_(annalsRoot_(),'col-release-pending-private.json');
+    return {armed:!!saved,descriptor:saved?saved.descriptor:null,
+      expired:!!saved&&Date.now()>=Date.parse(saved.descriptor.expiresAt),
+      phase:pending&&pending.sourceId===id?pending.phase:null,state:pending&&pending.sourceId===id?pending.state:null,
+      broadGatesChanged:false};
+  });
+}
+function annalsAdvanceRuleAcceptance(nonce,id){
+  return annalsUiCall_(nonce,function(){return annalsLocked_(function(){
+    if(!annalsRuleAcceptanceRecord_(id,'read'))throw new Error('Exact supervised acceptance required');
+    var pending=annalsRead_(annalsRoot_(),'col-release-pending-private.json');
+    if(!pending||pending.sourceId!==id||pending.kind!=='v3')throw new Error('Original continuation and phase journal required');
+    return {advanced:!!annalsReconcileStagedRule_(id,pending),published:false,broadGatesChanged:false};
+  });});
+}
+function annalsRuleAcceptanceAuthority_(id,phase,content,state,pending){
+  var record=annalsRuleAcceptanceRecord_(id,phase);
+  if(!record){if(!annalsStagedRulesReady_())throw new Error('Staged release qualification unavailable');return null;}
+  var d=record.descriptor,stage=phase==='stage'?content:pending&&pending.stageContent;
+  if(!stage||stage.qualification!=='oldest-death-steal-v1'||stage.source!==null||stage.revision.id!==d.revisionId||
+    annalsRuleDigest_(stage)!==d.contentDigest||stage.implementationCommit!==d.implementationCommit||stage.behaviorDigest!==d.behaviorDigest||
+    state.operations.some(function(op){return op.revisionId!==d.revisionId;})||state.events.some(function(e){return e.revisionId!==d.revisionId;}))
+    throw new Error('Acceptance exact content and original ledger required');
+  if(phase==='stage'&&(state.operations.length||state.events.length||annalsRuleDigest_(state)!==d.initialStateDigest))throw new Error('Acceptance initial base changed');
+  if(phase!=='stage'&&(!pending||pending.sourceId!==id||pending.revisionId!==d.revisionId))throw new Error('Original acceptance phase journal required');
+  if(phase==='cancel'&&(content.revisionId!==d.revisionId||content.stageEvidenceDigest!==pending.stageEvidenceDigest))throw new Error('Original cancellation authority required');
+  return d;
+}
+function annalsRuleV3DispatchReady_(folder,eventType,clientPayload){
+  try{
+    var id=folder.getName(),record=annalsRuleAcceptanceRecord_(id,'read');
+    if(!record)return annalsStagedRulesReady_();
+    var phases={'annals-col-candidate-v3':'stage','annals-col-activation-v3':'authorize','annals-col-confirm-v3':'confirm','annals-col-seal-v3':'seal','annals-col-cancel-v3':'cancel'};
+    var phase=phases[eventType],pending=annalsRead_(annalsRoot_(),'col-release-pending-private.json');
+    AnnalsRules.acceptanceDescriptor(record.descriptor,Date.now(),phase);
+    return !!(pending&&pending.sourceId===id&&pending.phase===phase&&pending.revisionId===record.descriptor.revisionId&&
+      annalsRuleDigest_(pending.stageContent)===record.descriptor.contentDigest&&clientPayload&&
+      annalsRuleDigest_(pending.envelope)===annalsRuleDigest_(clientPayload.envelope));
+  }catch(held){return false;}
+}
 function annalsReadStagedRuleGates(nonce){
   return annalsUiCall_(nonce,function(){
     var p=annalsProps_(),result={enabled:p.getProperty('ANNALS_RULES_V3_ENABLED')==='true',
@@ -228,7 +350,7 @@ function annalsReadStagedRuleGates(nonce){
 }
 function annalsRuleDigest_(value){return annalsHash_(AnnalsProduction.serial(value));}
 function annalsRulePublicRead_(path,commit){
-  if(!/^(?:data\/col-rules-(?:register|versions|release-state)\.json|data\/col-releases\/[a-f0-9]{64}(?:-activation|-confirmed|-witness)?\.json|docs\/celebration-of-life-rules\.md|celebration\.html|col-revisions\.html|celebration(?:-rules|-awards)?\.mjs|col-award-policy\.mjs|col-rules-(?:reader|version|register|witness)\.mjs|scripts\/(?:import-celebration|monitor-celebration-sheet|observe-col-source)\.py|scripts\/annals\/(?:RulesCore\.js|RulesStaged\.mjs|RulesRelease\.mjs|run-staged-col\.mjs|verify-staged-col-hosted\.mjs|RulesProduction\.gs|RulesPublisher\.mjs)|\.github\/workflows\/annals-col-rules-v3\.yml)$/.test(path))throw new Error('Bounded public rule path required');
+  if(!/^(?:data\/col-rules-(?:register|versions|release-state)\.json|data\/col-releases\/[a-f0-9]{64}(?:-activation|-confirmed|-witness)?\.json|docs\/celebration-of-life-rules\.md|celebration\.html|col-revisions\.html|celebration(?:-rules|-awards)?\.mjs|col-award-policy\.mjs|col-rules-(?:reader|version|register|witness)\.mjs|scripts\/(?:import-celebration|monitor-celebration-sheet|observe-col-source)\.py|scripts\/annals\/(?:RulesCore\.js|RulesStaged\.mjs|RulesRelease\.mjs|run-staged-col\.mjs|verify-staged-col-hosted\.mjs|RulesProduction\.gs|Production\.gs|RulesPublisher\.mjs)|\.github\/workflows\/annals-col-rules-v3\.yml)$/.test(path))throw new Error('Bounded public rule path required');
   if(commit&&!/^[a-f0-9]{40}$/.test(commit))throw new Error('Exact public commit required');
   var url=commit?'https://raw.githubusercontent.com/justinpfisher/Stammtisch/'+commit+'/'+path:'https://stammtischbrewery.com/'+path;
   var r=UrlFetchApp.fetch(url,{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true,headers:{'Cache-Control':'no-cache'}});
@@ -253,7 +375,7 @@ function annalsRuleJobWitness_(producer,requireSuccess){
   var prefix='https://api.github.com/repos/justinpfisher/Stammtisch/actions/runs/'+producer.runId;
   function read(url){var r=UrlFetchApp.fetch(url,{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true,headers:{Accept:'application/vnd.github+json','Cache-Control':'no-cache'}});if(r.getResponseCode()!==200)throw new Error('Release completion witness unavailable');var text=r.getContentText();if(!text||text.length>524288)throw new Error('Bounded job evidence required');return JSON.parse(text);}
   var run=read(prefix+'/attempts/'+producer.runAttempt),listing=read(prefix+'/attempts/'+producer.runAttempt+'/jobs?per_page=100');
-  if(String(run.id)!==producer.runId||run.run_attempt!==producer.runAttempt||run.path!==producer.workflow||run.event!=='repository_dispatch'||run.head_sha!==producer.workflowHead||
+  if(String(run.id)!==producer.runId||run.run_attempt!==producer.runAttempt||[producer.workflow,producer.workflow+'@main'].indexOf(run.path)<0||run.event!=='repository_dispatch'||run.head_sha!==producer.workflowHead||
     !run.repository||run.repository.full_name!==producer.repository||run.status!=='completed'||!Array.isArray(listing.jobs)||listing.total_count!==listing.jobs.length)throw new Error('Release workflow not independently complete');
   var jobs=listing.jobs.filter(function(job){return job.name===producer.job;});if(jobs.length!==1)throw new Error('Unique release job required');
   var job=jobs[0],completed=Date.parse(job.completed_at),started=Date.parse(job.started_at),steps=(job.steps||[]).filter(function(step){return step.name==='Verify complete hosted ready snapshot';}),sources=(job.steps||[]).filter(function(step){return step.name==='Verify final independent Viewer source';});
@@ -297,7 +419,7 @@ function annalsRuleContext_(){
       var text=annalsRulePublicRead_(path,commit);if(text!==annalsRulePublicRead_(path))throw new Error('Current base not completely hosted');files[path]=text;hashes[path]=annalsHash_(text);
     });
   }
-  var names=['celebration-rules.mjs','celebration-awards.mjs','col-award-policy.mjs','celebration.mjs','scripts/import-celebration.py','scripts/monitor-celebration-sheet.py','scripts/annals/RulesCore.js','scripts/annals/RulesStaged.mjs','scripts/annals/run-staged-col.mjs','scripts/annals/RulesProduction.gs','scripts/annals/RulesPublisher.mjs','col-rules-reader.mjs','col-rules-version.mjs','col-rules-register.mjs','scripts/annals/RulesRelease.mjs','scripts/observe-col-source.py','.github/workflows/annals-col-rules-v3.yml','col-rules-witness.mjs','scripts/annals/verify-staged-col-hosted.mjs'];
+  var names=['celebration-rules.mjs','celebration-awards.mjs','col-award-policy.mjs','celebration.mjs','scripts/import-celebration.py','scripts/monitor-celebration-sheet.py','scripts/annals/RulesCore.js','scripts/annals/RulesStaged.mjs','scripts/annals/run-staged-col.mjs','scripts/annals/RulesProduction.gs','scripts/annals/Production.gs','scripts/annals/RulesPublisher.mjs','col-rules-reader.mjs','col-rules-version.mjs','col-rules-register.mjs','scripts/annals/RulesRelease.mjs','scripts/observe-col-source.py','.github/workflows/annals-col-rules-v3.yml','col-rules-witness.mjs','scripts/annals/verify-staged-col-hosted.mjs'];
   var behavior=annalsRuleDigest_(names.map(function(name){return {name:name,text:annalsRulePublicRead_(name,commit).replace(/\r\n/g,'\n')};}));
   var versions=JSON.parse(files['data/col-rules-versions.json']).versions;
   if(current){var latest=versions[versions.length-1];if(latest.id!==current.revisionId||latest.verified!==false||latest.effectiveAt!==null)throw new Error('Unexpected ready version');versions[versions.length-1]=Object.assign({},latest,{verified:true,publishedAt:publicationAt,effectiveAt:publicationAt,confirmedAt:publicationAt});}
@@ -328,7 +450,7 @@ function annalsHistoricOldestContinuationReady_(f,source){
 function annalsContinueHistoricOldestRule(nonce,id){
   return annalsUiCall_(nonce,function(){return annalsLocked_(function(){
     var p=annalsProps_();
-    if(!annalsStagedRulesReady_()||p.getProperty('ANNALS_RULES_V3_AUTO_OLDEST_ENABLED')!=='true')
+    if(!annalsRuleOldestReady_(id))
       throw new Error('Current signing, hosted and template qualification required');
     var f=annalsFolder_(id),source=annalsRead_(f,'source-private.json');
     if(!annalsHistoricOldestContinuationReady_(f,source))
@@ -341,6 +463,11 @@ function annalsContinueHistoricOldestRule(nonce,id){
       freshOperativeWindow:true,replayed:false,truncated:false,
       text:source.source.excerpt,receivedAt:source.source.receivedAt},
       context.base,'col-'+id.slice(0,24));
+    if(annalsRuleAcceptanceRecord_(id,'stage')){
+      var clean=AnnalsRules.publicRecord(request);clean.baseDigest=request.baseDigest;
+      annalsRuleAcceptanceAuthority_(id,'stage',{revision:clean,qualification:'oldest-death-steal-v1',baseFiles:context.baseFiles,
+        implementationCommit:context.commit,behaviorDigest:context.behaviorDigest,source:null},context.state,null);
+    }
     // This is a new, explicitly authenticated engineering continuation, not
     // retroactive modification of the source's false initial eligibility.
     annalsWriteOnce_(f,'col-oldest-continuation-private.json',{
@@ -364,6 +491,7 @@ function annalsRuleFreshSource_(id){
   return {folder:f,source:source,request:request};
 }
 function annalsRuleStagedDispatch_(id,phase,content,state,pending){
+  annalsRuleAcceptanceAuthority_(id,phase,content,state,pending);
   var modes={stage:'col-literal-candidate-v3',authorize:'col-hosted-activation-v3',confirm:'col-independent-confirmation-v3',seal:'col-retain-completion-witness-v3',cancel:'col-cancel-staged-v3'};
   var events={stage:'annals-col-candidate-v3',authorize:'annals-col-activation-v3',confirm:'annals-col-confirm-v3',seal:'annals-col-seal-v3',cancel:'annals-col-cancel-v3'};
   var f=annalsFolder_(id),at=new Date().toISOString(),approval={mode:modes[phase],baseStateDigest:annalsRuleDigest_(state),issuedAt:at};
@@ -389,7 +517,7 @@ function annalsRuleStagedDispatch_(id,phase,content,state,pending){
   return {dispatchAccepted:sent,published:false,phase:phase};
 }
 function annalsStageOldestRule_(id){
-  if(!annalsStagedRulesReady_()||annalsProps_().getProperty('ANNALS_RULES_V3_AUTO_OLDEST_ENABLED')!=='true')return false;
+  if(!annalsRuleOldestReady_(id))return false;
   var pending=annalsRead_(annalsRoot_(),'col-release-pending-private.json');
   if(pending&&['verified_live','verified_cancelled'].indexOf(pending.state)<0)return false;
   var privateData=annalsRuleFreshSource_(id),request=privateData.request,source=privateData.source;
@@ -419,7 +547,7 @@ function annalsStageLiteralRule_(id){
 function annalsStageLiteralRule(nonce,id){return annalsUiCall_(nonce,function(){return annalsLocked_(function(){return annalsStageLiteralRule_(id);});});}
 function annalsRetainRuleWitness(nonce,id){
   return annalsUiCall_(nonce,function(){return annalsLocked_(function(){
-    if(!annalsStagedRulesReady_())throw new Error('Completion retention not qualified');
+    if(!annalsRuleExecutionReady_(id,'seal'))throw new Error('Completion retention not qualified');
     var pending=annalsRead_(annalsRoot_(),'col-release-pending-private.json');
     if(!pending||pending.kind!=='v3'||pending.sourceId!==id||pending.phase!=='seal'||['verified_live','verified_cancelled'].indexOf(pending.state)>=0||
       Date.now()-Date.parse(pending.envelope.approval.issuedAt)<=300000||(pending.sealAttempts||0)>=2)throw new Error('One expired completion-retention recovery is available');
@@ -434,7 +562,7 @@ function annalsRetainRuleWitness(nonce,id){
 }
 function annalsCancelStagedRule(nonce,id,reason){
   return annalsUiCall_(nonce,function(){return annalsLocked_(function(){
-    if(!annalsStagedRulesReady_())throw new Error('Staged rule cancellation not qualified');
+    if(!annalsRuleExecutionReady_(id,'cancel'))throw new Error('Staged rule cancellation not qualified');
     var pending=annalsRead_(annalsRoot_(),'col-release-pending-private.json');
     if(!pending||pending.kind!=='v3'||pending.sourceId!==id||['verified_live','verified_cancelled'].indexOf(pending.state)>=0||
       ['expired','deployment_failed','withdrawn','source_changed'].indexOf(reason)<0)throw new Error('Pending exact operation required');
@@ -453,7 +581,7 @@ function annalsCancelStagedRule(nonce,id,reason){
   });});
 }
 function annalsReconcileStagedRule_(id,pending){
-  if(!annalsStagedRulesReady_()||['verified_live','verified_cancelled'].indexOf(pending.state)>=0)return false;
+  if(!annalsRuleExecutionReady_(id,'read')||['verified_live','verified_cancelled'].indexOf(pending.state)>=0)return false;
   try{
     if(pending.phase==='cancel'){
       var cancelCommit=annalsRuleHead_(),cancelRaw=annalsRulePublicRead_('data/col-rules-release-state.json',cancelCommit);
@@ -482,6 +610,8 @@ function annalsReconcileStagedRule_(id,pending){
     if(activationText!==annalsRulePublicRead_(prefix+'-activation.json'))return false;
     var activation=JSON.parse(activationText);
     if(annalsRuleDigest_(activation)!==op.activationDigest||activation.candidateDigest!==op.candidateDigest||activation.effectiveAt!==null||activation.publishedAt!==null)return false;
+    var acceptance=annalsRuleAcceptanceRecord_(id,'read');
+    if(acceptance&&(!Number.isFinite(Date.parse(activation.expiresAt))||Date.parse(activation.expiresAt)>Date.parse(acceptance.descriptor.expiresAt)))return false;
     if(pending.phase==='authorize'&&op.phase==='activation_pending'){
       if(Date.now()>Date.parse(activation.expiresAt))return false;
       // This clock is taken AFTER independent hosted candidate + activation

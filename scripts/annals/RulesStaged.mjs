@@ -148,7 +148,7 @@ function selectedCandidate(state,candidate,candidateDigest,phase){
   if(!op||op.candidateDigest!==candidateDigest||op.phase!==phase||op.previous!==candidate.previous||candidate.previous!==(currentOperation(state)?.candidateDigest||null))throw Error('Competing or stale activation');
   return op;
 }
-export function authorizeActivation({state,candidate,envelope,secret,enabled=false,now=new Date(),implementationCommit,behaviorDigest,sourceWitness}){
+export function authorizeActivation({state,candidate,envelope,secret,enabled=false,now=new Date(),implementationCommit,behaviorDigest,sourceWitness,acceptanceUntil=null}){
   if(enabled!==true)throw Error('Staged activation disabled');
   const content=verifyEnvelope(envelope,'authorize',state,secret,now);
   exact(content,['candidateDigest','observation','source','baseFiles']);
@@ -162,9 +162,11 @@ export function authorizeActivation({state,candidate,envelope,secret,enabled=fal
   // An explicit missed date is never silently backdated or changed. A new,
   // authenticated member clarification is needed; no scheduled replay.
   if(candidate.requestedEffectiveAt&&Date.parse(candidate.requestedEffectiveAt)<now.getTime()-60000)throw Error('Explicit effective time missed; clarification required');
+  if(acceptanceUntil!==null){Rules.stamp(acceptanceUntil);if(Date.parse(acceptanceUntil)<=now.getTime())throw Error('Acceptance deadline expired');}
+  const expiresAt=Math.min(now.getTime()+2700000,acceptanceUntil===null?Infinity:Date.parse(acceptanceUntil));
   const activation={schemaVersion:3,kind:'col-activation-awaiting-independent-readback',candidateDigest:op.candidateDigest,
     previous:op.previous,baseStateDigest:digest(state),candidateObservedAt:content.observation.observedAt,authorizedAt:clock(now),
-    expiresAt:new Date(now.getTime()+2700000).toISOString(),source:clone(sourceWitness),effectiveAt:null,publishedAt:null};
+    expiresAt:new Date(expiresAt).toISOString(),source:clone(sourceWitness),effectiveAt:null,publishedAt:null};
   const activationDigest=digest(activation);
   const next={...op,phase:'activation_pending',activationDigest};
   const nextState={...state,operations:[...state.operations.slice(0,-1),next],events:[...state.events,eventFor(next,clock(now),envelope)]};validateState(nextState);

@@ -153,6 +153,73 @@ their own engineering and timing contract.
 acceptance of this precise protocol alongside the existing security and hosted
 gates. Offline mocks do not provide that evidence.
 
+## Supervised first-production acceptance
+
+The source-bound acceptance lane closes the bootstrap dependency without asserting
+hosted or clock qualification before a real release. It supports only the exact
+`oldest-death-steal-v1` template against an empty v3 release ledger. It cannot
+process another source, add an arbitrary amendment, reuse a consumed attempt or
+automatically enable broader operation. Installing this code is not acceptance.
+
+Before arming, complete genuine signing qualification and outstanding-record
+reconciliation. The private desk's signing qualification action rechecks the
+actual old-signature rejection and the fresh nonpublishing GitHub challenge. Its
+immutable `verified_signing_only` record retains the historical withdrawal-receipt
+gap and the operator's reconciliation provenance; it never invents the missing
+receipt. Acceptance requires that record through
+`ANNALS_SIGNING_QUALIFICATION_RECORD`, its matching actual verification timestamp
+in `ANNALS_SIGNING_REMEDIATED_AT`, and affirmative genuine evidence. The hosted
+`ANNALS_SIGNING_REMEDIATION_VERIFIED` variable must be set only after those real
+checks. Neither acceptance preparation nor arming creates these markers.
+
+After the reviewed source is merged and installed in the existing owner-only
+deployment, the supervised sequence is:
+
+1. Open the genuine unconsumed original in the private desk. **Prepare exact
+   original acceptance** reads the preserved source, current consents, exact
+   current hosted base and implementation. It makes no private write or dispatch.
+2. After actual security and record reconciliation, explicitly arm that prepared
+   binding. The server rereads it and refuses any intervening change. It reserves
+   one immutable private record in the source folder and root, with a fixed
+   45-minute deadline. A failed/partial reservation is retained, never reset or
+   automatically extended. Arming sends no publishing request.
+3. Configure repository variable `ANNALS_RULES_V3_ACCEPTANCE` to **only the
+   returned descriptor object**, with no enclosing status object. Its exact schema
+   includes a random nonce, sanitized public revision ID, exact stage-content and
+   initial-ledger digests, reviewed implementation and behavior digest, arm time
+   and expiry. Original source ID, email, excerpt and private source hash never
+   belong in this variable or public logs. Leave V2/V3 broad release, hosted,
+   clock and automatic-template flags false or absent. The runner independently
+   rejects a malformed descriptor, wrong binding, another revision or open broad
+   qualification flags; YAML admission alone grants no publication authority.
+4. Use **Continue the authenticated oldest-death amendment** once. This retains
+   the original receipt and false intake-eligibility value, adds its original
+   continuation/request journals, and reserves the first signed stage. Do not
+   resend the email. Any unknown dispatch result remains consumed.
+5. Supervise **Check and advance the saved phase once** and read its saved status.
+   The ordinary trigger retains its existing cadence. Both paths reconcile the
+   same journal and may issue only the next unconsumed phase. Every phase retains
+   the usual signature, source, exact-base, behavior, hosted-readback and job-clock
+   checks. Do not merge another implementation during the window.
+6. The activation lease is clipped to the original acceptance deadline. Expiry
+   blocks new staging, authorization and confirmation. It does not prevent
+   retaining evidence of an already completed timely release, final readback, or
+   existing bounded exact-operation cancellation. Keep the descriptor until this
+   terminal reconciliation finishes; deleting it earlier can hold hosted recovery.
+   No attempt history is cleared and no deadline is renewed.
+7. Only a complete timely production release, retained hosted witness and final
+   private `verified_live` state constitute successful acceptance. Preserve the
+   reservation and audit records. Remove the hosted acceptance variable after
+   terminal reconciliation. Qualification of broad automatic operation remains a
+   separate evidence-based action; this lane never sets those flags itself.
+
+The hosted workflow still uses its existing GitHub-hosted runner, publication
+concurrency, compare-and-swap push, independent Viewer identity and final source
+observation. No account, permission, trigger, AI call, workbook write, spending
+allowance or notification channel is added. Publication time remains the verified
+original completion clock, never the arm or dispatch time. Both clock verifiers
+accept only the fixed workflow's bare path or that exact path with `@main`.
+
 ## Future dates and source-dependent changes
 
 The stage reducer can retain an explicit future timestamp without activation.

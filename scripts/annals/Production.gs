@@ -916,8 +916,7 @@ function annalsReviewItem(nonce, id) {
       historicOldestContinuationAvailable: typeof annalsHistoricOldestContinuationReady_==='function'&&
         annalsHistoricOldestContinuationReady_(f,source),
       historicOldestContinuationReady: typeof annalsHistoricOldestContinuationReady_==='function'&&
-        annalsHistoricOldestContinuationReady_(f,source)&&typeof annalsStagedRulesReady_==='function'&&
-        annalsStagedRulesReady_()&&annalsProps_().getProperty('ANNALS_RULES_V3_AUTO_OLDEST_ENABLED')==='true',
+        annalsHistoricOldestContinuationReady_(f,source)&&typeof annalsRuleOldestReady_==='function'&&annalsRuleOldestReady_(id),
       rulesReady: typeof annalsRulesReady_==='function'&&annalsRulesReady_(),
       historyReview: annalsRead_(f,'history-review-private.json'),
       truncated: source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated,
@@ -1235,7 +1234,8 @@ function annalsDispatchEvent_(folder, eventType, clientPayload, markerName) {
       !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo || '') ||
       ['annals-approved-entry','annals-auto-entry','annals-correct-entry','annals-remove-entry','annals-history-revision','annals-col-rule-release','annals-col-rule-status','annals-col-candidate-v3','annals-col-activation-v3','annals-col-confirm-v3','annals-col-cancel-v3','annals-col-seal-v3'].indexOf(eventType) < 0 || annalsFile_(folder, markerName)) return false;
   if(['annals-col-rule-release','annals-col-rule-status'].indexOf(eventType)>=0&&!annalsRulesReady_())return false;
-  if(/^annals-col-(?:candidate|activation|confirm|cancel|seal)-v3$/.test(eventType)&&!annalsStagedRulesReady_())return false;
+  if(/^annals-col-(?:candidate|activation|confirm|cancel|seal)-v3$/.test(eventType)&&
+    (typeof annalsRuleV3DispatchReady_!=='function'||!annalsRuleV3DispatchReady_(folder,eventType,clientPayload)))return false;
   if (eventType === 'annals-history-revision' && (p.getProperty('ANNALS_HISTORY_PUBLICATION_ENABLED') !== 'true' || !Number.isFinite(Date.parse(p.getProperty('ANNALS_SIGNING_REMEDIATED_AT'))))) return false;
   var marker = { state: 'attempt_reserved', at: new Date().toISOString() };
   var requestBody = JSON.stringify({ event_type: eventType, client_payload: clientPayload });

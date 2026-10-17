@@ -216,3 +216,29 @@ function annalsCheckGithubSigningConsistency(nonce,challenge,artifactId,zipBase6
     return {publishesAnything:false,changesCredentials:false,changesReleaseGates:false,separateKeys:true,githubSecretConsistencyVerified:difference===0,verifiedAt:new Date().toISOString(),workflowRunId:proof.runId,workflowRunAttempt:proof.attempt,implementationCommit:proof.headSha};
   });
 }
+
+/** Records independently checked security evidence, never hosted acceptance.
+ * This initial-remediation path deliberately requires the current archive empty
+ * and every publication capability closed. Historical missing receipts stay missing. */
+function annalsRecordSigningQualification(nonce,id,challenge,artifactId,zipBase64,reconciliationConfirmed){
+  return annalsUiCall_(nonce,function(){
+    if(reconciliationConfirmed!==true)throw new Error('Actual outstanding-record reconciliation must be confirmed');
+    var cross=annalsCheckGithubSigningConsistency(nonce,challenge,artifactId,zipBase64),rotation=annalsCheckSigningRotation(nonce,id);
+    if(!cross.githubSecretConsistencyVerified||!rotation.separateKeys||!rotation.oldPublicSignatureRejected||!rotation.oldPrivateSignatureRejected||!rotation.newPrivateSignatureValid)throw new Error('Genuine current signing qualification required');
+    return annalsLocked_(function(){
+      var p=annalsProps_(),root=annalsRoot_();
+      ['ANNALS_AUTO_PUBLICATION_ENABLED','ANNALS_AUTO_MEDIA_ENABLED','ANNALS_HISTORY_PUBLICATION_ENABLED','ANNALS_RULES_V2_ENABLED','ANNALS_RULES_V3_ENABLED'].forEach(function(k){if(p.getProperty(k)==='true')throw new Error('Publication must remain closed during initial qualification');});
+      ['col-release-pending-private.json','history-pending-private.json'].forEach(function(name){var pending=annalsRead_(root,name);if(pending&&['verified_live','verified_cancelled'].indexOf(pending.state)<0)throw new Error('Pending operation requires reconciliation');});
+      function read(url){var response=UrlFetchApp.fetch(url,{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true,headers:{'Cache-Control':'no-cache'}});if(response.getResponseCode()!==200)throw new Error('Current public archive unavailable');var text=response.getContentText();if(!text||text.length>1000000)throw new Error('Bounded public evidence required');return text;}
+      var suffix='?signing-observation='+Date.now(),committed=read('https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/annals-approved.json'+suffix),live=read('https://stammtischbrewery.com/data/annals-approved.json'+suffix),archive=JSON.parse(live),page=read('https://stammtischbrewery.com/annals.html'+suffix);
+      if(committed!==live||archive.schemaVersion!==1||!Array.isArray(archive.entries)||!Array.isArray(archive.approvals)||archive.entries.length||archive.approvals.length||page.indexOf('The Annals of Stammtisch')<0||page.indexOf('</html>')<0||/<article\b[^>]*\bid=/.test(page))throw new Error('Initial empty-archive reconciliation failed');
+      var name='signing-qualification-'+cross.workflowRunId+'-'+cross.workflowRunAttempt+'-private.json';
+      if(annalsFile_(root,name)||p.getProperty('ANNALS_SIGNING_REMEDIATED_AT'))throw new Error('Prior security qualification preserved; no overwrite');
+      var at=new Date().toISOString(),record={schemaVersion:1,state:'verified_signing_only',verifiedAt:at,crossPlatform:cross,challengeArtifactId:artifactId,challengeArchiveSha256:annalsHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,Utilities.base64Decode(zipBase64))),historicalEvidence:{sourceId:id,approvalDigest:annalsHash_(AnnalsProduction.serial(annalsRead_(annalsFolder_(id),'approval-private.json')))},reconciliationMethod:'owner-authenticated-operator-confirmed-existing-journals-and-current-empty-hosted-archive',oldPrivateSignatureRejected:true,oldPublicSignatureRejected:true,newPrivateSignatureValid:true,separateKeys:true,outstandingDispatchReconciliationConfirmed:true,historicalWithdrawalReceiptGapPreserved:true,archiveSha256:annalsHash_(live),pageSha256:annalsHash_(page),publicationActivated:false};
+      annalsWriteOnce_(root,name,record);
+      p.setProperty('ANNALS_SIGNING_QUALIFICATION_RECORD',name);
+      p.setProperty('ANNALS_SIGNING_REMEDIATED_AT',at);
+      return {securityQualificationRecorded:true,verifiedAt:at,githubSecretConsistencyVerified:true,historicalWithdrawalReceiptGapPreserved:true,publicationActivated:false};
+    });
+  });
+}

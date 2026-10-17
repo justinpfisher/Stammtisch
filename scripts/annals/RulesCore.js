@@ -117,6 +117,21 @@ var AnnalsRules = (function () {
       retrospective:{requested:false,period:'',results:'',clubAgreementExcerpt:''},correctionOf:''};
     return intake(source,assessment,base,revisionId);
   }
+  // Public-safe capability for one supervised first production acceptance.
+  // It is not a signing/remediation result and never enables general intake.
+  function acceptanceDescriptor(value,now,phase){
+    var keys=['schemaVersion','kind','revisionId','contentDigest','initialStateDigest','implementationCommit','behaviorDigest','nonce','armedAt','expiresAt'];
+    only(value,keys);
+    if(Object.keys(value).length!==keys.length||value.schemaVersion!==1||value.kind!=='col-oldest-acceptance-v1')throw new Error('Exact acceptance descriptor required');
+    id(value.revisionId);
+    ['contentDigest','initialStateDigest','behaviorDigest','nonce'].forEach(function(k){if(!/^[a-f0-9]{64}$/.test(value[k]||''))throw new Error('Invalid acceptance binding');});
+    if(!/^[a-f0-9]{40}$/.test(value.implementationCommit||''))throw new Error('Invalid acceptance implementation');
+    stamp(value.armedAt);stamp(value.expiresAt);
+    var start=Date.parse(value.armedAt),end=Date.parse(value.expiresAt);
+    if(!Number.isFinite(now)||start>now||end-start!==2700000||['stage','authorize','confirm','seal','cancel','read'].indexOf(phase)<0||
+      ['stage','authorize','confirm'].indexOf(phase)>=0&&now>=end)throw new Error('Acceptance window unavailable');
+    return copy(value);
+  }
   function publicRecord(r){
     [r.explanation].concat(r.changes.map(function(c){return c.after;})).forEach(function(s){if(typeof s!=='string'||/[\w.+-]+@[\w.-]+\.[a-z]{2,}|https?:\/\/|<[^>]+>|\b(?:password|passcode|api key|home address)\b/i.test(s))throw new Error('Private content cannot enter public revision');});
     if(MEMBERS.indexOf(r.member)<0||STATUS.indexOf(r.state)<0)throw new Error('Invalid public revision');
@@ -125,6 +140,6 @@ var AnnalsRules = (function () {
       explanation:text(r.explanation,1000),changes:r.changes.map(function(c){return {provision:text(c.provision,100),before:text(c.before,6000),after:text(c.after,6000)};}),
       correctionOf:r.correctionOf===null?null:id(r.correctionOf)};
   }
-  return Object.freeze({provisions:provisions,intake:intake,qualify:qualify,publish:publish,select:select,publicRecord:publicRecord,stamp:stamp,typography:typography,literalWording:literalWording,oldestSteal:oldestSteal,OLDEST_DEATH_STEAL_CLAUSE:OLDEST_DEATH_STEAL_CLAUSE,OLDEST_DEATH_STEAL_EXPLANATION:OLDEST_DEATH_STEAL_EXPLANATION});
+  return Object.freeze({provisions:provisions,intake:intake,qualify:qualify,publish:publish,select:select,publicRecord:publicRecord,stamp:stamp,typography:typography,literalWording:literalWording,oldestSteal:oldestSteal,acceptanceDescriptor:acceptanceDescriptor,OLDEST_DEATH_STEAL_CLAUSE:OLDEST_DEATH_STEAL_CLAUSE,OLDEST_DEATH_STEAL_EXPLANATION:OLDEST_DEATH_STEAL_EXPLANATION});
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=AnnalsRules;
