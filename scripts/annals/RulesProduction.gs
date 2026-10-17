@@ -307,7 +307,7 @@ function annalsHistoricOldestSource_(f,source){
     source.protectiveRoute==='col_proposal'&&source.source&&!source.source.sourceTruncated&&
     !source.source.subjectTruncated&&!source.source.excerptTruncated&&
     typeof source.source.excerpt==='string'&&
-    /^whoever had the oldest death in the year gets a steal\\. this is effective immediately\\.?$/i.test(source.source.excerpt.trim().replace(/\\s+/g,' '))&&
+    /^whoever had the oldest death in the year gets a steal\. this is effective immediately\.?$/i.test(source.source.excerpt.trim().replace(/\s+/g,' '))&&
     !annalsFile_(f,'quarantine-private.json')&&!annalsFile_(f,'col-proposal-private.json')&&
     !annalsFile_(f,'ai-attempt-private.json'));
 }
