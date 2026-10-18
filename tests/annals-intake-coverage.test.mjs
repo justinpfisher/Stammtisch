@@ -184,3 +184,73 @@ test('unauthenticated CoL-looking mail is never fast-tracked into amendment proc
   f.ctx.runAnnalsProductionIntake();
   assert.deepEqual(reviews,[]);
 });
+
+
+test('one malformed message cannot prevent other member messages from being staged',()=>{
+  const f=intakeFixture([thread('new',['faulty-message']),thread('other',['legitimate-message'])]);
+  const recorded=new Map(),sent=[],visited=[];
+  f.ctx.annalsStageProduction_=msg=>{
+    visited.push(msg.getId());
+    if(msg.getId()==='faulty-message')throw Error('fictional raw body must not be logged');
+    return 'staged';
+  };
+  f.ctx.annalsHash_=id=>'hash-'+id;
+  f.ctx.annalsFolder_=id=>({id,getUrl:()=> 'https://drive.google.com/drive/folders/fictional'});
+  f.ctx.annalsFile_=(folder,name)=>recorded.get(folder.id+'/'+name)||null;
+  f.ctx.annalsWriteOnce_=(folder,name,value)=>{
+    assert.equal(recorded.has(folder.id+'/'+name),false);
+    recorded.set(folder.id+'/'+name,value);
+  };
+  f.ctx.GmailApp.sendEmail=(...args)=>sent.push(args);
+  const first=JSON.parse(JSON.stringify(f.ctx.runAnnalsProductionIntake()));
+  assert.equal(first.staged,1);
+  assert.equal(first.staging_errors,1);
+  assert.deepEqual(visited,['faulty-message','legitimate-message']);
+  assert.equal(JSON.parse(f.props.ANNALS_INBOX_CURSOR).offset,1);
+  assert.equal(sent.length,1);
+  assert.ok(recorded.has('hash-faulty-message/intake-staging-error-private.json'));
+  assert.equal(sent[0][0],f.props.ANNALS_OWNER_EMAIL);
+  assert.doesNotMatch(JSON.stringify(sent),/fictional raw body must not be logged/);
+  f.ctx.runAnnalsProductionIntake();
+  assert.equal(sent.length,1,'one-shot exception notice is not resent');
+});
+test('a stored staging failure holds subsequent attempts before original body or attachments are read',()=>{
+  const ctx=vm.createContext({
+    AnnalsPilot:{senderAddress:raw=>raw},
+    annalsHash_:id=>'hash-'+id,
+    annalsFolder_:()=>({}),
+    annalsFile_:(_,name)=>name==='intake-staging-error-private.json'?{}:null,
+    annalsRead_:()=>assert.fail('Read original was not needed'),
+    annalsAuthentication_:()=>assert.fail('Authentication was not repeated')
+  });
+  vm.runInContext(production,ctx);
+  let bodyReads=0;
+  const msg={getFrom:()=> 'member@example.test',getDate:()=>new Date('2026-10-18T17:00:00Z'),
+    getSubject:()=> 'Fictional CoL amendment',getId:()=> 'fixture',
+    getPlainBody:()=>{bodyReads++;return 'do not read';}};
+  assert.equal(ctx.annalsStageProduction_(msg,Date.parse('2026-10-17T00:00:00Z'),['member@example.test']),'held');
+  assert.equal(bodyReads,0);
+});
+test('a complete private source is never overwritten or marked as a failed staging attempt',()=>{
+  const f=intakeFixture([thread('new',['existing-source','next'])]),written=[],sent=[];
+  f.ctx.annalsHash_=id=>'hash-'+id;
+  f.ctx.annalsFolder_=id=>({id});
+  f.ctx.annalsFile_=(folder,name)=>folder.id==='hash-existing-source'&&name==='source-private.json'?{}:null;
+  f.ctx.annalsWriteOnce_=(folder,name)=>written.push({id:folder.id,name});
+  f.ctx.GmailApp.sendEmail=(...args)=>sent.push(args);
+  f.ctx.annalsStageProduction_=m=>m.getId()==='existing-source'?
+    (()=>{throw Error('fictional post-capture error');})():'staged';
+  const result=JSON.parse(JSON.stringify(f.ctx.runAnnalsProductionIntake()));
+  assert.equal(result.staged,1);
+  assert.equal(result.staging_errors,1);
+  assert.deepEqual(written,[]);
+  assert.equal(sent.length,0);
+});
+test('an unreadable message ID is isolated and does not block a subsequent message',()=>{
+  const f=intakeFixture([thread('bad', ['bad']),thread('good',['good'])]);
+  f.threads[0]={getId:()=> 'bad',getMessages:()=>[{getId(){throw Error('fictional unreadable metadata');}}]};
+  const res=JSON.parse(JSON.stringify(f.ctx.runAnnalsProductionIntake()));
+  assert.equal(res.staging_errors,1);
+  assert.equal(res.staged,1);
+  assert.deepEqual(f.calls,['good']);
+});

@@ -522,7 +522,8 @@ function annalsStageProduction_(message, activation, allowed) {
   if (!sender || message.getDate().getTime() < activation ||
       /^\[ANNALS SYNTHETIC PILOT\]/.test(message.getSubject())) return 'skipped';
   var id = annalsHash_(message.getId()), folder = annalsFolder_(id, true);
-  if (annalsFile_(folder, 'quarantine-private.json')) return 'held';
+  if (annalsFile_(folder, 'quarantine-private.json') ||
+      annalsFile_(folder, 'intake-staging-error-private.json')) return 'held';
   if (annalsRead_(folder, 'source-private.json')) return 'duplicates';
   var authenticated = annalsAuthentication_(message, authenticatedSender);
   var originalSubject=message.getSubject(), originalBody=message.getPlainBody();
@@ -601,11 +602,30 @@ function annalsCreateSyntheticCheckItem() {
     return { created: true, automaticAi: false, publishesAnything: false };
   });
 }
+/** A failed pre-source staging attempt must not be replayed automatically.
+ * This one-shot, owner-only exception contains no message text or identity.
+ * Existing complete sources and their publication state are never rewritten.
+ */
+function annalsRecordStagingException_(messageId) {
+  try {
+    var id=annalsHash_(messageId),folder=annalsFolder_(id,false);
+    if (annalsFile_(folder,'source-private.json') ||
+        annalsFile_(folder,'intake-staging-error-private.json')) return false;
+    annalsWriteOnce_(folder,'intake-staging-error-private.json',{
+      schemaVersion:1,state:'held_for_owner_review',at:new Date().toISOString()
+    });
+    try { GmailApp.sendEmail(annalsProps_().getProperty('ANNALS_OWNER_EMAIL'),
+      'Stammtisch Annals — intake exception',
+      'One inbox message could not finish private staging. Its original remains in the mailbox; no automatic replay was made. Review the owner-only folder: '+folder.getUrl()); }
+    catch (ignored) {}
+    return true;
+  } catch (ignored) { return false; }
+}
 /** Bounded inbox traversal; no mail, labels or read/unread state is changed.
  * A saved thread/message position is resumed on the next run, then wraps.
  */
 function runAnnalsProductionIntake() {
-  var p = annalsProps_(), summary = { enabled: false, staged: 0, held: 0, duplicates: 0, skipped: 0, unverified: 0, awaiting_consent: 0, consent_activated: 0, consent_revoked: 0, auto_consent_activated: 0, auto_consent_revoked: 0, quote_attribution_revoked: 0, portrait_hidden: 0, portrait_enabled: 0, image_consent_activated: 0, image_consent_revoked: 0, drafted: 0, verified: 0 };
+  var p = annalsProps_(), summary = { enabled: false, staged: 0, held: 0, duplicates: 0, skipped: 0, unverified: 0, awaiting_consent: 0, consent_activated: 0, consent_revoked: 0, auto_consent_activated: 0, auto_consent_revoked: 0, quote_attribution_revoked: 0, portrait_hidden: 0, portrait_enabled: 0, image_consent_activated: 0, image_consent_revoked: 0, staging_errors: 0, drafted: 0, verified: 0 };
   if (p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED') !== 'true') return summary;
   try {
     return annalsLocked_(function () {
@@ -632,17 +652,30 @@ function runAnnalsProductionIntake() {
         catch (ignored) { /* Existing one-shot private records and notices govern exceptions. */ }
       }
       function processInboxMessage(message) {
-        var messageId = message.getId();
-        if (Object.prototype.hasOwnProperty.call(seenInRun, messageId)) return;
-        seenInRun[messageId] = true;
-        var outcome = annalsStageProduction_(message, activation, allowed);
-        if (!Object.prototype.hasOwnProperty.call(summary, outcome)) throw new Error('Unknown intake outcome');
-        summary[outcome] += 1;
-        if (outcome === 'held' && !recentRuleId) {
-          var sourceId = annalsHash_(messageId);
-          var staged = annalsRead_(annalsFolder_(sourceId), 'source-private.json');
-          if (staged && staged.senderAuthenticated === true &&
-              staged.protectiveRoute === 'col_proposal') recentRuleId = sourceId;
+        var messageId;
+        try { messageId=message.getId(); } catch (ignored) { summary.staging_errors++; return; }
+        if (typeof messageId!=='string' || !messageId) { summary.staging_errors++; return; }
+        if (Object.prototype.hasOwnProperty.call(seenInRun,messageId)) return;
+        seenInRun[messageId]=true;
+        var outcome;
+        try { outcome=annalsStageProduction_(message,activation,allowed); }
+        catch (ignored) {
+          summary.staging_errors++;
+          annalsRecordStagingException_(messageId);
+          return;
+        }
+        if (!Object.prototype.hasOwnProperty.call(summary,outcome) || outcome==='staging_errors') {
+          summary.staging_errors++;
+          annalsRecordStagingException_(messageId);
+          return;
+        }
+        summary[outcome]++;
+        if (outcome==='held' && !recentRuleId) {
+          try {
+            var sourceId=annalsHash_(messageId),staged=annalsRead_(annalsFolder_(sourceId),'source-private.json');
+            if (staged && staged.senderAuthenticated===true &&
+                staged.protectiveRoute==='col_proposal') recentRuleId=sourceId;
+          } catch (ignored) { summary.staging_errors++; }
         }
       }
       for (var recentIndex = 0; recentIndex < recent.length; recentIndex++) {
