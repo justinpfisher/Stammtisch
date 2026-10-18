@@ -314,6 +314,7 @@ unchanged.
 Private gates: existing rules readiness plus `ANNALS_RULES_V3_ENABLED`,
 `ANNALS_RULES_V3_HOSTED_ACCEPTED`, `ANNALS_RULES_V3_CLOCK_QUALIFIED`; automatic
 initial typography staging also requires `ANNALS_RULES_V3_AUTO_LITERAL_ENABLED`.
+The literal qualification flag also guards owner-only manual typography staging; shared protocol readiness alone does not open an unqualified class.
 The independent oldest-death template additionally requires the private
 `ANNALS_RULES_V3_AUTO_OLDEST_ENABLED` gate (default false/unset); it must not
 be enabled before complete signing and genuine hosted acceptance. Hosted gates:
