@@ -218,7 +218,7 @@ test('actual private adapters and hosted reducers complete separate signed phase
   privateFiles.set('folder/source-private.json',source);privateFiles.set('folder/col-rule-request-private.json',clone(f.revision));
   const c=vm.createContext({AnnalsRules:Rules,AnnalsProduction:{serial:v=>JSON.stringify(canonical(v))},annalsUiCall_:(nonce,fn)=>fn(),annalsLocked_:fn=>fn(),
     Date:class extends Date{constructor(value){super(value===undefined?now:value);}static now(){return Date.parse(now);}},
-    annalsProps_:()=>({getProperty:k=>k==='ANNALS_PUBLISH_SIGNING_KEY'?key:k==='ANNALS_APPROVAL_KEY'?'different-approval-key':k==='ANNALS_GITHUB_TOKEN'?'existing-fictional-repository-token':null}),
+    annalsProps_:()=>({getProperty:k=>k==='ANNALS_PUBLISH_SIGNING_KEY'?key:k==='ANNALS_APPROVAL_KEY'?'different-approval-key':k==='ANNALS_GITHUB_TOKEN'?'existing-fictional-repository-token':k==='ANNALS_RULES_V3_AUTO_LITERAL_ENABLED'?'true':null}),
     annalsRoot_:()=> 'root',annalsFolder_:id=>id==='fixture'?'folder':'folder2',annalsConsentActive_:()=>true,annalsStandingPublicationActive_:()=>true,
     annalsRead_:(folder,name)=>privateFiles.get(folder+'/'+name)||null,annalsFile_:(folder,name)=>privateFiles.get(folder+'/'+name)||null,
     annalsSavePrivate_:(folder,name,value)=>privateFiles.set(folder+'/'+name,clone(value)),annalsWriteOnce_:(folder,name,value)=>{assert.equal(privateFiles.has(folder+'/'+name),false);privateFiles.set(folder+'/'+name,clone(value));},

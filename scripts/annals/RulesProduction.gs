@@ -537,7 +537,7 @@ function annalsStageOldestRule_(id){
   return annalsRuleStagedDispatch_(id,'stage',content,context.state,{revisionId:request.id,stageContent:content});
 }
 function annalsStageLiteralRule_(id){
-  if(!annalsStagedRulesReady_())return false;
+  if(!annalsStagedRulesReady_()||annalsProps_().getProperty('ANNALS_RULES_V3_AUTO_LITERAL_ENABLED')!=='true')return false;
   var pending=annalsRead_(annalsRoot_(),'col-release-pending-private.json');if(pending&&['verified_live','verified_cancelled'].indexOf(pending.state)<0)return false;
   var privateData=annalsRuleFreshSource_(id),request=privateData.request,source=privateData.source;
   if(!request||request.state!=='awaiting_implementation')return false;

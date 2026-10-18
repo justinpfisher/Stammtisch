@@ -174,3 +174,12 @@ test('acceptance dispatcher is included in both behavior manifests and desk sepa
   const ui=read('scripts/annals/ReviewUi.html');for(const method of ['annalsPrepareRuleAcceptance','annalsArmRuleAcceptance','annalsReadRuleAcceptance','annalsAdvanceRuleAcceptance','annalsRecordSigningQualification'])assert.ok(ui.includes(method));
   const armHandler=ui.slice(ui.indexOf("el('armRuleAcceptance').onclick"),ui.indexOf("el('readRuleAcceptance').onclick"));assert.ok(!armHandler.includes('annalsContinueHistoricOldestRule'));assert.ok(armHandler.includes('ruleAcceptancePrepared=null'));
 });
+
+test('unqualified literal staging stays closed even when the shared protocol is ready',()=>{
+ let reads=0,literal='false';
+ const c=vm.createContext({annalsProps_:()=>({getProperty:()=>literal}),annalsRoot_:()=> 'root',annalsRead_:()=>{reads++;return {state:'accepted'};}});
+ vm.runInContext(readFileSync(new URL('../scripts/annals/RulesProduction.gs',import.meta.url),'utf8'),c);c.annalsStagedRulesReady_=()=>true;
+ assert.equal(c.annalsStageLiteralRule_('fixture'),false);assert.equal(reads,0);
+ literal='true';assert.equal(c.annalsStageLiteralRule_('fixture'),false);assert.equal(reads,1);
+ const ui=readFileSync(new URL('../scripts/annals/ReviewUi.html',import.meta.url),'utf8');assert.ok(ui.includes("el('stageLiteralRule').disabled=!gates.ready||!gates.automaticLiteralEnabled"));
+});
