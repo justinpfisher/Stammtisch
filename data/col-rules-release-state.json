@@ -5,10 +5,27 @@
       "candidateDigest": "447206a5f23e52a85a3132c1db5d6a642764439435476b41c9e40ead4b7ecd27",
       "revisionId": "col-35a4c1a8b8f7e39be6b52555",
       "previous": null,
-      "phase": "activation_pending",
+      "phase": "release_pending",
       "stagedAt": "2026-10-18T00:36:35.701Z",
       "activationDigest": "3c2bdf577a080ed377763aca97b6f02761dcdfcbb6e55d5acf9c467bf73d13dd",
-      "confirmation": null
+      "confirmation": {
+        "observedAt": "2026-10-18T00:41:41.182Z",
+        "sourceDigest": "2c7183156440db4332c08713a0b7804be3bcea2c8f26e1f8643c666ff8beaecd",
+        "candidateDigest": "447206a5f23e52a85a3132c1db5d6a642764439435476b41c9e40ead4b7ecd27",
+        "activationDigest": "3c2bdf577a080ed377763aca97b6f02761dcdfcbb6e55d5acf9c467bf73d13dd",
+        "baseStateDigest": "efefdc1ff55ea91ae862fce32c7e90f77ce00ba8a38e52db41c859af76a6ce92",
+        "producer": {
+          "repository": "justinpfisher/Stammtisch",
+          "workflow": ".github/workflows/annals-col-rules-v3.yml",
+          "job": "staged",
+          "runId": "39083724549",
+          "runAttempt": 1,
+          "workflowHead": "29a9f09c8c32b437d97c12d3a2ea107543f86cdd",
+          "checkoutHead": "29a9f09c8c32b437d97c12d3a2ea107543f86cdd"
+        },
+        "sealDigest": null,
+        "snapshotDigest": "ee633366c994873a261312ac364855de3c9764ad6f0bbbc721c58433f6de2ee3"
+      }
     }
   ],
   "events": [
@@ -26,6 +43,14 @@
       "phase": "activation_pending",
       "at": "2026-10-18T00:38:52.218Z",
       "evidenceDigest": "090209cbbf9811e8c06723accc662eceddd0d73c5aab0af475e5d0003ee8262e",
+      "reason": ""
+    },
+    {
+      "revisionId": "col-35a4c1a8b8f7e39be6b52555",
+      "candidateDigest": "447206a5f23e52a85a3132c1db5d6a642764439435476b41c9e40ead4b7ecd27",
+      "phase": "release_pending",
+      "at": "2026-10-18T00:42:26.231Z",
+      "evidenceDigest": "acb3d1d0e25946c25211297c3b34f3a28b9d1e51c0155f96493011023dd6829b",
       "reason": ""
     }
   ]
