@@ -312,16 +312,16 @@ test('photo derivatives are revalidated in private storage and require separate 
   const bad=mock();assert.throws(()=>bad.context.annalsSavePhotoDerivative('valid',id,Buffer.from('not a JPEG').toString('base64')));
 });
 test('production intake resumes a long thread and wraps without reading while disabled', () => {
-  const x=mock(), handled=[], messages=Array.from({length:12},(_,id)=>({id}));
+  const x=mock(), handled=[], messages=Array.from({length:12},(_,id)=>({id,getId:()=>String(id)})),seen=new Set();
   const thread={getId:()=> 'private-thread', getMessages:()=>messages};
   x.context.GmailApp={getInboxThreads:(offset)=>offset===0?[thread]:[],getThreadById:()=>thread};
-  x.context.annalsStageProduction_=m=>{handled.push(m.id);return 'staged'};
+  x.context.annalsStageProduction_=m=>{handled.push(m.id);if(seen.has(m.id))return 'duplicates';seen.add(m.id);return 'staged'};
   assert.equal(x.context.runAnnalsProductionIntake().enabled,false);assert.equal(handled.length,0);
   Object.assign(x.props,{ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_AI_ENABLED:'true',ANNALS_OPENAI_API_KEY:'test',ANNALS_BUDGET_LEDGER:'{}',ANNALS_GITHUB_TOKEN:'test',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'owner/repo',ANNALS_REVIEW_URL:'https://script.google.com/macros/s/test/exec',ANNALS_ALLOWED_SENDERS:'sender@example.test',ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z'});
   x.root.getFolders=()=>iter([]);
-  assert.equal(x.context.runAnnalsProductionIntake().staged,10);
-  assert.equal(x.context.runAnnalsProductionIntake().staged,2);
-  assert.deepEqual(handled,Array.from({length:12},(_,i)=>i));
+  assert.equal(x.context.runAnnalsProductionIntake().staged,12);
+  assert.equal(x.context.runAnnalsProductionIntake().staged,0);
+  assert.deepEqual([...seen].sort((a,b)=>a-b),Array.from({length:12},(_,i)=>i));
   x.context.runAnnalsProductionIntake();assert.equal(x.props.ANNALS_INBOX_CURSOR,undefined);
 });
 test('old and unknown messages are skipped before body reads and production intake copies no aggregate-oversize attachments', () => {
