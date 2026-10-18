@@ -29,6 +29,7 @@ function intakeFixture(threads, offset = 0) {
   const seen = new Set(), calls = [];
   const ctx = vm.createContext({
     console: { log: () => {} },
+    AnnalsPilot: { allowedSenders: value => value.split(',').filter(Boolean) },
     Session: { getEffectiveUser: () => ({getEmail: () => props.ANNALS_OWNER_EMAIL}) },
     GmailApp: {
       getInboxThreads(start, count) { return threads.slice(start, start + count); },
