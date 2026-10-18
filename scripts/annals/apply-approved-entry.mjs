@@ -4,9 +4,9 @@ import {resolvePhotoBlobs} from './PhotoTransport.mjs';
 import {photoThumbnail} from './PhotoThumbnail.mjs';
 
 // Trusted deployment configuration only. An email/payload cannot arm this lane.
-export function photoReleaseAllowed({entryId,photosEnabled,securityVerified,acceptanceEntryId,acceptanceUntil,now=new Date()}){
+export function photoReleaseAllowed({entryId,photosEnabled,guardedJpegEnabled=false,securityVerified,acceptanceEntryId,acceptanceUntil,now=new Date()}){
   if(securityVerified!==true)return false;
-  if(photosEnabled===true)return true;
+  if(photosEnabled===true||guardedJpegEnabled===true&&now.getTime()<Date.parse('2026-11-08T00:00:00Z'))return true;
   const until=Date.parse(acceptanceUntil),time=now.getTime();
   return /^annal-[a-f0-9]{24}$/.test(entryId||'')&&entryId===acceptanceEntryId&&until>time&&until<=time+86400000;
 }
@@ -155,7 +155,7 @@ async function main() {
   const data = JSON.parse(await readFile(dataPath, 'utf8'));
   const history = JSON.parse(await readFile('data/club-history.json', 'utf8'));
   const now=new Date(),photosEnabled=photoReleaseAllowed({entryId:event.client_payload?.entry?.id,
-    photosEnabled:process.env.ANNALS_PHOTOS_V2_RELEASE_ENABLED==='true',securityVerified:process.env.ANNALS_SIGNING_REMEDIATION_VERIFIED==='true',
+    photosEnabled:process.env.ANNALS_PHOTOS_V2_RELEASE_ENABLED==='true',guardedJpegEnabled:process.env.ANNALS_PHOTOS_GUARDED_JPEG_ENABLED==='true',securityVerified:process.env.ANNALS_SIGNING_REMEDIATION_VERIFIED==='true',
     acceptanceEntryId:process.env.ANNALS_PHOTOS_ACCEPTANCE_ENTRY_ID,acceptanceUntil:process.env.ANNALS_PHOTOS_ACCEPTANCE_UNTIL,now});
   if(Buffer.byteLength(JSON.stringify({event_type:event.action,client_payload:event.client_payload}))>60000)throw Error('Dispatch envelope exceeds bound');
   const result = await applyApprovedEntry({ event, data, secret: process.env.ANNALS_PUBLISH_SIGNING_KEY, history, now, photosEnabled,

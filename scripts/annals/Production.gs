@@ -985,6 +985,8 @@ function annalsPhotoDerivative_(folder) {
  * suitable JPEG thumbnail, the image is too large, or consent is missing.
  */
 function annalsAutoThumbnail_(id, source) {
+  // Guarded JPEG release uses only the full decode/re-encode gallery path.
+  if(typeof annalsGuardedPhotosReady_==='function'&&annalsGuardedPhotosReady_())return null;
   if (!source || !source.source || !source.imageConsentAtReceipt ||
       annalsProps_().getProperty('ANNALS_AUTO_MEDIA_ENABLED') !== 'true' ||
       !annalsImageConsentActive_(source.source.sender, source.source.receivedAt)) return null;
@@ -1426,7 +1428,7 @@ function annalsAutoPublishCandidate_(id, allowHeldRecovery) {
   var originalDecision = AnnalsAuto.propose(source, draft, id, speakerPermission), derivative = null;
   if (p.getProperty('ANNALS_AUTO_MEDIA_ENABLED') === 'true' && source.imageConsentAtReceipt &&
       annalsImageConsentActive_(source.source.sender, source.source.receivedAt)) {
-    try { derivative = annalsPhotoDerivative_(folder); }
+    try { derivative = typeof annalsGuardedPhotosReady_==='function'&&annalsGuardedPhotosReady_()?null:annalsPhotoDerivative_(folder); }
     catch (ignored) { derivative = null; }
     var metadata = annalsRead_(folder,'photo-derivative-private.json');
     if (!metadata || metadata.source !== 'automated_drive_thumbnail') derivative = null;

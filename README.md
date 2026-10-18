@@ -1,3 +1,5 @@
+> **Current guarded-release authority — 18 October 2026:** Read [the guarded production release](docs/annals-guarded-production-2026-10-18.md) and the latest Issue #24 direction before applying older acceptance prerequisites below. New test-only submissions and physical-device/screen-reader checks are no longer launch prerequisites. Preserve genuine security, consent, financial and publication controls; never fabricate acceptance markers. Actual effective state must be read back, not inferred from merged source.
+
 > **Latest release checkpoint — 17 October 2026 (GitHub merged; private acceptance incomplete):**
 > Public `main` contains [PR #94](https://github.com/justinpfisher/Stammtisch/pull/94) (supervised CoL acceptance)
 > and [PR #95](https://github.com/justinpfisher/Stammtisch/pull/95) (owner-only signing diagnostic).

@@ -4,7 +4,7 @@ function annalsPhotosReady_(id){
   var p=annalsProps_();
   if(!Number.isFinite(Date.parse(p.getProperty('ANNALS_SIGNING_REMEDIATED_AT'))))return false;
   if(p.getProperty('ANNALS_AUTO_MEDIA_ENABLED')==='true' && p.getProperty('ANNALS_PHOTOS_V2_ENABLED')==='true' &&
-    p.getProperty('ANNALS_PHOTOS_HOSTED_ACCEPTED')==='true')return true;
+    (p.getProperty('ANNALS_PHOTOS_HOSTED_ACCEPTED')==='true'||typeof annalsGuardedPhotosReady_==='function'&&annalsGuardedPhotosReady_()))return true;
   // A separate, short-lived, exact-source acceptance lane after security work.
   // It cannot enable another email or override consent, budget or one-shot gates.
   var until=Date.parse(p.getProperty('ANNALS_PHOTOS_ACCEPTANCE_UNTIL'));
@@ -109,6 +109,7 @@ function annalsRecordSixMemberPhotoAttestation(nonce,evidence){
   });});
 }
 function annalsPhotoSet_(id,source,create){
+  if(typeof publishGuardedJpegOnly_==='function'&&!publishGuardedJpegOnly_(source))return [];
   if(!annalsPhotosReady_(id)||!source.imageConsentAtReceipt||!annalsImageConsentActive_(source.source.sender,source.source.receivedAt))return [];
   var large=typeof annalsProps_==='function'&&annalsProps_().getProperty('ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED')==='true';
   var f=annalsFolder_(id),saved=annalsRead_(f,'photos-v2-private.json');
