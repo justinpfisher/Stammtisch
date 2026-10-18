@@ -46,5 +46,6 @@ jobs:
           path: |
             ${{ runner.temp }}/annals-install-source-only.zip
             ${{ runner.temp }}/annals-install-source-only.sha256
+            scripts/annals/private-source-transfer-offline.html
           retention-days: 30
           if-no-files-found: error
