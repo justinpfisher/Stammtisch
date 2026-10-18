@@ -225,6 +225,7 @@ test('a stored staging failure holds subsequent attempts before original body or
   });
   vm.runInContext(production,ctx);
   ctx.annalsHash_=id=>'hash-'+id;
+  ctx.annalsFolder_=_=>({});
   let bodyReads=0;
   const msg={getFrom:()=> 'member@example.test',getDate:()=>new Date('2026-10-18T17:00:00Z'),
     getSubject:()=> 'Fictional CoL amendment',getId:()=> 'fixture',
