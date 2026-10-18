@@ -132,7 +132,14 @@ function annalsProcessRuleRequest_(id){
     return true;
   }catch(ignored){
     annalsRecordAttemptOutcome_(f,'invalid_response',200);
-    annalsRuleNotice_(f,source.source.sender,'outcome','Your request remains private and awaits a focused interpretation or implementation check. The previous rules remain operative; no automatic retry will be made.');return false;
+    annalsRuleNotice_(f,source.source.sender,'outcome','Your request remains private and awaits a focused interpretation or implementation check. The previous rules remain operative; no automatic retry will be made.');
+    // A captured but unusable one-shot response must also be visible to the
+    // owner. Never disclose model output or source content in the notice,
+    // and never attempt the provider request a second time.
+    try { annalsRuleNotice_(f,p.getProperty('ANNALS_OWNER_EMAIL'),'invalid-response-owner',
+      'An authenticated CoL rules request was preserved privately, but its one-shot interpretation failed exact source or response checks. No rules or awards were changed, and the provider attempt will not be retried. Review the owner-only Annals desk: '+p.getProperty('ANNALS_REVIEW_URL')); }
+    catch(ignored){ /* Notification trouble must not undo the protected hold. */ }
+    return false;
   }
 }
 
