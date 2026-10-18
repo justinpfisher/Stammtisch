@@ -75,7 +75,8 @@ Use non-secret gate readers and the existing rollback; preserve all journals,
 activation boundaries, cursors and budget. Installation does not authorise new
 History, photo-format or CoL capabilities. Reuse completed qualifications until a
 material relevant change invalidates them; never fabricate genuine acceptance.
-Keep the 2026-11-08 UTC AI stop, 2026-11-09 dispatch expiry and US$5 ceiling.
+There is no calendar AI cutoff after this private update is installed. Preserve the US$5 Toronto-month AI reservation ceiling and all revocable AI/publication gates.
+The restricted publisher still expires on 2026-11-09 UTC unless a verified renewed token and its exact ANNALS_GITHUB_TOKEN_EXPIRES_AT Script Property are installed. Never invent or auto-extend a credential expiry.
 
 source-manifest.json records the exact source and each unchanged file digest.
 Historical Code.gs, SyntheticPilot.gs and private QA files are excluded.

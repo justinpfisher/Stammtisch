@@ -9,8 +9,8 @@ function annalsGuardedControls_(){
   if(allowed.length!==6||!annalsSpeakerIdentities_())throw Error('Existing six-member identity required');
   allowed.forEach(function(a){if(!annalsConsentActive_(a)||!members[a].autoPublication||members[a].autoPublication.status!=='active'||members[a].autoPublication.revokedAt)throw Error('Preserve current member permissions');});
   var ledger=JSON.parse(p.getProperty('ANNALS_BUDGET_LEDGER')||'null');
-  if(!ledger||ledger.schemaVersion!==1||!Number.isSafeInteger(ledger.reservedCents)||ledger.reservedCents<0||ledger.reservedCents>500||
-    Date.now()>=Date.parse('2026-11-08T00:00:00Z'))throw Error('Existing budget or expiry control unavailable');
+  if(!ledger||ledger.schemaVersion!==1||!Number.isSafeInteger(ledger.reservedCents)||ledger.reservedCents<0||ledger.reservedCents>500)throw Error('Existing budget control unavailable');
+  if(!annalsPublisherDispatchReady_())throw Error('Publisher credential expiry control unavailable');
   if(p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED')!=='true'||p.getProperty('ANNALS_AI_ENABLED')!=='true'||
     p.getProperty('ANNALS_GITHUB_REPOSITORY')!=='justinpfisher/Stammtisch'||!p.getProperty('ANNALS_GITHUB_TOKEN')||
     !p.getProperty('ANNALS_OPENAI_API_KEY')||!Number.isFinite(Date.parse(p.getProperty('ANNALS_ACTIVATED_AT')))||
@@ -20,7 +20,7 @@ function annalsGuardedControls_(){
   if(triggers.length!==1||triggers[0].getHandlerFunction()!=='runAnnalsProductionIntake')throw Error('Preserve the single intake trigger');
   ['history-pending-private.json','col-release-pending-private.json'].forEach(function(name){var r=annalsRead_(root,name);if(r&&['verified_live','verified_cancelled'].indexOf(r.state)<0)throw Error('Pending release requires reconciliation');});
   return {allowlistCount:6,currentTextPermissions:6,singleTrigger:true,signingRecordVerified:true,budgetReservedCents:ledger.reservedCents,
-    aiStop:'2026-11-08T00:00:00Z',dispatchStop:'2026-11-09T00:00:00Z',historicalWithdrawalGapPreserved:true};
+    aiStop:null,dispatchStop:new Date(annalsPublisherExpiry_()).toISOString(),historicalWithdrawalGapPreserved:true};
 }
 function annalsGuardedAuditNextInEditor(){
   annalsOwner_();return annalsLocked_(function(){
@@ -70,8 +70,7 @@ function annalsGuardedLaunchReadbackInEditor(){annalsOwner_();return annalsLocke
 // This marker describes risk-accepted production, never genuine photo acceptance.
 function annalsGuardedPhotosReady_(){
   var p=annalsProps_();return p.getProperty('ANNALS_PHOTOS_GUARDED_JPEG_ENABLED')==='true'&&
-    p.getProperty('ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED')==='true'&&
-    Date.now()<Date.parse('2026-11-08T00:00:00Z');
+    p.getProperty('ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED')==='true';
 }
 function publishGuardedJpegOnly_(source){
   if(!annalsGuardedPhotosReady_())return true;

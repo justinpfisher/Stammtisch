@@ -41,7 +41,7 @@ function annalsProcessRuleRequest_(id){
     Date.parse(source.source.receivedAt)<Date.parse(p.getProperty('ANNALS_RULES_ACCEPT_FROM'))||
     annalsFile_(f,'quarantine-private.json')||annalsFile_(f,'ai-attempt-private.json')||annalsFile_(f,'col-proposal-private.json')||
     source.source.sourceTruncated||source.source.subjectTruncated||source.source.excerptTruncated||
-    p.getProperty('ANNALS_AI_ENABLED')!=='true'||Date.now()>=Date.parse('2026-11-08T00:00:00Z'))return false;
+    p.getProperty('ANNALS_AI_ENABLED')!=='true'||!annalsPublisherDispatchReady_())return false;
   annalsRuleNotice_(f,source.source.sender,'received','Your authenticated CoL request has been received for interpretation and implementation checks. The previous operative rules remain in force until a complete release is independently verified.');
   var pendingRelease=annalsRead_(annalsRoot_(),'col-release-pending-private.json');
   if(pendingRelease&&['verified_live','verified_cancelled'].indexOf(pendingRelease.state)<0)return false;

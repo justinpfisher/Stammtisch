@@ -27,7 +27,7 @@ Keep the existing owner-only Apps Script project/deployment and single 15-minute
 
 Keep CoL independent verification, signed awarded allocations, replay protection, historical results and new-confirmed-passing-only push delivery. Calendar-year scoring differs from the January draft; unresolved rollover interpretation is not permission to change it. One authenticated member may initiate prospective CoL changes within the qualified implementation classes; no extra vote/owner-adoption gate. Unknown meanings remain private for clarification.
 
-Use GitHub-hosted production/CI. GMKtec interactive work is preferred when available; never attach it, Comparative or LCRS as a public self-hosted runner or share their credentials/services. Do not add paid services or expand permissions without the required authority. Existing financial ceilings and November stops remain operative.
+Use GitHub-hosted production/CI. GMKtec interactive work is preferred when available; never attach it, Comparative or LCRS as a public self-hosted runner or share their credentials/services. Do not add paid services or expand permissions without the required authority. Financial ceilings remain operative. The already-deployed private Apps Script version retains its dates until an authenticated in-place update; publisher credentials must continue to expire on their independently verified actual date.
 
 ## Keep it small
 

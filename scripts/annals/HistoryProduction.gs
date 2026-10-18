@@ -30,7 +30,7 @@ function annalsPrepareRuleDraftCore_(id){
   var p=annalsProps_(),f=annalsFolder_(id),source=annalsRead_(f,'source-private.json');
   if(!source||!source.senderAuthenticated||!source.aiConsentActive||!annalsConsentActive_(source.source.sender)||
     annalsFile_(f,'quarantine-private.json')||annalsFile_(f,'ai-attempt-private.json')||
-    p.getProperty('ANNALS_AI_ENABLED')!=='true'||!p.getProperty('ANNALS_OPENAI_API_KEY')||Date.now()>=Date.parse('2026-11-08T00:00:00Z')||
+    p.getProperty('ANNALS_AI_ENABLED')!=='true'||!p.getProperty('ANNALS_OPENAI_API_KEY')||!annalsPublisherDispatchReady_()||
     source.source.sourceTruncated||source.source.subjectTruncated||source.source.excerptTruncated||
     AnnalsAuto.protectedRoute(source.source.subject,source.source.excerpt)!=='col_proposal'||
     !annalsSafeTextForAutoAi_(annalsAiSourceText_(source)))return false;
