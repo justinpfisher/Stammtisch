@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import {photoReleaseAllowed} from '../scripts/annals/apply-approved-entry.mjs';
 const code=readFileSync(new URL('../scripts/annals/GuardedRelease.gs',import.meta.url),'utf8');
 const photos=readFileSync(new URL('../scripts/annals/PhotoProduction.gs',import.meta.url),'utf8');
+const production=readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8');
 function harness(){
  const values={ANNALS_PHOTOS_GUARDED_JPEG_ENABLED:'true',ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED:'true',ANNALS_AUTO_MEDIA_ENABLED:'true',ANNALS_PHOTOS_V2_ENABLED:'true',ANNALS_SIGNING_REMEDIATED_AT:'2026-10-18T01:00:00Z'};
  const c=vm.createContext({Date:class extends Date {static now(){return Date.parse('2026-10-18T05:00:00Z');}},annalsProps_:()=>({getProperty:k=>values[k]||null}),console:{log:()=>{}}});
@@ -28,6 +29,13 @@ test('hosted guarded gate still requires signing qualification and stops at the 
  assert.equal(photoReleaseAllowed(args),true);assert.equal(photoReleaseAllowed({...args,securityVerified:false}),false);
  assert.equal(photoReleaseAllowed({...args,now:new Date('2026-11-08T00:00:00Z')}),false);
  assert.equal(photoReleaseAllowed({...args,guardedJpegEnabled:false}),false);
+});
+test('installed guarded release permanently retires the legacy Drive-thumbnail fallback',()=>{
+ const start=production.indexOf('function annalsAutoThumbnail_');
+ const end=production.indexOf('function annalsPrepareDraft',start);
+ const c=vm.createContext({annalsGuardedPhotosReady_:()=>false});
+ vm.runInContext(production.slice(start,end),c);
+ assert.equal(c.annalsAutoThumbnail_('a'.repeat(64),{}),null);
 });
 test('owner activation rejects incomplete, blocked, stale and future reconciliation without setting any switch',()=>{
  for(const audit of [null,{complete:false},{complete:true,blocked:1},{complete:true,completedAt:'bad'},{complete:true,completedAt:'2099-01-01T00:00:00Z'},{complete:true,completedAt:'2020-01-01T00:00:00Z'}]){
