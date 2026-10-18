@@ -1,0 +1,35 @@
+name: Verify Annals History signing consistency (non-publishing)
+on:
+  workflow_dispatch:
+    inputs:
+      challenge:
+        description: Fresh random 64-character lowercase hexadecimal challenge
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  challenge:
+    if: github.ref == 'refs/heads/main' && github.repository == 'justinpfisher/Stammtisch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Compute non-publishing History key commitment
+        env:
+          ANNALS_CHALLENGE: ${{ inputs.challenge }}
+          ANNALS_PUBLISH_SIGNING_KEY: ${{ secrets.ANNALS_HISTORY_SIGNING_KEY }}
+        run: node scripts/annals/signing-consistency.mjs
+      - name: Retain bounded History challenge receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: history-signing-consistency-${{ github.run_id }}-${{ github.run_attempt }}
+          path: signing-consistency.json
+          retention-days: 1
+          if-no-files-found: error
