@@ -24,7 +24,9 @@
 - /scripts/col-push-delivery.py: no-send first live checkpoint, site-publication verification, material-data hashes, message composition, persistent issue-based delivery acknowledgement, UUIDv4 OneSignal deduplication, and 25-day maximum safe retry window.
 - Automated Node and Python tests guard the off state, audience, pilot-only sending, public go-live gate, invalid recipient lists, stale-public-site blocking and lost-acknowledgement retry.
 
-## Existing OneSignal setup and repeatable pilot procedure
+## Historical one-time setup and pilot (completed)
+
+Retained for recovery/reference. Do not rerun these steps, reseed Issue #18, install credentials again or switch production back to pilot for an ordinary update. Reuse the established public service and consult [current state](current-state.md). A new device or material integration change may need focused checks; it does not reopen the whole rollout.
 
 1. Reuse the existing Stammtisch Social Club OneSignal app; do not create another service. Configure Web Push, **Custom Code** integration, using the production site URL https://stammtischbrewery.com. Configure the browser VAPID details as required in the dashboard.
 2. In OneSignal Settings > Keys & IDs, retrieve the public OneSignal App ID and separate secret REST API key. Never paste the REST key into public issues, source code, PR descriptions or the website configuration.
@@ -39,7 +41,7 @@
 9. Test locked-screen reception on the iPhone Home Screen app, click-to-CoL behaviour, opt-out, opt-in and multiple manually initiated sends. The sender now fails the pilot when OneSignal reports no subscribed recipients, partial acceptance, or an unexpected error response. Even a fully accepted API request is not proof that either device displayed a notification; confirm delivery on the physical iPhone.
 10. Confirm the main website publishing workflow still succeeds independently and that its public-data verification catches stale pages. The push notification workflow is a separate non-blocking integration.
 
-## Explicit public activation after successful pilot
+## Historical public activation (completed 8 October 2026)
 
 The owner explicitly approved public activation on October 8, 2026, after the successful iPhone pilot. The activation procedure preserves two independent gates:
 
