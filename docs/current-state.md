@@ -60,20 +60,4 @@ A merged repository change is not evidence of a private deployment or a publishe
 - [CoL protocol](col-two-stage-release.md), [Sheet monitor](celebration-sheet-monitor.md), [push](col-push-rollout.md): consult only for affected operations. Repeated phases in CoL bind a specific rule/source/version and are not ordinary website release gates.
 - [Issue #24](https://github.com/justinpfisher/Stammtisch/issues/24): concise actionable tracker and dated evidence comments. Issue #18 is machine deduplication state; never close or edit it as backlog cleanup.
 
-ChatGPT's external Stammtisch Project instructions are outside this repository's editing surface. Their old “not live”, per-item approval and reasoning-router text is superseded. Replace their operational paragraphs with: **“Follow the latest owner decisions, repository AGENTS.md and docs/current-state.md. An ordinary update includes tested merge, deployment and live verification. Reuse completed qualifications; no model/usage gate or separate routine go-live instruction. Preserve actual privacy, rights, authentication, integrity and spending controls.”** Retain the club identity/style brief.## 18 October History activation receipt
-
-- Source/deployment: repository `main` at `ae1ee65d7bb12cef60ddb77f1cd4dfdb9ffe98df`; owner-only Apps Script Version 43 unchanged. Version 42 remains the deployed-code rollback.
-- Authority: private and hosted History keys are present, 64 characters and distinct from ordinary approval/publishing authority. Workflow run `39142718815`, attempt 1, produced artifact `12142445983`; the Version 43 desk verified `githubSecretConsistencyVerified: true`, `signingAuthority: history`, `separateKeys: true`, and no publishing, gate or credential mutation.
-- Activation/readback: `ANNALS_HISTORY_RELEASE_ENABLED=true` was created first; `ANNALS_HISTORY_PUBLICATION_ENABLED=true` was then created and independently read back. The single 15-minute HEAD trigger remains the scheduler.
-- Public result: `data/club-history.json` is exact to `main` (SHA-256 `96a743e83e479bf1d4f5d04803b485d46196817b1d9187d071d3193a39ad9281`), schema 1, revision 0, with no chapters. History is enabled for future eligible traffic, not genuinely published or accepted.
-- Rollback: disable/remove the private publication switch first, then disable/remove the hosted release variable. Credential rollback requires coordinated replacement of both History-key copies and a new non-publishing match check; do not restore the former short value or reuse an ordinary key.
-
-## Where to work
-
-- [AGENTS.md](../AGENTS.md): instruction precedence and proportionate delivery.
-- [Production runbook](annals-production-runbook.md): private operations and update/recovery procedure.
-- [Publication guidelines](annals-publication-guidelines.md): current consent/editorial rules.
-- [CoL protocol](col-two-stage-release.md), [Sheet monitor](celebration-sheet-monitor.md), [push](col-push-rollout.md): consult only for affected operations. Repeated phases in CoL bind a specific rule/source/version and are not ordinary website release gates.
-- [Issue #24](https://github.com/justinpfisher/Stammtisch/issues/24): concise actionable tracker and dated evidence comments. Issue #18 is machine deduplication state; never close or edit it as backlog cleanup.
-
 ChatGPT's external Stammtisch Project instructions are outside this repository's editing surface. Their old “not live”, per-item approval and reasoning-router text is superseded. Replace their operational paragraphs with: **“Follow the latest owner decisions, repository AGENTS.md and docs/current-state.md. An ordinary update includes tested merge, deployment and live verification. Reuse completed qualifications; no model/usage gate or separate routine go-live instruction. Preserve actual privacy, rights, authentication, integrity and spending controls.”** Retain the club identity/style brief.
