@@ -1236,9 +1236,15 @@ function annalsPrivateReceiptValid_(entry, receipt) {
  * independently observed expiry; malformed values fail closed. */
 function annalsPublisherExpiry_() {
   var expiresAt = annalsProps_().getProperty('ANNALS_GITHUB_TOKEN_EXPIRES_AT') || '2026-11-09T00:00:00Z';
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(expiresAt)) return NaN;
+  var match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z$/.exec(expiresAt);
+  if (!match) return NaN;
+  var year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+  var leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  var maxDay = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+  if (!maxDay || day < 1 || day > maxDay || Number(match[4]) > 23 ||
+      Number(match[5]) > 59 || Number(match[6]) > 59) return NaN;
   var stamp = Date.parse(expiresAt);
-  return Number.isFinite(stamp) && new Date(stamp).toISOString() === expiresAt ? stamp : NaN;
+  return Number.isFinite(stamp) ? stamp : NaN;
 }
 function annalsPublisherDispatchReady_() {
   return Date.now() < annalsPublisherExpiry_();

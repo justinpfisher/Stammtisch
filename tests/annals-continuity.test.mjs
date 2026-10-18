@@ -23,6 +23,7 @@ test('publisher clock is fail-closed and can be extended only by recorded real t
   class Clock extends Date { static now() {return now;} }
   const c = vm.createContext({Date:Clock,annalsProps_:()=>({getProperty:key=>props[key]||null})});
   vm.runInContext(source('Production.gs'),c);
+  c.annalsProps_=()=>({getProperty:key=>props[key]||null});
   assert.equal(c.annalsPublisherDispatchReady_(),true);
   now = Date.parse('2026-11-09T00:00:00Z');
   assert.equal(c.annalsPublisherDispatchReady_(),false);
@@ -30,7 +31,7 @@ test('publisher clock is fail-closed and can be extended only by recorded real t
   assert.equal(c.annalsPublisherDispatchReady_(),true);
   now=Date.parse('2027-10-18T00:00:00Z');
   assert.equal(c.annalsPublisherDispatchReady_(),false);
-  for (const invalid of ['garbage','2027-13-18T00:00:00Z','2027-10-18','2027-10-18T00:00:00+00:00']) {
+  for (const invalid of ['garbage','2027-13-18T00:00:00Z','2027-02-30T00:00:00Z','2027-10-18','2027-10-18T00:00:00+00:00']) {
     props.ANNALS_GITHUB_TOKEN_EXPIRES_AT=invalid;
     now=Date.parse('2026-10-18T12:00:00Z');
     assert.equal(c.annalsPublisherDispatchReady_(),false,invalid);

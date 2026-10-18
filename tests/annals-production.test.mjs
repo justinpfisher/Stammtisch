@@ -1323,10 +1323,10 @@ test('history preparation is private and signing remains blocked until explicit 
   x.props.ANNALS_HISTORY_SIGNING_KEY=x.props.ANNALS_APPROVAL_KEY;
   assert.throws(()=>x.context.annalsApproveHistoryRevision('valid',id,r.hash,true));
 });
-test('November processing and dispatch stops are enforced without consuming reservations or attempting requests',()=>{
+test('verified publisher expiry pauses unattended AI before budget reservation or dispatch',()=>{
   const x=mock();
   x.context.Date={now:()=>Date.parse('2026-11-09T00:00:00Z'),parse:Date.parse};
-  assert.throws(()=>x.context.annalsPrepareDraft('valid','d'.repeat(64),'Offline.',[],true));
+  assert.throws(()=>x.context.annalsPrepareDraftCore_('d'.repeat(64),'Offline.',[],true,true,[]),/Publisher credential/);
   assert.equal(x.context.annalsDispatchEvent_(x.folder,'annals-auto-entry',{},'publication-dispatch-private.json'),false);
   assert.equal(x.calls.ai,0);assert.ok(!x.files.has('ai-attempt-private.json'));assert.ok(!x.files.has('publication-dispatch-private.json'));
   assert.equal(JSON.parse(x.props.ANNALS_BUDGET_LEDGER).reservedCents,0);
