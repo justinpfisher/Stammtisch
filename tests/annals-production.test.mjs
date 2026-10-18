@@ -1388,7 +1388,7 @@ test('one-shot private CoL assessment uses existing model, input/output bounds a
     if(url.includes('raw.githubusercontent'))return {getResponseCode:()=>200,getContentText:()=>rules};
     assert.equal(url,'https://api.openai.com/v1/responses');paid++;
     const request=JSON.parse(options.payload);
-    assert.equal(request.model,core.MODEL);assert.equal(request.store,false);assert.equal(request.max_output_tokens,8000);assert.equal(request.tools,undefined);
+    assert.equal(request.model,core.MODEL);assert.equal(request.store,false);assert.equal(request.max_output_tokens,4000);assert.equal(request.tools,undefined);
     assert.ok(request.input[0].content[0].text.length<=12000);
     assert.equal(JSON.parse(x.props.ANNALS_BUDGET_LEDGER).reservedCents,10);assert.ok(x.files.has('ai-attempt-private.json'));
     return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(assessment)}]}]})};

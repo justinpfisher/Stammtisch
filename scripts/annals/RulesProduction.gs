@@ -115,7 +115,14 @@ function annalsProcessRuleRequest_(id){
       result.state==='discussion'?'This reads as discussion rather than an instruction to change the rules. If you intend an operative change, please send a fresh request.':
       'Your rule change is authorised by your authenticated request and is awaiting implementation and consistency checks. The previous operative rules and historical results remain in place. No additional member or owner approval is required for a prospective change.';
     annalsRuleNotice_(f,source.source.sender,'outcome',notice);
-    if(result.state==='awaiting_implementation'){
+    var editorialStage=false;
+    if(releaseAvailable&&result.state==='awaiting_implementation'){
+      try{
+        var queued=annalsStageEditorialRewrite_(id);
+        editorialStage=!!(queued&&queued.dispatchAccepted);
+      }catch(ignored){/* Noneditorial changes still need source-grounded implementation. */}
+    }
+    if(result.state==='awaiting_implementation'&&!editorialStage){
       annalsRuleNotice_(f,p.getProperty('ANNALS_OWNER_EMAIL'),'engineering-needed',
         'An authenticated member CoL rule request is awaiting bounded implementation and source/version checks. Member authority does not require a second vote or owner adoption. The existing rules remain in force. Open '+p.getProperty('ANNALS_REVIEW_URL'));
     }
@@ -559,6 +566,37 @@ function annalsStageOldestRule_(id){
   var content={revision:clean,qualification:'oldest-death-steal-v1',baseFiles:context.baseFiles,
     implementationCommit:context.commit,behaviorDigest:context.behaviorDigest,source:null};
   return annalsRuleStagedDispatch_(id,'stage',content,context.state,{revisionId:request.id,stageContent:content});
+}
+/** Editorial rewrites may update several existing sections, but never words,
+ * numbers, punctuation, score parameters, rights or historical allocations.
+ * Both private source and hosted reducer prove the bounded transformation. */
+function annalsStageEditorialRewrite_(id){
+  if(!annalsStagedRulesReady_())return false;
+  var root=annalsRoot_(),pending=annalsRead_(root,'col-release-pending-private.json');
+  if(pending&&['verified_live','verified_cancelled'].indexOf(pending.state)<0)return false;
+  var f=annalsFolder_(id);
+  if(annalsFile_(f,'col-editorial-not-applicable-private.json')||
+     annalsFile_(f,'col-v3-stage-dispatch-private.json'))return false;
+  var data=annalsRuleFreshSource_(id),request=data.request,source=data.source;
+  if(!request||request.state!=='awaiting_implementation')return false;
+  var context=annalsRuleContext_(),text=source.source.subject+'\n'+source.source.excerpt;
+  try{
+    AnnalsRules.editorialRewrite({senderAuthenticated:true,freshOperativeWindow:true,
+      replayed:false,truncated:source.source.sourceTruncated===true,
+      text:text,receivedAt:source.source.receivedAt},request,context.base);
+  }catch(notEquivalent){
+    annalsWriteOnce_(f,'col-editorial-not-applicable-private.json',{
+      state:'semantic_implementation_required',at:new Date().toISOString()});
+    return false;
+  }
+  var clean=AnnalsRules.publicRecord(request);
+  clean.baseDigest=request.baseDigest;
+  clean.explanation='Member-authored multi-section editorial formatting only; original words, numbers, punctuation and all qualifications preserved.';
+  var content={revision:clean,qualification:'editorial-rewrite-v1',
+    baseFiles:context.baseFiles,implementationCommit:context.commit,
+    behaviorDigest:context.behaviorDigest,source:null};
+  return annalsRuleStagedDispatch_(id,'stage',content,context.state,{
+    revisionId:request.id,stageContent:content});
 }
 function annalsStageLiteralRule_(id){
   if(!annalsStagedRulesReady_()||annalsProps_().getProperty('ANNALS_RULES_V3_AUTO_LITERAL_ENABLED')!=='true')return false;

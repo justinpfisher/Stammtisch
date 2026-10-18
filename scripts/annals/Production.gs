@@ -694,6 +694,7 @@ function annalsResumeConsentedDrafts_(limit) {
     if (!source || annalsFile_(folder, 'quarantine-private.json')) continue;
     if (AnnalsAuto.protectedRoute(source.source.subject,source.source.excerpt) !== 'annals') {
       if(source.rulesAuthorityVersion===2&&id!==priorityRule){try{annalsReconcileRuleRelease_(id);annalsScheduledRuleCheck_(id);}catch(ignored){}}
+      if(source.rulesAuthorityVersion===2){try{annalsStageEditorialRewrite_(id);}catch(ignored){/* No duplicate dispatch or provider call. */}}
       try {if(source.rulesAuthorityVersion===2 ? annalsProcessRuleRequest_(id) : annalsPrepareRuleDraftCore_(id))done++;}catch(ignored){}
       continue;
     }
