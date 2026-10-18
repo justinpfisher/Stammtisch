@@ -1,13 +1,13 @@
 # Current operating state
 
-Maintained reference, reconciled 18 October 2026. Update this file in place when supported by new evidence; dated reports remain evidence, not competing instructions. Recorded private observations below come from the linked release receipt, not a fresh private inspection in the simplification session.
+Maintained reference, reconciled 18 October 2026. Update this file in place when supported by new evidence; dated reports remain evidence, not competing instructions. Private observations below were independently read back during the 18 October production completion.
 
 ## Established production baseline
 
 | Capability | Last verified state | Evidence / remaining boundary |
 | --- | --- | --- |
 | Website | GitHub Pages, `main` / root, HTTPS | Settings independently inspected 18 October; existing hosting retained |
-| Private Annals | Existing owner-only **Version 41**, one 15-minute HEAD intake trigger | [Release receipt](https://github.com/justinpfisher/Stammtisch/issues/24#issuecomment-6245843820): all 20 HEAD and immutable-version files matched; natural scheduled run completed |
+| Private Annals | Existing owner-only **Version 42**, one 15-minute HEAD intake trigger | [Production receipt](https://github.com/justinpfisher/Stammtisch/issues/24#issuecomment-6251315349): PR #112 source marker read back, same owner-only deployment retained and scheduled HEAD run completed |
 | Intake, AI, ordinary automatic text | Enabled for future eligible traffic | Existing genuine signed text publish/withdrawal and permanent signing qualification reused; scoped member rights and item checks remain |
 | Photographs | Guarded **JPEG only**, 1–3 inputs, each at most 8 MiB | Private media/v2/guarded/transport and hosted guarded/transport enabled. Re-encoded, metadata-free derivatives only. Broad photo release unset; genuine photo acceptance remains false. PNG/WebP/HEIC/HEIF/mixed/unknown inputs held |
 | Club History | Disabled | The hosted secret now exists, but the private property observed 18 October does not meet the required 32-character minimum. The hosted release variable remains absent. Replace both values with the same new distinct 32+ character secret, then complete non-publishing matching verification and controlled activation |
@@ -22,7 +22,7 @@ A merged repository change is not evidence of a private deployment or a publishe
 - US$5 per Toronto-month application reservation ceiling; the private October ledger remains **US$3.20 reserved**. The dedicated OpenAI project showed **US$0.02 measured October spend** on 18 October. The reservation is deliberately conservative: US$0.10 before each one-shot attempt. Current usage and request bounds support retaining the US$5 ceiling; provider limits remain separate.
 - **8 November 2026 00:00 UTC:** AI processing stop remains in code. The dedicated Annals API key is active and has no provider expiry. The restricted GitHub publisher token is shown by GitHub as expiring **8 November 2026**, one day earlier than the code's **9 November 2026 00:00 UTC** dispatch stop. Renew it before its actual expiry; do not silently extend dates, broaden scope, enable recharge or raise the ceiling.
 - Historical audit gap remains **19 accepted removals / 18 final withdrawal receipts**. Current absence and successful old workflows do not manufacture the missing receipt. No replay/backfill.
-- Preserve existing deployment identity, private manifest/scopes, one intake trigger, consent/budget/attempt records and private rollback. Version 40 is the recorded rollback for Version 41; rollback must restore both HEAD and the deployed version without resetting state.
+- Preserve existing deployment identity, private manifest/scopes, one intake trigger, consent/budget/attempt records and private rollback. Version 41 is the recorded rollback for Version 42; rollback must restore both HEAD and the deployed version without resetting state.
 
 ## Remaining work
 
