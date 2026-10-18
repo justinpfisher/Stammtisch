@@ -51,9 +51,13 @@ function packageFixture(tamperName=''){
 test('the transfer page is explicitly offline and never has a network connection',()=>{
   assert.match(html,/connect-src 'none'/);
   assert.match(html,/default-src 'none'/);
-  assert.doesNotMatch(html,/\b(?:fetch|XMLHttpRequest|WebSocket|sendBeacon)\s*\(/);
+  // The bundled public source is inert text and may contain UrlFetchApp.fetch;
+  // inspect the actual helper code after that JSON bundle, not its source strings.
+  const helperLogic=html.slice(html.indexOf('const changed = '));
+  assert.ok(helperLogic.length>100);
+  assert.doesNotMatch(helperLogic,/\b(?:fetch|XMLHttpRequest|WebSocket|sendBeacon)\s*\(/);
   for(const name of expected)assert.ok(html.includes("'"+name+"'"));
-  assert.match(html,/does not access Google accounts/);
+  assert.match(html,/uploads nothing and stores nothing/);
 });
 test('exact, newline-normalized and modified saved editor content are distinguished',()=>{
   const {verify}=harness();
