@@ -196,7 +196,16 @@ function annalsCheckGithubSigningConsistency(nonce,challenge,artifactId,zipBase6
       stage(label+'_http');
       var response=UrlFetchApp.fetch(url,{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true,headers:{Accept:'application/vnd.github+json'}}),code=response.getResponseCode();
       if(diagnostic)diagnostic.http[label]=Number.isInteger(code)&&code>=100&&code<=599?code:null;
-      if(code!==200)throw new Error('Public verification evidence unavailable');
+      if(code!==200){
+        // Fixed classifications only: never expose response bodies or arbitrary headers.
+        if(diagnostic){
+          var headers=response.getAllHeaders(),remaining=null;
+          Object.keys(headers).forEach(function(name){if(name.toLowerCase()==='x-ratelimit-remaining'&&/^\d{1,6}$/.test(String(headers[name])))remaining=Number(headers[name]);});
+          diagnostic.failure=remaining===0?'github_rate_limit':'unclassified_http';
+          diagnostic.rateLimitRemaining=remaining;
+        }
+        throw new Error('Public verification evidence unavailable');
+      }
       stage(label+'_body');var text=response.getContentText();if(text.length>200000)throw new Error('Verification evidence exceeds bound');return text;
     }
     var artifact=JSON.parse(get(api+'/actions/artifacts/'+artifactId)),bytes=Utilities.base64Decode(zipBase64);
