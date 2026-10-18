@@ -218,7 +218,7 @@ test('actual private adapters and hosted reducers complete separate signed phase
   privateFiles.set('folder/source-private.json',source);privateFiles.set('folder/col-rule-request-private.json',clone(f.revision));
   const c=vm.createContext({AnnalsRules:Rules,AnnalsProduction:{serial:v=>JSON.stringify(canonical(v))},annalsUiCall_:(nonce,fn)=>fn(),annalsLocked_:fn=>fn(),
     Date:class extends Date{constructor(value){super(value===undefined?now:value);}static now(){return Date.parse(now);}},
-    annalsProps_:()=>({getProperty:k=>k==='ANNALS_PUBLISH_SIGNING_KEY'?key:k==='ANNALS_APPROVAL_KEY'?'different-approval-key':null}),
+    annalsProps_:()=>({getProperty:k=>k==='ANNALS_PUBLISH_SIGNING_KEY'?key:k==='ANNALS_APPROVAL_KEY'?'different-approval-key':k==='ANNALS_GITHUB_TOKEN'?'existing-fictional-repository-token':null}),
     annalsRoot_:()=> 'root',annalsFolder_:id=>id==='fixture'?'folder':'folder2',annalsConsentActive_:()=>true,annalsStandingPublicationActive_:()=>true,
     annalsRead_:(folder,name)=>privateFiles.get(folder+'/'+name)||null,annalsFile_:(folder,name)=>privateFiles.get(folder+'/'+name)||null,
     annalsSavePrivate_:(folder,name,value)=>privateFiles.set(folder+'/'+name,clone(value)),annalsWriteOnce_:(folder,name,value)=>{assert.equal(privateFiles.has(folder+'/'+name),false);privateFiles.set(folder+'/'+name,clone(value));},
@@ -473,4 +473,21 @@ test('oldest-death ready snapshot becomes operative only after the independent c
   assert.equal(admitted.version.effectiveAt,t3);
   assert.equal(admitted.version.provisions['DRAFT - ORDER OF BUSINESS'].includes(Rules.OLDEST_DEATH_STEAL_CLAUSE),true);
   assert.equal((await loadOperativeSnapshot({fetchImpl:hosted(w,{fail:'data/col-releases/'+stage.candidateDigest+'-confirmed.json'}),now:Date.parse(t3)})),null);
+});
+
+test('private rule evidence uses existing token only on fixed API routes and preserves GET/redirect bounds',()=>{
+ const requests=[],head='a'.repeat(40),token='existing-fictional-restricted-token';
+ const c=vm.createContext({annalsProps_:()=>({getProperty:k=>k==='ANNALS_GITHUB_TOKEN'?token:null}),
+  UrlFetchApp:{fetch:(url,options)=>{requests.push({url,options});return {getResponseCode:()=>200,getContentText:()=>url.includes('/commits/')?JSON.stringify({sha:head}):url.includes('/actions/')?'{}':'public bytes'};}}});
+ vm.runInContext(readFileSync(new URL('../scripts/annals/RulesProduction.gs',import.meta.url),'utf8'),c);
+ assert.equal(c.annalsRuleHead_(),head);
+ assert.throws(()=>c.annalsRuleJobWitness_(producer));
+ c.annalsRulePublicRead_('data/col-rules-versions.json',head);
+ assert.ok(requests.length>=3);
+ for(const {url,options} of requests){
+  assert.equal(options.followRedirects,false);assert.equal(options.validateHttpsCertificates,true);
+  if(url.startsWith('https://api.github.com/repos/justinpfisher/Stammtisch/')){assert.equal(options.method,'get');assert.equal(options.headers.Authorization,'Bearer '+token);}
+  else assert.equal(options.headers.Authorization,undefined);
+ }
+ c.annalsProps_=()=>({getProperty:()=>null});const before=requests.length;assert.throws(()=>c.annalsRuleHead_(),/Existing repository verification credential required/);assert.equal(requests.length,before);
 });
