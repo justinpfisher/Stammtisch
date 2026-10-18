@@ -2,7 +2,7 @@
 
 Technical reference for the qualified rule subsystem, not an ordinary website release checklist. [Current state](current-state.md) and Issue #24 record genuine qualification and the operative oldest-death amendment. The launch-era claims below about disabled v3/empty state and pending original acceptance are historical; do not repeat the completed acceptance. The signed source/version/clock checks still apply to each affected CoL operation.
 
-The implementation has literal typography and the registered oldest-death Steal templates; only the oldest-death class is qualified/enabled. Literal typography remains disabled. Arbitrary formula/eligibility changes, future scheduling and retrospective recalculation are not generally supported. Unknown meaning remains held for implementation/clarification, without adding a second member-vote or owner-adoption requirement.
+The deployed private baseline has the oldest-death Steal class enabled; literal typography remains disabled. The merged repository adds `editorial-rewrite-v1`: a source-matched, multi-section, formatting-only class that requires identical words, numbers, punctuation, exceptions and executable parameters. Its unattended release becomes available only after the reviewed source is installed in the existing private Apps Script project and the previously qualified v3 signing, source and clock safeguards still apply. Arbitrary semantic changes, formulas, eligibility, future scheduling and retrospective recalculation remain held for implementation, not for a second member vote or owner-adoption gate.
 
 ## Exactly what this implementation can qualify
 
@@ -15,6 +15,8 @@ member supplies both complete literal passages in the instruction
 that instruction. Its subject needs no tag. The model must also have classified
 the fresh request as operative. A fixed server-written explanation prevents
 model-invented public explanatory claims.
+
+The additional `editorial-rewrite-v1` class accepts a complete, authenticated member-authored replacement in ordinary language. It only stages a release when all affected sections are mechanically equivalent after whitespace/apostrophe normalisation, the actual replacement passages occur in the original source, and hosted verification independently checks every section. It cannot treat AI interpretation or a model confidence assertion as authority for changed meaning. Any changed points, penalties, draft benefits, payouts, qualifications or retrospective effects remain non-operative until matching verified behaviour is available.
 
 This recognized form is an automatic implementation class, not a requirement that
 members use a form or command. Other natural prose still receives interpretation
