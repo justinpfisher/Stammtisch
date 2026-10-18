@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 3,
+  "kind": "col-completion-witness-v1",
+  "candidateDigest": "447206a5f23e52a85a3132c1db5d6a642764439435476b41c9e40ead4b7ecd27",
+  "activationDigest": "3c2bdf577a080ed377763aca97b6f02761dcdfcbb6e55d5acf9c467bf73d13dd",
+  "snapshotDigest": "ee633366c994873a261312ac364855de3c9764ad6f0bbbc721c58433f6de2ee3",
+  "producer": {
+    "repository": "justinpfisher/Stammtisch",
+    "workflow": ".github/workflows/annals-col-rules-v3.yml",
+    "job": "staged",
+    "runId": "39083724549",
+    "runAttempt": 1,
+    "workflowHead": "29a9f09c8c32b437d97c12d3a2ea107543f86cdd",
+    "checkoutHead": "29a9f09c8c32b437d97c12d3a2ea107543f86cdd"
+  },
+  "publishedAt": "2026-10-18T00:43:22.000Z",
+  "verifiedAt": "2026-10-18T00:46:54.776Z"
+}
