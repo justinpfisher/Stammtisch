@@ -194,7 +194,16 @@ function annalsCheckGithubSigningConsistency(nonce,challenge,artifactId,zipBase6
     function get(url){
       var label=url.indexOf('/actions/artifacts/')>=0?'artifact':url.indexOf('/jobs?')>=0?'jobs':url.indexOf('/actions/runs/')>=0?'run':url.indexOf('/.github/workflows/')>=0?'workflow_source':'verifier_source';
       stage(label+'_http');
-      var response=UrlFetchApp.fetch(url,{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true,headers:{Accept:'application/vnd.github+json'}}),code=response.getResponseCode();
+      var requestHeaders={Accept:'application/vnd.github+json'};
+      // Reuse the existing repository credential only for this repository's API.
+      // Raw source reads stay unauthenticated; redirects never carry credentials.
+      if(url.indexOf(api+'/')===0){
+        var token=annalsProps_().getProperty('ANNALS_GITHUB_TOKEN');
+        if(!token)throw new Error('Existing repository verification credential required');
+        requestHeaders.Authorization='Bearer '+token;
+        requestHeaders['X-GitHub-Api-Version']='2022-11-28';
+      }
+      var response=UrlFetchApp.fetch(url,{method:'get',muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true,headers:requestHeaders}),code=response.getResponseCode();
       if(diagnostic)diagnostic.http[label]=Number.isInteger(code)&&code>=100&&code<=599?code:null;
       if(code!==200){
         // Fixed classifications only: never expose response bodies or arbitrary headers.
