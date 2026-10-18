@@ -224,6 +224,7 @@ test('a stored staging failure holds subsequent attempts before original body or
     annalsAuthentication_:()=>assert.fail('Authentication was not repeated')
   });
   vm.runInContext(production,ctx);
+  ctx.annalsHash_=id=>'hash-'+id;
   let bodyReads=0;
   const msg={getFrom:()=> 'member@example.test',getDate:()=>new Date('2026-10-18T17:00:00Z'),
     getSubject:()=> 'Fictional CoL amendment',getId:()=> 'fixture',
@@ -250,7 +251,7 @@ test('an unreadable message ID is isolated and does not block a subsequent messa
   const f=intakeFixture([thread('bad', ['bad']),thread('good',['good'])]);
   f.threads[0]={getId:()=> 'bad',getMessages:()=>[{getId(){throw Error('fictional unreadable metadata');}}]};
   const res=JSON.parse(JSON.stringify(f.ctx.runAnnalsProductionIntake()));
-  assert.equal(res.staging_errors,1);
+  assert.equal(res.staging_errors,2,'the same inaccessible item is observed in both scanner windows');
   assert.equal(res.staged,1);
   assert.deepEqual(f.calls,['good']);
 });
