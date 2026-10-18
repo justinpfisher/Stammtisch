@@ -1,17 +1,8 @@
-> **Current authority — 15 October 2026, photographs and CoL implementation:**
-> Read [the current photo/CoL release and handoff](annals-photos-col-release-2026-10-15.md).
-> The owner authorises automatic eligible six-member photographs under standing
-> private attestation, subject to revocations and exceptional third-party/privacy
-> holds. One genuinely authenticated member may independently introduce a prospective
-> CoL change; no second member, vote or owner-adoption approval is required.
-> Older proposal-only/per-image restrictions below are superseded within that scope.
-> Preserve source consistency, exact meaning, historical results and all platform
-> safeguards. New capabilities stay disabled until signing remediation, hosted
-> acceptance and the documented private adapters are qualified.
-
 # Stammtisch Social Club — club context and institutional memory
 
-**Working knowledge record | As of 8 October 2026 | Public-repository-safe edition**
+**Club identity and historical context | Public-repository-safe edition**
+
+For production and automation state use [current state](current-state.md). This record preserves club facts and the limits of historical knowledge; it is not a release checklist.
 
 ## Purpose and status
 
@@ -25,7 +16,7 @@ The GitHub repository is **public**. Keep this record about club identity, alrea
 
 - **Members (first names used in club/site work):** Marc, Matt, Ken, Jamie, Jerome, and Justin. The spreadsheet sometimes refers to Justin as "fish".
 - **Nature:** An informal social club of six longtime friends in Ontario. The core purposes described in past conversations are friendship, camaraderie, sustained connection, and mutual support.
-- **Rhythm (owner-confirmed 8 October 2026):** The **third Friday of every month** is the standing Stammtisch meeting date. Meetings **often** take place at the headquarters; this is not an assertion that every month uses that venue. Exact meeting time, headquarters address, attendance and exceptions are confirmed within the group, not published by default. Separately, the annual **off-site Assembly** is typically at a rented cottage. The start date of the friendships has not been established as a public fact.
+- **Rhythm (owner-confirmed 8 October 2026):** The **third Friday of every month** is the standing Stammtisch meeting date. Meetings **often** take place at the headquarters; this is not an assertion that every month uses that venue. The owner subsequently confirmed the public 8 p.m. America/Toronto start. Headquarters address, attendance and exceptions remain private. Separately, the annual **off-site Assembly** is typically at a rented cottage. The start date of the friendships has not been established as a public fact.
 - **Identity:** Social connection is the point, not beer production or commercial sales. The domain includes "brewery", and brewery/pub imagery is part of the club's visual and social culture; **do not infer that the club operates a commercial brewery**. Past clothing discussions explicitly cautioned against assuming every member drinks beer.
 - **Signature mood:** Deliberately ceremonial, mock-prestigious and faintly absurd; the contrast between ordinary friendships and inflated institutional seriousness is intentional. Prefer dry, clever, understated humour over forced grandiosity, crude jokes, or a generic corporate association.
 
@@ -64,7 +55,7 @@ This is the club's established celebrity-selection competition with an accompany
 
 ### The special-cocktail tradition
 
-At **many monthly Stammtisch gatherings**, one or two members take turns preparing **a special cocktail** for the group. The preparation can include **making their own syrups and other components**; these drinks and their craft are meaningful parts of the club's ongoing tradition, not mere incidental refreshments. This is an **owner-confirmed fact (8 October 2026)**. There are **no approved public recipes or attributed creators yet**. A future cocktail register or section of the Annals could collect the real recipes, techniques and optional approved drink photographs, with each creator's permission. See docs/annals-publication-guidelines.md for the publication and attribution boundaries. Never fabricate an allegedly historic cocktail or imply every member drinks alcohol.
+At **many monthly Stammtisch gatherings**, one or two members take turns preparing **a special cocktail** for the group. The preparation can include **making their own syrups and other components**; these drinks and their craft are meaningful parts of the club's ongoing tradition, not mere incidental refreshments. This is an **owner-confirmed fact (8 October 2026)**. This record does not supply any recipe or attributed creator for publication. A future cocktail register or section of the Annals could collect the real recipes, techniques and optional approved drink photographs, with each creator's permission. See docs/annals-publication-guidelines.md for the publication and attribution boundaries. Never fabricate an allegedly historic cocktail or imply every member drinks alcohol.
 
 ### Other club activities
 
@@ -93,9 +84,9 @@ Avoid publicly asserting a specific registered legal status, tax treatment, bank
 
 ## Ideas previously raised, but not established commitments
 
-**10 October 2026 section decision:** The quotation collection is titled **The Register of Remarks**. Each displayed quote is intended to accompany the approved illustrated portrait of its **actual speaker**, not the member who emailed the quotation. This is authorised feature direction, not evidence that any quotation has yet been published or production intake enabled. Automatic quotes attributed to another member still require distinct, privately recorded speaker permission and exact source attribution.
+**10 October 2026 section decision:** The quotation collection is titled **The Register of Remarks**. Each displayed quote is intended to accompany the approved illustrated portrait of its **actual speaker**, not the member who emailed the quotation. Use the current publication guidelines and recorded production state; this fact alone does not prove a particular quotation was published. Automatic quotes attributed to another member still require distinct, privately recorded speaker permission and exact source attribution.
 
-The **Annals of Stammtisch** has now been explicitly welcomed by the owner, **subject to a privacy-first publication model**: start with real text-based history and non-identifying imagery, and ask before publishing any newly sensitive photos, names or stories. Existing approved illustrated member likenesses and public CoL information are currently considered acceptable; that does **not** grant blanket approval for other portraits or identifiers. See docs/annals-publication-guidelines.md. The actual public Annals page and any photos/recipes still await content-specific approval.
+The **Annals of Stammtisch** has now been explicitly welcomed by the owner, **subject to a privacy-first publication model**: start with real text-based history and non-identifying imagery, and ask before publishing any newly sensitive photos, names or stories. Existing approved illustrated member likenesses and public CoL information are currently considered acceptable; that does **not** grant blanket approval for other portraits or identifiers. See docs/annals-publication-guidelines.md. The current publication guidelines govern standing permissions and exception review; do not restore per-item approval for material already covered by recorded rights.
 **10 October 2026 update:** Owner authorised source-grounded, low-risk automatic public text from authenticated six-member senders who separately and personally consent to private AI use and standing public publication. The standing grant does not cover third-party people/quotes/photos or uncertain facts. Automatic content receives visible editorial censorship, and empty categories remain hidden. This is a product decision, not proof of live Google account activation. Current controls are in `docs/annals-production-runbook.md`.
 
 Other ideas included a consent-based gallery, past Assemblies, RSVP, travel/itinerary/packing information, club calendar, beer list, member profiles, votes/polls and expense coordination. These remain **possibilities**, not standing requirements. Prefer lightweight public information and the group's usual communication channel to a second chat service.

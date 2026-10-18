@@ -1,3 +1,5 @@
+> **Historical record — not an operating checklist.** Status, proposed work and launch gates below describe their dated checkpoint. Use [current state](current-state.md), [working instructions](../AGENTS.md) and the [production runbook](annals-production-runbook.md) for current decisions and operations. Retain this record for provenance, specifications and recovery; do not repeat completed setup or restore superseded gates.
+
 # Annals of Stammtisch — private email-intake prototype runbook
 
 **Status (8 October 2026):** The receiving address works. The owner has reported one manual **synthetic-only** intake run. Production Annals processing, automated triggers, AI interpretation and public publication are not activated.

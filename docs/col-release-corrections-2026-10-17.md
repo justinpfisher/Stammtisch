@@ -1,3 +1,5 @@
+> **Historical record — not an operating checklist.** Status, proposed work and launch gates below describe their dated checkpoint. Use [current state](current-state.md), [working instructions](../AGENTS.md) and the [production runbook](annals-production-runbook.md) for current decisions and operations. Retain this record for provenance, specifications and recovery; do not repeat completed setup or restore superseded gates.
+
 # CoL release qualification corrections — 17 October 2026
 
 Independent read-only review of PRs 87–90 found six edge cases before private installation. This release fixes contradictory-subject handling in the deterministic oldest-death shortcut, preserves the adopted benefit across permitted typography changes, and prevents conflicting age evidence from finalizing an award. It also fixes operative register status, pins the baseline link, and restores the unchanged official preamble in the version reader.

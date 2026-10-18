@@ -1,3 +1,5 @@
+> **Historical record — not an operating checklist.** Status, proposed work and launch gates below describe their dated checkpoint. Use [current state](current-state.md), [working instructions](../AGENTS.md) and the [production runbook](annals-production-runbook.md) for current decisions and operations. Retain this record for provenance, specifications and recovery; do not repeat completed setup or restore superseded gates.
+
 > **17 October 2026, subsequent non-operative work:** Public CoL visitor-copy cleanup and a dormant oldest-death Steal calculator have been merged. A source-bound `oldest-death-steal-v1` semantic candidate route is prepared behind a distinct OFF-by-default gate. This changes neither operative rules nor the private installed version or unresolved signing state. See [oldest-death implementation](col-oldest-steal-implementation-2026-10-17.md) and [staged release protocol](col-two-stage-release.md).
 
 # Annals automation engineering continuation

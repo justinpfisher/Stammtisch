@@ -1,6 +1,10 @@
 import importlib.util
 import copy
 import pathlib
+import os
+import subprocess
+import tempfile
+import textwrap
 import unittest
 
 ROOT = pathlib.Path(__file__).parents[1]
@@ -314,6 +318,42 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(verifier.source_publisher("https://www.apnews.com/a"), "Associated Press")
         self.assertIsNone(verifier.source_publisher("http://apnews.com/a"))
         self.assertIsNone(verifier.source_publisher("https://apnews.com.evil.example/a"))
+
+class MonitorWorkflowEfficiencyTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "posix", "Exercises the GitHub-hosted Ubuntu shell step")
+    def test_unchanged_and_unrelated_edits_skip_tests_but_either_public_file_requires_them(self):
+        workflow = (ROOT / ".github/workflows/celebration-sheet-monitor.yml").read_text()
+        detection, regression = workflow.split("      - name: Detect validated public data changes\n", 1)[1].split(
+            "      - name: Verify generated site data and award calculations\n", 1)
+        script = textwrap.dedent(detection.split("        run: |\n", 1)[1])
+        self.assertIn("if: success() && steps.public_changes.outputs.changed == 'true'", regression)
+        with tempfile.TemporaryDirectory() as directory:
+            repo = pathlib.Path(directory)
+            (repo / "data").mkdir()
+            files = [repo / "data/celebration.json", repo / "data/celebration-confirmations.json"]
+            for path in files:
+                path.write_text("{}\n")
+            def git(*args):
+                subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+            git("init", "-q")
+            git("add", ".")
+            git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "Fixture")
+            output = repo / "output"
+            def detect():
+                output.write_text("")
+                subprocess.run(["bash", "-eu", "-c", script], cwd=repo,
+                               env={**os.environ, "GITHUB_OUTPUT": str(output)}, check=True, capture_output=True)
+                return output.read_text().strip()
+            self.assertEqual(detect(), "changed=false")
+            (repo / "README.md").write_text("Unrelated documentation\n")
+            self.assertEqual(detect(), "changed=false")
+            for path in files:
+                with self.subTest(file=path.name):
+                    path.write_text('{"changed":true}\n')
+                    self.assertEqual(detect(), "changed=true")
+                    path.write_text("{}\n")
+            self.assertEqual(detect(), "changed=false")
+
 
 if __name__ == "__main__":
     unittest.main()

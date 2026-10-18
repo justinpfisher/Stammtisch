@@ -1,3 +1,5 @@
+> **Historical record — not an operating checklist.** Status, proposed work and launch gates below describe their dated checkpoint. Use [current state](current-state.md), [working instructions](../AGENTS.md) and the [production runbook](annals-production-runbook.md) for current decisions and operations. Retain this record for provenance, specifications and recovery; do not repeat completed setup or restore superseded gates.
+
 # Annals production installation evidence — 16 October 2026
 
 This checkpoint records the installation of the qualified release into the existing owner-controlled **Stammtisch Annals — Production** Apps Script project. Private source snapshots, OAuth credentials, deployment identifiers, URLs, and account details remain outside this public repository. [Issue #24](https://github.com/justinpfisher/Stammtisch/issues/24) tracks the release and remaining qualifications.

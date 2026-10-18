@@ -6,8 +6,15 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/celebration-sheet-monitor.yml'
-      - 'scripts/**'
-      - 'tests/**'
+      - 'scripts/monitor-celebration-sheet.py'
+      - 'scripts/sync-celebration-sheet.py'
+      - 'scripts/import-celebration.py'
+      - 'scripts/verify-celebration-death.py'
+      - 'scripts/verify-celebration-publication.py'
+      - 'tests/test_sheet_monitor.py'
+      - 'tests/test_site_sync.py'
+      - 'tests/test_full_mapping_contract.py'
+      - 'tests/test_publication_health.py'
       - 'data/celebration-confirmations.json'
   schedule:
     - cron: '58 * * * *'
@@ -97,8 +104,19 @@ jobs:
         run: |
           checked="$(python -c "import json; print(json.load(open('monitor-result.json'))['checkedAt'])")"
           python scripts/sync-celebration-sheet.py --workbook monitor-state/current-workbook.json --checked-at "$checked" --status monitor-state/site-sync-status.json
-      - name: Verify generated site data and award calculations
+      - name: Detect validated public data changes
         if: success() && steps.site_sync.outcome == 'success'
+        id: public_changes
+        run: |
+          if git diff --quiet -- data/celebration.json data/celebration-confirmations.json; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Verify generated site data and award calculations
+        # Code is checked in PR CI. Every hourly run still validates/reconciles
+        # source and live data; run regressions when public data actually changes.
+        if: success() && steps.public_changes.outputs.changed == 'true'
         run: |
           python -m unittest discover -s tests -p 'test_*.py'
           node --test tests/*.test.mjs

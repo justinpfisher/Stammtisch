@@ -73,3 +73,15 @@ Every successful normal hourly check reimports the current workbook and compares
 - Google/GitHub scheduling is **hourly polling at approximately minute 58**, not an instant Google Sheets edit webhook; platform delays, network failure, a missing/expired encrypted baseline or permission problems can delay a run. Failures are reported and the last good state is preserved for retry. Open browser tabs do not instantly refresh themselves; a page reload loads the new data after deployment.
 
 The automation must stay **read-only** toward the Google Sheet. Public member data is only written to the two allowlisted website JSON files; worksheet contents, formulas and notes outside those public fields stay out of GitHub issues and artifacts except for the existing encrypted report.
+
+## Routine efficiency
+
+Each normal run still reads and validates the workbook, reconciles published fields,
+checks any new death evidence, confirms live public data and promotes encrypted state
+only after success. The full regression suite runs when validated public JSON changes;
+unchanged hourly observations reuse reviewed code qualification. Backend/monitor tests
+still run in PR CI. Annals-only edits no longer trigger extra Sheet runs.
+
+The hourly schedule, encrypted baseline/report retention, fail-closed publication,
+read-only Google access and notification behaviour are unchanged. Do not reinitialise
+the baseline or repeat initial acceptance for ordinary repository updates.

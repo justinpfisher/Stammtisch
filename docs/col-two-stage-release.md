@@ -1,12 +1,8 @@
-# CoL staged release protocol - implementation, not activation
+# CoL staged release protocol
 
-This records the disabled v3 implementation. The committed ledger is empty. No
-genuine amendment, example amendment, source workbook change, new credential,
-remediation marker or production acceptance is established by this document or
-its synthetic tests. The legacy operative dispatcher is rejected and its
-operative-write guard remains in place. The old private reconciler also refuses
-to call a rule active merely because public bytes match; its non-operative
-pending-status route remains available.
+Technical reference for the qualified rule subsystem, not an ordinary website release checklist. [Current state](current-state.md) and Issue #24 record genuine qualification and the operative oldest-death amendment. The launch-era claims below about disabled v3/empty state and pending original acceptance are historical; do not repeat the completed acceptance. The signed source/version/clock checks still apply to each affected CoL operation.
+
+The implementation has literal typography and the registered oldest-death Steal templates; only the oldest-death class is qualified/enabled. Literal typography remains disabled. Arbitrary formula/eligibility changes, future scheduling and retrospective recalculation are not generally supported. Unknown meaning remains held for implementation/clarification, without adding a second member-vote or owner-adoption requirement.
 
 ## Exactly what this implementation can qualify
 
