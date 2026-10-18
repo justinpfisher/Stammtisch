@@ -8,6 +8,8 @@ var AnnalsPilot = (function () {
 
   var SCHEMA_VERSION = 1;
   var MAX_BODY_CHARS = 16000;
+  var MAX_RULE_BODY_CHARS = 36000;
+  var MAX_RULE_SOURCE_CHARS = 38000;
   var MAX_SUBJECT_CHARS = 2000;
   var MAX_SOURCE_CHARS = 11000;
   var MAX_ATTACHMENTS = 6;
@@ -103,9 +105,14 @@ var AnnalsPilot = (function () {
     var body = String(params.body || '');
     var from = senderAddress(params.from);
     if (!from) throw new Error('No usable sender address');
-    var bodyTruncated = body.length > MAX_BODY_CHARS;
-    var safeBody = body.slice(0, MAX_BODY_CHARS);
-    var sourceTruncated = subjectTruncated || bodyTruncated || subject.length + safeBody.length > MAX_SOURCE_CHARS;
+    // Complete rules documents get a larger private-text window; ordinary
+    // Annals entries keep the established narrower privacy/input boundary.
+    var isCoL = /\b(?:col|celebration\s+of\s+life|celebrity\s+pool)\b/i.test(rawSubject + '\n' + body.slice(0,3000));
+    var bodyCap = isCoL ? MAX_RULE_BODY_CHARS : MAX_BODY_CHARS;
+    var sourceCap = isCoL ? MAX_RULE_SOURCE_CHARS : MAX_SOURCE_CHARS;
+    var bodyTruncated = body.length > bodyCap;
+    var safeBody = body.slice(0, bodyCap);
+    var sourceTruncated = subjectTruncated || bodyTruncated || subject.length + safeBody.length > sourceCap;
     var plan = planAttachments(params.attachments || []);
     return {
       schemaVersion: SCHEMA_VERSION,
@@ -144,6 +151,8 @@ var AnnalsPilot = (function () {
   return Object.freeze({
     SCHEMA_VERSION: SCHEMA_VERSION,
     MAX_BODY_CHARS: MAX_BODY_CHARS,
+    MAX_RULE_BODY_CHARS: MAX_RULE_BODY_CHARS,
+    MAX_RULE_SOURCE_CHARS: MAX_RULE_SOURCE_CHARS,
     MAX_SUBJECT_CHARS: MAX_SUBJECT_CHARS,
     MAX_SOURCE_CHARS: MAX_SOURCE_CHARS,
     MAX_ATTACHMENTS: MAX_ATTACHMENTS,
