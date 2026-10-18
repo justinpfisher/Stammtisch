@@ -34,7 +34,7 @@ function annalsGuardedAuditNextInEditor(){
     var current=JSON.parse(archive.getContentText());
     // The established initial empty archive is an explicit bounded release
     // condition, never a reason to remove a subsequently genuine publication.
-    if(!Array.isArray(current.entries)||current.entries.length||/data-annal-id=/.test(page.getContentText()))throw Error('Nonempty archive requires exact independent reconciliation');
+    if(!Array.isArray(current.entries)||current.entries.length||/<article\b[^>]*\bid="annal-/.test(page.getContentText()))throw Error('Nonempty archive requires exact independent reconciliation');
     var folders=audit.cursor?DriveApp.continueFolderIterator(audit.cursor):root.getFolders(),checked=0;
     while(folders.hasNext()&&checked++<8){var f=annalsPrivate_(folders.next());if(!/^[a-f0-9]{64}$/.test(f.getName()))continue;
       audit.checked++;
@@ -62,6 +62,7 @@ function annalsGuardedEnableTextInEditor(){
 }
 function annalsGuardedLaunchReadbackCore_(){
   var p=annalsProps_(),r={};['ANNALS_PRODUCTION_INTAKE_ENABLED','ANNALS_AI_ENABLED','ANNALS_AUTO_PUBLICATION_ENABLED','ANNALS_AUTO_MEDIA_ENABLED','ANNALS_PHOTOS_V2_ENABLED','ANNALS_PHOTOS_HOSTED_ACCEPTED','ANNALS_PHOTOS_GUARDED_JPEG_ENABLED','ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED','ANNALS_HISTORY_PUBLICATION_ENABLED'].forEach(function(k){r[k]=p.getProperty(k)==='true';});
+  var historyKey=p.getProperty('ANNALS_HISTORY_SIGNING_KEY')||'';r.distinctHistorySigningAuthorityPresent=historyKey.length>=32&&historyKey!==p.getProperty('ANNALS_APPROVAL_KEY')&&historyKey!==p.getProperty('ANNALS_PUBLISH_SIGNING_KEY');
   r.controls=annalsGuardedControls_();console.log(JSON.stringify(r));return r;
 }
 function annalsGuardedLaunchReadbackInEditor(){annalsOwner_();return annalsLocked_(annalsGuardedLaunchReadbackCore_);}
