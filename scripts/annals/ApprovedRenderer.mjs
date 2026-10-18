@@ -366,7 +366,7 @@ function buildAnnals(entries, receipts, verifyReceipt, history = emptyHistory())
       historyLink + photosLink + '</nav>'
     : '';
   const emptyState = accepted.length === 0 && !history.chapters.length
-    ? '<p class="annal-empty">The record awaits an approved contribution.</p>'
+    ? '<p class="annal-empty">The record awaits a qualifying contribution.</p>'
     : '';
   const html = `<!doctype html>
 <html lang="en">
