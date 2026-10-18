@@ -181,5 +181,18 @@ test('unqualified literal staging stays closed even when the shared protocol is 
  vm.runInContext(readFileSync(new URL('../scripts/annals/RulesProduction.gs',import.meta.url),'utf8'),c);c.annalsStagedRulesReady_=()=>true;
  assert.equal(c.annalsStageLiteralRule_('fixture'),false);assert.equal(reads,0);
  literal='true';assert.equal(c.annalsStageLiteralRule_('fixture'),false);assert.equal(reads,1);
- const ui=readFileSync(new URL('../scripts/annals/ReviewUi.html',import.meta.url),'utf8');assert.ok(ui.includes("el('stageLiteralRule').disabled=!gates.ready||!gates.automaticLiteralEnabled"));
+
+});
+
+test('desk action cleanup preserves literal qualification after reads, unrelated actions and failures',async()=>{
+ const ui=read('scripts/annals/ReviewUi.html'),source=ui.slice(ui.indexOf('function updateLiteralStageControl()'),ui.indexOf('async function list(reset)'));
+ const ids=['stageLiteralRule','prepare','save','approve','approveRemoval','quarantine','checkSigningRotation','diagnoseSigningQualification','recordSigningQualification','continueHistoricOldestRule'];
+ const nodes=Object.fromEntries(ids.map(id=>[id,{disabled:false,checked:false}]));nodes.signingReconciliationConfirmed={checked:false};nodes.detail={querySelectorAll:()=>ids.filter(id=>id!=='back').map(id=>nodes[id])};
+ const c=vm.createContext({document:{querySelectorAll:()=>ids.map(id=>nodes[id])},el:id=>nodes[id],say:()=>{},quarantineAvailable:()=>false,updateRuleAcceptanceControls:()=>{},current:{quarantined:false},literalStageQualified:false});
+ vm.runInContext(source,c);
+ await c.act(async()=>{nodes.stageLiteralRule.disabled=true;});assert.equal(nodes.stageLiteralRule.disabled,true);
+ c.literalStageQualified=true;await c.act(async()=>{});assert.equal(nodes.stageLiteralRule.disabled,false);
+ c.literalStageQualified=false;await c.act(async()=>{});assert.equal(nodes.stageLiteralRule.disabled,true);
+ await c.act(async()=>{throw Error('fictional unrelated failure');});assert.equal(nodes.stageLiteralRule.disabled,true);
+ c.literalStageQualified=true;c.current.quarantined=true;await c.act(async()=>{});assert.equal(nodes.stageLiteralRule.disabled,true);
 });
