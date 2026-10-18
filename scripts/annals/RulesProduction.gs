@@ -358,8 +358,13 @@ function annalsRulePublicRead_(path,commit){
   if(r.getResponseCode()!==200)throw new Error('Public rule evidence unavailable');
   var text=r.getContentText();if(!text||text.length>1800000)throw new Error('Bounded complete public rule bytes required');return text;
 }
+function annalsRuleApiHeaders_(){
+  var token=annalsProps_().getProperty('ANNALS_GITHUB_TOKEN');
+  if(!token)throw new Error('Existing repository verification credential required');
+  return {Accept:'application/vnd.github+json','Cache-Control':'no-cache',Authorization:'Bearer '+token,'X-GitHub-Api-Version':'2022-11-28'};
+}
 function annalsRuleHead_(){
-  var r=UrlFetchApp.fetch('https://api.github.com/repos/justinpfisher/Stammtisch/commits/main',{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true,headers:{'Cache-Control':'no-cache'}});
+  var r=UrlFetchApp.fetch('https://api.github.com/repos/justinpfisher/Stammtisch/commits/main',{method:'get',muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true,headers:annalsRuleApiHeaders_()});
   if(r.getResponseCode()!==200)throw new Error('Current public implementation unavailable');
   var body=r.getContentText();if(body.length>250000)throw new Error('Unbounded implementation response');
   var sha=JSON.parse(body).sha;if(!/^[a-f0-9]{40}$/.test(sha||''))throw new Error('Invalid implementation identity');return sha;
@@ -373,7 +378,7 @@ function annalsRuleJobWitness_(producer,requireSuccess){
   if(!producer||producer.repository!=='justinpfisher/Stammtisch'||producer.workflow!=='.github/workflows/annals-col-rules-v3.yml'||producer.job!=='staged'||
     !/^\d{1,20}$/.test(producer.runId)||!Number.isSafeInteger(producer.runAttempt)||producer.runAttempt<1||!/^[a-f0-9]{40}$/.test(producer.workflowHead)||!/^[a-f0-9]{40}$/.test(producer.checkoutHead))throw new Error('Fixed release job identity required');
   var prefix='https://api.github.com/repos/justinpfisher/Stammtisch/actions/runs/'+producer.runId;
-  function read(url){var r=UrlFetchApp.fetch(url,{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true,headers:{Accept:'application/vnd.github+json','Cache-Control':'no-cache'}});if(r.getResponseCode()!==200)throw new Error('Release completion witness unavailable');var text=r.getContentText();if(!text||text.length>524288)throw new Error('Bounded job evidence required');return JSON.parse(text);}
+  function read(url){var r=UrlFetchApp.fetch(url,{method:'get',muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true,headers:annalsRuleApiHeaders_()});if(r.getResponseCode()!==200)throw new Error('Release completion witness unavailable');var text=r.getContentText();if(!text||text.length>524288)throw new Error('Bounded job evidence required');return JSON.parse(text);}
   var run=read(prefix+'/attempts/'+producer.runAttempt),listing=read(prefix+'/attempts/'+producer.runAttempt+'/jobs?per_page=100');
   if(String(run.id)!==producer.runId||run.run_attempt!==producer.runAttempt||[producer.workflow,producer.workflow+'@main'].indexOf(run.path)<0||run.event!=='repository_dispatch'||run.head_sha!==producer.workflowHead||
     !run.repository||run.repository.full_name!==producer.repository||run.status!=='completed'||!Array.isArray(listing.jobs)||listing.total_count!==listing.jobs.length)throw new Error('Release workflow not independently complete');
