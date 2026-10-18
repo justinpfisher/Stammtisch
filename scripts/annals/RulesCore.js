@@ -109,6 +109,8 @@ var AnnalsRules = (function () {
        !revision.changes.length||revision.changes.length>8)
       throw new Error('A fresh prospective editorial rewrite is required');
     var opening=source.text.slice(0,900);
+    if(/^\s*(?:for reference|this is an? historical quotation|this is a joke|someone said|what if)\b/i.test(opening))
+      throw new Error('Reference material does not change rules');
     if(!/(?:\b(?:updated|revised|amended|replacement|replace|new)\b[^\n]{0,80}\b(?:rules?|col)\b|\b(?:rules?|col)\b[^\n]{0,80}\b(?:updated|revised|amended|replacement)\b)/i.test(opening))
       throw new Error('Complete rewrite intent must be explicit in the member source');
     var seen={};
