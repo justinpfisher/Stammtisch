@@ -96,6 +96,36 @@ var AnnalsRules = (function () {
       throw new Error('Exact unquoted replacement instruction required for automatic wording');
     return {kind:'literal-typography-v1',provision:c.provision};
   }
+  // Automatic multi-provision rewriting is available only when every word,
+  // number and punctuation mark remains the same. AI similarity is NOT proof
+  // of equivalence; the author must have supplied the actual replacement text.
+  function editorialRewrite(source,revision,base) {
+    if(!source||source.senderAuthenticated!==true||source.freshOperativeWindow!==true||
+       source.replayed===true||source.truncated===true||typeof source.text!=='string'||
+       revision.state!=='awaiting_implementation'||revision.effectiveAt!==null||
+       revision.publishedAt!==null||revision.correctionOf!==null||
+       revision.retrospective.requested||revision.baseVersion!==base.id||
+       revision.baseDigest!==base.digest||!Array.isArray(revision.changes)||
+       !revision.changes.length||revision.changes.length>8)
+      throw new Error('A fresh prospective editorial rewrite is required');
+    var opening=source.text.slice(0,900);
+    if(/^\s*(?:for reference|this is an? historical quotation|this is a joke|someone said|what if)\b/i.test(opening))
+      throw new Error('Reference material does not change rules');
+    if(!/(?:\b(?:updated|revised|amended|replacement|replace|new)\b[^\n]{0,80}\b(?:rules?|col)\b|\b(?:rules?|col)\b[^\n]{0,80}\b(?:updated|revised|amended|replacement)\b)/i.test(opening))
+      throw new Error('Complete rewrite intent must be explicit in the member source');
+    var seen={};
+    revision.changes.forEach(function(change){
+      if(seen[change.provision]||base.provisions[change.provision]!==change.before||
+         change.after===change.before||typography(change.before)!==typography(change.after)||
+         change.after.split('\n')[0]!==change.before.split('\n')[0])
+        throw new Error('Rewrite changes meaning or an unverified provision');
+      seen[change.provision]=true;
+      var words=change.after.slice(change.after.indexOf('\n')+1).trim();
+      if(words.length<10||typography(source.text).indexOf(typography(words))<0)
+        throw new Error('Replacement words must appear in the actual authored email');
+    });
+    return {kind:'editorial-rewrite-v1',provisions:Object.keys(seen)};
+  }
   // A narrowly defined semantic amendment. No model is permitted to author
   // executable code or choose an alternative calculation for this template.
   var OLDEST_DEATH_STEAL_CLAUSE='Whoever had the oldest celebrity death in the previous calendar year also gets one Steal at the next draft. If needed, compare ages at death to the day level.';
@@ -140,6 +170,6 @@ var AnnalsRules = (function () {
       explanation:text(r.explanation,1000),changes:r.changes.map(function(c){return {provision:text(c.provision,100),before:text(c.before,6000),after:text(c.after,6000)};}),
       correctionOf:r.correctionOf===null?null:id(r.correctionOf)};
   }
-  return Object.freeze({provisions:provisions,intake:intake,qualify:qualify,publish:publish,select:select,publicRecord:publicRecord,stamp:stamp,typography:typography,literalWording:literalWording,oldestSteal:oldestSteal,acceptanceDescriptor:acceptanceDescriptor,OLDEST_DEATH_STEAL_CLAUSE:OLDEST_DEATH_STEAL_CLAUSE,OLDEST_DEATH_STEAL_EXPLANATION:OLDEST_DEATH_STEAL_EXPLANATION});
+  return Object.freeze({provisions:provisions,intake:intake,qualify:qualify,publish:publish,select:select,publicRecord:publicRecord,stamp:stamp,typography:typography,literalWording:literalWording,editorialRewrite:editorialRewrite,oldestSteal:oldestSteal,acceptanceDescriptor:acceptanceDescriptor,OLDEST_DEATH_STEAL_CLAUSE:OLDEST_DEATH_STEAL_CLAUSE,OLDEST_DEATH_STEAL_EXPLANATION:OLDEST_DEATH_STEAL_EXPLANATION});
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=AnnalsRules;

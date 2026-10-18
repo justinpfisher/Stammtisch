@@ -153,3 +153,34 @@ test('oversize combined interpretation request is visible but never charged or p
   assert.equal(notices.some(n=>n.kind==='input-bound-held'),true);
   assert.equal(notices.some(n=>n.kind==='input-bound-owner'),true);
 });
+
+
+test('fresh authenticated CoL mail is interpreted on the same scheduled intake without repeated AI',()=>{
+  const f=intakeFixture([thread('new',['rule-message']),thread('older',['old-message'])]);
+  const reviews=[],alreadyProcessed=new Set();
+  f.ctx.annalsStageProduction_=m=>{
+    if(alreadyProcessed.has(m.getId()))return 'duplicates';
+    alreadyProcessed.add(m.getId());return m.getId()==='rule-message'?'held':'staged';
+  };
+  f.ctx.annalsHash_=id=>'hash-'+id;
+  f.ctx.annalsFolder_=id=>({id});
+  f.ctx.annalsRead_=(folder,name)=>name==='source-private.json'&&folder.id==='hash-rule-message'?
+    {senderAuthenticated:true,protectiveRoute:'col_proposal'}:null;
+  f.ctx.annalsProcessRuleRequest_=id=>{reviews.push(id);return true;};
+  const first=JSON.parse(JSON.stringify(f.ctx.runAnnalsProductionIntake()));
+  assert.equal(first.held,1);
+  assert.deepEqual(reviews,['hash-rule-message']);
+  f.ctx.runAnnalsProductionIntake();
+  assert.deepEqual(reviews,['hash-rule-message'],'no duplicate interpretation on another cycle');
+});
+test('unauthenticated CoL-looking mail is never fast-tracked into amendment processing',()=>{
+  const f=intakeFixture([thread('new',['unverified-rule'])]);
+  const reviews=[];
+  f.ctx.annalsStageProduction_=()=> 'held';
+  f.ctx.annalsHash_=_=>'hash-unverified';
+  f.ctx.annalsFolder_=id=>({id});
+  f.ctx.annalsRead_=()=>({senderAuthenticated:false,protectiveRoute:'col_proposal'});
+  f.ctx.annalsProcessRuleRequest_=id=>reviews.push(id);
+  f.ctx.runAnnalsProductionIntake();
+  assert.deepEqual(reviews,[]);
+});

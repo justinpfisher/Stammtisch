@@ -11,6 +11,7 @@ import {validateProducer,validateSealedWitness} from '../../col-rules-witness.mj
 
 export const STATE_PATH='data/col-rules-release-state.json';
 export const LITERAL_EXPLANATION='Literal spacing or apostrophe typography updated; words, numbers and qualifications preserved.';
+export const EDITORIAL_EXPLANATION='Member-authored multi-section editorial formatting only; original words, numbers, punctuation and all qualifications preserved.';
 export const MAX_LEDGER_BYTES=1024*1024;
 export const MAX_PACKAGE_BYTES=1024*1024;
 const serializedBytes=value=>Buffer.byteLength(JSON.stringify(value,null,2)+'\n');
@@ -83,6 +84,24 @@ function checkWording(revision,base){
   if(c.before!==base.provisions[c.provision]||c.after===c.before||Rules.typography(c.after)!==Rules.typography(c.before)||c.after.split('\n')[0]!==c.before.split('\n')[0])throw Error('Parameters, formulas, allocations and semantic edits require engineering');
   const clean=Rules.publicRecord(revision);if(digest({...clean,baseDigest:revision.baseDigest})!==digest(revision))throw Error('Private or extra candidate fields');
 }
+function checkEditorial(revision,base) {
+  if(revision.state!=='awaiting_implementation'||revision.baseVersion!==base.id||
+    revision.baseDigest!==base.digest||revision.publishedAt!==null||
+    revision.effectiveAt!==null||revision.correctionOf!==null||
+    revision.explanation!==EDITORIAL_EXPLANATION||
+    !Array.isArray(revision.changes)||revision.changes.length<1||revision.changes.length>8)
+    throw Error('Only source-verified prospective editorial rewrites are implemented');
+  const seen=new Set();
+  for(const change of revision.changes){
+    if(seen.has(change.provision)||base.provisions[change.provision]!==change.before||
+      change.after===change.before||Rules.typography(change.after)!==Rules.typography(change.before)||
+      change.after.split('\n')[0]!==change.before.split('\n')[0])
+      throw Error('Editorial rewrite changed words, punctuation, parameters or headings');
+    seen.add(change.provision);
+  }
+  const clean=Rules.publicRecord(revision);
+  if(digest({...clean,baseDigest:revision.baseDigest})!==digest(revision))throw Error('Unexpected editorial candidate fields');
+}
 function checkOldest(revision,base){
   if(revision.state!=='awaiting_implementation'||revision.baseVersion!==base.id||revision.baseDigest!==base.digest||
     revision.publishedAt!==null||revision.effectiveAt!==null||revision.correctionOf!==null||
@@ -104,17 +123,23 @@ export function stageCandidate({state,files,envelope,secret,enabled=false,now=ne
   exact(content,['revision','qualification','baseFiles','implementationCommit','behaviorDigest','source']);
   if(state.operations.length>=5000||state.events.length>=19996||serializedBytes(state)>MAX_LEDGER_BYTES-16384)throw Error('Release ledger capacity reached; preserve current version');
   if(state.operations.some(op=>!['release_pending','failed'].includes(op.phase)))throw Error('Reconcile the single pending operation first');
-  if(!['literal-typography-v1','oldest-death-steal-v1'].includes(content.qualification)||content.implementationCommit!==implementationCommit||content.behaviorDigest!==behaviorDigest||!hex(behaviorDigest)||digest(content.baseFiles)!==digest(snapshotHashes(files)))throw Error('Candidate implementation or exact base mismatch');
+  if(!['literal-typography-v1','oldest-death-steal-v1','editorial-rewrite-v1'].includes(content.qualification)||content.implementationCommit!==implementationCommit||content.behaviorDigest!==behaviorDigest||!hex(behaviorDigest)||digest(content.baseFiles)!==digest(snapshotHashes(files)))throw Error('Candidate implementation or exact base mismatch');
   if(content.source!==null)throw Error('Candidate source comes only from the independent Viewer observation');
   validateSource(sourceWitness,sourceWitness,implementationCommit,now);
   const projected=currentOperation(state)?materializeFiles(files,currentOperation(state),basePublishedAt):files;
   const {register,versions,markdown,html}=snapshot(projected),base=Rules.select(versions.versions,clock(now));
   if(currentOperation(state)&&currentOperation(state).revisionId!==base.id)throw Error('Current snapshot differs from operative release');
   if(content.qualification==='literal-typography-v1')checkWording(content.revision,base);
+  else if(content.qualification==='editorial-rewrite-v1')checkEditorial(content.revision,base);
   else checkOldest(content.revision,base);
   if(digest(Rules.provisions(markdown))!==digest(base.provisions)||register.revisions.some(r=>r.id===content.revision.id)||state.events.some(op=>op.revisionId===content.revision.id)||state.operations.some(op=>op.revisionId===content.revision.id))throw Error('Stale narrative or replayed revision');
-  const c=content.revision.changes[0],provisions={...base.provisions,[c.provision]:c.after};
-  if(markdown.split(c.before).length!==2)throw Error('Exact narrative boundary required');
+  const provisions={...base.provisions};
+  let updatedMarkdown=markdown;
+  for(const change of content.revision.changes){
+    if(updatedMarkdown.split(change.before).length!==2||provisions[change.provision]!==change.before)throw Error('Exact narrative boundary required');
+    provisions[change.provision]=change.after;
+    updatedMarkdown=updatedMarkdown.replace(change.before,change.after);
+  }
   const begin=html.indexOf('<details class="rule-topic">'),end=html.indexOf('      <p class="rules-reference">',begin);
   if(begin<0||end<begin)throw Error('Official website boundary changed');
   const topics=Object.entries(provisions).map(([heading,text])=>'<details class="rule-topic"><summary>'+escapeHtml(heading)+'<span aria-hidden="true">+</span></summary><div class="rule-body"><p style="white-space:pre-wrap">'+escapeHtml(text.slice(text.indexOf('\n')+1).trim())+'</p></div></details>').join('\n');
@@ -123,7 +148,7 @@ export function stageCandidate({state,files,envelope,secret,enabled=false,now=ne
   const nextFiles={
     'data/col-rules-register.json':JSON.stringify(nextRegister,null,2)+'\n',
     'data/col-rules-versions.json':JSON.stringify({...versions,versions:[...versions.versions,version]},null,2)+'\n',
-    'docs/celebration-of-life-rules.md':markdown.replace(c.before,c.after),
+    'docs/celebration-of-life-rules.md':updatedMarkdown,
     'celebration.html':html.slice(0,begin)+topics+'\n'+html.slice(end),
     'col-revisions.html':renderRegister(nextRegister)+'\n'
   };
