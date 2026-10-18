@@ -235,6 +235,7 @@ test('integrated private rule intake consumes only one existing reservation and 
     annalsRecordAttemptOutcome_:()=>assert.fail('Unexpected failure'),
     UrlFetchApp:{fetch:url=>{fetches++;return {getResponseCode:()=>200,getContentText:()=>JSON.stringify(url.includes('col-rules-versions')?{versions:[{...base,verified:true,effectiveAt:'2026-10-15T17:00:00Z'}]}:{status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(assessment())}]}]})};}}});
   vm.runInContext(readFileSync(new URL('../scripts/annals/RulesProduction.gs',import.meta.url),'utf8'),context);
+  context.annalsPublisherDispatchReady_=()=>true;
   context.annalsRulesReady_=()=>true;context.annalsRuleNotice_=()=>{notices++;};
   assert.equal(context.annalsProcessRuleRequest_('a'.repeat(64)),true);assert.equal(files.get('col-rule-request-private.json').state,'awaiting_implementation');assert.equal(notices,2);assert.equal(fetches,2);
   assert.equal(JSON.parse(values.ANNALS_BUDGET_LEDGER).reservedCents,10);assert.equal(context.annalsProcessRuleRequest_('a'.repeat(64)),false);assert.equal(fetches,2);

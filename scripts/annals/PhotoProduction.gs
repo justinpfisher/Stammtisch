@@ -214,7 +214,7 @@ function annalsPhotoBlobRefs_(folder,entry,approval,eventType){
   if(['annals-auto-entry','annals-approved-entry','annals-correct-entry'].indexOf(eventType)<0)return null;
   var p=annalsProps_(),id=folder.getName(),name=eventType==='annals-correct-entry'?'correction-photo-upload-private.json':'photo-upload-private.json';
   if(p.getProperty('ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED')!=='true'||!annalsPhotosReady_(id)||
-    Date.now()>=Date.parse('2026-11-09T00:00:00Z')||p.getProperty('ANNALS_GITHUB_REPOSITORY')!=='justinpfisher/Stammtisch'||
+    !annalsPublisherDispatchReady_()||p.getProperty('ANNALS_GITHUB_REPOSITORY')!=='justinpfisher/Stammtisch'||
     !p.getProperty('ANNALS_GITHUB_TOKEN')||annalsFile_(folder,name)||annalsFile_(folder,'quarantine-private.json')||annalsFile_(folder,'removal-private.json'))return null;
   var source=annalsRead_(folder,'source-private.json');
   annalsOrdinarySourceGate_(source);
@@ -249,7 +249,7 @@ function annalsPhotoBlobRefs_(folder,entry,approval,eventType){
     for(var i=0;i<uploads.length;i++){
       // Revocation/expiry wins even between uploads; retain any public partials.
       if(!annalsPhotosReady_(id)||p.getProperty('ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED')!=='true'||
-        !annalsStandingGalleryCorrectionAllowed_(source,entry,folder)||Date.now()>=Date.parse('2026-11-09T00:00:00Z'))throw new Error('Upload gate closed');
+        !annalsStandingGalleryCorrectionAllowed_(source,entry,folder)||!annalsPublisherDispatchReady_())throw new Error('Upload gate closed');
       var response=UrlFetchApp.fetch('https://api.github.com/repos/justinpfisher/Stammtisch/git/blobs',{
         method:'post',contentType:'application/json',headers:{Authorization:'Bearer '+p.getProperty('ANNALS_GITHUB_TOKEN'),Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},
         payload:JSON.stringify({content:uploads[i].base64,encoding:'base64'}),muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true});

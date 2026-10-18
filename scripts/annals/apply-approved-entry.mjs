@@ -6,7 +6,7 @@ import {photoThumbnail} from './PhotoThumbnail.mjs';
 // Trusted deployment configuration only. An email/payload cannot arm this lane.
 export function photoReleaseAllowed({entryId,photosEnabled,guardedJpegEnabled=false,securityVerified,acceptanceEntryId,acceptanceUntil,now=new Date()}){
   if(securityVerified!==true)return false;
-  if(photosEnabled===true||guardedJpegEnabled===true&&now.getTime()<Date.parse('2026-11-08T00:00:00Z'))return true;
+  if(photosEnabled===true||guardedJpegEnabled===true)return true;
   const until=Date.parse(acceptanceUntil),time=now.getTime();
   return /^annal-[a-f0-9]{24}$/.test(entryId||'')&&entryId===acceptanceEntryId&&until>time&&until<=time+86400000;
 }

@@ -125,6 +125,7 @@ function uploadHarness(){
       const b=Buffer.from(JSON.parse(options.payload).content,'base64');assert.ok(b.length<=524288);
       return {getResponseCode:()=>201,getContentText:()=>JSON.stringify({sha:gitBlobHash(b)})};}}});
   vm.runInContext(readFileSync(new URL('../scripts/annals/PhotoProduction.gs',import.meta.url),'utf8'),c);
+  c.annalsPublisherDispatchReady_=()=>true;
   c.annalsPhotosReady_=()=>ready;c.annalsStandingGalleryCorrectionAllowed_=()=>permitted;
   c.annalsPhotoSet_=()=>images.map((b,i)=>({...photos[i],base64:b.toString('base64')}));
   return {c,values,files,run:()=>c.annalsPhotoBlobRefs_(folder,entry,approval,'annals-auto-entry'),requests:()=>requests,revoke:()=>{permitted=false;},close:()=>{ready=false;}};

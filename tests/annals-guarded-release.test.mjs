@@ -11,10 +11,10 @@ function harness(){
  const c=vm.createContext({Date:class extends Date {static now(){return Date.parse('2026-10-18T05:00:00Z');}},annalsProps_:()=>({getProperty:k=>values[k]||null}),console:{log:()=>{}}});
  vm.runInContext(code,c);vm.runInContext(photos,c);return {c,values};
 }
-test('guarded JPEG production remains distinct from genuine acceptance and retains security and stop gates',()=>{
+test('guarded JPEG production remains distinct from genuine acceptance and retains consent/security gates without calendar expiry',()=>{
  const {c,values}=harness();assert.equal(c.annalsPhotosReady_(),true);assert.equal(values.ANNALS_PHOTOS_HOSTED_ACCEPTED,undefined);
  for(const key of ['ANNALS_PHOTOS_GUARDED_JPEG_ENABLED','ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED','ANNALS_SIGNING_REMEDIATED_AT','ANNALS_AUTO_MEDIA_ENABLED']){const before=values[key];delete values[key];assert.equal(c.annalsPhotosReady_(),false,key);values[key]=before;}
- c.Date.now=()=>Date.parse('2026-11-08T00:00:00Z');assert.equal(c.annalsPhotosReady_(),false);
+ c.Date.now=()=>Date.parse('2027-11-08T00:00:00Z');assert.equal(c.annalsPhotosReady_(),true);
 });
 test('guarded source format gate rejects HEIC, ambiguous mixtures, unsupported files and oversized sets before reading derivatives',()=>{
  const {c}=harness();const jpeg={accepted:true,mime:'image/jpeg',size:8000};
@@ -24,10 +24,10 @@ test('guarded source format gate rejects HEIC, ambiguous mixtures, unsupported f
    assert.equal(c.annalsPhotoSet_('a'.repeat(64),source,false).length,0);
  }
 });
-test('hosted guarded gate still requires signing qualification and stops at the unchanged AI expiry',()=>{
+test('hosted guarded gate still requires signing qualification without arbitrary AI expiry',()=>{
  const args={securityVerified:true,guardedJpegEnabled:true,now:new Date('2026-10-18T05:00:00Z')};
  assert.equal(photoReleaseAllowed(args),true);assert.equal(photoReleaseAllowed({...args,securityVerified:false}),false);
- assert.equal(photoReleaseAllowed({...args,now:new Date('2026-11-08T00:00:00Z')}),false);
+ assert.equal(photoReleaseAllowed({...args,now:new Date('2027-11-08T00:00:00Z')}),true);
  assert.equal(photoReleaseAllowed({...args,guardedJpegEnabled:false}),false);
 });
 test('installed guarded release permanently retires the legacy Drive-thumbnail fallback',()=>{

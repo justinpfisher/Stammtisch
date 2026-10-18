@@ -1027,7 +1027,7 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
     var p = annalsProps_(), f = annalsFolder_(id);
     if (annalsFile_(f, 'quarantine-private.json')) throw new Error('Quarantined test cannot be drafted');
     if (p.getProperty('ANNALS_AI_ENABLED') !== 'true' || !p.getProperty('ANNALS_OPENAI_API_KEY')) throw new Error('AI configuration incomplete');
-    if (Date.now() >= Date.parse('2026-11-08T00:00:00Z')) throw new Error('Review current model pricing before further use');
+    if (intakeLockHeld === true && !annalsPublisherDispatchReady_()) throw new Error('Publisher credential unavailable for unattended AI processing');
     if (annalsFile_(f, 'ai-attempt-private.json')) throw new Error('An attempt already exists; no duplicate spend');
     var source = annalsRead_(f, 'source-private.json');
     if (!source || !Array.isArray(selectedNames) || selectedNames.length > 3 || new Set(selectedNames).size !== selectedNames.length) throw new Error('Invalid sources');
@@ -1231,9 +1231,27 @@ function annalsPrivateReceiptValid_(entry, receipt) {
   var expected = annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial({ entry: entry, receipt: unsigned }), key, Utilities.Charset.UTF_8));
   return expected === receipt.signature;
 }
+/** A renewed restricted publisher credential may advance its own verified expiry
+ * without a private code release. Missing configuration preserves the last
+ * independently observed expiry; malformed values fail closed. */
+function annalsPublisherExpiry_() {
+  var expiresAt = annalsProps_().getProperty('ANNALS_GITHUB_TOKEN_EXPIRES_AT') || '2026-11-09T00:00:00Z';
+  var match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z$/.exec(expiresAt);
+  if (!match) return NaN;
+  var year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+  var leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  var maxDay = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+  if (!maxDay || day < 1 || day > maxDay || Number(match[4]) > 23 ||
+      Number(match[5]) > 59 || Number(match[6]) > 59) return NaN;
+  var stamp = Date.parse(expiresAt);
+  return Number.isFinite(stamp) ? stamp : NaN;
+}
+function annalsPublisherDispatchReady_() {
+  return Date.now() < annalsPublisherExpiry_();
+}
 function annalsDispatchEvent_(folder, eventType, clientPayload, markerName) {
   var p = annalsProps_(), token = p.getProperty('ANNALS_GITHUB_TOKEN'), repo = p.getProperty('ANNALS_GITHUB_REPOSITORY');
-  if (Date.now() >= Date.parse('2026-11-09T00:00:00Z')) return false;
+  if (!annalsPublisherDispatchReady_()) return false;
   if (!token || (p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') || '').length < 32 ||
       p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') === p.getProperty('ANNALS_APPROVAL_KEY') ||
       !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo || '') ||

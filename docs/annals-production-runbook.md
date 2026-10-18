@@ -48,6 +48,7 @@ These are **initial requirements/defaults**, not instructions to reset establish
 | `ANNALS_BUDGET_LEDGER` | Existing ledger; **never reinitialise** to bypass spend limits |
 | `ANNALS_REVIEW_URL` | Verified private owner-only `/exec` URL |
 | `ANNALS_GITHUB_TOKEN` | Fine-grained token **only** for `justinpfisher/Stammtisch`, `Contents:write` only; **no Actions-write** |
+| `ANNALS_GITHUB_TOKEN_EXPIRES_AT` | Optional until the first renewal; exact independently verified UTC expiry `YYYY-MM-DDTHH:MM:SSZ` for the token actually installed. An absent setting retains the recorded 9 November 2026 dispatch stop; malformed or expired values stop dispatch. Never record a later date before installing and verifying the corresponding restricted token. |
 | `ANNALS_GITHUB_REPOSITORY` | Exactly `justinpfisher/Stammtisch` |
 | `ANNALS_PUBLISH_SIGNING_KEY` | Separate independent 32+-character signing key, identical in Apps Script property and GitHub Actions repository secret of the same name |
 
@@ -58,7 +59,7 @@ History requires a distinct 32+-character `ANNALS_HISTORY_SIGNING_KEY` in privat
 
 ## Spending and dates
 
-Reserve **US$0.10 before each one-shot AI attempt**, within **US$5 per Toronto month**. Preserve the existing ledger; reservation is not measured provider billing. Keep provider limits and automatic-recharge controls intact. **8 November 2026 00:00 UTC** stops AI pending pricing/bounds review; **9 November 2026 00:00 UTC** stops dispatch at restricted-token expiry. Review/renew within existing authority before expiry; no silent extension, recharge or increased ceiling.
+Reserve **US$0.10 before each one-shot AI attempt**, within **US$5 per Toronto month**. Preserve the existing ledger; reservation is not measured provider billing. Keep provider limits, one-shot journals, scoped member permissions, `ANNALS_AI_ENABLED` and automatic-recharge controls intact. Reviewed repository source has no arbitrary calendar AI stop; the existing private Version 43 still stops AI at **8 November 2026 00:00 UTC** until the updated source is installed in place. Automatic AI pauses if the separate publisher expiry gate is closed, avoiding paid unpublishable attempts. Dispatch remains limited to the actual expiry of the fine-grained publisher token: **9 November 2026 00:00 UTC** is the fail-closed fallback until a renewed restricted token is securely installed and the matching verified `ANNALS_GITHUB_TOKEN_EXPIRES_AT` property is set. Later renewals require only the controlled credential/property update, not a new code release. Neither property nor code can extend the actual GitHub token's validity.
 
 ## Recovery and one-time work
 
