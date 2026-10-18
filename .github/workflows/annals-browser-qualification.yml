@@ -4,8 +4,13 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/annals-browser-qualification.yml'
-      - 'scripts/annals/**'
+      # Browser fixtures use the shared renderers/cores, not private .gs adapters
+      # or the Python installation packager. Backend checks remain in PR CI.
+      - 'scripts/annals/*.mjs'
+      - 'scripts/annals/*.js'
+      - 'scripts/annals/*.html'
       - 'tests/browser/**'
+      - 'tests/annals-safe-media.test.mjs'
       - 'annals.html'
       - 'history.html'
       - 'styles.css'
