@@ -657,8 +657,7 @@ function runAnnalsProductionIntake() {
         p.deleteProperty('ANNALS_INBOX_CURSOR');
         summary.enabled = true;
         processRecentRule();
-        processRecentRule();
-      summary.drafted = annalsResumeConsentedDrafts_(2);
+        summary.drafted = annalsResumeConsentedDrafts_(2);
         summary.verified = annalsVerifyAutomaticPublications_(3);
         console.log(JSON.stringify(summary));
         return summary;
@@ -672,6 +671,7 @@ function runAnnalsProductionIntake() {
         p.setProperty('ANNALS_INBOX_CURSOR', JSON.stringify(cursor));
       }
       if (end >= messages.length) p.setProperty('ANNALS_INBOX_CURSOR', JSON.stringify({ offset: cursor.offset + 1, message: 0, threadId: null }));
+      processRecentRule();
       summary.drafted = annalsResumeConsentedDrafts_(2);
       summary.verified = annalsVerifyAutomaticPublications_(3);
       console.log(JSON.stringify(summary)); return summary;
