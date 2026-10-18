@@ -1,6 +1,6 @@
 # GMKtec-first local development
 
-**Status (October 8, 2026):** Stammtisch's repository instructions and local testing command prefer the GMKtec M6 Ultra for interactive development and previews. This is a repository-side preference, **not** evidence that Stammtisch has already been cloned or tested on the GMKtec. The one-time machine check below must still be run on the GMKtec.
+**Status (October 8, 2026):** Stammtisch's repository instructions and local testing command prefer the GMKtec M6 Ultra for interactive development and previews. This is a repository-side preference, **not** evidence that Stammtisch has already been cloned or tested on the GMKtec. Check a new workstation when first using it; an unavailable GMKtec does not block cloud work.
 
 ## What runs where
 
@@ -54,13 +54,6 @@ Visit http://127.0.0.1:8765/ and http://127.0.0.1:8765/celebration.html **on the
 
 The scripts are local-only: they do **not** copy secrets, start an Actions runner, enrol a service, call OneSignal, read the protected spreadsheet, commit to `main`, or publish GitHub Pages.
 
-## Acceptance check
+## One-time workstation check
 
-The local preference is **fully operational for Stammtisch development** only after all of the following have been observed from the GMKtec:
-
-- `doctor` reports a matching Git origin, Node 22+, and Python 3.12+.
-- `check` completes both test suites successfully.
-- The local preview serves the homepage and Celebration of Life page.
-- The existing GitHub-hosted spreadsheet monitor and push workflows remain unchanged.
-
-Until those observations exist, the repository-side setup is complete but the workstation activation is **unverified**.
+For a newly configured machine, run `doctor`, `check` and a loopback preview to confirm the setup. Reuse a working checkout; this is not a project release qualification. Cloud editing and hosted CI can complete ordinary releases without access to this machine. The repository cannot observe a physical workstation merely because it contains setup instructions.

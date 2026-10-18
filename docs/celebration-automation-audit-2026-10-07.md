@@ -1,3 +1,5 @@
+> **Historical record — not an operating checklist.** Status, proposed work and launch gates below describe their dated checkpoint. Use [current state](current-state.md), [working instructions](../AGENTS.md) and the [production runbook](annals-production-runbook.md) for current decisions and operations. Retain this record for provenance, specifications and recovery; do not repeat completed setup or restore superseded gates.
+
 # Celebration of Life: spreadsheet-to-website automation audit
 
 **Audit date:** October 7, 2026  

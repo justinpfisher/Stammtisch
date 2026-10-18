@@ -1,3 +1,5 @@
+> **Historical record — not an operating checklist.** Status, proposed work and launch gates below describe their dated checkpoint. Use [current state](current-state.md), [working instructions](../AGENTS.md) and the [production runbook](annals-production-runbook.md) for current decisions and operations. Retain this record for provenance, specifications and recovery; do not repeat completed setup or restore superseded gates.
+
 # Annals of Stammtisch — email-to-website publishing proposal
 
 **Status:** Historical proposal from 2026-10-08; its original no-automatic-publication gate was superseded by the owner's 10 October 2026 decision for narrowly eligible, separately consented, source-grounded automatic text. **Current authority:** `docs/annals-production-runbook.md`. **Owner intent:** Almost zero manual website maintenance, one simple email submission process for the six friends, AI classification and editorial preparation, with controlled publishing.

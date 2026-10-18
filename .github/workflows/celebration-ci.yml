@@ -43,6 +43,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: regression-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   tests:
     # Keep CI on GitHub-hosted runners; this is a public repository.
@@ -57,7 +61,3 @@ jobs:
           node-version: '22'
       - name: Local-equivalent Python and Node regression checks
         run: node scripts/local-dev.mjs check
-      - name: Confirm existing public site register is readable
-        # The current committed data is already published. This is a bounded
-        # connectivity smoke to validate the publication guard before rollout.
-        run: python scripts/verify-celebration-publication.py --expected data/celebration.json --commit ci-smoke --attempts 1 --pause 0

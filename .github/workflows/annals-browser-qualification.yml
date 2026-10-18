@@ -6,6 +6,8 @@ on:
       - '.github/workflows/annals-browser-qualification.yml'
       - 'scripts/annals/**'
       - 'tests/browser/**'
+      - 'annals.html'
+      - 'history.html'
       - 'styles.css'
       - 'annals-photos.*'
       - 'photos.html'
@@ -19,6 +21,10 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: browser-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   browser-fixtures:
     runs-on: ubuntu-latest
@@ -28,6 +34,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: tests/browser/package-lock.json
       - name: Install pinned test-only dependencies
         working-directory: tests/browser
         run: npm ci --ignore-scripts

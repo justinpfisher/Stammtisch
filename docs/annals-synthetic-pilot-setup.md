@@ -1,3 +1,5 @@
+> **Historical record — not an operating checklist.** Status, proposed work and launch gates below describe their dated checkpoint. Use [current state](current-state.md), [working instructions](../AGENTS.md) and the [production runbook](annals-production-runbook.md) for current decisions and operations. Retain this record for provenance, specifications and recovery; do not repeat completed setup or restore superseded gates.
+
 # Annals synthetic private pilot
 
 **Status (8 October 2026):** The owner authorised this private synthetic pilot and later supplied Google Apps Script execution logs showing preflight enabled with production switches off, followed by `staged:1`, `held:0`, `duplicates:0`, `skipped:0`. Treat this as **owner-reported account-side execution**, not independent verification of Google permissions, staged files, previews, retry behaviour or triggers. No real-member or production intake is authorised.

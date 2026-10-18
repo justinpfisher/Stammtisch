@@ -53,30 +53,28 @@ Keep its existing deployment URL and owner-only access; record the previous
 version for rollback. Do not create a new project, run legacy setup, reset a
 cursor/boundary, remove triggers, clear attempts or replay dispatches.
 
-Install the files under install/ into the matching existing Apps Script files.
-Public .js module names are mapped to native .gs files without content changes.
-Add JpegCodec and PhotoDerivative, then PhotoContracts, PhotoProduction,
-RulesCore, RulesProduction, PublicDisplay,
-HistoryCore, GovernanceCore and HistoryProduction before
-updating callers. Preserve the existing manifest/scopes and all Script
-Properties. Never open or export credential values to complete this update.
-If needed, use only a controlled ordinary-publication pause, preserving its
-previous state. Do not use emergency stop merely to install: it removes a
-trigger. Restore only the previously authorised ordinary service state.
+Read AGENTS.md, docs/current-state.md and docs/annals-production-runbook.md
+at the reviewed revision. This is an update kit, not a first-launch checklist.
+Compare changed modules with the recorded installed baseline. Apply only changed
+files and required dependencies, add dependencies before callers, and independently
+read back their hashes. Preserve trusted unchanged files and private-only diagnostics.
+A first unmanaged install, unexplained drift or a relevant incident requires full
+source reconciliation; an unrelated website update does not use this kit.
 
-Advance the EXISTING owner-only web-app deployment version after source
-validation. Source saving alone does not update that deployed version.
-Use only the dedicated no-secret gate readers, not a signing preflight, and reconcile installed modules,
-consent registry, trigger, cursor, activation and budget without logging
-private values. Do not run paid diagnostics or unknown earlier dispatches.
-Record actual deployment version and verification; never infer them from ZIP.
+Public .js module names map to native .gs files without content changes.
+Preserve the existing owner-only manifest/scopes, Script Properties, state and
+single HEAD trigger. HEAD changes scheduled execution immediately: use a controlled
+pause only if needed for incompatible saves, then restore the previously authorised
+state. Never invoke emergency stop merely to install; it removes the trigger.
+Advance the EXISTING owner-only web-app version after source validation and verify
+the affected behaviour. Source saving alone does not update that deployed version.
 
-Keep History, automatic media, photographic v2, photo blob transport and rule v2/v3 publication disabled.
-Do not change ANNALS_PHOTOS_V2_ENABLED, ANNALS_RULES_V2_ENABLED, their hosted
-acceptance markers or the separate new-rules boundary merely to install source. Do not change signing
-keys or set signing-remediation markers. Credential rotation remains a final,
-separate owner-controlled action; no remediation is certified by this package.
-After that stage, qualify legitimate future signing and any new authority.
+Do not reset or broadly disable established live capabilities, re-register consents,
+rotate credentials, replay attempts or stamp acceptance merely to install source.
+Use non-secret gate readers and the existing rollback; preserve all journals,
+activation boundaries, cursors and budget. Installation does not authorise new
+History, photo-format or CoL capabilities. Reuse completed qualifications until a
+material relevant change invalidates them; never fabricate genuine acceptance.
 Keep the 2026-11-08 UTC AI stop, 2026-11-09 dispatch expiry and US$5 ceiling.
 
 source-manifest.json records the exact source and each unchanged file digest.

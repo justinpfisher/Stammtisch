@@ -1,123 +1,40 @@
-> **Current authority — 15 October 2026, photographs and CoL implementation:**
-> Read [the current photo/CoL release and handoff](annals-photos-col-release-2026-10-15.md).
-> The owner authorises automatic eligible six-member photographs under standing
-> private attestation, subject to revocations and exceptional third-party/privacy
-> holds. One genuinely authenticated member may independently introduce a prospective
-> CoL change; no second member, vote or owner-adoption approval is required.
-> Older proposal-only/per-image restrictions below are superseded within that scope.
-> Preserve source consistency, exact meaning, historical results and all platform
-> safeguards. New capabilities stay disabled until signing remediation, hosted
-> acceptance and the documented private adapters are qualified.
+# Annals publication and privacy
 
-> **15 October 2026 owner decision:** Use The Cocktail Register, The Register of
-> Remarks, Annual Assemblies and a dedicated evolving Club History. Monthly
-> Proceedings and Club Artefacts are retired for new classification/navigation.
-> Legacy signed records remain valid evidence. Strong profanity now displays as
-> a black bar with harmless lowercase `[expletive]` fallback; redacted quotations
-> say “Editorially redacted quotation — not verbatim.” Existing source matching,
-> speaker-specific rights, `[POOP]` exception and private originals are preserved.
-> Potential CoL amendments are private proposals, never ordinary Annals material
-> or adopted rules. See the [release boundaries](annals-editorial-release-2026-10-15.md).
-> New history publication remains disabled until signing remediation and hosted
-> qualification. Automatic media remains off. Earlier sections are historical
-> where they conflict with this decision.
+Current owner decisions reconciled 18 October 2026. This governs content and consent; [current state](current-state.md) records which capabilities are enabled, and the [runbook](annals-production-runbook.md) governs operation. The 8 October email proposal and early per-item approval plan are historical.
 
-# The Annals of Stammtisch — publication and privacy guidelines
+## Default editorial approach
 
-**Editorial safeguards, initiated 8 October 2026; updated 10 October 2026.** This document records the owner's privacy-conscious public history direction. On 10 October the owner reported having directly verified explicit permission from each contributor and any individual appearing in submissions. This is **owner-attested**, not independent verification or a permanent waiver of revocation or new-person consent. This guidance does not authorize publication of any particular Annals entry.
+Publish eligible, authentic member contributions automatically under recorded scoped standing permissions. No routine per-item owner review or repeated consent is required where existing evidence covers the use. An allowlisted sender or a submitted email alone is not consent. Preserve the provenance of owner-attested permissions as owner attestation; never fabricate member replies, backdate consent or revive a revocation.
 
-## Intended product
+The Annals records actual gatherings, Assemblies, recipes, remarks and keepsakes. Do not invent history, attendance, dates, quotations, creators, rules or decisions. Minor wording, heading or category uncertainty is not a hold; concrete privacy, rights, security or material-accuracy problems are. The four surviving collections and Photos/History links appear only after genuine qualifying content exists. No example club memories.
 
-**The Annals** should be a curated chronological record of authentic gatherings, annual Assemblies, traditions, notable food and drink, real decisions, and moments the group would like to remember. A small, good annual record beats a comprehensive but invasive photographic archive. Use the club's dry, ceremonious voice without fabricating conversations, quotations, meeting minutes, attendances or awards.
+Everything in the website and public GitHub, including branches, previews, PRs, logs and old revisions, is public. Keep raw mail, private conversations, originals, contacts, consent evidence, private logistics and reference photographs in approved private storage. Public removal cannot erase all Git history or external caches.
 
-Start **text-first**. A picture of a cocktail, its ingredients, a setting, a club object, an approved illustration or a scenic image can tell the story without revealing a person. An image is optional, not the price of inclusion.
+## Publication boundaries
 
-**Public GitHub Pages content, including unpublished-looking URLs and the public repository's history, must be considered publicly accessible.** Do not use a "hidden page" or client-side password as a substitute for access control.
-
-## Sensitivity and approval
-
-| Example | Default publication position |
+| Material | Operative rule |
 | --- | --- |
-| Approved club logo and existing expressly approved member-likeness art | May remain as previously approved; do not treat it as blanket permission for new uses |
-| Existing publicly agreed CoL scores, selections and content | Continue under current known comfort; do not silently expand data collection |
-| Non-identifying description of monthly gatherings, food, cocktails and annual cottage traditions | Suitable as proposed public copy, subject to checking factual accuracy and avoiding private logistics |
-| Cocktail recipe submitted by its creator, with permitted attribution | Publish only after recipe owner confirms accuracy, credit choice and public permission |
-| Non-identifying photograph of a drink, ingredients or club artefact | Automatically publish a metadata-stripped derivative when the contributor's scoped permission is recorded and private screening finds no unresolved identifiers |
-| Recognisable member or guest portrait, tagged handle, family detail, candid incident, identifiable home interior | Explicit approval from each affected person for that exact use; otherwise do not publish |
-| Private chats, raw photo collection, exact headquarters address, event entry codes, travel/room/payment arrangements | Keep off the public repository and public website |
+| Ordinary source-grounded text | Authenticated six-member source; active private AI and standing-publication permission at receipt and again before publication; anonymous by default |
+| Recipes/handwriting | Preserve original quantities, units, ingredients and syrup steps. Hold materially ambiguous transcription. Missing amounts or steps may receive separately labelled editorial suggestions, never claimed as the original |
+| Exact quotations | Match the original subject/body. A speaker's illustrated attribution requires the distinct active speaker-specific quote/likeness grant; do not infer the speaker from the submitter. Unpermitted third-party quotations stay private |
+| Contributor illustration | Actual submitter's distinct revocable portrait grant, separate from speaker attribution. Reuse the six approved derivatives. A quotation represents its speaker |
+| Ordinary photos of the six members, drinks, objects or scenery | Owner's privately recorded standing attestation supersedes per-image approval within scope. Preserve each depiction/image revocation and positive safety screening. Member-only source evidence and all six depiction grants are required for group images; AI does not authenticate faces |
+| Guests, children, unknown people, sensitive allegations, uncertain ownership, identifying private locations/interiors or readable private screens/documents | Hold privately for specific permission/clarification or omission; a warning label does not cure missing rights or unsafe disclosure |
 
-Member comfort with the **currently published stylized likenesses, CoL standings and scores** is recorded as the owner's observation as of 8 October 2026. It is not an irreversible group-wide release of identifiable photographs or a waiver of future review. Ask before each **new** sensitive publication. No need to repeatedly ask about unchanged, already-approved public content unless an objection arises.
+The **enabled release accepts JPEG only**, one to three inputs of at most 8 MiB each, through once-only pixel decode/orientation/resize/re-encode, metadata stripping and digest-bound signing. PNG/WebP/HEIC/HEIF/mixed/unknown formats remain held. The legacy thumbnail path is not the guarded production path. Safe independent text may proceed without its held image. Photo intake support, photographic-quality acceptance and permission are separate facts.
 
-### Photographs
+Existing private permission records may support future ordinary six-member photographs without another image-by-image owner action. New people, new sensitive uses and unclear photographer/recipe rights require actual authority. Keep originals private; never publish the reference collection or assume an automatic crop removes every risk.
 
-- Keep original uploads in the existing private reference-photo location or another approved access-controlled source.
-- For each proposed public copy, check visible faces, reflections, name badges, plates, readable screens, private belongings, and background views that can reveal the headquarters or occupants.
-- Do not publish guests/children/others just because a member contributed an image; obtain their own consent or crop/omit them.
-- Strip EXIF/location metadata and avoid revealing hidden location details in filename, caption, alternative text and page source.
-- Only put a specifically **eligible, publishable derivative** into the public website. Automatic publication can rely on the recorded standing consent and privacy screening for non-identifying drinks/objects; identifying images remain in private exception review even if a blanket permission is reported. Publishing to a public Git repository can leave copies in its history even after a file is removed; warn contributors about limits to later takedown.
-- For truly private group albums, continue using an existing access-controlled sharing method. A static GitHub Pages site has no genuine members-only privacy built in.
+## Voice, quotations and corrections
 
-### Lightweight editorial checklist
+Use dry, witty mock-institutional ceremony. Maintain exact quotations except the approved conspicuous euphemisms: strong profanity becomes **[EXPLETIVE]**, with contextual **[POOP]** where appropriate; mild “damn” and “hell” remain. Censored quotations are labelled **not verbatim**. Original words remain privately preserved.
 
-Before each new Annals item is published:
-1. Verify the event, recipe, attribution and anecdote are real; do not invent the parts we cannot remember.
-2. Decide whether the item is public, private to members elsewhere, or held back.
-3. Obtain explicit approval from any newly identified or identifiable member or guest and from the owner of any contributed photograph or recipe.
-4. Check that no precise home/headquarters address, confidential group logistics or unintended personal information is in text, images, filenames or metadata.
-5. Keep a simple approval note **outside** the public site/repo for sensitive source material. Don't copy conversations or private consent records into GitHub.
-6. Publish the final approved material with accessible captions/alt text, and provide a reasonable removal-request route; explain that public caches may persist.
+**The Register of Remarks** pairs a verified quotation with its actual speaker's approved illustration, subject to the separate permission above. No invented sayings. Submitted month/year is the receipt period, not an invented event date.
 
-## The Register of Remarks — approved title and layout, 10 October 2026
-
-**The Register of Remarks** is the dedicated quotation collection within the public Annals. Like all other categories it appears **only after a real, verified and signed quotation has been published**. Do not add demonstration quotes or invent club sayings.
-
-A quotation card shows the words next to the small illustration of the **person who said them**. The authenticated email sender may be a different member and must not be credited as the speaker. Speaker identity is a separate, privately verified right, not an AI assumption or an email-address inference. All six owner-approved 256-pixel illustrated Annals portraits already in `assets/members/annals/` may be reused; do not upload private source headshots.
-
-Automatic attributed quotations require: original source explicitly identifying a member, exact source-matched quoted wording, authenticated allowed sender with separate standing AI/publication consent, and a **distinct affirmative, revocable attribution-and-portrait grant from the quoted speaker** documented privately before the receipt. The owner can privately record already verified individual grants, without manufacturing member replies or reviving a revocation. Where verification, attribution or material rights are uncertain, **hold privately**; a generic warning or unnamed portrait does not cure the uncertainty. Unidentified self-authored quotes may use the existing safe anonymous quotation path.
-
-The approved strong-profanity overlay remains: label a censored quotation as *editorially censored, not verbatim* and keep the original unchanged in private storage. Maintain private correction, withdrawal and revocation paths; existing public Git history may persist. Public entries, PRs and workflows never contain sender emails, consent evidence or raw messages.
-
-## Illustrated contributor credits — approved option, 10 October 2026
-
-For an eligible non-quotation Annals entry, the **actual authenticated submitter** may be identified with their previously approved 48-pixel illustrated member portrait **instead of a displayed name or email address**. This is separate from the Register of Remarks, which always represents the **actual speaker**, not necessarily the person who emailed the quote.
-
-The same six-member email-to-illustration map is stored only in owner-controlled private Apps Script configuration. A distinct, affirmative, revocable individual permission for *illustrated contributor identification* is required, with a private owner-attested provenance record where permission was already obtained. The member may disable their likeness on all future entries by emailing HIDE MY ANNALS PORTRAIT from their authenticated account; a subsequent SHOW command cannot revive revoked underlying permissions. The owner-only exception desk also allows a particular entry to omit a contributor portrait. Unknown or unpermitted illustrations never appear, but safe plain text may still publish without identifying the contributor. Originals, emails and private permissions never enter public GitHub; removals cannot erase all historic caches.
-
-## Cocktail tradition — a possible recurring Annals feature
-
-At many Stammtisch gatherings, **one or two members prepare a special cocktail** for the company. Preparation can include **homemade syrups and other bespoke components**. The effort, recipes and results are significant parts of the monthly ritual and should be eligible for the Annals, without assuming that every cocktail or member wants publicity.
-
-A proposed **Cocktail Register** could eventually contain for each contributed drink:
-
-- Name and date or gathering period (as precisely as the creator wants publicly recorded).
-- Ingredients and measurements for drink and homemade syrups, preparation and garnish, optionally scaled to six servings.
-- Optional story or presentation note, verified rather than invented.
-- Optional approved image of the drink, without faces/background identifiers.
-- Attribution **chosen by its creator**: name, nickname, "a member", or no credit.
-- Creator's publication permission for the exact recipe and image.
-
-**No actual recipes, syrup methods, attributed creators or photographs have been supplied for publication yet.** Do not generate imaginary "Stammtisch classics" and pass them off as real. Store source recipes privately during collection, then publish only approved edited versions.
-
-## Proposed contributor-by-email workflow (not activated)
-
-The owner has now asked to investigate a single email address to accept all kinds of club contributions and prepare website-ready Annals entries with AI, without asking the six members to edit the site or learn categories. The recommended *unactivated* architecture is specified in [the 8 October email-publishing proposal](annals-email-publishing-proposal-2026-10-08.md).
-
-**A submitted email is permission to consider the material, not blanket consent to publish its contents.** Email bodies, handwriting, attachments and AI drafts must stay private until final-content authorisation; a public GitHub branch or unlisted Pages preview is already public exposure. After a careful pilot, any narrow text-only autopublish rule would require a further explicit approval. New identifiable photos, sensitive stories or quotes remain approval-gated.
-
-## Next steps / decisions reserved
-
-The club's owner has expressly favoured **The Annals** and expressed concern about public photos/identifiers. Design a text-first layout and a safe content submission/approval process before publicly publishing the first edition. New identifiable content requires a new specific approval; current approved artwork and CoL information may remain.
-
-Do not implement a public photo gallery, private membership login or a separate social network on the strength of this document alone.
-
-## Adopted automatic-publication exception — 10 October 2026
-
-The owner has expressly authorised a **publish-by-default editorial approach** to genuine, non-sensitive, source-grounded member text without per-entry owner approval. Only identified rights, privacy, security or material-accuracy concerns hold an otherwise ordinary contribution. A sender must genuinely authenticate against the six-member private allowlist and must personally complete two separate, affirmative, revocable challenges: one for private AI processing and one for public automatic text publication. An address on the allowlist, an emailed contribution, or the owner's authorisation is not consent on a member's behalf.
-
-The standing-publication grant is scoped to material the contributor has the right to share publicly. The owner has attested to obtaining permission from all affected contributors and depicted persons; that statement may be recorded privately and does not itself establish the identity or rights of a person in a newly submitted image. It is not permission from guests, other speakers, photograph subjects, recipe owners or others. AI is not proof of rights or facts. Automatic policy holds third-party quotations without speaker permission, disputed or identifying anecdotes, allegations, ambiguous recipe transcriptions, private locations and all images where independent safety/rights checks are unavailable. A self-authored quotation clearly claimed by the contributor can publish under their own standing permission; censorship is visibly labelled and no longer called verbatim. A clean standalone text component can be published without its held photograph. The original remains private; anonymous public credit is the default. Revocation stops future automatic publishing but cannot erase public Git history.
-
-For eligible text, the approved editorial rule replaces strong profanity visibly with **[EXPLETIVE]** (or an occasional contextual **[POOP]**) while leaving mild “damn” and “hell”. Public records must never contain uncensored strong profanity. A censored direct quotation is not labelled verbatim. The permanent Annals footer notice reads:
+The permanent footer reads:
 
 > The Editorial Committee reserves the right to replace particularly spirited language with conspicuous euphemisms. Historical accuracy is otherwise maintained. The Editorial Committee is actually just AI we tried to train.
 
-Categories only become visible after genuine, signed, successfully published entries exist in them. No test/example history or private held submission should surface. The current production runbook governs installation, spend/consent gates, live verification, correction and withdrawal; this authorisation does **not** assert that the private Apps Script project was activated.
+Corrections and withdrawals use the existing signed paths and live reconciliation. Preserve private originals, prior signed records and replay protection. Revocation stops future use; it does not prove historical copies disappeared. Do not automatically retry uncertain publication.
+
+Annals submissions never directly change CoL scores or trigger death notifications. Authenticated prospective CoL requests use the separate qualified rule workflow; questions, jokes and recollections are not adopted rules.
