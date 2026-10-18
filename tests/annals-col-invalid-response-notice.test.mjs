@@ -14,7 +14,8 @@ const source = {sourceId:messageId,senderAuthenticated:true,rulesAuthorityVersio
     sender:address,subject:'Fictional CoL update',excerpt:originalText,
     receivedAt:'2026-10-18T17:00:00Z',sourceTruncated:false,
     subjectTruncated:false,excerptTruncated:false}};
-const base = {id:'col-fixture-base',digest:'f'.repeat(64),provisions:{
+const base = {id:'col-fixture-base',digest:'f'.repeat(64),verified:true,
+  effectiveAt:'2026-10-01T00:00:00Z',provisions:{
   POINTS:'## POINTS\n\nOriginal fictional calculation.'}};
 const assessment = {intent:'operative',requestExcerpt:'AI paraphrase absent from source',
   changes:[{provision:'POINTS',before:base.provisions.POINTS,
