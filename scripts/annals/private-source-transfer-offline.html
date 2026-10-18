@@ -106,9 +106,10 @@ byId('load').addEventListener('click',async()=>{
     for (const name of changed) {
       const record=records.get('install/'+name);
       const matches=files.filter(f=>f.name===name);
+      const repositoryName=(name==='PilotCore.gs'||name==='RulesCore.gs')
+        ? name.slice(0,-3)+'.js' : name;
       if (!record||matches.length!==1||
-          record.source!=='scripts/annals/'+(name.endsWith('Core.gs')?name.slice(0,-3)+'.js':name) &&
-          !(['PilotCore.gs','RulesCore.gs'].indexOf(name)===-1 && record.source==='scripts/annals/'+name))
+          record.source!=='scripts/annals/'+repositoryName)
         throw Error('Expected exactly one reviewed source for '+name+'.');
       const file=matches[0],raw=await file.arrayBuffer(),computed=await sha256(raw);
       if (computed!==record.sha256) throw Error('SHA-256 mismatch for '+name+'. Do not copy it.');
