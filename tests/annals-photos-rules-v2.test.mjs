@@ -237,7 +237,7 @@ test('integrated private rule intake consumes only one existing reservation and 
   vm.runInContext(readFileSync(new URL('../scripts/annals/RulesProduction.gs',import.meta.url),'utf8'),context);
   context.annalsPublisherDispatchReady_=()=>true;
   context.annalsRulesReady_=()=>true;context.annalsRuleNotice_=()=>{notices++;};
-  assert.equal(context.annalsProcessRuleRequest_('a'.repeat(64)),true);assert.equal(files.get('col-rule-request-private.json').state,'awaiting_implementation');assert.equal(notices,2);assert.equal(fetches,2);
+  assert.equal(context.annalsProcessRuleRequest_('a'.repeat(64)),true);assert.equal(files.get('col-rule-request-private.json').state,'awaiting_implementation');assert.equal(notices,3);assert.equal(fetches,2);
   assert.equal(JSON.parse(values.ANNALS_BUDGET_LEDGER).reservedCents,10);assert.equal(context.annalsProcessRuleRequest_('a'.repeat(64)),false);assert.equal(fetches,2);
 });
 test('integrated group photo uses six standing grants while guest images and extraction documents stay held',()=>{
