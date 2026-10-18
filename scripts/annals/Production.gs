@@ -625,7 +625,12 @@ function runAnnalsProductionIntake() {
       // cursor alone can delay or skip submissions. Bounded 3 x 3 recent
       // messages plus the existing <=10-message cursor walk per 15-minute run.
       // Message-ID deduplication keeps overlap from doing work twice per run.
-      var recent = GmailApp.getInboxThreads(0, 3), seenInRun = {};
+      var recent = GmailApp.getInboxThreads(0, 3), seenInRun = {}, recentRuleId = null;
+      function processRecentRule() {
+        if (!recentRuleId) return;
+        try { annalsProcessRuleRequest_(recentRuleId); }
+        catch (ignored) { /* Existing one-shot private records and notices govern exceptions. */ }
+      }
       function processInboxMessage(message) {
         var messageId = message.getId();
         if (Object.prototype.hasOwnProperty.call(seenInRun, messageId)) return;
@@ -633,6 +638,12 @@ function runAnnalsProductionIntake() {
         var outcome = annalsStageProduction_(message, activation, allowed);
         if (!Object.prototype.hasOwnProperty.call(summary, outcome)) throw new Error('Unknown intake outcome');
         summary[outcome] += 1;
+        if (outcome === 'held' && !recentRuleId) {
+          var sourceId = annalsHash_(messageId);
+          var staged = annalsRead_(annalsFolder_(sourceId), 'source-private.json');
+          if (staged && staged.senderAuthenticated === true &&
+              staged.protectiveRoute === 'col_proposal') recentRuleId = sourceId;
+        }
       }
       for (var recentIndex = 0; recentIndex < recent.length; recentIndex++) {
         var recentMessages = recent[recentIndex].getMessages();
@@ -645,7 +656,9 @@ function runAnnalsProductionIntake() {
       if (!thread) {
         p.deleteProperty('ANNALS_INBOX_CURSOR');
         summary.enabled = true;
-        summary.drafted = annalsResumeConsentedDrafts_(2);
+        processRecentRule();
+        processRecentRule();
+      summary.drafted = annalsResumeConsentedDrafts_(2);
         summary.verified = annalsVerifyAutomaticPublications_(3);
         console.log(JSON.stringify(summary));
         return summary;
@@ -897,7 +910,18 @@ function annalsReviewList(nonce, continuation) {
 }
 function annalsReviewStatus_(folder, source, approval) {
   if (annalsFile_(folder, 'quarantine-private.json')) return 'Quarantined - owner-identified test';
-  if (AnnalsAuto.protectedRoute(source.source.subject,source.source.excerpt) !== 'annals') return 'CoL proposal — private owner consideration only';
+  if (AnnalsAuto.protectedRoute(source.source.subject,source.source.excerpt) !== 'annals') {
+    var request=annalsRead_(folder,'col-rule-request-private.json');
+    if(request&&typeof request.state==='string'){
+      if(request.state==='active')return 'CoL amendment — verified operative';
+      if(request.state==='awaiting_implementation')return 'CoL amendment — authorised; implementation pending';
+      if(request.state==='awaiting_clarification')return 'CoL amendment — clarification needed';
+      if(request.state==='discussion')return 'CoL discussion — not adopted';
+      return 'CoL amendment — '+request.state.replace(/_/g,' ');
+    }
+    if(source.source.sourceTruncated||source.source.subjectTruncated||source.source.excerptTruncated)return 'CoL original retained — length held';
+    return source.senderAuthenticated===true?'CoL submission — interpretation pending':'CoL submission — sender authentication unverified';
+  }
   if (annalsFile_(folder, 'auto-live-verification-private.json')) return 'Verified live';
   if (approval && approval.publicationState === 'dispatch_accepted') return 'Dispatched — awaiting live verification';
   if (approval && (annalsFile_(folder, 'publication-dispatch-private.json') || approval.publicationState !== 'approved_private_pending_publish'))
