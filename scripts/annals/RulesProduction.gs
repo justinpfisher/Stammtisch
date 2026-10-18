@@ -36,6 +36,16 @@ function annalsOldestSubjectIsNeutral_(subject){
 }
 function annalsProcessRuleRequest_(id){
   var p=annalsProps_(),f=annalsFolder_(id),source=annalsRead_(f,'source-private.json');
+  // Retain the complete original privately, but do not silently abandon a
+  // long rule rewrite whose bounded interpretation excerpt is incomplete.
+  if(source&&source.senderAuthenticated===true&&source.rulesAuthorityVersion===2&&source.source&&
+    (source.source.sourceTruncated||source.source.subjectTruncated||source.source.excerptTruncated)){
+    annalsRuleNotice_(f,source.source.sender,'full-source-held',
+      'Your CoL rules update was received and its complete original was retained privately. It exceeds the safe automatic interpretation length and needs a private source review. Please do not resend it; no rules or historical awards have been changed.');
+    annalsRuleNotice_(f,p.getProperty('ANNALS_OWNER_EMAIL'),'full-source-owner',
+      'An authenticated CoL submission needs private source-length review. The original is preserved; no publication or paid AI attempt was made. Use the existing owner-only Annals review desk: '+p.getProperty('ANNALS_REVIEW_URL'));
+    return false;
+  }
   if(!annalsRulesReady_()||!source||source.rulesAuthorityVersion!==2||source.rulesActivationEligible!==true||source.senderAuthenticated!==true||!source.aiConsentActive||
     !annalsConsentActive_(source.source.sender)||!annalsStandingPublicationActive_(source.source.sender,source.source.receivedAt)||
     Date.parse(source.source.receivedAt)<Date.parse(p.getProperty('ANNALS_RULES_ACCEPT_FROM'))||
@@ -73,7 +83,17 @@ function annalsProcessRuleRequest_(id){
   var body=fetched.getContentText();if(body.length>200000)return false;
   var catalog=JSON.parse(body),base=AnnalsRules.select(catalog.versions,new Date().toISOString());
   if(annalsStagedRulesReady_())base=annalsRuleContext_().base;
-  var request=annalsRuleRequest_(source,base);
+  var request;
+  try{request=annalsRuleRequest_(source,base);}
+  catch(held){
+    // In particular, the existing 12k-character prompt bound must never
+    // silently suppress a genuine request or spend its one-shot AI budget.
+    annalsRuleNotice_(f,source.source.sender,'input-bound-held',
+      'Your CoL update was preserved privately but could not fit the bounded automatic interpretation. The owner has been alerted to review the original. Please do not resend it; the existing rules remain in force.');
+    annalsRuleNotice_(f,p.getProperty('ANNALS_OWNER_EMAIL'),'input-bound-owner',
+      'A consented CoL rules submission needs private interpretation review because the bounded request could not be prepared. No AI attempt, public release or retrospective scoring occurred. Open '+p.getProperty('ANNALS_REVIEW_URL'));
+    return false;
+  }
   var ledger=AnnalsProduction.reserve(JSON.parse(p.getProperty('ANNALS_BUDGET_LEDGER')||'null'),Utilities.formatDate(new Date(),'America/Toronto','yyyy-MM'));
   p.setProperty('ANNALS_BUDGET_LEDGER',JSON.stringify(ledger));
   annalsWriteOnce_(f,'ai-attempt-private.json',{state:'attempt_reserved',at:new Date().toISOString(),reservedCents:10,model:AnnalsProduction.MODEL,purpose:'col_rule_request_v2'});
@@ -95,6 +115,10 @@ function annalsProcessRuleRequest_(id){
       result.state==='discussion'?'This reads as discussion rather than an instruction to change the rules. If you intend an operative change, please send a fresh request.':
       'Your rule change is authorised by your authenticated request and is awaiting implementation and consistency checks. The previous operative rules and historical results remain in place. No additional member or owner approval is required for a prospective change.';
     annalsRuleNotice_(f,source.source.sender,'outcome',notice);
+    if(result.state==='awaiting_implementation'){
+      annalsRuleNotice_(f,p.getProperty('ANNALS_OWNER_EMAIL'),'engineering-needed',
+        'An authenticated member CoL rule request is awaiting bounded implementation and source/version checks. Member authority does not require a second vote or owner adoption. The existing rules remain in force. Open '+p.getProperty('ANNALS_REVIEW_URL'));
+    }
     if(result.state==='awaiting_implementation'&&p.getProperty('ANNALS_RULES_V3_AUTO_LITERAL_ENABLED')==='true'){
       try{annalsStageLiteralRule_(id);}catch(held){/* Unsupported meaning or unavailable evidence remains private and pending. */}
     }

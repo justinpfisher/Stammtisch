@@ -620,6 +620,27 @@ function runAnnalsProductionIntake() {
       annalsRoot_();
       var cursor = JSON.parse(p.getProperty('ANNALS_INBOX_CURSOR') || '{"offset":0,"message":0,"threadId":null}');
       if (!Number.isSafeInteger(cursor.offset) || cursor.offset < 0 || !Number.isSafeInteger(cursor.message) || cursor.message < 0) throw new Error('Invalid cursor');
+      // Promptly inspect the newest conversations as well as the preserved
+      // round-robin cursor. New mail shifts numeric Gmail offsets, so the
+      // cursor alone can delay or skip submissions. Bounded 3 x 3 recent
+      // messages plus the existing <=10-message cursor walk per 15-minute run.
+      // Message-ID deduplication keeps overlap from doing work twice per run.
+      var recent = GmailApp.getInboxThreads(0, 3), seenInRun = {};
+      function processInboxMessage(message) {
+        var messageId = message.getId();
+        if (Object.prototype.hasOwnProperty.call(seenInRun, messageId)) return;
+        seenInRun[messageId] = true;
+        var outcome = annalsStageProduction_(message, activation, allowed);
+        if (!Object.prototype.hasOwnProperty.call(summary, outcome)) throw new Error('Unknown intake outcome');
+        summary[outcome] += 1;
+      }
+      for (var recentIndex = 0; recentIndex < recent.length; recentIndex++) {
+        var recentMessages = recent[recentIndex].getMessages();
+        for (var recentMessage = Math.max(0, recentMessages.length - 3);
+             recentMessage < recentMessages.length; recentMessage++) {
+          processInboxMessage(recentMessages[recentMessage]);
+        }
+      }
       var thread = cursor.threadId ? GmailApp.getThreadById(cursor.threadId) : GmailApp.getInboxThreads(cursor.offset, 1)[0];
       if (!thread) {
         p.deleteProperty('ANNALS_INBOX_CURSOR');
@@ -633,7 +654,7 @@ function runAnnalsProductionIntake() {
       cursor.threadId = thread.getId();
       var messages = thread.getMessages(), end = Math.min(messages.length, cursor.message + 10);
       for (var i = cursor.message; i < end; i++) {
-        summary[annalsStageProduction_(messages[i], activation, allowed)]++;
+        processInboxMessage(messages[i]);
         cursor.message = i + 1;
         p.setProperty('ANNALS_INBOX_CURSOR', JSON.stringify(cursor));
       }
