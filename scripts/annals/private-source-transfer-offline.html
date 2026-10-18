@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; form-action 'none'; base-uri 'none'">
+<title>Stammtisch private source transfer — offline</title>
+<style>
+  :root { color-scheme: light; font: 16px/1.45 system-ui,sans-serif; }
+  body { max-width: 850px; margin: 2rem auto; padding: 0 1rem; color: #25372b; background: #faf8f0; }
+  h1 { font-size: 1.4rem; } h2 { font-size: 1.05rem; margin-top: 1.5rem; }
+  p,li { max-width: 78ch; } code,textarea { font: 0.86rem/1.5 ui-monospace,SFMono-Regular,Consolas,monospace; }
+  code { overflow-wrap: anywhere; } textarea { display: block; width: 100%; min-height: 11rem; box-sizing: border-box; margin: .5rem 0; padding: .7rem; }
+  button,input,select { font: inherit; padding: .45rem; margin: .3rem .3rem .3rem 0; }
+  button { cursor: pointer; } label { display: block; font-weight: 650; }
+  output { display:block; margin: .6rem 0; padding: .6rem; border: 1px solid #b6bdb0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .note { color: #48554b; } .warn { font-weight: 650; }
+</style>
+</head>
+<body>
+<h1>Stammtisch — private source transfer and readback</h1>
+<p>This file runs <strong>offline in your local browser</strong>. It reads only the public installation ZIP files you choose; pasted private editor text stays in this browser tab. It makes no network requests, stores nothing, and does not access Google accounts, edit Apps Script, or publish anything.</p>
+<ol>
+<li>Build the existing ZIP using <code>python scripts/annals/build-install-package.py --ref &lt;reviewed-commit&gt; --output &lt;outside-repo&gt;/annals-install.zip</code>, or download the independently checked release artifact.</li>
+<li>Unzip it locally. Load <code>source-manifest.json</code> and all seven changed <code>install/*.gs</code> files below.</li>
+<li>In the owner-only Apps Script project, use each verified source to replace the matching existing editor file (never create a duplicate or replace the manifest). After saving, copy the <em>entire saved editor file</em> back into this verifier and compare it. Keep the original deployment, private-only files, properties, manifest, and trigger unchanged.</li>
+<li>After all seven match, update the <em>existing</em> Apps Script web-app deployment, then independently read back non-secret settings, affected functionality, and the next natural trigger run. This verifier does not prove that a deployment went live.</li>
+</ol>
+<p class="warn">Do not paste credentials, private originals, member data, or Script Properties. Select only the seven reviewed public modules. Abort if the signed-in editor project, existing source, or private-only code differs unexpectedly.</p>
+
+<h2>1. Verify reviewed source package</h2>
+<label for="package">Select <code>source-manifest.json</code> plus the seven changed <code>install/*.gs</code> files</label>
+<input id="package" type="file" multiple accept=".json,.gs">
+<button type="button" id="load">Verify package files</button>
+<output id="package-status" role="status" aria-live="polite">No files loaded.</output>
+
+<h2>2. Copy verified source to the matching Apps Script editor file</h2>
+<label for="module">Module</label>
+<select id="module" disabled></select>
+<button type="button" id="copy" disabled>Copy reviewed source</button>
+<p class="note">If clipboard permission is unavailable, select the source below and copy it manually. Never copy from a truncated preview.</p>
+<label for="source">Complete reviewed source (read-only)</label>
+<textarea id="source" readonly spellcheck="false" aria-label="Complete reviewed public source"></textarea>
+
+<h2>3. Independently read back and verify saved editor content</h2>
+<label for="readback">Paste the <em>entire saved content</em> of that same Apps Script editor file</label>
+<textarea id="readback" spellcheck="false" aria-label="Private local editor readback"></textarea>
+<button type="button" id="verify" disabled>Compare pasted readback</button>
+<button type="button" id="clear">Clear pasted readback</button>
+<output id="result" role="status" aria-live="polite">No readback verified.</output>
+<p class="note">An exact match is byte-equivalent to the reviewed text. If the editor only converts CRLF to LF or changes one final newline, the tool reports that separately: it is a normalized text match, <strong>not</strong> a byte-identical hash. Record that distinction. Other differences must not be accepted.</p>
+<script>
+'use strict';
+const changed = ['Production.gs','HistoryProduction.gs','PhotoProduction.gs',
+  'GuardedRelease.gs','RulesProduction.gs','PilotCore.gs','RulesCore.gs'];
+const byId = id => document.getElementById(id);
+const ui = {files:byId('package'),status:byId('package-status'),module:byId('module'),
+  source:byId('source'),readback:byId('readback'),result:byId('result'),
+  copy:byId('copy'),verify:byId('verify')};
+let approved = new Map(), commit = '';
+
+function normalized(s) { return s.replace(/\r\n/g,'\n'); }
+function classifyReadback(expected, actual) {
+  if (expected === actual) return 'exact';
+  const a=normalized(expected),b=normalized(actual);
+  if (a === b) return 'line_endings_only';
+  const finalNewline=s=>s.replace(/\n?$/,'\n');
+  if (finalNewline(a) === finalNewline(b)) return 'line_endings_and_final_newline_only';
+  return 'mismatch';
+}
+async function sha256(data) {
+  const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data;
+  const hash = await crypto.subtle.digest('SHA-256',bytes);
+  return Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');
+}
+function reset() {
+  approved=new Map();commit='';
+  ui.module.textContent='';ui.module.disabled=true;ui.copy.disabled=true;ui.verify.disabled=true;
+  ui.source.value='';ui.readback.value='';
+  ui.result.textContent='No readback verified.';
+}
+function refresh() {
+  ui.source.value=approved.get(ui.module.value)?.text || '';
+  ui.readback.value='';
+  ui.result.textContent='No readback verified for '+ui.module.value+'.';
+}
+byId('load').addEventListener('click',async()=>{
+  reset();
+  try {
+    const files=Array.from(ui.files.files||[]);
+    if (files.length !== 8) throw Error('Select exactly the manifest and seven .gs source files.');
+    const mf=files.filter(f=>f.name==='source-manifest.json');
+    if (mf.length!==1) throw Error('Select one source-manifest.json.');
+    const manifest=JSON.parse(await mf[0].text());
+    if (manifest.schemaVersion!==1||manifest.installed!==false||
+        manifest.credentialsIncluded!==false||manifest.publicationActivated!==false||
+        !/^[a-f0-9]{40}$/.test(manifest.sourceCommit)||
+        !Array.isArray(manifest.files)) throw Error('Unrecognized or unsafe package manifest.');
+    const records=new Map();
+    for (const item of manifest.files) {
+      if (typeof item.install!=='string'||typeof item.sha256!=='string'||
+          records.has(item.install)) throw Error('Invalid or duplicate manifest path.');
+      records.set(item.install,item);
+    }
+    const verified=new Map();
+    for (const name of changed) {
+      const record=records.get('install/'+name);
+      const matches=files.filter(f=>f.name===name);
+      if (!record||matches.length!==1||
+          record.source!=='scripts/annals/'+(name.endsWith('Core.gs')?name.slice(0,-3)+'.js':name) &&
+          !(['PilotCore.gs','RulesCore.gs'].indexOf(name)===-1 && record.source==='scripts/annals/'+name))
+        throw Error('Expected exactly one reviewed source for '+name+'.');
+      const file=matches[0],raw=await file.arrayBuffer(),computed=await sha256(raw);
+      if (computed!==record.sha256) throw Error('SHA-256 mismatch for '+name+'. Do not copy it.');
+      const text=await file.text();
+      if (!text.length) throw Error('Empty source for '+name+'.');
+      verified.set(name,{text,sha256:computed});
+    }
+    approved=verified;commit=manifest.sourceCommit;
+    for (const name of changed) {
+      const option=document.createElement('option');
+      option.value=name;option.textContent=name;ui.module.appendChild(option);
+    }
+    ui.module.disabled=false;ui.copy.disabled=false;ui.verify.disabled=false;
+    refresh();
+    ui.status.textContent='7 of 7 public modules match the package manifest.\nReviewed commit: '+commit+
+      '\nConfirm this exact commit against the independently reviewed GitHub revision. No Apps Script project content has been changed or verified yet.';
+  } catch (error) {
+    reset();ui.status.textContent='HOLD — '+String(error?.message||error);
+  }
+});
+ui.module.addEventListener('change',refresh);
+ui.copy.addEventListener('click',async()=>{
+  if (!approved.has(ui.module.value)) return;
+  ui.source.focus();ui.source.select();
+  try {
+    if (!navigator.clipboard?.writeText) throw Error('Clipboard unavailable');
+    await navigator.clipboard.writeText(ui.source.value);
+    ui.result.textContent='Reviewed source copied. Save it into the existing matching editor file, then paste the complete saved editor content below.';
+  } catch (error) {
+    ui.result.textContent='Clipboard permission unavailable. Source selected above; use the browser Copy command.';
+  }
+});
+ui.verify.addEventListener('click',async()=>{
+  const source=approved.get(ui.module.value);
+  if (!source) { ui.result.textContent='HOLD — load a verified package first.'; return; }
+  const pasted=ui.readback.value;
+  if (!pasted.length) { ui.result.textContent='HOLD — no saved-editor readback provided.'; return; }
+  const kind=classifyReadback(source.text,pasted);
+  const digest=await sha256(pasted);
+  const details='Module: '+ui.module.value+'\nPackage SHA-256: '+source.sha256+
+    '\nReadback SHA-256: '+digest+'\nReviewed commit: '+commit;
+  if (kind==='exact') ui.result.textContent='MATCH — exact text.\n'+details;
+  else if(kind==='line_endings_only'||kind==='line_endings_and_final_newline_only')
+    ui.result.textContent='NORMALIZED MATCH ONLY — editor changed line endings'+
+    (kind==='line_endings_and_final_newline_only'?' or final newline':'')+
+    '. The pasted bytes do NOT match the manifest hash. Document the normalization and preserve source integrity.\n'+details;
+  else ui.result.textContent='HOLD — content differs beyond line endings/final newline. Do not deploy until reconciled.\n'+details;
+});
+byId('clear').addEventListener('click',()=>{
+  ui.readback.value='';ui.result.textContent='Pasted private readback cleared.';
+});
+</script>
+</body>
+</html>
