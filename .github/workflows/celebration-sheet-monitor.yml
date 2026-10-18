@@ -153,7 +153,13 @@ jobs:
           if [ "$latest_commit" = "$target" ] && [ "$latest_status" = built ]; then
             echo 'Pages has already built the current commit.'
           else
-            gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" >/dev/null
+            # A branch push may already have started this exact deployment.
+            # Reuse it rather than queueing a replacement build of the same commit.
+            if [ "$latest_commit" = "$target" ] && { [ "$latest_status" = queued ] || [ "$latest_status" = building ]; }; then
+              echo 'Waiting for the current Pages build.'
+            else
+              gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" >/dev/null
+            fi
             published='false'
             for attempt in $(seq 1 24); do
               sleep 10

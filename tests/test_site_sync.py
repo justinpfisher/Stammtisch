@@ -1,7 +1,9 @@
 import importlib.util
 import copy
+import json
 import pathlib
 import os
+import shutil
 import subprocess
 import tempfile
 import textwrap
@@ -320,6 +322,54 @@ class SyncTests(unittest.TestCase):
         self.assertIsNone(verifier.source_publisher("https://apnews.com.evil.example/a"))
 
 class MonitorWorkflowEfficiencyTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "posix" and shutil.which("jq"), "Exercises the GitHub-hosted Ubuntu shell step")
+    def test_pages_reuses_pending_build_but_retains_commit_and_completion_checks(self):
+        workflow = (ROOT / ".github/workflows/celebration-sheet-monitor.yml").read_text()
+        step = workflow.split("      - name: Publish and verify GitHub Pages\n", 1)[1].split(
+            "      - name: Verify visitor-facing website register\n", 1)[0]
+        script = textwrap.dedent(step.split("        run: |\n", 1)[1])
+        with tempfile.TemporaryDirectory() as directory:
+            repo = pathlib.Path(directory)
+            subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+            subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                            "commit", "--allow-empty", "-qm", "Fixture"], cwd=repo, check=True)
+            target = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
+            binary = repo / "bin"
+            binary.mkdir()
+            state = repo / "api.json"
+            gh = binary / "gh"
+            gh.write_text("""#!/usr/bin/env python3
+import json,os,sys
+from pathlib import Path
+p=Path(os.environ['FAKE_API_STATE']);s=json.loads(p.read_text());a=sys.argv[1:]
+if '-X' in a:
+ s['posts']+=1;p.write_text(json.dumps(s))
+elif any('/git/ref/heads/main' in x for x in a): print(s['remote'])
+elif '--jq' in a: print(s['latest'] if 'commit' in a[-1] else s['status'])
+else: print(json.dumps({'commit':s['target'],'status':s['completion']}))
+""")
+            gh.chmod(0o755)
+            sleeper = binary / "sleep"
+            sleeper.write_text("#!/bin/sh\nexit 0\n")
+            sleeper.chmod(0o755)
+            for status, latest, remote, completion, posts, succeeds in [
+                ("built", target, target, "built", 0, True),
+                ("queued", target, target, "built", 0, True),
+                ("building", target, target, "built", 0, True),
+                ("errored", target, target, "built", 1, True),
+                ("built", "f" * 40, target, "built", 1, True),
+                ("building", target, "f" * 40, "built", 0, False),
+                ("queued", target, target, "errored", 0, False),
+            ]:
+                with self.subTest(status=status, latest=latest, remote=remote, completion=completion):
+                    state.write_text(json.dumps(dict(status=status, latest=latest, remote=remote,
+                                                     completion=completion, target=target, posts=0)))
+                    result = subprocess.run(["bash", "-eu", "-c", script], cwd=repo, capture_output=True,
+                                            env={**os.environ, "PATH":str(binary)+os.pathsep+os.environ['PATH'],
+                                                 "FAKE_API_STATE":str(state), "GITHUB_REPOSITORY":"example/fixture"})
+                    self.assertEqual(result.returncode == 0, succeeds, result.stderr)
+                    self.assertEqual(json.loads(state.read_text())["posts"], posts)
+
     @unittest.skipUnless(os.name == "posix", "Exercises the GitHub-hosted Ubuntu shell step")
     def test_unchanged_and_unrelated_edits_skip_tests_but_either_public_file_requires_them(self):
         workflow = (ROOT / ".github/workflows/celebration-sheet-monitor.yml").read_text()
