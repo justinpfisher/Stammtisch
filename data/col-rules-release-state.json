@@ -1,5 +1,24 @@
 {
   "schemaVersion": 3,
-  "operations": [],
-  "events": []
+  "operations": [
+    {
+      "candidateDigest": "447206a5f23e52a85a3132c1db5d6a642764439435476b41c9e40ead4b7ecd27",
+      "revisionId": "col-35a4c1a8b8f7e39be6b52555",
+      "previous": null,
+      "phase": "candidate",
+      "stagedAt": "2026-10-18T00:36:35.701Z",
+      "activationDigest": null,
+      "confirmation": null
+    }
+  ],
+  "events": [
+    {
+      "revisionId": "col-35a4c1a8b8f7e39be6b52555",
+      "candidateDigest": "447206a5f23e52a85a3132c1db5d6a642764439435476b41c9e40ead4b7ecd27",
+      "phase": "candidate",
+      "at": "2026-10-18T00:36:35.701Z",
+      "evidenceDigest": "606d49d8391b16c924679c5e5b570c3881041bf49ea680318859f5942dc652d6",
+      "reason": ""
+    }
+  ]
 }
