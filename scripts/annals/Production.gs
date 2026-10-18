@@ -985,8 +985,11 @@ function annalsPhotoDerivative_(folder) {
  * suitable JPEG thumbnail, the image is too large, or consent is missing.
  */
 function annalsAutoThumbnail_(id, source) {
-  // Guarded JPEG release uses only the full decode/re-encode gallery path.
-  if(typeof annalsGuardedPhotosReady_==='function'&&annalsGuardedPhotosReady_())return null;
+  // Once the guarded-release module is installed, the legacy Drive-thumbnail
+  // publication fallback is permanently retired. This must not become
+  // reachable again merely because the guarded JPEG or AI deadline expires.
+  // Current photographs use only the full decode/re-encode gallery path.
+  if(typeof annalsGuardedPhotosReady_==='function')return null;
   if (!source || !source.source || !source.imageConsentAtReceipt ||
       annalsProps_().getProperty('ANNALS_AUTO_MEDIA_ENABLED') !== 'true' ||
       !annalsImageConsentActive_(source.source.sender, source.source.receivedAt)) return null;
