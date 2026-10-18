@@ -1,0 +1,50 @@
+name: One-time Annals source transfer package
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/annals-source-transfer-package.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  source-only-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: \${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build reviewed public installation source package
+        run: |
+          python scripts/annals/build-install-package.py --ref HEAD --output "$RUNNER_TEMP/annals-install-source-only.zip"
+          (cd "$RUNNER_TEMP" && sha256sum annals-install-source-only.zip > annals-install-source-only.sha256)
+      - name: Independently check the complete source manifest
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,subprocess,zipfile
+          from pathlib import Path
+          source=Path(os.environ['RUNNER_TEMP'])/'annals-install-source-only.zip'
+          with zipfile.ZipFile(source) as z:
+              manifest=json.loads(z.read('source-manifest.json'))
+              commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+              assert manifest['sourceCommit']==commit
+              assert manifest['installed'] is False
+              assert manifest['credentialsIncluded'] is False
+              assert manifest['publicationActivated'] is False
+              assert len(manifest['files'])==19
+              for record in manifest['files']:
+                  assert hashlib.sha256(z.read(record['install'])).hexdigest()==record['sha256']
+          print('Public-only source package verified; no Apps Script deployment has occurred.')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stammtisch-annals-reviewed-source-transfer
+          path: |
+            \${{ runner.temp }}/annals-install-source-only.zip
+            \${{ runner.temp }}/annals-install-source-only.sha256
+          retention-days: 30
+          if-no-files-found: error
