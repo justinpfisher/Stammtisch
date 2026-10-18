@@ -37,7 +37,7 @@ function intakeFixture(threads, offset = 0) {
   });
   // Test-only error transparency: the deployed handler conceals private faults.
   // These fixtures contain no real member data or credentials.
-  const inspected = production.replace(\"  } catch (e) { throw new Error('Private intake stopped; review account configuration privately'); }\",
+  const inspected = production.replace("  } catch (e) { throw new Error('Private intake stopped; review account configuration privately'); }",
     '  } catch (e) { throw e; }');
   assert.notEqual(inspected, production);
   vm.runInContext(inspected, ctx);
