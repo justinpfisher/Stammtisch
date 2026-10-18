@@ -21,7 +21,7 @@ function harness(){
   const script=html.match(/<script>([\s\S]*?)<\/script>/);
   assert.ok(script,'inline offline implementation exists');
   const fields=Object.fromEntries(['package','package-status','module','copy','source',
-    'readback','verify','clear','result','load'].map(id=>[id,new Field()]));
+    'readback','verify','clear','result','load','preloaded','readback-progress'].map(id=>[id,new Field()]));
   const document={getElementById:id=>fields[id],createElement:()=>new Field()};
   const ctx={document,crypto:webcrypto,TextEncoder,Uint8Array,navigator:{},console};
   vm.runInNewContext(script[1]+'\n;globalThis.verifyPrivateTransfer={classifyReadback,sha256};',ctx);
@@ -51,9 +51,13 @@ function packageFixture(tamperName=''){
 test('the transfer page is explicitly offline and never has a network connection',()=>{
   assert.match(html,/connect-src 'none'/);
   assert.match(html,/default-src 'none'/);
-  assert.doesNotMatch(html,/\b(?:fetch|XMLHttpRequest|WebSocket|sendBeacon)\s*\(/);
+  // The bundled public source is inert text and may contain UrlFetchApp.fetch;
+  // inspect the actual helper code after that JSON bundle, not its source strings.
+  const helperLogic=html.slice(html.indexOf('const changed = '));
+  assert.ok(helperLogic.length>100);
+  assert.doesNotMatch(helperLogic,/\b(?:fetch|XMLHttpRequest|WebSocket|sendBeacon)\s*\(/);
   for(const name of expected)assert.ok(html.includes("'"+name+"'"));
-  assert.match(html,/does not access Google accounts/);
+  assert.match(html,/uploads nothing and stores nothing/);
 });
 test('exact, newline-normalized and modified saved editor content are distinguished',()=>{
   const {verify}=harness();
@@ -81,6 +85,33 @@ test('package and whole-source hashes are checked before any editor transfer',as
   await fields.verify.listeners.click();
   assert.match(fields.result.textContent,/HOLD — content differs/);
 });
+test('preloaded reviewed source needs no browser file picker and exactly matches all seven public files',async()=>{
+  const {fields}=harness();
+  assert.equal(fields.package.files.length,0);
+  await fields.preloaded.listeners.click();
+  assert.match(fields['package-status'].textContent,/7 of 7 built-in source modules match/);
+  assert.match(fields['package-status'].textContent,/a40064d1aa62d9b1e3d8ccb8532b146aebfa5db1/);
+  assert.equal(fields.module.options.length,7);
+  assert.equal(fields.module.disabled,false);
+  assert.match(fields['readback-progress'].textContent,/0 \/ 7/);
+  for(const name of expected){
+    fields.module.value=name;
+    fields.module.listeners.change();
+    const repoName=(name==='PilotCore.gs'||name==='RulesCore.gs')?name.slice(0,-3)+'.js':name;
+    const original=readFileSync(new URL('../scripts/annals/'+repoName,import.meta.url),'utf8');
+    assert.equal(fields.source.value,original,'exact reviewed public source for '+name);
+    fields.readback.value=original;
+    await fields.verify.listeners.click();
+    assert.match(fields.result.textContent,/MATCH — exact text/);
+  }
+  assert.match(fields['readback-progress'].textContent,/7 \/ 7 complete editor readbacks verified/);
+  fields.module.value='Production.gs';fields.module.listeners.change();
+  fields.readback.value='test-only mismatch';
+  await fields.verify.listeners.click();
+  assert.match(fields.result.textContent,/HOLD — content differs/);
+  assert.match(fields['readback-progress'].textContent,/6 \/ 7/);
+});
+
 test('tampered source fails before copy and readback controls unlock',async()=>{
   const {fields}=harness();
   fields.package.files=packageFixture('PilotCore.gs');
