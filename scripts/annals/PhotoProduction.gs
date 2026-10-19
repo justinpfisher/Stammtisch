@@ -108,6 +108,59 @@ function annalsRecordSixMemberPhotoAttestation(nonce,evidence){
     return {recorded:true,members:6,activated:false};
   });});
 }
+/** Validate the recorded MIME against the original image container before
+ * using a Drive-rendered preview. This does not decode HEIC/WebP/PNG locally;
+ * only a separately vetted, large-enough JPEG preview can become public.
+ * Animated files, MIME confusion and private originals remain held. */
+function annalsStillPhotoSource_(original,item){
+  if(!original||!item||!['image/png','image/webp','image/heic','image/heif'].includes(item.mime)||
+      !Number.isSafeInteger(item.size)||item.size<16||item.size>8*1024*1024)return false;
+  var raw=original.getBlob().getBytes();
+  if(raw.length!==item.size)return false;
+  var n=function(i){return raw[i]&255;};
+  var word=function(i){return String.fromCharCode(n(i),n(i+1),n(i+2),n(i+3));};
+  if(item.mime==='image/png'){
+    if(raw.length<45||[137,80,78,71,13,10,26,10].some(function(x,i){return n(i)!==x;}))return false;
+    var pos=8,ihdr=false;
+    while(pos+12<=raw.length){
+      var size=(n(pos)*16777216+n(pos+1)*65536+n(pos+2)*256+n(pos+3)),name=word(pos+4);
+      if(size>raw.length-pos-12)return false;
+      if(name==='acTL'||name==='fcTL'||name==='fdAT')return false;
+      if(name==='IHDR'){
+        if(ihdr||pos!==8||size!==13)return false;
+        var w=n(pos+8)*16777216+n(pos+9)*65536+n(pos+10)*256+n(pos+11),
+          h=n(pos+12)*16777216+n(pos+13)*65536+n(pos+14)*256+n(pos+15);
+        if(!w||!h||w>8192||h>8192||w*h>13000000)return false;
+        ihdr=true;
+      }
+      if(name==='IDAT')return ihdr; // APNG animation control must precede IDAT.
+      pos+=size+12;
+    }
+    return false;
+  }
+  if(item.mime==='image/webp'){
+    if(raw.length<20||word(0)!=='RIFF'||word(8)!=='WEBP')return false;
+    var declared=(n(4)+n(5)*256+n(6)*65536+n(7)*16777216)+8;
+    if(declared!==raw.length)return false;
+    var p=12,hasImage=false;
+    while(p+8<=raw.length){
+      var type=word(p),length=n(p+4)+n(p+5)*256+n(p+6)*65536+n(p+7)*16777216;
+      if(length>raw.length-p-8)return false;
+      if(type==='ANIM'||type==='ANMF'||type==='VP8X'&&length>=1&&(n(p+8)&2)!==0)return false;
+      if(type==='VP8 '||type==='VP8L')hasImage=true;
+      p+=8+length+(length%2);
+    }
+    return p===raw.length&&hasImage;
+  }
+  if(raw.length<20||word(4)!=='ftyp')return false;
+  var boxSize=n(0)*16777216+n(1)*65536+n(2)*256+n(3);
+  if(boxSize<16||boxSize>raw.length||boxSize>256||(boxSize-16)%4!==0)return false;
+  var brands=[],major=word(8);
+  brands.push(major);
+  for(var i=16;i+4<=boxSize;i+=4)brands.push(word(i));
+  if(brands.includes('msf1')||brands.includes('avif')||brands.includes('avis'))return false;
+  return brands.some(function(x){return ['heic','heix','hevc','hevx','heim','heis','mif1'].includes(x);});
+}
 function annalsPhotoSet_(id,source,create){
   if(typeof publishGuardedJpegOnly_==='function'&&!publishGuardedJpegOnly_(source))return [];
   if(!annalsPhotosReady_(id)||!source.imageConsentAtReceipt||!annalsImageConsentActive_(source.source.sender,source.source.receivedAt))return [];
@@ -136,11 +189,22 @@ function annalsPhotoSet_(id,source,create){
         p=annalsConvertPhotoOnce_(f,original,item);
         if(!p)return;
         p=AnnalsMedia.sanitize(p.bytes,true);
+      }else if(large&&['image/png','image/webp','image/heic','image/heif'].includes(item.mime)){
+        // Drive may decode these formats privately, but does not promise a
+        // thumbnail. Never publish its unchecked preview directly: validate
+        // the source container, decode/orient/resize and re-encode pixels, then
+        // use the established SHA-bound JPEG screening and signing pipeline.
+        if(!annalsStillPhotoSource_(original,item)||typeof AnnalsPhotoDerivative==='undefined'||
+            typeof AnnalsJpegCodec==='undefined')return;
+        var preview=original.getThumbnail();
+        if(!preview||preview.getContentType()!=='image/jpeg')return;
+        p=AnnalsPhotoDerivative.convert(preview.getBytes(),AnnalsJpegCodec,AnnalsMedia);
+        if(Math.max(p.width,p.height)<AnnalsPhotos.MIN_LONG_EDGE)return;
       }else{
+        // Historical non-blob acceptance lane is unchanged. The current
+        // guarded path above never uses unqualified low-resolution thumbnails.
         var thumbnail=original&&original.getThumbnail();
         if(!thumbnail)return;
-        // Drive renders orientation before metadata removal. No undocumented
-        // thumbnail URL resizing; undersized/unsupported HEIC stays private.
         p=AnnalsMedia.sanitize(thumbnail.getBytes(),large);
       }
       var digest=annalsHash_(p.bytes);
