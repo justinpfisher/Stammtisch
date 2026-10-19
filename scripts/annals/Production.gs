@@ -573,7 +573,7 @@ function annalsStageProduction_(message, activation, allowed) {
       ['image/jpeg','image/png','image/webp','image/heic','image/heif'].indexOf(source.attachmentManifest.items[0].mime) >= 0 &&
       source.attachmentManifest.items[0].size > 0 && source.attachmentManifest.items[0].size <= 8*1024*1024;
     var completeStandaloneText = textComplete &&
-      annalsSafeTextForAutoAi_(annalsAiSourceText_(source)) &&
+      annalsSafeTextForAutoAi_(annalsAiSafeSourceText_(source)) &&
       AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt));
     if (!hasEligibleSinglePhoto && !completeStandaloneText) {
       annalsAckOnce_(folder, sender, id, 'held_for_private_review'); return 'held';
@@ -744,7 +744,7 @@ function annalsResumeConsentedDrafts_(limit) {
       source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated ? 'source_incomplete' :
       source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) &&
         !source.imageConsentAtReceipt ? 'image_or_source_review' :
-      !annalsHasAiSource_(source) || !annalsSafeTextForAutoAi_(annalsAiSourceText_(source)) ? 'private_source_review' : null;
+      !annalsHasAiSource_(source) || !annalsSafeTextForAutoAi_(annalsAiSafeSourceText_(source)) ? 'private_source_review' : null;
     if (preDraftHold) {
       var submittedAt = Date.parse(source.source.receivedAt);
       if (source.senderAuthenticated===true && Number.isFinite(submittedAt) &&
@@ -1201,7 +1201,7 @@ function annalsProcessConsentedText_(id) {
       (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) && !source.imageConsentAtReceipt) ||
       source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated ||
       !annalsHasAiSource_(source) ||
-      !annalsSafeTextForAutoAi_(annalsAiSourceText_(source)) ||
+      !annalsSafeTextForAutoAi_(annalsAiSafeSourceText_(source)) ||
       annalsProps_().getProperty('ANNALS_AI_ENABLED') !== 'true') return false;
   var fullText = [source.source.subject || '', source.source.excerpt || ''].filter(function (v) { return v.trim(); }).join('\n');
   var derived = null;
@@ -1218,7 +1218,7 @@ function annalsProcessConsentedText_(id) {
   var images = derived ? [{mime:'image/jpeg',base64:derived.base64}] : [];
   if(set.length)images=set.map(function(p){return {mime:'image/jpeg',base64:p.base64};});
   if(needsImage&&!derived&&!set.length)return false;
-  annalsPrepareDraftCore_(id, annalsAiSourceText_(source), [], true, true, images); // caller already holds intake lock
+  annalsPrepareDraftCore_(id, annalsAiSafeSourceText_(source), [], true, true, images); // caller already holds intake lock
   var dispatched = annalsAutoAttemptSafe_(annalsFolder_(id), id);
   if (!dispatched) annalsNotifyDraftReady_(annalsFolder_(id));
   return true;
@@ -1291,6 +1291,17 @@ function annalsAiSourceText_(source) {
   if (!source || !source.source) return '';
   return 'EMAIL SUBJECT (original field):\n' + String(source.source.subject || '') +
     '\n\nEMAIL BODY (original field):\n' + String(source.source.excerpt || '');
+}
+/** Ordinary Annals only: the AI sees a screened derivative. CoL rule
+ * requests still receive their exact private source through the distinct
+ * annalsAiSourceText_ path. No original email/journal is overwritten.
+ */
+function annalsAiSafeSourceText_(source) {
+  if (!source || !source.source || typeof AnnalsAuto.safeSource !== 'function') return '';
+  var safe = AnnalsAuto.safeSource(source.source.subject,source.source.excerpt,true);
+  if (!safe.valid) return '';
+  return 'EMAIL SUBJECT (screened original field):\n'+safe.subject+
+    '\n\nEMAIL BODY (screened original field):\n'+safe.excerpt;
 }
 function annalsHasAiSource_(source) {
   if (!source || !source.source) return false;
