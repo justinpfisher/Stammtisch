@@ -1553,6 +1553,7 @@ test('persistent safe-source pre-draft holds notify owner and authenticated memb
 
 test('owner-only hold notification is safe when a contributor is not authenticated',()=>{
   const x=mock(),messages=[];
+  x.folder.getName=()=> 'e'.repeat(64);
   x.props.ANNALS_REVIEW_URL='https://script.google.com/macros/s/fictional-owner/exec';
   x.props.ANNALS_ALLOWED_SENDERS='member@example.test';
   x.context.GmailApp={sendEmail:(...args)=>messages.push(args)};
