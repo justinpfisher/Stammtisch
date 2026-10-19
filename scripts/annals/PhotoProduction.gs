@@ -182,7 +182,11 @@ function annalsConvertPhotoOnce_(folder,original,item){
 }
 function annalsPhotoDecision_(source,draft,id,decision,set){
   if(!set.length||!draft.imageReviews||draft.imageReviews.length!==set.length)return decision;
-  var text=AnnalsAuto.cleanText(source.source.excerpt||''),subject=AnnalsAuto.cleanText(source.source.subject||'')||'A photographic contribution';
+  // A signed gallery fallback cannot bypass ordinary privacy redaction just
+  // because the submitted image passed its independent depiction/codec gates.
+  var screened=AnnalsAuto.safeSource(source.source.subject,source.source.excerpt,false);
+  if(!screened.valid)return decision;
+  var text=AnnalsAuto.cleanText(screened.excerpt),subject=AnnalsAuto.cleanText(screened.subject)||'A photographic contribution';
   var evidence=annalsPhotoEvidence_(source);
   var grants=annalsPhotoSubjectGrants_(source.source.receivedAt);
   var eligible=set.filter(function(p,i){return AnnalsPhotos.allowed(evidence,draft.imageReviews[i],grants);});
