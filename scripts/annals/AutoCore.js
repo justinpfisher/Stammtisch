@@ -49,6 +49,15 @@ var AnnalsAuto = (function () {
   }
   function norm(value) { return String(value).trim().replace(/^\s*[-*•]\s*/, '').replace(/\s+/g, ' ').toLowerCase(); }
   function held(reason) { return { eligible: false, reason: reason }; }
+  // Ordinary recollections do not require named member attribution. Keep the
+  // submitted source private and replace first-name mentions only in the
+  // derivative. Quotes instead use the separate actual-speaker consent gate.
+  function redactMemberMentions(value) {
+    return String(value).replace(/\b(?:Justin|Marc|Matt|Ken|Jamie|Jerome)\b/gi, '[MEMBER]');
+  }
+  // Reported speech needs the distinct quotation permission even when the
+  // speaker's first name could otherwise be safely redacted.
+  var MEMBER_REPORTED_SPEECH = /\b(?:Justin|Marc|Matt|Ken|Jamie|Jerome)\s+(?:said|says|told|remarked|wrote|quoted|claimed)\b/i;
   function sourceGrounded(source, phrase) {
     return !!norm(phrase) && norm(source).indexOf(norm(phrase)) >= 0;
   }
@@ -229,15 +238,17 @@ var AnnalsAuto = (function () {
     if (!source || subject.length + body.length > 11000) return held('source_incomplete');
     var full = [subject, body].filter(Boolean).join('\n').trim();
     if (protectedRoute(s.subject, s.excerpt) !== 'annals') return held('col_proposal_private_review');
-    if (['club_history','monthly_gathering','artefact'].indexOf(candidate.category) >= 0)
-      return held('living_history_revision_required');
+    // A member's source-grounded recollection or keepsake is an Annals entry,
+    // not an amendment to the separately reconciled canonical Club History.
+    // Existing evidence and safety requirements below still apply.
     if (candidate.category === 'quotation') {
       if (!privateSource.attachmentManifest ||
           !Array.isArray(privateSource.attachmentManifest.items) ||
           privateSource.attachmentManifest.items.length) return held('quotation_requires_text_only');
       return proposeRemark(s, source, full, candidate, id, speakerPermission);
     }
-    if (protectedText(full)) return held('private_personal_or_sensitive_content');
+    if (MEMBER_REPORTED_SPEECH.test(full)) return held('third_party_quotation_permission');
+    if (protectedText(redactMemberMentions(full))) return held('private_personal_or_sensitive_content');
     var media = privateSource.attachmentManifest;
     if (!media || !Array.isArray(media.items) || !independentText(full)) return held('media_context_required');
     if (!Array.isArray(candidate.riskFlags) || candidate.riskFlags.some(function (flag) {
@@ -247,11 +258,11 @@ var AnnalsAuto = (function () {
     if (!reasonableCategory(candidate.category, full)) return held('classification_not_supported');
     // Ignore unverified AI event dates; publish only the verified receipt period.
     if (typeof candidate.title !== 'string' || !candidate.title.trim() || candidate.title.length > 160 ||
-        protectedText(candidate.title)) return held('title_missing_or_sensitive');
+        protectedText(redactMemberMentions(candidate.title))) return held('title_missing_or_sensitive');
     // Model-created headlines are editorial labels, not historical evidence.
     // Prefer an innocuous original subject to unsupported model-created claims.
     var title = sourceGrounded(full,candidate.title) ? candidate.title.trim() : s.subject.trim();
-    if (!title || protectedText(title) || /(?:first ever|official record|unanimously decided|every member|all six were present)\b/i.test(title))
+    if (!title || protectedText(redactMemberMentions(title)) || /(?:first ever|official record|unanimously decided|every member|all six were present)\b/i.test(title))
       return held('title_asserts_unverified_fact');
     var recipe = candidate.recipe;
     if (!recipe || !Array.isArray(recipe.drinkIngredients) || !Array.isArray(recipe.syrupIngredients) || !Array.isArray(recipe.steps))
@@ -261,7 +272,11 @@ var AnnalsAuto = (function () {
       if (!sourceRecipeGrounded(full, recipe)) return held('recipe_measure_or_step_uncertain');
     } else if (all.length) return held('unexpected_recipe');
     var quote = '';
-    if (candidate.category !== 'quotation' && /[\"“”«»]/.test(full)) return held('third_party_quotation_permission');
+    // Scare quotes and named cocktails are not automatically third-party
+    // speech. Explicit reported speech remains protected above.
+    if (candidate.category !== 'quotation' && /[\"“”«»]/.test(full) &&
+        /\b(?:said|says|told|quoted|quoting|remarked|overheard|claimed)\b/i.test(full))
+      return held('third_party_quotation_permission');
     if (candidate.category === 'quotation') {
       if (typeof candidate.quoteVerbatim !== 'string' || !selfQuotation(source,candidate.quoteVerbatim) ||
           /\b(?:he|she|they|someone|guest|member|friend)\s+said\b/i.test(source)) return held('third_party_quotation_permission');
@@ -269,16 +284,17 @@ var AnnalsAuto = (function () {
     } else if (candidate.quoteVerbatim) return held('uncategorised_quote');
     var stamp = new Date(s.receivedAt);
     if (isNaN(stamp.getTime()) || stamp.getUTCFullYear() < 1990 || stamp.getUTCFullYear() > 2100) return held('invalid_receipt_date');
-    var entry = { id: 'annal-' + id.slice(0,24), category: candidate.category, title: censor(title),
-      summary: censor(source), year: stamp.getUTCFullYear(),
+    var entry = { id: 'annal-' + id.slice(0,24), category: candidate.category, title: censor(redactMemberMentions(title)),
+      summary: censor(redactMemberMentions(source)), year: stamp.getUTCFullYear(),
       dateLabel: 'Submitted ' + stamp.toISOString().slice(0,7), sortDate: '',
       quoteVerbatim: quote,
-      recipe: { drinkIngredients: recipe.drinkIngredients.map(censor),
-        syrupIngredients: recipe.syrupIngredients.map(censor), steps: recipe.steps.map(censor),
+      recipe: { drinkIngredients: recipe.drinkIngredients.map(function (line) { return censor(redactMemberMentions(line)); }),
+        syrupIngredients: recipe.syrupIngredients.map(function (line) { return censor(redactMemberMentions(line)); }),
+        steps: recipe.steps.map(function (line) { return censor(redactMemberMentions(line)); }),
         ...(candidate.category === 'cocktail' && !recipe.steps.length ? { suggestedSteps: suggestedMethod(recipe, source) } : {}) },
       credit: 'anonymous' };
     return { eligible: true, entry: entry, mode: MODE };
   }
-  return Object.freeze({ MODE: MODE, QUOTE_MODE: QUOTE_MODE, NOTICE: NOTICE, sensitiveText: protectedText, protectedRoute: protectedRoute, censor: censor, cleanText: cleanText, quotationEvidence: quotationEvidence, independentText: independentText, suggestedMethod: suggestedMethod, propose: propose });
+  return Object.freeze({ MODE: MODE, QUOTE_MODE: QUOTE_MODE, NOTICE: NOTICE, sensitiveText: protectedText, protectedRoute: protectedRoute, censor: censor, redactMemberMentions: redactMemberMentions, cleanText: cleanText, quotationEvidence: quotationEvidence, independentText: independentText, suggestedMethod: suggestedMethod, propose: propose });
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = AnnalsAuto;
