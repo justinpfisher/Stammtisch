@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { buildPublishedAnnals, contentDigest, validatePublicTextEntry } from '../scripts/annals/ApprovedRenderer.mjs';
+import { recipeIntroduction } from '../scripts/annals/EditorialDisplay.mjs';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
@@ -52,4 +53,24 @@ test('an empty approved archive retains the empty state without invented collect
   assert.doesNotMatch(html, /class="annal-collections"|class="annal-collection"|class="annal-entry/);
   assert.doesNotMatch(html, /<h2[^>]*>(?:The Cocktail Register|The Register of Remarks|Monthly Proceedings|Annual Assemblies|Club History|Club Artefacts)<\/h2>/);
   assert.match(html, /The Editorial Committee obscures/);
+});
+
+
+test('published cocktails show their description once while each recorded ingredient and step stays in its proper section',()=>{
+  const data=JSON.parse(read('../data/annals-approved.json'));
+  const html=read('../annals.html');
+  for(const entry of data.entries.filter(e=>e.category==='cocktail')){
+    const intro=recipeIntroduction(entry);
+    assert.ok(intro,'Cocktail has a readable introduction');
+    const tag='<p class="annal-summary">'+intro+'</p>';
+    assert.ok(html.includes(tag),'Published description matches deterministic safe display source');
+    const section=html.split('id="'+entry.id+'"')[1]?.split('</article>')[0]||'';
+    assert.ok(section.includes('<h4>Preparation</h4>'));
+    for(const step of entry.recipe.steps){
+      assert.equal(section.split('<li>'+step+'</li>').length-1,1,'Each preparation step is rendered once');
+    }
+    assert.doesNotMatch(intro,/Instructions\s*[-:]|\*\b(?:Combine|Shake|Strain|Garnish)\b/);
+    assert.doesNotMatch(section.split('<div class="annal-recipe">')[0],/Instructions\s*[-:]|<li>.*(?:Shake|Strain|Garnish)/);
+    assert.equal(data.approvals.find(a=>a.entryId===entry.id)?.contentSha256,contentDigest(entry),'Presentation does not mutate signed material');
+  }
 });
