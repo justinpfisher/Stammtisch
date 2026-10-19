@@ -345,5 +345,24 @@ el('refreshConsent').onclick=()=>act(async()=>{const members=await call('annalsR
   if(m.imageStatus==='active'&&m.imageSeparatelyRevocable){const b=document.createElement('button');b.textContent='Revoke image publication';b.onclick=()=>act(async()=>{await call('annalsRevokeImagePublicationConsent',nonce,m.address);await el('refreshConsent').onclick()});li.append(' ',b)}
   el('consents').append(li)
 });say('Private standing-consent statuses refreshed.')});
-act(async()=>{nonce=(await call('annalsReviewSession')).nonce;await list(true);await el('refreshConsent').onclick();await loadSpeakerMap();const item=new URLSearchParams(location.search).get('item');if(/^[a-f0-9]{64}$/.test(item||''))await open(item)});
+// Authentication is the only startup prerequisite. Do not globally disable
+// every control while separate Drive consent and speaker reads complete.
+async function initReviewDesk(){
+  try{
+    nonce=(await call('annalsReviewSession')).nonce;
+    const item=new URLSearchParams(location.search).get('item');
+    if(/^[a-f0-9]{64}$/.test(item||'')){
+      say('Opening the requested private contribution…');
+      await open(item); // A direct notice link must not scan the entire inbox first.
+    }else{
+      say('Loading the first page of contributions…');
+      await list(true);
+    }
+    // Consent and speaker assignment panels have their own existing reload
+    // controls. Fetch them on demand rather than serialising startup.
+  }catch(error){
+    say('The private desk could not finish loading: '+error.message+' No operation was repeated.');
+  }
+}
+initReviewDesk();
 </script></body></html>
