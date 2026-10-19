@@ -53,7 +53,7 @@ approvals.push({...responsiveApproval,signature:createHmac('sha256',fixtureKey).
 const index=photoIndex(Array.from({length:2500},(_,i)=>({...gallery,id:'offline-photo-'+String(i).padStart(6,'0'),title:'Fictional photo '+i,summary:i===2499?'needle archival caption':'Fictional archived fixture',submittedAt:(2000+i%26)+'-10-15T12:00:00Z',year:2000+i%26})));
 const annals=buildPublishedAnnals(entries,approvals,fixtureKey,history).html;
 const ruleRegister={schemaVersion:1,baseline:{id:'col-browser-baseline',recordedAt:'2026-10-15T12:00:00Z',description:'Fictional browser fixture baseline.'},revisions:[{id:'col-browser-fictional',member:'marc',submittedAt:'2026-10-15T12:00:00Z',publishedAt:null,effectiveAt:null,state:'awaiting_implementation',baseVersion:'col-browser-baseline',explanation:'Fictional rule-layout fixture only.',changes:[{provision:'PRIZE',before:'## PRIZE\n'+('Fictional unchanged source text. '.repeat(40)),after:'## PRIZE\n'+('Fictional revised layout text. '.repeat(40))}],correctionOf:null}],events:[]};
-const documents=new Map([['/index.html',(await readFile(path.join(root,'index.html'),'utf8')).replace(/src="https:\/\/[^\"]+"/g,'src="assets/crest.webp"')],['/annals.html',annals],['/history.html',renderHistory(history)],['/photos.html',await readFile(path.join(root,'photos.html'),'utf8')],['/col-revisions.html',renderRegister(ruleRegister)]]);
+const documents=new Map([['/index.html',(await readFile(path.join(root,'index.html'),'utf8')).replace(/src="https:\/\/[^\"]+"/g,'src="assets/crest.webp"')],['/location.html',(await readFile(path.join(root,'location.html'),'utf8')).replace(/src="https:\/\/[^\"]+"/g,'src="assets/crest.webp"')],['/celebration.html',(await readFile(path.join(root,'celebration.html'),'utf8')).replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'')],['/annals.html',annals],['/history.html',renderHistory(history)],['/photos.html',await readFile(path.join(root,'photos.html'),'utf8')],['/col-revisions.html',renderRegister(ruleRegister)]]);
 const metadata=new Map([['/data/photos/index.json',index.manifest],...index.pages.map(p=>['/'+p.path,p.data])]);
 const ruleFixture=browserRuleFixture();
 documents.set('/col-reader-fixture.html','<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Fictional rule reader</title><link rel="stylesheet" href="styles.css"><main>'+ruleFixture.html+'</main><script type="module">import {refreshOfficialRules} from "./col-rules-reader.mjs"; await refreshOfficialRules(); document.documentElement.dataset.finished="true";</script></html>');
@@ -65,7 +65,7 @@ const server=createServer(async(req,res)=>{
   if(/^\/assets\/annals\/[ab]{64}\.jpg$/.test(pathname)){res.setHeader('Content-Type','image/jpeg');res.end(tinyBytes);return;}
   if(documents.has(pathname)){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(documents.get(pathname));return;}
   // Public stylesheet and public brand assets only. Never serve source/data files.
-  if(['/styles.css','/annals.css','/annals-browse.mjs','/monthly.mjs','/assembly.mjs','/history.css','/annals-photos.css','/annals-photos.mjs','/col-rules-reader.mjs','/col-rules-witness.mjs','/col-rules-register.mjs'].includes(pathname)||pathname.startsWith('/assets/')&&!pathname.includes('..')){
+  if(['/styles.css','/annals.css','/annals-browse.mjs','/monthly.mjs','/assembly.mjs','/celebration.css','/history.css','/annals-photos.css','/annals-photos.mjs','/col-rules-reader.mjs','/col-rules-witness.mjs','/col-rules-register.mjs'].includes(pathname)||pathname.startsWith('/assets/')&&!pathname.includes('..')){
     try{const bytes=await readFile(path.join(root,pathname));res.setHeader('Content-Type',pathname.endsWith('.css')?'text/css':pathname.endsWith('.mjs')?'text/javascript':'application/octet-stream');res.end(bytes);return;}catch{}
   }
   res.writeHead(404).end();
@@ -202,8 +202,18 @@ try{
         await page.goto(origin+'/col-revisions.html#col-browser-fictional');
         assert.equal(await page.locator('main').count(),1);assert.equal(await page.locator('#col-browser-fictional').count(),1);
         assert.match(await page.locator('main').innerText(),/Not yet in effect/);assert.match(await page.locator('main').innerText(),/Toronto/);
-        await page.locator('details summary').focus();await page.keyboard.press('Enter');assert.equal(await page.locator('details').getAttribute('open'),'');
+        await page.locator('main details summary').focus();await page.keyboard.press('Enter');assert.equal(await page.locator('main details').getAttribute('open'),'');
         assert.match(await page.locator('pre').first().innerText(),/Fictional unchanged source text/);assert.match(await page.locator('pre').last().innerText(),/Fictional revised layout text/);await noOverflow(page);
+      });
+      await check(browser,profile,'all public pages reflow at 320px with the shared navigation',async page=>{
+        await page.setViewportSize({width:320,height:760});
+        for(const file of ['index.html','location.html','celebration.html','annals.html','history.html','photos.html','col-revisions.html']){
+          await page.goto(origin+'/'+file);
+          assert.equal(await page.locator('header.site-header').count(),1,file);
+          assert.ok(await page.locator('.mobile-site-navigation').isVisible(),file+' menu');
+          assert.equal(await page.locator('.mobile-site-navigation nav a').count(),5,file+' menu links');
+          await noOverflow(page);
+        }
       });
       await check(browser,profile,'monthly-first homepage and discoverable site navigation',async page=>{
         await page.goto(origin+'/index.html');
