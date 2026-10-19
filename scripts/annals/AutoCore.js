@@ -306,6 +306,17 @@ var AnnalsAuto = (function () {
           privateSource.attachmentManifest.items.length) return held('quotation_requires_text_only');
       return proposeRemark(s, source, full, candidate, id, speakerPermission);
     }
+    // Publish only the independently safe remainder. This uses a derived
+    // representation, not an edited private source or a model's assertion
+    // that sensitive details are acceptable.
+    var screened = safeSource(s.subject,s.excerpt,false);
+    if (!screened.valid) return held(screened.reason);
+    subject=screened.subject;
+    body=cleanText(screened.excerpt);
+    source=body||subject;
+    full=[subject,body].filter(Boolean).join('\n').trim();
+    if (candidate.category==='cocktail' && screened.recipeMaterialRedacted)
+      return held('recipe_measure_or_step_uncertain');
     if (MEMBER_REPORTED_SPEECH.test(full)) return held('third_party_quotation_permission');
     if (protectedText(full)) return held('private_personal_or_sensitive_content');
     var media = privateSource.attachmentManifest;
