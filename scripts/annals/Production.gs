@@ -740,9 +740,7 @@ function annalsResumeConsentedDrafts_(limit) {
     // a persistent pre-draft hold needs the owner's attention.
     var preDraftHold = annalsFile_(folder,'ai-attempt-private.json') ? 'incomplete_ai_attempt' :
       source.senderAuthenticated !== true ? 'sender_unverified' :
-      source.aiConsentActive !== true || !annalsConsentActive_(source.source.sender) ||
-        source.autoConsentAtReceipt !== true ||
-        !annalsStandingPublicationActive_(source.source.sender,source.source.receivedAt) ? 'standing_permission_missing' :
+      source.aiConsentActive !== true || !annalsConsentActive_(source.source.sender) ? 'standing_permission_missing' :
       source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated ? 'source_incomplete' :
       source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) &&
         !source.imageConsentAtReceipt ? 'image_or_source_review' :
