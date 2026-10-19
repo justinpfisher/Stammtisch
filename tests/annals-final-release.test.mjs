@@ -51,6 +51,29 @@ test('black bars have harmless lowercase fallback, selectable safe text, and vis
   assert.match(REDACTION_CSS,/background:#000/);assert.match(REDACTION_CSS,/forced-colors/);
   assert.doesNotMatch(editorialHtml(auto.censor('fuck')),/fuck/i);
 });
+test('whole-line source section headings do not duplicate structured preparation',()=>{
+  const s=[
+    'A fictional autumn drink with *emphasis*.',
+    '',
+    'Ingredients',
+    ' - *1/2 oz* cordial',
+    ' - *2 oz* water',
+    '',
+    'Instructions',
+    ' 1.',
+    ' - *Simmer* the syrup for 5 minutes.',
+    ' - *Stir* the drink with ice.'
+  ].join('\n');
+  const e={...entry(),summary:s},original=JSON.stringify(e),digest=contentDigest(e),signed=approval(e);
+  assert.equal(recipeIntroduction(e),'A fictional autumn drink with emphasis.');
+  const html=buildPublishedAnnals([e],[signed],secret).html;
+  assert.match(html,/A fictional autumn drink with emphasis/);
+  assert.equal(html.split('Stir the drink with ice.').length-1,1);
+  assert.equal(JSON.stringify(e),original);
+  assert.equal(contentDigest(e),digest);
+  assert.equal(verifyPublicApproval(e,signed,secret),true);
+});
+
 test('legacy signed redacted quotations retain digests and get non-verbatim notice',()=>{
   const e={...entry(),category:'quotation',title:'Recorded remark',quoteVerbatim:'What the [EXPLETIVE]?',recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
   const p=approval(e),before=contentDigest(e),html=buildPublishedAnnals([e],[p],secret).html;
