@@ -769,8 +769,21 @@ function annalsResumeConsentedDrafts_(limit) {
       }
       continue;
     }
-    try { if (annalsProcessConsentedText_(id)) done++; }
-    catch (e) {
+    try {
+      if (annalsProcessConsentedText_(id)) done++;
+      else if (source.imageConsentAtReceipt === true &&
+          source.attachmentManifest && Array.isArray(source.attachmentManifest.items) &&
+          source.attachmentManifest.items.length > 0 &&
+          !annalsAiIndependentSafeText_(source) &&
+          Number.isFinite(Date.parse(source.source.receivedAt)) &&
+          Date.now() - Date.parse(source.source.receivedAt) >= 3600000 &&
+          !annalsFile_(folder, 'draft-notice-private.json')) {
+        // Keep the original and any AI reservation unchanged. A Drive preview
+        // may be unavailable or too small; notify the owner once rather than
+        // silently stalling an image-dependent genuine submission.
+        annalsNotifyDraftReady_(folder, 'image_or_source_review');
+      }
+    } catch (e) {
       // One private notice rather than another email on every 15-minute run.
       // A spent or uncertain one-shot provider attempt is never repeated.
       try { annalsNotifyDraftReady_(folder,'drafting_interrupted'); } catch (ignored) {}
