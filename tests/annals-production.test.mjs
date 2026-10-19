@@ -25,9 +25,13 @@ function mock() {
       ANNALS_BUDGET_LEDGER: JSON.stringify({ schemaVersion: 1, month: '2026-10', reservedCents: 0 }) };
   const privateMethods = { getUrl: () => 'https://drive.google.com/drive/folders/synthetic-private', getSharingAccess: () => 'PRIVATE', getEditors: () => [], getViewers: () => [], getOwner: () => ({ getEmail: () => owner }) };
   const folder = { ...privateMethods,
+    getFiles: () => iter([...files.values()]),
     getFilesByName: name => iter(files.has(name) ? [files.get(name)] : []),
     createFile(name, data) { if (name && typeof name === 'object' && name.getName) { data = name; name = data.getName(); }
-      const f = { ...privateMethods, getBlob: () => ({ getDataAsString: () => typeof data === 'string' ? data : '', getBytes: () => typeof data === 'string' ? [...Buffer.from(data)] : data.getBytes() }),
+      const f = { ...privateMethods, getName: () => name,
+        getMimeType: () => typeof data === 'string' ? 'text/plain' : 'image/jpeg',
+        getSize: () => typeof data === 'string' ? Buffer.byteLength(data) : data.getBytes().length,
+        getBlob: () => ({ getDataAsString: () => typeof data === 'string' ? data : '', getBytes: () => typeof data === 'string' ? [...Buffer.from(data)] : data.getBytes() }),
         setContent: v => { data = v; }, setTrashed: () => {} }; files.set(name, f); return f; } };
   const root = { ...folder, getFoldersByName: () => iter([folder]) };
   class FixedDate extends Date { constructor(...args){super(...(args.length?args:['2026-10-09T00:30:00Z']));} static now(){return new Date('2026-10-09T00:30:00Z').getTime();} }
@@ -345,6 +349,80 @@ test('existing signed text cocktail accepts a distinct screened photo through ex
   assert.equal(x.files.has('ai-attempt-private.json'),false);
 });
 
+test('owner can import one already screened private-item JPEG without a browser picker or a new dispatch',()=>{
+  const x=mock(),id='a'.repeat(64),events=[];
+  Object.assign(x.props,{ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
+    ANNALS_GITHUB_TOKEN:'fictional',ANNALS_GITHUB_REPOSITORY:'owner/repo'});
+  x.context.UrlFetchApp.fetch=(_url,options)=>{events.push(JSON.parse(options.payload));return{getResponseCode:()=>204};};
+  const method=x.context.annalsImportScreenedPhotoFromPrivateItem;
+  assert.throws(()=>method('valid',id),'an unsigned source must not be imported');
+  const initial=x.context.annalsSaveReview('valid',id,entry());
+  assert.equal(x.context.annalsApproveReview('valid',id,initial.hash,permissions,'Fictional permission',true).dispatchAccepted,true);
+  x.folder.createFile('attachment-01.jpg',x.context.Utilities.newBlob(photoJpeg(),'image/jpeg','attachment-01.jpg'));
+  assert.throws(()=>method('valid',id),'unscreened original is not a candidate');
+  x.folder.createFile('fictional-screened-candidate.jpg',x.context.Utilities.newBlob(photoJpeg(),'image/jpeg','fictional-screened-candidate.jpg'));
+  assert.throws(()=>method('invalid',id),'only an authenticated owner desk may import');
+  const saved=method('valid',id);
+  const expected=Buffer.from(x.context.AnnalsMedia.sanitize([...photoJpeg()]).bytes);
+  assert.equal(saved.saved,true);
+  assert.equal(saved.size,expected.length);
+  assert.equal(saved.sha256,createHash('sha256').update(expected).digest('hex'));
+  assert.equal(x.context.annalsPhotoDerivative_(x.folder).base64,expected.toString('base64'));
+  assert.equal(events.length,1,'private import must not publish anything');
+  assert.equal(x.files.has('correction-dispatch-private.json'),false);
+  assert.throws(()=>method('valid',id),'repeat import must not overwrite the chosen derivative');
+  const published=JSON.parse(x.files.get('approval-private.json').getBlob().getDataAsString());
+  const corrected={...published.entry,photo:{sha256:saved.sha256,alt:'Fictional glass only'}};
+  const review=x.context.annalsSaveCorrection('valid',id,corrected);
+  assert.throws(()=>x.context.annalsApproveCorrection('valid',id,review.hash,permissions,'Fictional image permission',true));
+  const rights={...permissions,photoPublication:true};
+  assert.equal(x.context.annalsApproveCorrection('valid',id,review.hash,rights,'Fictional exact image and depiction permission',true).dispatchAccepted,true);
+  assert.equal(events.length,2);
+  assert.equal(events[1].event_type,'annals-correct-entry');
+  assert.equal(events[1].client_payload.imageBase64,expected.toString('base64'));
+  assert.equal(x.files.has('ai-attempt-private.json'),false);
+  assert.throws(()=>method('valid',id),'signed corrections are one-time');
+});
+test('picker-free private JPEG import rejects duplicate, oversized, invalid, or wrongly named candidates',()=>{
+  const createApproved=()=>{
+    const x=mock(),id='a'.repeat(64);
+    Object.assign(x.props,{ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
+      ANNALS_GITHUB_TOKEN:'fictional',ANNALS_GITHUB_REPOSITORY:'owner/repo'});
+    x.context.UrlFetchApp.fetch=()=>({getResponseCode:()=>204});
+    const review=x.context.annalsSaveReview('valid',id,entry());
+    x.context.annalsApproveReview('valid',id,review.hash,permissions,'Fictional permission',true);
+    return {x,id};
+  };
+  const add=(x,name,contents)=>x.folder.createFile(name,contents);
+  {
+    const {x,id}=createApproved();
+    add(x,'one-screened-candidate.jpg',x.context.Utilities.newBlob(photoJpeg(),'image/jpeg','one-screened-candidate.jpg'));
+    add(x,'two-screened-candidate.jpg',x.context.Utilities.newBlob(photoJpeg(),'image/jpeg','two-screened-candidate.jpg'));
+    assert.throws(()=>x.context.annalsImportScreenedPhotoFromPrivateItem('valid',id));
+    assert.equal(x.files.has('photo-derivative-private.jpg'),false);
+  }
+  {
+    const {x,id}=createApproved();
+    add(x,'one-screened-candidate.jpg',Buffer.from('not jpeg').toString());
+    assert.throws(()=>x.context.annalsImportScreenedPhotoFromPrivateItem('valid',id));
+    assert.equal(x.files.has('photo-derivative-private.jpg'),false);
+  }
+  {
+    const {x,id}=createApproved();
+    const bigger=Buffer.concat([photoJpeg(),Buffer.alloc(40000)]);
+    add(x,'one-screened-candidate.jpg',x.context.Utilities.newBlob(bigger,'image/jpeg','one-screened-candidate.jpg'));
+    assert.throws(()=>x.context.annalsImportScreenedPhotoFromPrivateItem('valid',id));
+    assert.equal(x.files.has('photo-derivative-private.jpg'),false);
+  }
+});
+test('picker-free private image option retains the same approval, checksum and rights controls',()=>{
+  const ui=readFileSync(new URL('../scripts/annals/ReviewUi.html',import.meta.url),'utf8');
+  assert.match(ui,/id="importPrivatePhoto"/);
+  assert.match(ui,/call\('annalsImportScreenedPhotoFromPrivateItem',nonce,current.id\)/);
+  assert.match(ui,/call\('annalsSaveCorrection'/);
+  assert.match(ui,/call\('annalsApproveCorrection'/);
+  assert.match(ui,/photoDerivative.sha256!==saved.sha256/);
+});
 test('production intake resumes a long thread and wraps without reading while disabled', () => {
   const x=mock(), handled=[], messages=Array.from({length:12},(_,id)=>({id,getId:()=>String(id)})),seen=new Set();
   const thread={getId:()=> 'private-thread', getMessages:()=>messages};
