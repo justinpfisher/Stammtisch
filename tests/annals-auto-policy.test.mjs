@@ -436,3 +436,51 @@ test('full-field quotation wrappers preserve speaker, conflict, privacy and inte
   assert.equal(policy.propose(s,{...d,interpretation:{...d.interpretation,intent:'reported_speech'}},id,{speakerPortrait:'ken'}).eligible,false);
   assert.equal(policy.propose(s,{...d,riskFlags:['private_context']},id,{speakerPortrait:'ken'}).eligible,false);
 });
+
+
+test('Markdown source emphasis, mixed fractions and wrapped preparation are not recipe discrepancies', () => {
+  const s = sample();
+  s.source.subject = 'Fictional Harvest Glass cocktail recipe';
+  s.source.excerpt = [
+    'An invented cocktail for a fictional test.',
+    'Ingredients',
+    ' - *1½ oz (45 ml)* invented juice',
+    ' - *¾ oz (22 ml)* fictional cider syrup',
+    ' - *1 dash* imaginary bitters',
+    'Instructions',
+    ' 1.',
+    '  - *Combine* the invented ingredients with ice.',
+    '  - *Strain* into a fictional glass.',
+    '  - *Garnish* with a dusting of imaginary',
+    '    spice.'
+  ].join('\n');
+  const d = draft();
+  d.title = s.source.subject;
+  d.recipe = {
+    drinkIngredients: [
+      '1½ oz (45 ml) invented juice',
+      '¾ oz (22 ml) fictional cider syrup',
+      '1 dash imaginary bitters'
+    ],
+    syrupIngredients: [],
+    steps: [
+      'Combine the invented ingredients with ice.',
+      'Strain into a fictional glass.',
+      'Garnish with a dusting of imaginary spice.'
+    ]
+  };
+  const approved = policy.propose(s, d, id);
+  assert.equal(approved.eligible, true);
+  assert.deepEqual(approved.entry.recipe.drinkIngredients, d.recipe.drinkIngredients);
+  assert.deepEqual(approved.entry.recipe.steps, d.recipe.steps);
+  assert.equal(approved.entry.summary, s.source.excerpt);
+  const wrongAmount = structuredClone(d);
+  wrongAmount.recipe.drinkIngredients[0] = '1¼ oz (45 ml) invented juice';
+  assert.equal(policy.propose(s, wrongAmount, id).reason, 'recipe_measure_or_step_uncertain');
+  const droppedMeasure = structuredClone(d);
+  droppedMeasure.recipe.drinkIngredients.pop();
+  assert.equal(policy.propose(s, droppedMeasure, id).reason, 'recipe_measure_or_step_uncertain');
+  const inventedStep = structuredClone(d);
+  inventedStep.recipe.steps[2] = 'Garnish with a dusting of imaginary gold.';
+  assert.equal(policy.propose(s, inventedStep, id).reason, 'recipe_measure_or_step_uncertain');
+});
