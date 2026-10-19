@@ -235,3 +235,22 @@ test('owner verification declines remote reads for incomplete original approval 
   assert.equal(JSON.stringify([...x.records.entries()]),before);
   assert.throws(()=>x.ctx.annalsPublishedReceiptReadbackInEditor('not-valid'),/Exact existing item identity required/);
 });
+
+
+test('accepted-but-unverified publication status is truthful and retains once-only contributor notices',()=>{
+  const f=fixture(),sent=[];
+  f.ctx.GmailApp={sendEmail:(address,subject,body)=>sent.push({address,subject,body})};
+  assert.equal(f.ctx.annalsNotifyContributorHeld_({},'accepted_dispatch_unverified'),true);
+  assert.equal(sent.length,1);
+  assert.match(sent[0].subject,/awaiting website confirmation/);
+  assert.match(sent[0].body,/accepted for publication/);
+  assert.doesNotMatch(sent[0].body,/private exception needs review/);
+  assert.equal(f.records.get('contributor-hold-notice-private.json').state,'sent');
+  assert.equal(f.ctx.annalsNotifyContributorHeld_({},'accepted_dispatch_unverified'),false);
+  assert.equal(sent.length,1);
+  const h=fixture(),held=[];
+  h.ctx.GmailApp={sendEmail:(address,subject,body)=>held.push({subject,body})};
+  assert.equal(h.ctx.annalsNotifyContributorHeld_({}),true);
+  assert.match(held[0].subject,/needs attention/);
+  assert.match(held[0].body,/private exception needs review/);
+});
