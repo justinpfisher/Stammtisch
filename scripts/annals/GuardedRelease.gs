@@ -90,7 +90,7 @@ function annalsQuickProductionReadbackInEditor(){
     intakeTriggerCount:triggers?triggers.length:null,
     soleTriggerIsIntake:!!(triggers&&triggers.length===1&&
       triggers[0].getHandlerFunction()==='runAnnalsProductionIntake'),
-    budgetMonth:budget&&/^\\d{4}-\\d{2}$/.test(budget.month||'')?budget.month:null,
+    budgetMonth:budget&&/^\d{4}-\d{2}$/.test(budget.month||'')?budget.month:null,
     budgetReservedCents:budget&&budget.schemaVersion===1&&
       Number.isSafeInteger(budget.reservedCents)&&budget.reservedCents>=0&&budget.reservedCents<=500?
       budget.reservedCents:null,
