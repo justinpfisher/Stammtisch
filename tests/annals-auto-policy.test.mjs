@@ -673,3 +673,18 @@ test('Canadian postal codes and explicitly named guests are masked without remov
   assert.equal(approved.entry.title,s.source.subject);
   assert.equal(approved.entry.summary,safe.excerpt);
 });
+
+
+test('an unapproved guest or unknown speaker quote is omitted without suppressing adjacent member history',()=>{
+  const subject='Fictional monthly story';
+  const body='Marc prepared imaginary cordial. A visitor said "an unapproved line". Jamie brought a fictional garnish.';
+  const screened=policy.safeSource(subject,body,true);
+  assert.equal(screened.valid,true);
+  assert.equal(screened.redacted,true);
+  assert.match(screened.excerpt,/Marc prepared imaginary cordial/);
+  assert.match(screened.excerpt,/Jamie brought a fictional garnish/);
+  assert.doesNotMatch(screened.excerpt,/visitor said|unapproved line/);
+  const unknown=policy.safeSource(subject,'Patricia said "an unattributed guest quote".',true);
+  assert.equal(unknown.valid,false);
+  assert.equal(unknown.reason,'third_party_quotation_permission');
+});
