@@ -1,7 +1,15 @@
 /* Private production automation. Owner-only Apps Script project. */
 function annalsProps_() { return PropertiesService.getScriptProperties(); }
 function annalsHex_(bytes) { return bytes.map(function (b) { return ('0' + (b & 255).toString(16)).slice(-2); }).join(''); }
-function annalsHash_(value) { return annalsHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, value, Utilities.Charset.UTF_8)); }
+/** SHA-256 for signed text and original binary bytes. Apps Script's
+ * three-argument overload accepts String only; Byte[] requires two arguments.
+ * Preserve UTF-8 text digests exactly, including existing signed receipts. */
+function annalsHash_(value) {
+  var algorithm = Utilities.DigestAlgorithm.SHA_256;
+  return annalsHex_(typeof value === 'string' ?
+    Utilities.computeDigest(algorithm, value, Utilities.Charset.UTF_8) :
+    Utilities.computeDigest(algorithm, value));
+}
 function annalsOwner_() {
   return AnnalsProduction.owner(Session.getActiveUser().getEmail(), Session.getEffectiveUser().getEmail(),
     annalsProps_().getProperty('ANNALS_OWNER_EMAIL'));

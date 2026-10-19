@@ -423,6 +423,56 @@ test('picker-free private image option retains the same approval, checksum and r
   assert.match(ui,/call\('annalsApproveCorrection'/);
   assert.match(ui,/photoDerivative.sha256!==saved.sha256/);
 });
+test('Apps Script media digest uses Byte[] overload and preserves UTF-8 string hashing',()=>{
+  const x=mock(), id='a'.repeat(64), original=x.context.Utilities.computeDigest, invocations=[];
+  x.context.Utilities.computeDigest=(...args)=>{
+    const value=args[1], textual=typeof value==='string';
+    assert.equal(args.length,textual?3:2,'Apps Script has no Byte[] plus Charset overload');
+    if(!textual)assert.ok(Array.isArray(value),'media hash must receive raw byte values');
+    invocations.push(textual?'text':'bytes');
+    return original(...args);
+  };
+  assert.equal(x.context.annalsHash_('synthetic text'),
+    createHash('sha256').update('synthetic text').digest('hex'));
+  assert.equal(x.context.annalsHash_([...photoJpeg()]),
+    createHash('sha256').update(photoJpeg()).digest('hex'),
+    'the shared helper must also hash binary bytes from other photo modules');
+  const metadata=x.context.annalsSavePhotoDerivative('valid',id,photoJpeg().toString('base64'));
+  const canonical=Buffer.from(x.context.AnnalsMedia.sanitize([...photoJpeg()]).bytes);
+  assert.equal(metadata.sha256,createHash('sha256').update(canonical).digest('hex'));
+  assert.equal(x.context.annalsPhotoDerivative_(x.folder).base64,canonical.toString('base64'));
+  assert.deepEqual(invocations,['text','bytes','bytes','bytes']);
+});
+test('previously stored matching private JPEG can receive missing manifest without replacing pixels',()=>{
+  const x=mock(),id='a'.repeat(64),events=[];
+  Object.assign(x.props,{ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
+    ANNALS_GITHUB_TOKEN:'fictional',ANNALS_GITHUB_REPOSITORY:'owner/repo'});
+  x.context.UrlFetchApp.fetch=(_url,options)=>{
+    events.push(JSON.parse(options.payload));
+    return {getResponseCode:()=>204};
+  };
+  const original=x.context.annalsSaveReview('valid',id,entry());
+  assert.equal(x.context.annalsApproveReview('valid',id,original.hash,permissions,
+    'Synthetic original permissions',true).dispatchAccepted,true);
+  const input=photoJpeg(),clean=Buffer.from(x.context.AnnalsMedia.sanitize([...input]).bytes);
+  x.folder.createFile('fixture-screened-candidate.jpg',
+    x.context.Utilities.newBlob(input,'image/jpeg','fixture-screened-candidate.jpg'));
+  x.folder.createFile('photo-derivative-private.jpg',
+    x.context.Utilities.newBlob(clean,'image/jpeg','photo-derivative-private.jpg'));
+  const before=x.files.get('photo-derivative-private.jpg');
+  assert.equal(x.files.has('photo-derivative-private.json'),false);
+  const saved=x.context.annalsImportScreenedPhotoFromPrivateItem('valid',id);
+  assert.equal(saved.reconciled,true);
+  assert.equal(saved.size,clean.length);
+  assert.equal(saved.sha256,createHash('sha256').update(clean).digest('hex'));
+  assert.strictEqual(x.files.get('photo-derivative-private.jpg'),before);
+  const manifest=JSON.parse(x.files.get('photo-derivative-private.json').getBlob().getDataAsString());
+  assert.equal(manifest.sha256,saved.sha256);
+  assert.equal(x.context.annalsPhotoDerivative_(x.folder).base64,clean.toString('base64'));
+  assert.equal(events.length,1,'manifest recovery must not publish');
+  assert.equal(x.files.has('correction-dispatch-private.json'),false);
+  assert.throws(()=>x.context.annalsImportScreenedPhotoFromPrivateItem('valid',id));
+});
 test('production intake resumes a long thread and wraps without reading while disabled', () => {
   const x=mock(), handled=[], messages=Array.from({length:12},(_,id)=>({id,getId:()=>String(id)})),seen=new Set();
   const thread={getId:()=> 'private-thread', getMessages:()=>messages};
