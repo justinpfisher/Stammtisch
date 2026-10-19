@@ -116,10 +116,21 @@ function annalsGuardedPhotosReady_(){
   var p=annalsProps_();return p.getProperty('ANNALS_PHOTOS_GUARDED_JPEG_ENABLED')==='true'&&
     p.getProperty('ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED')==='true';
 }
+/** Historical function name retained to support the existing private
+ * deployment identity and partial module updates. The guarded release now
+ * accepts still JPEG, PNG, WebP and HEIC/HEIF source types, but the only
+ * publishable derivative is a decoded, oriented, metadata-free signed JPEG.
+ * A non-JPEG is held if the private qualified conversion module is absent. */
 function publishGuardedJpegOnly_(source){
   if(!annalsGuardedPhotosReady_())return true;
   var items=source&&source.attachmentManifest&&source.attachmentManifest.items;
-  return Array.isArray(items)&&items.length>0&&items.length<=3&&items.every(function(x){return x.accepted&&x.mime==='image/jpeg'&&x.size>0&&x.size<=8*1024*1024;});
+  return Array.isArray(items)&&items.length>0&&items.length<=3&&items.every(function(x){
+    if(!x||x.accepted!==true||!Number.isSafeInteger(x.size)||x.size<=0||x.size>8*1024*1024)return false;
+    if(x.mime==='image/jpeg')return true;
+    return ['image/png','image/webp','image/heic','image/heif'].includes(x.mime)&&
+      typeof annalsStillPhotoSource_==='function'&&typeof AnnalsPhotoDerivative!=='undefined'&&
+      typeof AnnalsJpegCodec!=='undefined';
+  });
 }
 function annalsGuardedEnableJpegInEditor(){
   annalsOwner_();return annalsLocked_(function(){
