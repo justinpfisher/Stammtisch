@@ -144,15 +144,19 @@ test('generic language about a club gathering is not a privacy veto',()=>{
   const s=sample();s.source.subject='Club history';s.source.excerpt='We gathered at home and had a damn good laugh.';
   const d={...draft(),category:'club_history',title:'Club history',
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
-  assert.equal(policy.propose(s,d,id).reason,'living_history_revision_required');
+  const decision=policy.propose(s,d,id);
+  assert.equal(decision.eligible,true);
+  assert.equal(decision.entry.category,'club_history');
+  assert.equal(decision.entry.dateLabel,'Submitted 2026-10');
 });
 test('non-cocktail, non-identifying plain-text category can be selected by AI but source remains literal',()=>{
   const s=sample();s.source.subject='Proceedings';s.source.excerpt='Proceedings\nThe chairs were set before the ceremony.';
   const d={...draft(),category:'monthly_gathering',title:'Proceedings',
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
   const result=policy.propose(s,d,id);
-  assert.equal(result.eligible,false);
-  assert.equal(result.reason,'living_history_revision_required');
+  assert.equal(result.eligible,true);
+  assert.equal(result.entry.category,'monthly_gathering');
+  assert.equal(result.entry.summary,s.source.excerpt);
 });
 test('signed automatic proof binds exact text, policy mode and no public sender data',async()=>{
   const entry=policy.propose(sample(),draft(),id).entry, approval=proof(entry);
@@ -328,7 +332,7 @@ test('subject-only content, body-only recipes and club observations retain their
   const observation=sample();observation.source.subject='The chairs were set before the ceremony.';observation.source.excerpt='';
   const note={...draft(),category:'club_history',title:observation.source.subject,
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
-  assert.equal(policy.propose(observation,note,id).reason,'living_history_revision_required');
+  assert.equal(policy.propose(observation,note,id).eligible,true);
 });
 
 test('distinct quote signature mode cannot be reused for cocktails, photos or sender portraits',()=>{
@@ -483,4 +487,44 @@ test('Markdown source emphasis, mixed fractions and wrapped preparation are not 
   const inventedStep = structuredClone(d);
   inventedStep.recipe.steps[2] = 'Garnish with a dusting of imaginary gold.';
   assert.equal(policy.propose(s, inventedStep, id).reason, 'recipe_measure_or_step_uncertain');
+});
+
+
+test('anonymous member stories and safe scare quotes publish with first names redacted in public derivatives',()=>{
+  const s=sample();
+  s.source.subject='Marc and the ceremonial glass';
+  s.source.excerpt='Marc brought a fictional drink called "The Lantern". Jamie declared the evening excellent.';
+  const d={...draft(),category:'monthly_gathering',title:s.source.subject,
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  const decision=policy.propose(s,d,id);
+  assert.equal(decision.eligible,true);
+  assert.match(decision.entry.title,/\[MEMBER\]/);
+  assert.match(decision.entry.summary,/\[MEMBER\]/);
+  assert.doesNotMatch(JSON.stringify(decision.entry),/\b(?:Marc|Jamie)\b/);
+  assert.match(s.source.excerpt,/Marc brought/);
+  assert.equal(verifyPublicApproval(decision.entry,proof(decision.entry),secret),true);
+  const page=buildPublishedAnnals([decision.entry],[proof(decision.entry)],secret).html;
+  assert.match(page,/The Lantern/);
+  assert.doesNotMatch(page,/Marc brought|Jamie declared/);
+});
+test('member names are not sufficient to publish attributed speech, secrets or unsupported event claims',()=>{
+  const cases=[
+    ['Ken said "The Lantern is glorious".','third_party_quotation_permission'],
+    ['Jamie was accused of fraud.','private_personal_or_sensitive_content'],
+    ['Marc brought us to 200 Fictional Street.','private_personal_or_sensitive_content'],
+    ['Email Marc at someone@example.test.','private_personal_or_sensitive_content']
+  ];
+  for (const [excerpt,reason] of cases){
+    const s=sample();s.source.subject='Fictional club note';s.source.excerpt=excerpt;
+    const d={...draft(),category:'artefact',title:s.source.subject,
+      recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+    assert.equal(policy.propose(s,d,id).reason,reason,excerpt);
+  }
+});
+
+
+test('casual references to club rules remain Annals while actual CoL changes stay protected',()=>{
+  assert.equal(policy.protectedRoute('A house rule','The fictional drink earned its own house rule.'),'annals');
+  assert.equal(policy.protectedRoute('CoL rules rewrite','Change how Steals are awarded.'),'col_proposal');
+  assert.equal(policy.protectedRoute('Club rules','I propose changing the rules.'),'col_proposal');
 });

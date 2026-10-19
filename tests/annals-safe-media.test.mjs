@@ -103,8 +103,10 @@ test('club artefact photograph can use the same signed, safe-object pathway',()=
   const src=source();src.source.subject='Club artefact';src.source.excerpt='Photo attached.';
   const cand={...draft('artefact'),title:'Club artefact'};
   const decision=policy.enrich(src,cand,id,base.propose(src,cand,id),image);
-  assert.equal(decision.eligible,false);
-  assert.equal(decision.reason,'living_history_revision_required');
+  assert.equal(decision.eligible,true);
+  assert.equal(decision.entry.category,'artefact');
+  assert.equal(decision.entry.photo.sha256,image.sha256);
+  assert.equal(verifyPublicApproval(decision.entry,sign(decision.entry),secret),true);
 });
 test('suggestions are visibly distinguished from preserved measurement-free source ingredients',()=>{
   const recipe={drinkIngredients:['gin','syrup','tonic water'],syrupIngredients:[],steps:[]};

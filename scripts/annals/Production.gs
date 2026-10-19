@@ -736,19 +736,28 @@ function annalsResumeConsentedDrafts_(limit) {
       if (!dispatched && !annalsFile_(folder, 'draft-notice-private.json')) annalsNotifyDraftReady_(folder);
       continue;
     }
-    if (annalsFile_(folder, 'ai-attempt-private.json') || source.senderAuthenticated !== true ||
-        source.aiConsentActive !== true || !annalsConsentActive_(source.source.sender) ||
-        (source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) && !source.imageConsentAtReceipt) ||
-        source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated ||
-        !annalsHasAiSource_(source) ||
-        !annalsSafeTextForAutoAi_(annalsAiSourceText_(source))) continue;
+    // A fresh legitimate submission has one normal processing hour before
+    // a persistent pre-draft hold needs the owner's attention.
+    var preDraftHold = annalsFile_(folder,'ai-attempt-private.json') ? 'incomplete_ai_attempt' :
+      source.senderAuthenticated !== true ? 'sender_unverified' :
+      source.aiConsentActive !== true || !annalsConsentActive_(source.source.sender) ? 'standing_permission_missing' :
+      source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated ? 'source_incomplete' :
+      source.requiresClarification && !AnnalsAuto.independentText(source.source.subject + '\n' + AnnalsAuto.cleanText(source.source.excerpt)) &&
+        !source.imageConsentAtReceipt ? 'image_or_source_review' :
+      !annalsHasAiSource_(source) || !annalsSafeTextForAutoAi_(annalsAiSourceText_(source)) ? 'private_source_review' : null;
+    if (preDraftHold) {
+      var submittedAt = Date.parse(source.source.receivedAt);
+      if (source.senderAuthenticated===true && Number.isFinite(submittedAt) &&
+          Date.now()-submittedAt >= 3600000 && !annalsFile_(folder,'draft-notice-private.json')) {
+        try { annalsNotifyDraftReady_(folder,preDraftHold); } catch (ignored) {}
+      }
+      continue;
+    }
     try { if (annalsProcessConsentedText_(id)) done++; }
     catch (e) {
-      // An attempt marker permanently prevents a second provider charge.
-      if (annalsFile_(folder, 'ai-attempt-private.json')) {
-        try { GmailApp.sendEmail(annalsProps_().getProperty('ANNALS_OWNER_EMAIL'), 'Annals draft requires private review',
-          'A consented submission could not complete drafting. It remains private and will not be retried automatically. Open the owner-only review desk: ' + annalsProps_().getProperty('ANNALS_REVIEW_URL')); } catch (ignored) {}
-      }
+      // One private notice rather than another email on every 15-minute run.
+      // A spent or uncertain one-shot provider attempt is never repeated.
+      try { annalsNotifyDraftReady_(folder,'drafting_interrupted'); } catch (ignored) {}
     }
   }
   if (folders.hasNext()) p.setProperty('ANNALS_DRAFT_CURSOR', folders.getContinuationToken()); else p.deleteProperty('ANNALS_DRAFT_CURSOR');
@@ -967,6 +976,9 @@ function annalsReviewStatus_(folder, source, approval) {
   var decision = annalsRead_(folder, 'auto-decision-private.json');
   if (decision && decision.state === 'held') return 'Held — ' + String(decision.reason || 'policy_review_required').slice(0,100);
   if (approval || decision && decision.state === 'eligible') return 'Eligible for publication';
+  var preDraftNotice=annalsRead_(folder,'draft-notice-private.json');
+  if (preDraftNotice&&!annalsFile_(folder,'draft-private.json')&&!annalsFile_(folder,'approval-private.json'))
+    return 'Held — '+String(preDraftNotice.reason||'private review needed').replace(/_/g,' ').slice(0,100);
   if (annalsFile_(folder, 'ai-attempt-private.json') && !annalsFile_(folder, 'draft-private.json'))
     return 'Failed — recovery decision required';
   if (annalsFile_(folder, 'draft-private.json')) return 'Drafted privately';
@@ -1211,31 +1223,65 @@ function annalsProcessConsentedText_(id) {
   if (!dispatched) annalsNotifyDraftReady_(annalsFolder_(id));
   return true;
 }
-function annalsNotifyDraftReady_(folder) {
-  if (annalsFile_(folder, 'draft-notice-private.json')) return false;
-  var p = annalsProps_(), reviewUrl = p.getProperty('ANNALS_REVIEW_URL');
-  if (!reviewUrl || !/^https:\/\/script\.google\.com\/macros\/s\//.test(reviewUrl)) throw new Error('Private review URL not configured');
-  var hold = annalsRead_(folder, 'auto-decision-private.json');
-  var safeReasons = {
-    recipe_measure_or_step_uncertain: 'original recipe quantities or steps could not be matched automatically',
-    material_uncertainty: 'a substantive rights or safety question remains',
-    private_personal_or_sensitive_content: 'the submission may contain private or sensitive information',
-    consent_or_source_missing: 'the source or standing permissions need verification',
-    source_incomplete: 'the original text is incomplete',
-    third_party_quotation_permission: 'quoted material needs separate speaker permission'
-  };
-  var holdExplanation = hold && Object.prototype.hasOwnProperty.call(safeReasons,hold.reason) ?
-    safeReasons[hold.reason] : 'an eligibility or processing check did not complete';
-  annalsWriteOnce_(folder, 'draft-notice-private.json', { state: 'attempted_once', at: new Date().toISOString() });
-  var delivery = 'unknown_no_retry';
+function annalsNotifyContributorHeld_(folder) {
+  var source=annalsRead_(folder,'source-private.json'),p=annalsProps_(),
+    sender=source&&source.source&&String(source.source.sender||'').toLowerCase();
+  if (!source||source.senderAuthenticated!==true||
+      AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS')||'').indexOf(sender)<0 ||
+      annalsFile_(folder,'contributor-hold-notice-private.json'))return false;
+  // Only the authenticated submitter receives a status. No private content,
+  // source ID, sensitive reason or owner-only review link leaves this store.
+  annalsWriteOnce_(folder,'contributor-hold-notice-private.json',
+    {state:'attempted_once',at:new Date().toISOString()});
+  var delivery='unknown_no_retry';
   try {
-    GmailApp.sendEmail(p.getProperty('ANNALS_OWNER_EMAIL'), 'Private Annals draft ready',
-      'Automatic Annals publication was not confirmed. This submission is held privately because ' + holdExplanation +
-      '. Eligible member contributions normally publish under standing permissions without routine approval. Review this particular exception privately.\n\n' + reviewUrl + '?item=' + encodeURIComponent(folder.getName()));
-    delivery = 'sent';
-  } catch (e) {}
-  annalsFile_(folder, 'draft-notice-private.json').setContent(JSON.stringify({ state: delivery, at: new Date().toISOString() }));
-  return delivery === 'sent';
+    GmailApp.sendEmail(sender,'Your Stammtisch Annals submission needs attention',
+      'Your contribution was received, but publication on the public website has not been confirmed. A private exception needs review. Please do not resend it unless asked. You will receive a separate link when publication is verified.');
+    delivery='sent';
+  } catch (ignored) {}
+  annalsFile_(folder,'contributor-hold-notice-private.json').setContent(
+    JSON.stringify({state:delivery,at:new Date().toISOString()}));
+  return delivery==='sent';
+}
+function annalsNotifyDraftReady_(folder,preDraftReason) {
+  if (annalsFile_(folder,'draft-notice-private.json'))return false;
+  var p=annalsProps_(),reviewUrl=p.getProperty('ANNALS_REVIEW_URL');
+  if (!reviewUrl||!/^https:\/\/script\.google\.com\/macros\/s\//.test(reviewUrl))
+    throw new Error('Private review URL not configured');
+  var hold=annalsRead_(folder,'auto-decision-private.json');
+  var safeReasons={
+    recipe_measure_or_step_uncertain:'a recipe measurement or step needs exact source comparison',
+    material_uncertainty:'a substantive rights or safety question remains',
+    private_personal_or_sensitive_content:'the original may contain identifying or sensitive information',
+    consent_or_source_missing:'the original or recorded standing permission is not eligible',
+    source_incomplete:'the original source is incomplete',
+    third_party_quotation_permission:'a quotation needs the actual speaker-specific permission',
+    incomplete_ai_attempt:'a previously reserved AI attempt has no completed usable draft',
+    standing_permission_missing:'a current standing permission is missing or revoked',
+    private_source_review:'the text cannot safely proceed to automatic drafting',
+    image_or_source_review:'the text requires an image or missing original-source detail',
+    sender_unverified:'the sender could not be authenticated',
+    drafting_interrupted:'the draft did not complete, or a private processing limit was reached'
+  };
+  var reason=hold&&hold.reason||preDraftReason||'unresolved_processing_exception',
+    explanation=Object.prototype.hasOwnProperty.call(safeReasons,reason)?
+      safeReasons[reason]:'an eligibility or processing check did not complete';
+  annalsWriteOnce_(folder,'draft-notice-private.json',
+    {state:'attempted_once',at:new Date().toISOString()});
+  var delivery='unknown_no_retry';
+  try {
+    GmailApp.sendEmail(p.getProperty('ANNALS_OWNER_EMAIL'),
+      'Stammtisch Annals — received but not published',
+      'An authenticated contribution is not yet published because '+explanation+
+      '. Ordinary eligible member contributions publish without individual approval. Review this exception in the existing owner-only desk. Do not resend a reserved AI request or uncertain dispatch.\n\n'+
+      reviewUrl+'?item='+encodeURIComponent(folder.getName()));
+    delivery='sent';
+  } catch (ignored) {}
+  annalsFile_(folder,'draft-notice-private.json').setContent(
+    JSON.stringify({state:delivery,at:new Date().toISOString(),reason:reason}));
+  // Independent once-only status for the contributor, not a publishing receipt.
+  try { annalsNotifyContributorHeld_(folder); } catch (ignored) {}
+  return delivery==='sent';
 }
 function annalsSafeTextForAutoAi_(text) {
   if (typeof text !== 'string' || !text.trim() || text.length > 6000) return false;
@@ -1371,7 +1417,8 @@ function annalsDispatchEvent_(folder, eventType, clientPayload, markerName) {
 function annalsDispatchApproved_(folder, entry, approval, eventType, markerName) {
   if (annalsFile_(folder, 'quarantine-private.json')) throw new Error('Quarantined test cannot be published');
   annalsOrdinarySourceGate_(annalsRead_(folder,'source-private.json'));
-  if (eventType !== 'annals-correct-entry' && !entry.photos && ['club_history','monthly_gathering','artefact'].indexOf(entry.category) >= 0) throw new Error('Use the distinct Living History workflow');
+  // Ordinary member stories/keepsakes are public Annals entries. They do not
+  // edit the separately versioned canonical Club History chapter ledger.
   if (!approval) return false;
   var payload = { entry: entry, approval: approval };
   if (entry.photos) {
@@ -1695,6 +1742,7 @@ function annalsVerifyAutomaticPublications_(limit) {
         'A signed automatic submission remains unverified after 24 hours. Check the existing Annals GitHub Actions and Pages runs. Do not resend blindly.\n\n' +
         p.getProperty('ANNALS_REVIEW_URL') + '?item=' + encodeURIComponent(id)); }
       catch (ignored) {}
+      try { annalsNotifyContributorHeld_(folder); } catch (ignored) {}
     }
     try {
       var query = '?checked=' + encodeURIComponent(id.slice(0, 16)) + '-' + String(Date.now());

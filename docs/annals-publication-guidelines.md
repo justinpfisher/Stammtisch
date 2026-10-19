@@ -6,6 +6,10 @@ Current owner decisions reconciled 18 October 2026. This governs content and con
 
 Publish eligible, authentic member contributions automatically under recorded scoped standing permissions. No routine per-item owner review or repeated consent is required where existing evidence covers the use. An allowlisted sender or a submitted email alone is not consent. Preserve the provenance of owner-attested permissions as owner attestation; never fabricate member replies, backdate consent or revive a revocation.
 
+**Default-post rule:** Once a sender is authenticated and their recorded standing permissions cover the use, a source-grounded Annals entry publishes without another owner approval. The source remains private. Prefer a faithful screened public derivative, redacting ordinary member first-name mentions as **[MEMBER]** rather than blocking an otherwise safe cocktail, recollection or keepsake. Harmless quotation marks are not themselves proof of third-party quotation. Actual reported speech, attributed Register of Remarks quotations, substantive private details, guests and other people's rights still require their own distinct evidence or omission.
+
+Ordinary member-submitted historical recollections, monthly proceedings and artefacts may appear in the public Annals, labelled by the verified **submission period**, without silently altering the separate canonical Club History chapter ledger. A formal chapter-fact revision still follows its existing supported-evidence and correction workflow. CoL rule changes likewise stay on their independently qualified route.
+
 The Annals records actual gatherings, Assemblies, recipes, remarks and keepsakes. Do not invent history, attendance, dates, quotations, creators, rules or decisions. Minor wording, heading or category uncertainty is not a hold; concrete privacy, rights, security or material-accuracy problems are. The four surviving collections and Photos/History links appear only after genuine qualifying content exists. No example club memories.
 
 Everything in the website and public GitHub, including branches, previews, PRs, logs and old revisions, is public. Keep raw mail, private conversations, originals, contacts, consent evidence, private logistics and reference photographs in approved private storage. Public removal cannot erase all Git history or external caches.
@@ -34,6 +38,8 @@ Use dry, witty mock-institutional ceremony. Maintain exact quotations except the
 The permanent footer reads:
 
 > The Editorial Committee reserves the right to replace particularly spirited language with conspicuous euphemisms. Historical accuracy is otherwise maintained. The Editorial Committee is actually just AI we tried to train.
+
+**Submission status:** An acknowledged email is not yet a published entry. An actual deterministic hold or interrupted draft receives a one-shot private exception notice to the owner and a generic non-publication notice to the authenticated contributor; a pre-draft processing hold is reported if it persists for at least an hour. The owner receives a private item link, not source text in public logs. A contributor receives the final live link only after publication is independently verified. Accepted dispatches unverified for 24 hours generate a separate owner alert. Email delivery can itself fail; private journals and the owner desk retain the status. No repeated provider or signed dispatch attempt is authorised by a reminder.
 
 Corrections and withdrawals use the existing signed paths and live reconciliation. Preserve private originals, prior signed records and replay protection. Revocation stops future use; it does not prove historical copies disappeared. Do not automatically retry uncertain publication.
 
