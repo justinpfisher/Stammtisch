@@ -94,10 +94,11 @@ test('owner-only recipe recovery diagnostic identifies the exact blockers withou
 
 test('bounded owner inbox audit counts candidate staging and notice gaps without exposing member identifiers or mutating mail',()=>{
   const f=fixture(),records=f.records,possible='member-message',other='automated-notice';
-  f.ctx.annalsRoot_=()=>({getFoldersByName:id=>({
-    hasNext:()=>id==='digest-'+possible,
-    next:()=>({getName:()=>id})
-  })});
+  f.ctx.annalsRoot_=()=>({getFoldersByName:id=>{
+    const found=id==='digest-'+possible;let used=false;
+    return {hasNext:()=>found&&!used,
+      next:()=>{used=true;return {getName:()=>id};}};
+  }});
   f.ctx.annalsPrivate_=x=>x;
   f.ctx.annalsHash_=x=>'digest-'+x;
   f.ctx.GmailApp={
