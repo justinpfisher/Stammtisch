@@ -51,8 +51,8 @@ var AnnalsAuto = (function () {
   // Owner attests all six approve ordinary use of their first names and
   // established club nicknames. This is not permission to attribute speech.
   // "Fish" is Justin's established nickname; others are not invented here.
-  var REPORTED_SPEECH = /\\b[A-Z][a-z]+\\s+(?:said|says|told|remarked|wrote|quoted|claimed)\\b/;
-  var GUEST_REPORTED_SPEECH = /\\b(?:guest|visitor|colleague)\\s+(?:said|says|told|remarked|wrote|quoted|claimed)\\b/i;
+  var REPORTED_SPEECH = /\b[A-Z][a-z]+\s+(?:said|says|told|remarked|wrote|quoted|claimed)\b/;
+  var GUEST_REPORTED_SPEECH = /\b(?:guest|visitor|colleague)\s+(?:said|says|told|remarked|wrote|quoted|claimed)\b/i;
   function reportedSpeech(text) {return REPORTED_SPEECH.test(text)||GUEST_REPORTED_SPEECH.test(text);}
   function sourceGrounded(source, phrase) {
     return !!norm(phrase) && norm(source).indexOf(norm(phrase)) >= 0;
