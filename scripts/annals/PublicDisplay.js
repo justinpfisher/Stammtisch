@@ -35,7 +35,7 @@ function recipeIntroduction(entry) {
   const firstHeading = sectionHeading.exec(entry.summary);
   if (firstHeading) {
     const intro = entry.summary.slice(0,firstHeading.index).trim();
-    if (intro) return intro.replace(/\*([^*\n]+)\*/g,'$1');
+    if (intro) return intro.replace(/\*([^*\n]+)\*/g,'$1').replace(/\s+/g,' ').trim();
   }
   const normalize = value => value.toLowerCase().replace(/\s+/g,' ').trim().replace(/[.;:]$/,'');
   const recorded = [...recipe.drinkIngredients,...recipe.syrupIngredients,...recipe.steps];
