@@ -654,3 +654,22 @@ test('exact potential member quotations stay available for private attribution, 
   const unsafe=policy.safeSource('Quote from Ken','Ken: "The password is 1234."',true);
   assert.equal(unsafe.valid,false);
 });
+
+
+test('Canadian postal codes and explicitly named guests are masked without removing approved member names',()=>{
+  const s=sample();
+  s.source.subject='Marc and Fish — fictional guest book';
+  s.source.excerpt='Jamie mentioned a fictional location M1C 2Z1. A guest named Laurel Brewer brought imaginary lemonade.';
+  const safe=policy.safeSource(s.source.subject,s.source.excerpt,false);
+  assert.equal(safe.valid,true);
+  assert.match(safe.excerpt,/Jamie mentioned/);
+  assert.match(safe.excerpt,/\[DETAIL OMITTED\]/);
+  assert.match(safe.excerpt,/guest \[NAME OMITTED\]/);
+  assert.doesNotMatch(safe.excerpt,/M1C 2Z1|Laurel Brewer/);
+  const d={...draft(),category:'monthly_gathering',title:s.source.subject,
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  const approved=policy.propose(s,d,id);
+  assert.equal(approved.eligible,true);
+  assert.equal(approved.entry.title,s.source.subject);
+  assert.equal(approved.entry.summary,safe.excerpt);
+});
