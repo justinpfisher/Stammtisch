@@ -276,6 +276,12 @@ def newly_reported_deaths(existing, proposed):
 
 def prepare(workbook, existing, confirmations, checked_at, allow_research=True):
     sheets = sheets_api_cells(workbook)
+    # The old season's vetted confirmations are tied to its exact people and
+    # selections. Refuse a new competition year BEFORE applying those records
+    # to a newly drafted workbook; otherwise its inevitable identity changes
+    # surface as a misleading historical-confirmation error.
+    if sheets["LEADERBOARD"]["A1"]["value"] != existing["year"]:
+        raise ValueError("New pool season requires review of draft and award rules")
     candidate = importer.import_data(None, checked_at, confirmations, sheets=sheets)
     if candidate["year"] != existing["year"]:
         raise ValueError("New pool season requires review of draft and award rules")
