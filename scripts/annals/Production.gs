@@ -1079,6 +1079,46 @@ function annalsSavePhotoDerivative(nonce, id, base64) {
     return { saved: true, sha256: metadata.sha256, size: metadata.size };
   }); });
 }
+/**
+ * Picker-free transfer of an already owner-screened JPEG in this exact private
+ * item folder. Only the transport changes; the established sanitizer, exact
+ * correction review, scoped permissions and one-shot signed dispatch still apply.
+ * No private Drive file ID or original source image is sent to the browser.
+ */
+function annalsImportScreenedPhotoFromPrivateItem(nonce, id) {
+  return annalsUiCall_(nonce, function () {
+    var folder = annalsFolder_(id), original = annalsRead_(folder, 'approval-private.json');
+    if (!original || original.publicationState !== 'dispatch_accepted' ||
+        !original.entry || original.entry.category !== 'cocktail' ||
+        original.entry.photo || original.entry.photos ||
+        !annalsPrivateReceiptValid_(original.entry, original.receipt) ||
+        annalsFile_(folder, 'correction-review-private.json') ||
+        annalsFile_(folder, 'correction-approval-private.json') ||
+        annalsFile_(folder, 'correction-dispatch-private.json') ||
+        annalsFile_(folder, 'removal-private.json') ||
+        annalsFile_(folder, 'photo-derivative-private.jpg') ||
+        annalsFile_(folder, 'photo-derivative-private.json'))
+      throw new Error('An uncorrected published cocktail is required');
+    // Require one specifically named screened candidate inside this already
+    // authenticated item's owner-only folder; never search the wider Drive.
+    var files = folder.getFiles(), candidate = null;
+    while (files.hasNext()) {
+      var file = files.next();
+      if (!/^[a-z0-9][a-z0-9-]{0,90}-screened-candidate\.jpe?g$/.test(file.getName())) continue;
+      if (candidate) throw new Error('Ambiguous screened candidates');
+      candidate = annalsPrivate_(file);
+    }
+    if (!candidate || candidate.getMimeType() !== 'image/jpeg' ||
+        candidate.getSize() < 4 || candidate.getSize() > 32768)
+      throw new Error('One small private screened JPEG candidate is required');
+    var bytes = candidate.getBlob().getBytes();
+    if (bytes.length > 32768 || !annalsJpegDerivativeSafe_(bytes))
+      throw new Error('Invalid screened JPEG candidate');
+    // Reuse the already qualified Version 49 canonicalization and private
+    // derivative storage; do not create a correction or dispatch in this call.
+    return annalsSavePhotoDerivative(nonce, id, Utilities.base64Encode(bytes));
+  });
+}
 function annalsPhotoDerivative_(folder) {
   var metadata = annalsRead_(folder, 'photo-derivative-private.json'), file = annalsFile_(folder, 'photo-derivative-private.jpg');
   if (!metadata || !file) return null;
