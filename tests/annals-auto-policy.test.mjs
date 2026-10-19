@@ -552,14 +552,14 @@ test('approved names in a genuinely speaker-authorised verbatim quotation retain
 test('member names in ordinary cocktails are preserved but protected details and reported speech still hold',()=>{
   const s=sample();
   s.source.subject='Fish invented a fictional cocktail for Matt';
-  s.source.excerpt='Marc measured 1 oz invented syrup and 2 oz imaginary juice.\nStir the invented liquids.';
+  s.source.excerpt='Marc prepared a fictional drink.\n1 oz invented syrup\n2 oz imaginary juice\nStir the invented liquids.';
   const d={...draft(),title:s.source.subject,
     recipe:{...draft().recipe,drinkIngredients:['1 oz invented syrup','2 oz imaginary juice'],
       steps:['Stir the invented liquids.']}};
   const permitted=policy.propose(s,d,id);
   assert.equal(permitted.eligible,true);
   assert.equal(permitted.entry.title,s.source.subject);
-  assert.match(permitted.entry.summary,/Marc measured/);
+  assert.match(permitted.entry.summary,/Marc prepared/);
   const reported={...s,source:{...s.source,excerpt:'Fish said "The imaginary drink was delicious".'}};
   assert.equal(policy.propose(reported,{...d,category:'monthly_gathering',recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}},id).reason,'third_party_quotation_permission');
   const sensitive={...s,source:{...s.source,excerpt:'Marc shared his bank account with Fish.'}};
