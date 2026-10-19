@@ -55,3 +55,38 @@ test('very large source-plus-baseline stays held before any provider reservation
   const source=Pilot.privateProposal({...original,body:longDocument});
   assert.throws(()=>ctx.annalsRuleRequest_(source,{provisions:{POINTS:section.repeat(900)}}),/bound/i);
 });
+
+test('full rewritten rule documents remain source-bound engineering work after unmapped AI output',()=>{
+  const Rules=require('../scripts/annals/RulesCore.js');
+  const member={
+    senderAuthenticated:true,member:'jerome',freshOperativeWindow:true,replayed:false,truncated:false,
+    receivedAt:'2026-10-18T17:00:00Z',
+    text:'Celebration of Life Pool rules\\nHere are the complete updated rules.\\n\\nCELEBRATION OF LIFE POOL\\n\\nPOINTS\\nA fictional new formula.\\n\\nDIAMONDS\\nA fictional new benefit.\\n\\nWINNING\\nA fictional revised period.'
+  };
+  const baseline={id:'col-fictional-base',digest:'f'.repeat(64)};
+  const outline=Rules.fullRewriteOutline(member,baseline,'col-'+'a'.repeat(24));
+  assert.equal(outline.state,'awaiting_implementation');
+  assert.equal(outline.meaningVerified,false);
+  assert.equal(outline.published,false);
+  assert.equal(outline.providerCalled,false);
+  assert.deepEqual(outline.sections.map(v=>v.heading),['CELEBRATION OF LIFE POOL','POINTS','DIAMONDS','WINNING']);
+  assert.equal(JSON.stringify(outline).includes('A fictional new formula'),false);
+  assert.throws(()=>Rules.fullRewriteOutline({...member,senderAuthenticated:false},baseline,'col-'+'a'.repeat(24)),/authenticated/i);
+  assert.throws(()=>Rules.fullRewriteOutline({...member,text:'This is a quoted reference document.\\n'+member.text.replace('Here are the complete updated rules.','For reference only.')},baseline,'col-'+'a'.repeat(24)),/intent/i);
+});
+test('exact source mapping permits CRLF versus LF but never accepts paraphrases',()=>{
+  const Rules=require('../scripts/annals/RulesCore.js');
+  const base={id:'col-fictional-base',digest:'f'.repeat(64),provisions:{
+    POINTS:'## POINTS\\n\\nAn original fictional clause.'
+  }};
+  const source={senderAuthenticated:true,member:'marc',freshOperativeWindow:true,replayed:false,truncated:false,
+    receivedAt:'2026-10-18T17:00:00Z',text:'Please revise this rule.\\r\\n## POINTS\\r\\nA fictional new clause.'};
+  const assessment={intent:'operative',requestExcerpt:'Please revise this rule.\\n## POINTS',
+    changes:[{provision:'POINTS',before:base.provisions.POINTS,
+      after:'## POINTS\\n\\nA fictional new clause.',sourceExcerpt:'## POINTS\\nA fictional new clause.'}],
+    explanation:'A fictional forward-only change.',clarification:'',effectiveAt:'',correctionOf:'',
+    retrospective:{requested:false,period:'',results:'',clubAgreementExcerpt:''}};
+  assert.equal(Rules.intake(source,assessment,base,'col-'+'a'.repeat(24)).state,'awaiting_implementation');
+  assert.throws(()=>Rules.intake(source,{...assessment,requestExcerpt:'Invented summary of the source'},base,'col-'+'a'.repeat(24)),/match original source/i);
+  assert.throws(()=>Rules.intake(source,{...assessment,changes:[{...assessment.changes[0],sourceExcerpt:'Invented source quote'}]},base,'col-'+'a'.repeat(24)),/Exact source/i);
+});
