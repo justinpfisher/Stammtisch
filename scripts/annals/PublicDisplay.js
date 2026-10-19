@@ -39,11 +39,31 @@ function recipeIntroduction(entry) {
   }
   const normalize = value => value.toLowerCase().replace(/\s+/g,' ').trim().replace(/[.;:]$/,'');
   const recorded = [...recipe.drinkIngredients,...recipe.syrupIngredients,...recipe.steps];
+  // The retained source sometimes includes a complete, formatted recipe as
+  // well as a structured ingredient/method extract. Display that material
+  // only in the recipe sections, not a second time in the introduction.
+  // Preserve any separate narrative after an explicitly labelled Notes or
+  // Background section. Never change the signed source/approval record.
+  let recipeBlock = false;
+  const narrative = [];
+  for (const line of String(entry.summary || '').split(/\r?\n/)) {
+    const heading = line.trim().replace(/^#{1,6}\s*/, '')
+      .replace(/^\*\*(.*?)\*\*$/, '$1').replace(/:\s*$/, '').trim();
+    if (/^(?:ingredients|instructions|preparation|method|homemade syrup|syrup|recipe)$/i.test(heading)) {
+      recipeBlock = true;
+      continue;
+    }
+    if (recipeBlock && /^(?:notes?|background|story|occasion|context)$/i.test(heading)) {
+      recipeBlock = false;
+      continue;
+    }
+    if (!recipeBlock) narrative.push(line);
+  }
   const exact = recorded.map(normalize);
   const quantity = /(?:\d|[¼½¾])\s*(?:oz|ml|cl|g|cups?|tbsp|tsp|dash|parts?|ounces?)\b/i;
   const method = /^(?:stir|shake|strain|garnish|mix|pour|blend|muddle|simmer|boil|add|combine|chill|serve|heat|steep)\b/i;
   const instructions = recorded.filter(line => quantity.test(line) || method.test(line)).map(normalize);
-  return entry.summary.split(/\r?\n|(?<=[.!?])\s+(?=[A-Z0-9¼½¾])|;\s*/).map(part => {
+  return narrative.join('\n').split(/\r?\n|(?<=[.!?])\s+(?=[A-Z0-9¼½¾])|;\s*/).map(part => {
     const original = part.trim().replace(/^(?:ingredients|homemade syrup|syrup|preparation|method|recipe)\s*:\s*/i,'');
     const normal = normalize(original);
     if (!/[A-Za-z]{3}/.test(original) || exact.includes(normal) ||
