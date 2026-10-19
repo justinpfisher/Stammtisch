@@ -1848,6 +1848,90 @@ function annalsReassessHeldQuote(nonce, id, confirmed) {
  * Verify both published archive identity/digest and live Pages markup.
  * Check at most a few pending entries per intake cycle. Never re-dispatch.
  */
+/** One existing, signed item: diagnose which public-verification condition
+ * prevents its once-only publication notice. Owner-only and read-only.
+ * No mailing, journal writing, cursor movement, dispatch or provider request.
+ */
+function annalsPublishedReceiptReadbackInEditor(itemId) {
+  annalsOwner_();
+  if (!/^[a-f0-9]{64}$/.test(itemId || '')) throw new Error('Exact existing item identity required');
+  var folder=annalsFolder_(itemId),
+    saved=annalsRead_(folder,'approval-private.json'),
+    dispatch=annalsRead_(folder,'publication-dispatch-private.json'),
+    p=annalsProps_(),
+    checks={
+      privateApprovalAccepted:!!saved&&saved.publicationState==='dispatch_accepted',
+      privateDispatchAccepted:!!dispatch&&dispatch.state==='accepted',
+      privateContentDigestMatchesReceipt:false,
+      privatePublicationSignaturePresent:!!saved&&!!saved.publication&&
+        typeof saved.publication.signature==='string',
+      archiveHttp200:false,
+      archiveEntryFound:false,
+      archiveApprovalFound:false,
+      archiveDigestMatchesReceipt:false,
+      archiveSignatureMatchesPrivate:false,
+      pageHttp200:false,
+      pageHasExactEntry:false
+    },
+    archiveStatus=null,pageStatus=null,archiveFetchFailed=false,pageFetchFailed=false;
+  if(saved&&saved.entry&&saved.receipt){
+    try {
+      checks.privateContentDigestMatchesReceipt=
+        annalsHash_(AnnalsProduction.serial(saved.entry))===saved.receipt.contentSha256;
+    }catch(ignored){}
+  }
+  if(checks.privateApprovalAccepted&&checks.privateDispatchAccepted&&
+     checks.privateContentDigestMatchesReceipt&&checks.privatePublicationSignaturePresent){
+    var query='?checked=verify-' + itemId.slice(0,12) + '-' + String(Date.now());
+    var options={method:'get',muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true};
+    try{
+      var r=UrlFetchApp.fetch(
+        'https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/annals-approved.json'+query,options);
+      archiveStatus=r.getResponseCode();
+      checks.archiveHttp200=archiveStatus===200;
+      var body=checks.archiveHttp200?r.getContentText():'';
+      if(body&&body.length<=1000000){
+        var archive=JSON.parse(body);
+        if(archive&&Array.isArray(archive.entries)&&Array.isArray(archive.approvals)){
+          var entry=archive.entries.find(function(e){return e.id===saved.entry.id;});
+          var proof=archive.approvals.find(function(x){return x.entryId===saved.entry.id;});
+          checks.archiveEntryFound=!!entry;
+          checks.archiveApprovalFound=!!proof;
+          checks.archiveDigestMatchesReceipt=!!entry&&
+            annalsHash_(AnnalsProduction.serial(entry))===saved.receipt.contentSha256;
+          checks.archiveSignatureMatchesPrivate=!!proof&&
+            proof.mode===saved.approvalMode&&proof.signature===saved.publication.signature;
+        }
+      }
+    }catch(ignored){archiveFetchFailed=true;}
+    try{
+      var page=UrlFetchApp.fetch('https://stammtischbrewery.com/annals.html'+query,options);
+      pageStatus=page.getResponseCode();
+      checks.pageHttp200=pageStatus===200;
+      if(checks.pageHttp200){
+        var html=page.getContentText();
+        checks.pageHasExactEntry=html.length<=1000000 &&
+          html.indexOf('id="' + saved.entry.id + '"')>=0;
+      }
+    }catch(ignored){pageFetchFailed=true;}
+  }
+  var publicMatched=[
+    'archiveHttp200','archiveEntryFound','archiveApprovalFound',
+    'archiveDigestMatchesReceipt','archiveSignatureMatchesPrivate',
+    'pageHttp200','pageHasExactEntry'
+  ].every(function(k){return checks[k]===true;});
+  var privatelyVerified=!!annalsFile_(folder,'auto-live-verification-private.json');
+  var publishedNoticeMarker=!!annalsFile_(folder,'published-email-private.json');
+  return {readOnly:true,scope:'one_existing_approved_item',
+    checks:checks,archiveHttpStatus:archiveStatus,pageHttpStatus:pageStatus,
+    archiveFetchFailed:archiveFetchFailed,pageFetchFailed:pageFetchFailed,
+    publicEvidenceMatches:publicMatched,
+    privateLiveMarkerPresent:privatelyVerified,
+    publicationNoticeAttemptMarkerPresent:publishedNoticeMarker,
+    verificationCursorConfigured:!!p.getProperty('ANNALS_VERIFY_CURSOR'),
+    publisherOrAiCalled:false,mailAttempted:false,journalsOrCursorsChanged:false};
+}
+
 function annalsVerifyAutomaticPublications_(limit) {
   if (annalsProps_().getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') !== 'true') return 0;
   var p = annalsProps_(), token = p.getProperty('ANNALS_VERIFY_CURSOR');
