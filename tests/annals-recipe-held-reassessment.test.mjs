@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
+import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 const script=readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8');
 const id='e'.repeat(64),sender='invented.member@example.test';
@@ -159,4 +160,97 @@ test('legacy owner-held recipe gets one contributor status without retroactive A
   assert.equal(records.get('ai-attempt-private.json').state,'attempt_reserved');
   assert.equal(records.has('reassessment-attempt-private.json'),false);
   assert.equal(records.has('publication-dispatch-private.json'),false);
+});
+
+
+function publishedReadbackFixture({httpStatus=200, pageStatus=200, changedArchive=false}={}){
+  const x=fixture(),e={id:'annal-'+id.slice(0,24),category:'cocktail',
+    title:'Imaginary test glass',summary:'An entirely invented recipe.',year:2026,
+    dateLabel:'Submitted 2026-10',sortDate:'',quoteVerbatim:'',
+    recipe:{drinkIngredients:['1 oz invented cordial'],syrupIngredients:[],steps:['Stir carefully.']},
+    credit:'anonymous'};
+  const proof={entryId:e.id,mode:'standing-consent-text-v1',signature:'fictional-signature'};
+  x.ctx.annalsHash_=value=>createHash('sha256').update(value).digest('hex');
+  const digest=x.ctx.annalsHash_(JSON.stringify(e));
+  x.records.set('approval-private.json',{entry:e,receipt:{contentSha256:digest},
+    publication:proof,approvalMode:proof.mode,publicationState:'dispatch_accepted'});
+  x.records.set('publication-dispatch-private.json',{state:'accepted'});
+  const calls=[];
+  x.ctx.UrlFetchApp={fetch:(url,opts)=>{
+    calls.push(url);
+    assert.equal(opts.method,'get');
+    assert.equal(opts.followRedirects,false);
+    assert.equal(opts.validateHttpsCertificates,true);
+    if(url.includes('raw.githubusercontent.com')){
+      return {getResponseCode:()=>httpStatus,getContentText:()=>JSON.stringify({
+        entries:changedArchive?[{...e,title:'Altered test'}]:[e],approvals:[proof]})};
+    }
+    if(url.includes('stammtischbrewery.com')){
+      return {getResponseCode:()=>pageStatus,getContentText:()=>'<article id="'+e.id+'"></article>'};
+    }
+    throw Error('Unexpected public-only domain');
+  }};
+  return {...x,calls,e,proof};
+}
+test('owner-only publication readback independently checks signed public entry and page without sending anything',()=>{
+  const x=publishedReadbackFixture(),snapshot=JSON.stringify([...x.records.entries()]);
+  const result=x.ctx.annalsPublishedReceiptReadbackInEditor(id);
+  assert.equal(result.readOnly,true);
+  assert.equal(result.publicEvidenceMatches,true);
+  assert.equal(result.archiveHttpStatus,200);
+  assert.equal(result.pageHttpStatus,200);
+  assert.equal(result.privateLiveMarkerPresent,false);
+  assert.equal(result.publicationNoticeAttemptMarkerPresent,false);
+  assert.equal(result.publisherOrAiCalled,false);
+  assert.equal(result.mailAttempted,false);
+  assert.equal(result.journalsOrCursorsChanged,false);
+  assert.equal(Object.values(result.checks).every(v=>v===true),true);
+  assert.equal(x.calls.length,2);
+  assert.ok(x.calls.every(url=>!url.includes(id.slice(0,16))), 'A public cache-busting URL must not include private item identifiers');
+  assert.equal(JSON.stringify([...x.records.entries()]),snapshot);
+  assert.doesNotMatch(JSON.stringify(result),/example\.test|fictional-signature|imaginary test|annal-e/);
+});
+test('owner verification isolates changed public data and redirects without recording a live marker',()=>{
+  for(const opts of [{changedArchive:true},{httpStatus:302},{pageStatus:302}]){
+    const x=publishedReadbackFixture(opts),old=JSON.stringify([...x.records.entries()]);
+    const v=x.ctx.annalsPublishedReceiptReadbackInEditor(id);
+    assert.equal(v.publicEvidenceMatches,false,JSON.stringify(opts));
+    if(opts.changedArchive)assert.equal(v.checks.archiveDigestMatchesReceipt,false);
+    if(opts.httpStatus!==undefined)assert.equal(v.archiveHttpStatus,opts.httpStatus);
+    if(opts.pageStatus!==undefined)assert.equal(v.pageHttpStatus,opts.pageStatus);
+    assert.equal(JSON.stringify([...x.records.entries()]),old);
+    assert.equal(x.records.has('auto-live-verification-private.json'),false);
+  }
+});
+test('owner verification declines remote reads for incomplete original approval and retains all records',()=>{
+  const x=fixture(),before=JSON.stringify([...x.records.entries()]);
+  x.ctx.UrlFetchApp={fetch:()=>assert.fail('Incomplete approval must not cause network calls')};
+  const v=x.ctx.annalsPublishedReceiptReadbackInEditor(id);
+  assert.equal(v.readOnly,true);
+  assert.equal(v.publicEvidenceMatches,false);
+  assert.equal(v.checks.privateApprovalAccepted,false);
+  assert.equal(v.checks.privateDispatchAccepted,false);
+  assert.equal(v.archiveHttpStatus,null);
+  assert.equal(v.pageHttpStatus,null);
+  assert.equal(JSON.stringify([...x.records.entries()]),before);
+  assert.throws(()=>x.ctx.annalsPublishedReceiptReadbackInEditor('not-valid'),/Exact existing item identity required/);
+});
+
+
+test('accepted-but-unverified publication status is truthful and retains once-only contributor notices',()=>{
+  const f=fixture(),sent=[];
+  f.ctx.GmailApp={sendEmail:(address,subject,body)=>sent.push({address,subject,body})};
+  assert.equal(f.ctx.annalsNotifyContributorHeld_({},'accepted_dispatch_unverified'),true);
+  assert.equal(sent.length,1);
+  assert.match(sent[0].subject,/awaiting website confirmation/);
+  assert.match(sent[0].body,/accepted for publication/);
+  assert.doesNotMatch(sent[0].body,/private exception needs review/);
+  assert.equal(f.records.get('contributor-hold-notice-private.json').state,'sent');
+  assert.equal(f.ctx.annalsNotifyContributorHeld_({},'accepted_dispatch_unverified'),false);
+  assert.equal(sent.length,1);
+  const h=fixture(),held=[];
+  h.ctx.GmailApp={sendEmail:(address,subject,body)=>held.push({subject,body})};
+  assert.equal(h.ctx.annalsNotifyContributorHeld_({}),true);
+  assert.match(held[0].subject,/needs attention/);
+  assert.match(held[0].body,/private exception needs review/);
 });

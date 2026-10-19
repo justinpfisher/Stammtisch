@@ -114,9 +114,13 @@ test('thousands of photo records have bounded paged metadata, canonical links an
   const entries=Array.from({length:2500},(_,i)=>({...entry(),id:'annal-fictional-scale-'+String(i).padStart(6,'0'),year:2000+i%26}));
   const index=photoIndex(entries);assert.equal(index.manifest.count,2500);assert.ok(index.pages.every(p=>p.data.length<=24));assert.ok(index.manifest.pages.every(p=>!('photos' in p)&&!('data' in p)));assert.ok(index.pages.every(p=>p.data.every(r=>r.photos[0].src==='assets/annals/'+hash+'.jpg')));assert.equal(index.pages.reduce((n,p)=>n+p.count,0),2500);
 });
-test('empty production archives expose neither Photos navigation nor fabricated rule history',()=>{
+test('empty rendering hides Photos; the public archive may contain genuine entries without rule history',()=>{
   assert.doesNotMatch(buildPublishedAnnals([],[],key).html,/<a href="photos.html"/);
-  assert.equal(JSON.parse(readFileSync(new URL('../data/annals-approved.json',import.meta.url))).entries.length,0);
+  const archive=JSON.parse(readFileSync(new URL('../data/annals-approved.json',import.meta.url)));
+  assert.equal(archive.schemaVersion,1);
+  assert.equal(archive.entries.length,archive.approvals.length);
+  archive.entries.forEach(e=>assert.doesNotThrow(()=>validatePublicTextEntry(e)));
+  archive.approvals.forEach(p=>assert.ok(archive.entries.some(e=>e.id===p.entryId)));
   assert.equal(JSON.parse(readFileSync(new URL('../data/col-rules-register.json',import.meta.url))).revisions.length,0);
 });
 test('a signed source-grounded date correction is visible without replacing submission time',()=>{

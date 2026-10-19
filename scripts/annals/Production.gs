@@ -1232,7 +1232,7 @@ function annalsProcessConsentedText_(id) {
   if (!dispatched) annalsNotifyDraftReady_(annalsFolder_(id));
   return true;
 }
-function annalsNotifyContributorHeld_(folder) {
+function annalsNotifyContributorHeld_(folder,noticeKind) {
   var source=annalsRead_(folder,'source-private.json'),p=annalsProps_(),
     sender=source&&source.source&&String(source.source.sender||'').toLowerCase();
   if (!source||source.senderAuthenticated!==true||
@@ -1244,8 +1244,11 @@ function annalsNotifyContributorHeld_(folder) {
     {state:'attempted_once',at:new Date().toISOString()});
   var delivery='unknown_no_retry';
   try {
-    GmailApp.sendEmail(sender,'Your Stammtisch Annals submission needs attention',
-      'Your contribution was received, but publication on the public website has not been confirmed. A private exception needs review. Please do not resend it unless asked. You will receive a separate link when publication is verified.');
+    GmailApp.sendEmail(sender,noticeKind==='accepted_dispatch_unverified' ?
+      'Stammtisch Annals — awaiting website confirmation' : 'Your Stammtisch Annals submission needs attention',
+      noticeKind==='accepted_dispatch_unverified' ?
+        'Your submission was accepted for publication, but our automated website verification is still pending. Do not resend it. We will provide a link after independent verification.' :
+        'Your contribution was received, but publication on the public website has not been confirmed. A private exception needs review. Please do not resend it unless asked. You will receive a separate link when publication is verified.');
     delivery='sent';
   } catch (ignored) {}
   annalsFile_(folder,'contributor-hold-notice-private.json').setContent(
@@ -1848,6 +1851,90 @@ function annalsReassessHeldQuote(nonce, id, confirmed) {
  * Verify both published archive identity/digest and live Pages markup.
  * Check at most a few pending entries per intake cycle. Never re-dispatch.
  */
+/** One existing, signed item: diagnose which public-verification condition
+ * prevents its once-only publication notice. Owner-only and read-only.
+ * No mailing, journal writing, cursor movement, dispatch or provider request.
+ */
+function annalsPublishedReceiptReadbackInEditor(itemId) {
+  annalsOwner_();
+  if (!/^[a-f0-9]{64}$/.test(itemId || '')) throw new Error('Exact existing item identity required');
+  var folder=annalsFolder_(itemId),
+    saved=annalsRead_(folder,'approval-private.json'),
+    dispatch=annalsRead_(folder,'publication-dispatch-private.json'),
+    p=annalsProps_(),
+    checks={
+      privateApprovalAccepted:!!saved&&saved.publicationState==='dispatch_accepted',
+      privateDispatchAccepted:!!dispatch&&dispatch.state==='accepted',
+      privateContentDigestMatchesReceipt:false,
+      privatePublicationSignaturePresent:!!saved&&!!saved.publication&&
+        typeof saved.publication.signature==='string',
+      archiveHttp200:false,
+      archiveEntryFound:false,
+      archiveApprovalFound:false,
+      archiveDigestMatchesReceipt:false,
+      archiveSignatureMatchesPrivate:false,
+      pageHttp200:false,
+      pageHasExactEntry:false
+    },
+    archiveStatus=null,pageStatus=null,archiveFetchFailed=false,pageFetchFailed=false;
+  if(saved&&saved.entry&&saved.receipt){
+    try {
+      checks.privateContentDigestMatchesReceipt=
+        annalsHash_(AnnalsProduction.serial(saved.entry))===saved.receipt.contentSha256;
+    }catch(ignored){}
+  }
+  if(checks.privateApprovalAccepted&&checks.privateDispatchAccepted&&
+     checks.privateContentDigestMatchesReceipt&&checks.privatePublicationSignaturePresent){
+    var query='?checked=verify-' + String(Date.now());
+    var options={method:'get',muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true};
+    try{
+      var r=UrlFetchApp.fetch(
+        'https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/annals-approved.json'+query,options);
+      archiveStatus=r.getResponseCode();
+      checks.archiveHttp200=archiveStatus===200;
+      var body=checks.archiveHttp200?r.getContentText():'';
+      if(body&&body.length<=1000000){
+        var archive=JSON.parse(body);
+        if(archive&&Array.isArray(archive.entries)&&Array.isArray(archive.approvals)){
+          var entry=archive.entries.find(function(e){return e.id===saved.entry.id;});
+          var proof=archive.approvals.find(function(x){return x.entryId===saved.entry.id;});
+          checks.archiveEntryFound=!!entry;
+          checks.archiveApprovalFound=!!proof;
+          checks.archiveDigestMatchesReceipt=!!entry&&
+            annalsHash_(AnnalsProduction.serial(entry))===saved.receipt.contentSha256;
+          checks.archiveSignatureMatchesPrivate=!!proof&&
+            proof.mode===saved.approvalMode&&proof.signature===saved.publication.signature;
+        }
+      }
+    }catch(ignored){archiveFetchFailed=true;}
+    try{
+      var page=UrlFetchApp.fetch('https://stammtischbrewery.com/annals.html'+query,options);
+      pageStatus=page.getResponseCode();
+      checks.pageHttp200=pageStatus===200;
+      if(checks.pageHttp200){
+        var html=page.getContentText();
+        checks.pageHasExactEntry=html.length<=1000000 &&
+          html.indexOf('id="' + saved.entry.id + '"')>=0;
+      }
+    }catch(ignored){pageFetchFailed=true;}
+  }
+  var publicMatched=[
+    'archiveHttp200','archiveEntryFound','archiveApprovalFound',
+    'archiveDigestMatchesReceipt','archiveSignatureMatchesPrivate',
+    'pageHttp200','pageHasExactEntry'
+  ].every(function(k){return checks[k]===true;});
+  var privatelyVerified=!!annalsFile_(folder,'auto-live-verification-private.json');
+  var publishedNoticeMarker=!!annalsFile_(folder,'published-email-private.json');
+  return {readOnly:true,scope:'one_existing_approved_item',
+    checks:checks,archiveHttpStatus:archiveStatus,pageHttpStatus:pageStatus,
+    archiveFetchFailed:archiveFetchFailed,pageFetchFailed:pageFetchFailed,
+    publicEvidenceMatches:publicMatched,
+    privateLiveMarkerPresent:privatelyVerified,
+    publicationNoticeAttemptMarkerPresent:publishedNoticeMarker,
+    verificationCursorConfigured:!!p.getProperty('ANNALS_VERIFY_CURSOR'),
+    publisherOrAiCalled:false,mailAttempted:false,journalsOrCursorsChanged:false};
+}
+
 function annalsVerifyAutomaticPublications_(limit) {
   if (annalsProps_().getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') !== 'true') return 0;
   var p = annalsProps_(), token = p.getProperty('ANNALS_VERIFY_CURSOR');
@@ -1875,10 +1962,10 @@ function annalsVerifyAutomaticPublications_(limit) {
         'A signed automatic submission remains unverified after 24 hours. Check the existing Annals GitHub Actions and Pages runs. Do not resend blindly.\n\n' +
         p.getProperty('ANNALS_REVIEW_URL') + '?item=' + encodeURIComponent(id)); }
       catch (ignored) {}
-      try { annalsNotifyContributorHeld_(folder); } catch (ignored) {}
+      try { annalsNotifyContributorHeld_(folder,'accepted_dispatch_unverified'); } catch (ignored) {}
     }
     try {
-      var query = '?checked=' + encodeURIComponent(id.slice(0, 16)) + '-' + String(Date.now());
+      var query = '?checked=published-' + String(Date.now());
       var archiveResponse = UrlFetchApp.fetch('https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/annals-approved.json' + query,
         { method: 'get', muteHttpExceptions: true, followRedirects: false, validateHttpsCertificates: true });
       if (archiveResponse.getResponseCode() !== 200) continue;
@@ -1974,7 +2061,7 @@ function annalsVerifyWithdrawnTest_(folder, id) {
     var expectedProof = annalsPublicRemoval_(current.entry, removal.approvedAt,
       annalsProps_().getProperty('ANNALS_PUBLISH_SIGNING_KEY') || '');
     if (!expectedProof || AnnalsProduction.serial(removal.proof) !== AnnalsProduction.serial(expectedProof)) return null;
-    var query = '?checked=withdrawn-' + encodeURIComponent(id.slice(0, 16)) + '-' + String(Date.now());
+    var query = '?checked=withdrawn-' + String(Date.now());
     var options = { method:'get', muteHttpExceptions:true, followRedirects:false, validateHttpsCertificates:true };
     var archiveResponse = UrlFetchApp.fetch('https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/annals-approved.json' + query, options);
     if (archiveResponse.getResponseCode() !== 200) return null;
