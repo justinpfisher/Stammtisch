@@ -88,8 +88,12 @@ var AnnalsAuto = (function () {
           .replace(/\b(?:guest|visitor|colleague)\s+named\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b/g,
             function(match) {return match.split(/\s+/)[0]+' [NAME OMITTED]';});
         var quoteRisk=(THIRD_PARTY.test(masked)||MEMBER_REPORTED_SPEECH.test(masked))&&!permittedSourceQuote;
+        // A stand-alone request to contact an unpublished address has no
+        // meaningful public content once its only detail has been removed.
+        var contactOnly=masked!==text &&
+          /^(?:(?:please|kindly)\s+)?(?:email|call|text|phone|contact|reach|write|send)\b/i.test(text);
         if (RAW_HEADER.test(text) || ALLEGATION.test(text) || OMIT_SENTENCE.test(text) ||
-            quoteRisk || protectedText(masked)) {
+            contactOnly || quoteRisk || protectedText(masked)) {
           changed = true;
           lineChanged = true;
           if(RECIPE_MATERIAL.test(text))recipeMaterialRedacted = true;
