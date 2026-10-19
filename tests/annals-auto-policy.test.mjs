@@ -521,3 +521,10 @@ test('member names are not sufficient to publish attributed speech, secrets or u
     assert.equal(policy.propose(s,d,id).reason,reason,excerpt);
   }
 });
+
+
+test('casual references to club rules remain Annals while actual CoL changes stay protected',()=>{
+  assert.equal(policy.protectedRoute('A house rule','The fictional drink earned its own house rule.'),'annals');
+  assert.equal(policy.protectedRoute('CoL rules rewrite','Change how Steals are awarded.'),'col_proposal');
+  assert.equal(policy.protectedRoute('Club rules','I propose changing the rules.'),'col_proposal');
+});
