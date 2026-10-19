@@ -63,3 +63,99 @@ test('recipe reassessment holds for missing confirmation, revoked consent, ungro
   assert.throws(()=>f.ctx.annalsReassessHeldRecipe('fictional-session',id,false),/confirmation required/);
   assert.equal(f.records.has('reassessment-attempt-private.json'),false);
 });
+
+
+test('owner-only recipe recovery diagnostic identifies the exact blockers without reserving, paying or dispatching',()=>{
+  const f=fixture(),before=JSON.stringify([...f.records.entries()]);
+  const initial=f.ctx.annalsRecipeRecoveryReadbackInEditor(id);
+  assert.equal(initial.readOnly,true);
+  assert.equal(initial.eligibleForInitialReservation,true);
+  assert.equal(initial.checks.noRecoveryReservation,true);
+  assert.equal(initial.checks.deterministicTextEligible,true);
+  assert.equal(initial.releaseAttempted,false);
+  assert.equal(initial.providerCalled,false);
+  assert.equal(initial.settingsChanged,false);
+  assert.equal(JSON.stringify([...f.records.entries()]),before);
+  assert.equal(f.calls.length,0);
+  for(const opts of [{eligible:false},{consent:false},{dispatch:true}]){
+    const held=fixture(opts),result=held.ctx.annalsRecipeRecoveryReadbackInEditor(id);
+    assert.equal(result.eligibleForInitialReservation,false,JSON.stringify(opts));
+    assert.equal(held.records.has('reassessment-attempt-private.json'),false);
+    assert.equal(held.calls.length,0);
+    if(opts.dispatch)assert.equal(result.checks.noPublicationDispatch,false);
+    if(opts.eligible===false)assert.equal(result.checks.deterministicTextEligible,false);
+    if(opts.consent===false)assert.equal(result.checks.currentStandingTextGrant,false);
+  }
+  const f2=fixture();
+  f2.records.set('reassessment-attempt-private.json',{state:'attempt_reserved'});
+  assert.equal(f2.ctx.annalsRecipeRecoveryReadbackInEditor(id).checks.noRecoveryReservation,false);
+  assert.throws(()=>f2.ctx.annalsReassessHeldRecipe('fictional',id,true),/not eligible/);
+});
+
+test('bounded owner inbox audit counts candidate staging and notice gaps without exposing member identifiers or mutating mail',()=>{
+  const f=fixture(),records=f.records,possible='member-message',other='automated-notice';
+  f.ctx.annalsRoot_=()=>({getFoldersByName:id=>({
+    hasNext:()=>id==='digest-'+possible,
+    next:()=>({getName:()=>id})
+  })});
+  f.ctx.annalsPrivate_=x=>x;
+  f.ctx.annalsHash_=x=>'digest-'+x;
+  f.ctx.GmailApp={
+    getInboxThreads:(offset,limit)=>{
+      assert.equal(offset,0);assert.equal(limit,21);
+      return [
+        {getMessages:()=>[
+          {getId:()=>possible,getFrom:()=>sender},
+          {getId:()=> 'second-new-member',getFrom:()=>sender}
+        ]},
+        {getMessages:()=>[
+          {getId:()=>other,getFrom:()=> 'automated@example.test'}
+        ]}
+      ];
+    }
+  };
+  f.ctx.AnnalsPilot={allowedSenders:x=>x.split(','),senderAddress:x=>x};
+  f.ctx.annalsRead_=(_folder,name)=>records.get(name)||null;
+  f.ctx.annalsFile_=(_folder,name)=>records.has(name)?{}:null;
+  const snapshot=JSON.stringify([...records.entries()]);
+  const result=f.ctx.annalsInboxCoverageReadbackInEditor();
+  assert.equal(result.readOnly,true);
+  assert.equal(result.noProviderCalls,true);
+  assert.equal(result.noMailOrJournalChanges,true);
+  assert.equal(result.possibleAllowedSenderMessages,2);
+  assert.equal(result.withPrivateStagingSource,1);
+  assert.equal(result.withoutPrivateStagingSource,1);
+  assert.equal(result.stagedButSenderUnverified,0);
+  assert.equal(result.heldDecisionSeen,1);
+  assert.equal(result.ownerHoldNoticesRecorded,0);
+  assert.equal(result.contributorHoldNoticesRecorded,0);
+  assert.equal(result.moreThreadsBeyondWindow,false);
+  assert.doesNotMatch(JSON.stringify(result),/invented\.member|member-message|@example\.test/);
+  assert.equal(JSON.stringify([...records.entries()]),snapshot);
+  assert.equal(f.calls.length,0);
+});
+
+test('legacy owner-held recipe gets one contributor status without retroactive AI or publication retry',()=>{
+  const f=fixture(),records=f.records;
+  records.set('draft-notice-private.json',{state:'sent'});
+  let notices=0,autoCalls=0;
+  f.ctx.annalsPrivate_=v=>v;
+  f.ctx.annalsRoot_=()=>({getFolders:()=>({
+    at:0,hasNext(){return this.at++===0},next:()=>({getName:()=>id})
+  })});
+  f.ctx.annalsRead_=(_folder,name)=>records.get(name)||null;
+  f.ctx.annalsFile_=(_folder,name)=>records.has(name)?{}:null;
+  f.ctx.annalsAutoAttemptSafe_=()=>{autoCalls++;return false;};
+  f.ctx.annalsNotifyDraftReady_=()=>{throw Error('Existing owner notice must not be resent');};
+  f.ctx.annalsNotifyContributorHeld_=()=>{
+    notices++;records.set('contributor-hold-notice-private.json',{state:'attempted_once'});return true;
+  };
+  f.ctx.annalsProps_=()=>({getProperty:()=>null,deleteProperty:()=>{},setProperty:()=>{}});
+  f.ctx.AnnalsAuto={protectedRoute:()=> 'annals'};
+  assert.equal(f.ctx.annalsResumeConsentedDrafts_(2),0);
+  assert.equal(notices,1);
+  assert.equal(autoCalls,1);
+  assert.equal(records.get('ai-attempt-private.json').state,'attempt_reserved');
+  assert.equal(records.has('reassessment-attempt-private.json'),false);
+  assert.equal(records.has('publication-dispatch-private.json'),false);
+});
