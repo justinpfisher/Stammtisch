@@ -83,8 +83,12 @@ var AnnalsMediaPolicy = (function () {
       // not an AI-invented account of the depicted event.
       var eligibleFallback = ['media_context_required','photo_only_requires_safe_permission',
         'recipe_measure_or_step_uncertain','classification_not_supported'].indexOf(decision.reason) >= 0;
-      var body = String(source.source.excerpt || '').trim();
-      var subject = String(source.source.subject || '').trim();
+      // Image-only fallback must never bypass the ordinary text screener:
+      // even a positively screened photo cannot publish private raw captions.
+      var safe = Auto.safeSource(source.source.subject,source.source.excerpt,false);
+      if (!safe.valid) return decision;
+      var body = safe.excerpt.trim();
+      var subject = safe.subject.trim();
       var materialRisk = ['faces_or_reflections','possible_personal_identifier',
         'location_or_home_context','private_context','quote_consent_unconfirmed','unknown_attachment'];
       if (!permitted || !eligibleFallback || !imageCategory || !subject || subject.length > 150 ||
