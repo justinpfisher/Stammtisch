@@ -1537,6 +1537,7 @@ test('persistent safe-source pre-draft holds notify owner and authenticated memb
   x.files.get('source-private.json').setContent(JSON.stringify(original));
   assert.equal(x.context.annalsResumeConsentedDrafts_(2),0);
   assert.equal(messages.length,2,'one owner notice and one contributor notice');
+  assert.match(x.context.annalsReviewStatus_(x.folder,original,null),/Held.*private source review/);
   assert.equal(messages[0].to,'owner@example.test');
   assert.equal(messages[1].to,'member@example.test');
   assert.match(messages[0].body,/cannot safely proceed to automatic drafting/);
