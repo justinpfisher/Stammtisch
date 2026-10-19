@@ -1232,7 +1232,7 @@ function annalsProcessConsentedText_(id) {
   if (!dispatched) annalsNotifyDraftReady_(annalsFolder_(id));
   return true;
 }
-function annalsNotifyContributorHeld_(folder) {
+function annalsNotifyContributorHeld_(folder,noticeKind) {
   var source=annalsRead_(folder,'source-private.json'),p=annalsProps_(),
     sender=source&&source.source&&String(source.source.sender||'').toLowerCase();
   if (!source||source.senderAuthenticated!==true||
@@ -1244,8 +1244,11 @@ function annalsNotifyContributorHeld_(folder) {
     {state:'attempted_once',at:new Date().toISOString()});
   var delivery='unknown_no_retry';
   try {
-    GmailApp.sendEmail(sender,'Your Stammtisch Annals submission needs attention',
-      'Your contribution was received, but publication on the public website has not been confirmed. A private exception needs review. Please do not resend it unless asked. You will receive a separate link when publication is verified.');
+    GmailApp.sendEmail(sender,noticeKind==='accepted_dispatch_unverified' ?
+      'Stammtisch Annals — awaiting website confirmation' : 'Your Stammtisch Annals submission needs attention',
+      noticeKind==='accepted_dispatch_unverified' ?
+        'Your submission was accepted for publication, but our automated website verification is still pending. Do not resend it. We will provide a link after independent verification.' :
+        'Your contribution was received, but publication on the public website has not been confirmed. A private exception needs review. Please do not resend it unless asked. You will receive a separate link when publication is verified.');
     delivery='sent';
   } catch (ignored) {}
   annalsFile_(folder,'contributor-hold-notice-private.json').setContent(
@@ -1959,7 +1962,7 @@ function annalsVerifyAutomaticPublications_(limit) {
         'A signed automatic submission remains unverified after 24 hours. Check the existing Annals GitHub Actions and Pages runs. Do not resend blindly.\n\n' +
         p.getProperty('ANNALS_REVIEW_URL') + '?item=' + encodeURIComponent(id)); }
       catch (ignored) {}
-      try { annalsNotifyContributorHeld_(folder); } catch (ignored) {}
+      try { annalsNotifyContributorHeld_(folder,'accepted_dispatch_unverified'); } catch (ignored) {}
     }
     try {
       var query = '?checked=published-' + String(Date.now());
