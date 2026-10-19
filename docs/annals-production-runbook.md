@@ -4,13 +4,13 @@
 
 ## Temporary owner-only read-only diagnostics
 
-After the reviewed PR #144 code is installed in the existing private project, two editor functions help reconcile the Version 46 exceptions. They are not new release gates or scheduled tasks.
+The reviewed PR #144 backend functions already exist in the owner-only Version 47 project, but Work could not select them from the Apps Script editor's function picker. The existing private Annals review desk now has two read-only buttons wired to those same owner-authenticated functions; this replaces the need to select them in the editor. These are temporary diagnosis controls, not new release gates or scheduled tasks.
 
 `annalsRecipeRecoveryReadbackInEditor(itemId)` checks the existing private recipe's exact eligibility, rights and one-shot markers without publishing, spending, or changing state. Use only the real item identifier privately in the authenticated editor. Its Boolean results and fixed reason codes identify a blocker; a green result does not authorise blind repetition of an uncertain operation.
 
 `annalsInboxCoverageReadbackInEditor()` compares a bounded sample of up to 20 Inbox threads and 80 messages with existing staging and notice records, returning aggregate counts only. Missing source counts require inspection in the dedicated Inbox and are not proof that legitimate mail was lost. The bounded sample is not complete mailbox reconciliation. No mail state, cursor, content, journal, trigger or credential is modified.
 
-An old held draft that already has its owner notice may receive one previously missing generic contributor notice in the normal existing intake cycle, with no AI or dispatch retry. Retire these temporary diagnostics after the documented exception is resolved.
+An old held draft that already has its owner notice may receive one previously missing generic contributor notice in the normal existing intake cycle, with no AI or dispatch retry. Retire these temporary diagnostics after the documented exception is resolved. **Operating path:** open the existing authenticated private desk (do not expose its owner-only URL or IDs publicly), then either select **Check sampled inbox status** under Contributions or open the previously held recipe through its existing private item link and choose **Check saved recipe status — read only**. The two controls call the installed backend directly, return no source text or private identifiers and do not invoke AI, recovery or dispatch. If the page does not show them, the newly reviewed ReviewUi.html has not yet been installed in the same deployment; do not repeat the Production.gs installation merely to work around a selector.
 
 ## Routine operation
 
