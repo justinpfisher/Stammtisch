@@ -53,10 +53,58 @@ function recipeIntroduction(entry) {
   }).filter(Boolean).join(' ');
 }
 
+/* The same static chrome serves every public page and publisher-generated page.
+ * Accessible without JavaScript; active state is display-only, not an authority.
+ */
+const SITE_LINKS = Object.freeze([
+  ['monthly', 'index.html#monthly-stammtisch', 'Monthly Stammtisch'],
+  ['club', 'index.html#the-club', 'The Club'],
+  ['annals', 'annals.html', 'The Annals'],
+  ['col', 'celebration.html', 'Celebration of Life'],
+  ['assembly', 'location.html', 'Annual Assembly']
+]);
+function siteNav(section, name, nested) {
+  const active = section === 'home' ? 'monthly' :
+    section === 'annals-sub' ? 'annals' :
+    section === 'col-sub' ? 'col' : section;
+  const current = nested ? 'location' : 'page';
+  return '<nav class="site-nav" aria-label="' + name + '">' +
+    SITE_LINKS.map(([id, href, label]) =>
+      '<a href="' + href + '"' +
+      (id === active && id !== 'club' ? ' aria-current="' + current + '"' : '') +
+      '>' + label + '</a>').join('') + '</nav>';
+}
+function siteHeader(section) {
+  const nested = section === 'annals-sub' || section === 'col-sub';
+  return '<header class="site-header"><div class="shell header-inner">' +
+    '<a class="wordmark" href="index.html" aria-label="Stammtisch Social Club home">' +
+    '<img src="assets/crest-small.webp" width="56" height="56" alt="">' +
+    '<span>Stammtisch<small>Social Club</small></span></a>' +
+    siteNav(section, 'Main navigation', nested) +
+    '<details class="mobile-site-navigation"><summary>Menu <span aria-hidden="true">+</span></summary>' +
+    siteNav(section, 'Mobile navigation', nested) + '</details>' +
+    '</div></header>';
+}
+function siteFooter(section) {
+  const nested = section === 'annals-sub' || section === 'col-sub';
+  const active = section === 'home' ? 'monthly' :
+    section === 'annals-sub' ? 'annals' :
+    section === 'col-sub' ? 'col' : section;
+  return '<footer class="site-footer"><div class="shell footer-inner">' +
+    '<p>The Stammtisch Social Club<span>A tradition of gathering.</span></p>' +
+    '<nav aria-label="Footer navigation">' +
+    SITE_LINKS.map(([id,href,label]) =>
+      '<a href="' + href + '"' +
+      (id === active && id !== 'club' ? ' aria-current="' +
+        (nested ? 'location' : 'page') + '"' : '') + '>' + label + '</a>').join('') +
+    '</nav></div></footer>';
+}
+
 function historyPage(document) {
-  return `<!doctype html><html lang="en-CA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#193d32"><title>Club History | Stammtisch Social Club</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="history.css"><style>${REDACTION_CSS}</style></head><body><a class="skip-link" href="#main">Skip to content</a><main id="main" class="shell history-reading" data-history-revision="${document.revision}"><a class="history-back" href="annals.html">← The Annals</a><header class="history-masthead"><p class="eyebrow">The living record</p><h1>Club History</h1><p class="history-lead">A continuous history built from source-grounded recollections and evidence. The record remains open to correction.</p>${document.updatedAt?'<p class="history-meta">'+escapeHtml(displayDate('Submitted '+document.updatedAt.slice(0,7)).replace('Submitted','Updated'))+'</p>':''}<p class="history-meta history-revisions">Revision ${document.revision} · <a href="https://github.com/justinpfisher/Stammtisch/commits/main/history.html">Public revision history ↗</a></p></header>${document.chapters.length?document.chapters.map(c=>'<section class="history-chapter" id="chapter-'+escapeHtml(c.id)+'"><h2>'+escapeHtml(c.heading)+'</h2>'+c.paragraphs.map(p=>'<p>'+editorialHtml(p)+'</p>').join('')+'</section>').join(''):'<p class="history-pending">The record awaits a source-grounded contribution.</p>'}<footer>${escapeHtml(EDITORIAL_NOTICE)}<p><a href="mailto:annals@stammtischbrewery.com">Members: contribute a recollection or correction</a></p></footer></main></body></html>`;
+  return `<!doctype html><html lang="en-CA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#193d32"><title>Club History | Stammtisch Social Club</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="history.css"><style>${REDACTION_CSS}</style></head><body><a class="skip-link" href="#main">Skip to content</a>${siteHeader('annals-sub')}<main id="main" class="shell history-reading" data-history-revision="${document.revision}"><a class="history-back" href="annals.html">← The Annals</a><header class="history-masthead"><p class="eyebrow">The living record</p><h1>Club History</h1><p class="history-lead">A continuous history built from source-grounded recollections and evidence. The record remains open to correction.</p>${document.updatedAt?'<p class="history-meta">'+escapeHtml(displayDate('Submitted '+document.updatedAt.slice(0,7)).replace('Submitted','Updated'))+'</p>':''}<p class="history-meta history-revisions">Revision ${document.revision} · <a href="https://github.com/justinpfisher/Stammtisch/commits/main/history.html">Public revision history ↗</a></p></header>${document.chapters.length?document.chapters.map(c=>'<section class="history-chapter" id="chapter-'+escapeHtml(c.id)+'"><h2>'+escapeHtml(c.heading)+'</h2>'+c.paragraphs.map(p=>'<p>'+editorialHtml(p)+'</p>').join('')+'</section>').join(''):'<p class="history-pending">The record awaits a source-grounded contribution.</p>'}<footer>${escapeHtml(EDITORIAL_NOTICE)}<p><a href="mailto:annals@stammtischbrewery.com">Members: contribute a recollection or correction</a></p></footer></main>${siteFooter('annals-sub')}</body></html>`;
 }
 return Object.freeze({displayDate:displayDate,editorialHtml:editorialHtml,recipeIntroduction:recipeIntroduction,
-  REDACTION_CSS:REDACTION_CSS,EDITORIAL_NOTICE:EDITORIAL_NOTICE,historyPage:historyPage});
+  REDACTION_CSS:REDACTION_CSS,EDITORIAL_NOTICE:EDITORIAL_NOTICE,historyPage:historyPage,
+  siteHeader:siteHeader,siteFooter:siteFooter});
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=AnnalsPublicDisplay;

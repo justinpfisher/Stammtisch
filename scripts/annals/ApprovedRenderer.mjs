@@ -6,7 +6,7 @@ import Photos from './PhotoContracts.js';
  */
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { escapeHtml } from './PrivatePreview.mjs';
-import { displayDate, editorialHtml, recipeIntroduction, EDITORIAL_NOTICE, REDACTION_CSS } from './EditorialDisplay.mjs';
+import { displayDate, editorialHtml, recipeIntroduction, EDITORIAL_NOTICE, REDACTION_CSS, siteHeader, siteFooter } from './EditorialDisplay.mjs';
 import { emptyHistory, validateHistory } from './HistoryPublisher.mjs';
 
 const TYPES = Object.freeze({
@@ -427,10 +427,7 @@ ${REDACTION_CSS}
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header"><div class="shell header-inner">
-<a class="wordmark" href="index.html" aria-label="Stammtisch Social Club home"><img src="assets/crest-small.webp" width="56" height="56" alt=""><span>Stammtisch<small>Social Club</small></span></a>
-<nav aria-label="Main navigation"><a href="index.html#the-club">The Club</a><a href="celebration.html">Celebration of Life</a><a href="location.html">Annual Assembly</a></nav>
-</div></header>
+${siteHeader('annals')}
 <main id="main" class="shell">
 <section class="annal-hero"><div class="annal-hero-inner">
 <div><p class="eyebrow">The permanent record</p>
@@ -461,7 +458,7 @@ ${navigation}
 ${stream}${emptyState}
 <p class="annal-editorial-notice">${EDITORIAL_NOTICE}</p>
 </main>
-<footer class="site-footer"><div class="shell footer-inner"><p>The Stammtisch Social Club<span>A tradition of gathering.</span></p><nav aria-label="Footer navigation"><a href="index.html">The Club</a><a href="annals.html" aria-current="page">The Annals</a><a href="celebration.html">Celebration of Life</a><a href="location.html">The Annual Assembly</a></nav></div></footer>
+${siteFooter('annals')}
 </body></html>`;
   return { html, entryCount: accepted.length };
 }
