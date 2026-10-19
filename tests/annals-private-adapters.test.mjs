@@ -102,6 +102,54 @@ test('private derivative adapter strips metadata, deduplicates and holds failed 
   assert.ok(Buffer.from(set[0].base64,'base64').length<jpeg.length);assert.equal('base64' in saved[0].value[0],false);
   c.annalsImageConsentActive_=()=>false;assert.equal(c.annalsPhotoSet_('fictional',source,true).length,0);
 });
+test('qualified Drive previews of still HEIC HEIF PNG WebP enter the existing signed-JPEG gallery path',()=>{
+  const codec=require('../scripts/annals/JpegCodec.js');
+  const derivative=require('../scripts/annals/PhotoDerivative.js');
+  const data=new Uint8Array(800*800*4);
+  for(let i=3;i<data.length;i+=4)data[i]=255;
+  const preview=codec.encode({width:800,height:800,data},75).data;
+  const brands=(major,other)=>{
+    const b=Buffer.alloc(24);b.writeUInt32BE(24);b.write('ftyp',4);
+    b.write(major,8);b.write(other,16);b.write(major,20);return b;
+  };
+  const webp=Buffer.alloc(24);webp.write('RIFF');webp.writeUInt32LE(16,4);
+  webp.write('WEBP',8);webp.write('VP8 ',12);webp.writeUInt32LE(4,16);
+  const png=Buffer.alloc(57);Buffer.from([137,80,78,71,13,10,26,10]).copy(png);
+  png.writeUInt32BE(13,8);png.write('IHDR',12);png.writeUInt32BE(800,16);
+  png.writeUInt32BE(800,20);png.write('IDAT',37);png.write('IEND',49);
+  const formats=[['image/heic',brands('heic','mif1')],['image/heif',brands('mif1','heic')],
+    ['image/png',png],['image/webp',webp]];
+  for(const [mime,raw] of formats){
+    const files=new Map(),saved=[];
+    const origin={getBlob:()=>({getBytes:()=>[...raw]}),
+      getThumbnail:()=>({getContentType:()=> 'image/jpeg',getBytes:()=>[...preview]})};
+    files.set('original',origin);
+    const props={ANNALS_PHOTOS_GUARDED_JPEG_ENABLED:'true',
+      ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED:'true',ANNALS_AUTO_MEDIA_ENABLED:'true',
+      ANNALS_PHOTOS_V2_ENABLED:'true',ANNALS_SIGNING_REMEDIATED_AT:at};
+    const c=vm.createContext({AnnalsMedia:Media,AnnalsPhotos:Photos,
+      AnnalsJpegCodec:codec,AnnalsPhotoDerivative:derivative,
+      annalsProps_:()=>({getProperty:k=>props[k]||null}),annalsImageConsentActive_:()=>true,
+      annalsFolder_:()=>({createFile:blob=>{files.set(blob.name,blob);return blob;}}),
+      annalsFile_:(_,name)=>files.get(name)||null,annalsRead_:()=>null,
+      annalsPrivate_:v=>v,annalsHash_:v=>createHash('sha256').update(Buffer.from(v)).digest('hex'),
+      annalsWriteOnce_:(_f,name,value)=>saved.push({name,value}),
+      Utilities:{base64Encode:v=>Buffer.from(v).toString('base64'),
+        newBlob:(bytes,type,name)=>({bytes,type,name})}});
+    vm.runInContext(readFileSync(new URL('../scripts/annals/GuardedRelease.gs',import.meta.url),'utf8'),c);
+    vm.runInContext(photoSource,c);
+    const source={imageConsentAtReceipt:true,source:{sender:'fictional@example.test',receivedAt:at},
+      attachmentManifest:{items:[{index:1,storageName:'original',mime,accepted:true,size:raw.length}]}};
+    assert.equal(c.publishGuardedJpegOnly_(source),true,mime);
+    const set=c.annalsPhotoSet_('a'.repeat(64),source,true);assert.equal(set.length,1,mime);
+    const jpeg=Buffer.from(set[0].base64,'base64'),clean=Media.sanitize(jpeg,true);
+    assert.equal(clean.width,800);assert.equal(clean.height,800);
+    assert.deepEqual(clean.bytes,[...jpeg]);
+    assert.equal(set[0].sha256,createHash('sha256').update(jpeg).digest('hex'));
+    assert.deepEqual(saved.map(x=>x.name),['photos-v2-private.json']);
+    assert.equal('base64' in saved[0].value[0],false);
+  }
+});
 function ruleHarness(){
   const root='root',folder='source',files=new Map(),sent=[],dispatches=[];
   const get=(f,n)=>files.get(f+'/'+n)||null,put=(f,n,v)=>files.set(f+'/'+n,clone(v));
