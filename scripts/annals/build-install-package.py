@@ -100,7 +100,7 @@ not frozen in this installation kit. Do not reinstate an old token or reset its
 expiry property merely for an unrelated module update. Never invent or auto-extend
 a credential expiry.
 
-source-manifest.json records the exact source and each unchanged file digest.
+source-manifest.json records the exact source and SHA-256 digest of each packaged public module.
 Historical Code.gs, SyntheticPilot.gs and private QA files are excluded.
 """).encode()
     destination.parent.mkdir(parents=True, exist_ok=True)
