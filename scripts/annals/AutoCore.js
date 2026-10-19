@@ -68,46 +68,45 @@ var AnnalsAuto = (function () {
   var RAW_HEADER = /^\s*(?:from|sent|subject|to|cc|bcc)\s*:|^\s*>|^\s*--\s*$|<[^>]+>|\b(?:ignore previous instructions|system prompt|developer instructions|api key|publish this regardless|override safeguards)\b/i;
   var RECIPE_MATERIAL = /(?:^|\s)(?:\d+(?:[./]\d+|[¼½¾])?|[¼½¾])\s*(?:oz|ounces?|ml|cl|g|grams?|cups?|tbsp|tsp|dash(?:es)?|drops?|parts?)\b|^\s*(?:stir|shake|strain|garnish|mix|pour|blend|muddle|simmer|boil|add|combine|chill|serve|heat|steep)\b|\b\d+\s*:\s*\d+\s*(?:ratio|parts?)?\b/i;
   function safeField(value, allowMemberQuote) {
-    var lines = String(value || '').replace(/\r\n?/g, '\n').split('\n');
-    var result = [], changed = false, recipeMaterialRedacted = false;
+    // Apply the established sign-off cleaner, but never discard the actual
+    // authoritative private original. This also preserves harmless Markdown
+    // indentation and quantities when no redaction is necessary.
+    var lines = cleanText(String(value || '')).split('\n');
+    var result = [], changed = false, recipeMaterialRedacted = false, holdReason = null;
     lines.forEach(function (line) {
       if (!line.trim()) { if (result.length && result[result.length - 1]) result.push(''); return; }
-      var segments = line.split(/(?<=[.!?])\s+(?=[A-Z"“])/), kept = [];
+      var segments = line.split(/(?<=[.!?])\s+(?=[A-Z"“])/), kept = [], lineChanged = false;
       segments.forEach(function (sentence) {
         var text = sentence.trim();
         if (!text) return;
-        // Drop precisely the sentence when context is sensitive, defamatory,
-        // a mail header or an unqualified quotation. Do not silently rewrite
-        // an allegation into a factual statement about a member.
         var permittedSourceQuote = allowMemberQuote &&
           /^(?:(?:quote\s+(?:from|by)\s+)?(?:Justin|Fish|Marc|Matt|Ken|Jamie|Jerome)(?:\s+(?:said|remarked))?\s*:\s*)/i.test(text);
+        // Redact only the contact token or the explicitly labelled guest name.
+        // Unknown identity/rights and allegations cannot be made safe by
+        // arbitrarily substituting a person or inventing a narrative.
+        var masked = text.replace(CONTACT_TOKENS,'[DETAIL OMITTED]')
+          .replace(/\b(?:guest|visitor|colleague)\s+named\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b/g,
+            function(match) {return match.split(/\s+/)[0]+' [NAME OMITTED]';});
+        var quoteRisk=(THIRD_PARTY.test(masked)||MEMBER_REPORTED_SPEECH.test(masked))&&!permittedSourceQuote;
         if (RAW_HEADER.test(text) || ALLEGATION.test(text) || OMIT_SENTENCE.test(text) ||
-            THIRD_PARTY.test(text) && !permittedSourceQuote ||
-            MEMBER_REPORTED_SPEECH.test(text) && !permittedSourceQuote) {
+            quoteRisk || protectedText(masked)) {
           changed = true;
-          if (RECIPE_MATERIAL.test(text)) recipeMaterialRedacted = true;
+          lineChanged = true;
+          if(RECIPE_MATERIAL.test(text))recipeMaterialRedacted = true;
+          if(quoteRisk)holdReason = 'third_party_quotation_permission';
+          else if(!holdReason)holdReason = 'private_personal_or_sensitive_content';
           return;
         }
-        var masked = text.replace(CONTACT_TOKENS,'[DETAIL OMITTED]');
-        // The only automatically removable named guests are explicitly marked
-        // as such. Other unrecognised people require contextual review.
-        masked = masked.replace(/\b(?:guest|visitor|colleague)\s+named\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b/g,
-          'an unnamed guest');
-        if (masked !== text) changed = true;
-        // A quantity/method or quoted source changed by redaction cannot
-        // become a purportedly exact recipe step or verbatim quote.
-        if (masked !== text && RECIPE_MATERIAL.test(text)) recipeMaterialRedacted = true;
-        if (protectedText(masked) ||
-            MEMBER_REPORTED_SPEECH.test(masked) && !permittedSourceQuote) {
-          changed = true;
-          if (RECIPE_MATERIAL.test(text)) recipeMaterialRedacted = true;
-          return;
+        if(masked!==text) {
+          changed=true;lineChanged=true;
+          if(RECIPE_MATERIAL.test(text))recipeMaterialRedacted=true;
         }
         kept.push(masked);
       });
-      if (kept.length) result.push(kept.join(' '));
+      if(kept.length)result.push(lineChanged?kept.join(' '):line);
     });
-    return {text:result.join('\n').trim(),changed:changed,recipeMaterialRedacted:recipeMaterialRedacted};
+    return {text:result.join('\n').trim(),changed:changed,
+      recipeMaterialRedacted:recipeMaterialRedacted,holdReason:holdReason};
   }
   function safeSource(subject, excerpt, allowMemberQuote) {
     if (typeof subject !== 'string' || typeof excerpt !== 'string')
@@ -131,7 +130,7 @@ var AnnalsAuto = (function () {
     // Entirely sensitive bodies must not yield meaningless "Club note"
     // publication. Subject-only, genuinely safe member submissions are fine.
     if (!a.text&&!b.text || excerpt.trim()&&!b.text&&changed)
-      return {valid:false,reason:'no_safe_standalone_text'};
+      return {valid:false,reason:b.holdReason||a.holdReason||'no_safe_standalone_text'};
     var screened=[a.text,b.text].filter(Boolean).join('\n');
     if (!screened.trim() || screened.length>11000 || protectedText(screened))
       return {valid:false,reason:'private_personal_or_sensitive_content'};
