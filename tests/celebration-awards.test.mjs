@@ -122,6 +122,31 @@ test('at 100 Blue earns two Steals and Brown earns two Blood Diamonds, including
   }
 });
 
+test('prospective age-100 benefit retirement remains dormant until explicitly qualified', () => {
+  const data=season([member('example',100,[
+    pick('Earlier',{born:'1926-01-01',actualDeathDate:'2026-03-01',discoveryDate:'2026-03-02',points:10}),
+    pick('Release day',{born:'1926-01-01',actualDeathDate:'2026-05-20',discoveryDate:'2026-05-21',points:10}),
+    pick('Later ordinary',{born:'1926-01-01',actualDeathDate:'2026-07-01',discoveryDate:'2026-07-02',points:10}),
+    pick('Later Blue',{pick:1,born:'1926-01-01',actualDeathDate:'2026-07-03',discoveryDate:'2026-07-04',points:20}),
+    pick('Later Brown',{pick:50,born:'1926-01-01',actualDeathDate:'2026-07-05',discoveryDate:'2026-07-07',points:20})
+  ])]);
+  const before=JSON.stringify(data);
+  const baseline=calculateAwards(data).draft[0].benefits;
+  assert.deepEqual(baseline.map(b=>b.event),[
+    'Earlier','Release day','Later ordinary','Later Blue','Later Blue','Later Brown','Later Brown'
+  ]);
+  const pending=calculateAwards(data,{}, {age100PrivilegeEndsAt:'2026-05-20T17:00:00Z'}).draft[0].benefits;
+  assert.deepEqual(pending.map(b=>b.event),['Earlier','Release day','Later Blue','Later Brown']);
+  assert.equal(pending.find(b=>b.event==='Earlier').confirmed,true);
+  assert.equal(pending.find(b=>b.event==='Release day').confirmed,false);
+  assert.match(pending.find(b=>b.event==='Release day').reason,/needs individual verification/);
+  assert.deepEqual(pending.filter(b=>b.event==='Later Blue').map(b=>b.reason),['Blue Diamond']);
+  assert.deepEqual(pending.filter(b=>b.event==='Later Brown').map(b=>b.reason),['Brown Diamond']);
+  assert.equal(pending.some(b=>b.event==='Later ordinary'),false);
+  assert.deepEqual(calculateAwards(data,{}, {age100PrivilegeEndsAt:'not-a-date'}).draft[0].benefits,baseline);
+  assert.equal(JSON.stringify(data),before,'historical awarded points and sources were not changed');
+});
+
 test('same-day discoveries share a gap endpoint, equal gaps remain tied and the open gap is not awarded', () => {
   const data=season([member('a',5,[pick('Start',{actualDeathDate:'2026-01-01',discoveryDate:'2026-01-01'}),pick('End',{actualDeathDate:'2026-01-21',discoveryDate:'2026-01-21'})]),
     member('b',5,[pick('Middle',{actualDeathDate:'2026-01-11',discoveryDate:'2026-01-11'}),pick('Also middle',{pick:3,actualDeathDate:'2026-01-11',discoveryDate:'2026-01-11'})])]);
