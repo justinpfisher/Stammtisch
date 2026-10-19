@@ -51,7 +51,7 @@ var AnnalsAuto = (function () {
   // Owner attests all six approve ordinary use of their first names and
   // established club nicknames. This is not permission to attribute speech.
   // "Fish" is Justin's established nickname; others are not invented here.
-  var MEMBER_REPORTED_SPEECH = /\b(?:Justin|Fish|Marc|Matt|Ken|Jamie|Jerome)\s+(?:said|says|told|remarked|wrote|quoted|claimed)\b/i;
+  var REPORTED_SPEECH = /\b(?:[A-Z][a-z]+|guest|visitor|colleague)\s+(?:said|says|told|remarked|wrote|quoted|claimed)\b/i;
   function sourceGrounded(source, phrase) {
     return !!norm(phrase) && norm(source).indexOf(norm(phrase)) >= 0;
   }
@@ -87,7 +87,7 @@ var AnnalsAuto = (function () {
         var masked = text.replace(CONTACT_TOKENS,'[DETAIL OMITTED]')
           .replace(/\b(?:guest|visitor|colleague)\s+named\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b/g,
             function(match) {return match.split(/\s+/)[0]+' [NAME OMITTED]';});
-        var quoteRisk=(THIRD_PARTY.test(masked)||MEMBER_REPORTED_SPEECH.test(masked))&&!permittedSourceQuote;
+        var quoteRisk=(THIRD_PARTY.test(masked)||REPORTED_SPEECH.test(masked))&&!permittedSourceQuote;
         // A stand-alone request to contact an unpublished address has no
         // meaningful public content once its only detail has been removed.
         var contactOnly=masked!==text &&
@@ -333,7 +333,7 @@ var AnnalsAuto = (function () {
     full=[subject,body].filter(Boolean).join('\n').trim();
     if (candidate.category==='cocktail' && screened.recipeMaterialRedacted)
       return held('recipe_measure_or_step_uncertain');
-    if (MEMBER_REPORTED_SPEECH.test(full)) return held('third_party_quotation_permission');
+    if (REPORTED_SPEECH.test(full)) return held('third_party_quotation_permission');
     if (protectedText(full)) return held('private_personal_or_sensitive_content');
     var media = privateSource.attachmentManifest;
     if (!media || !Array.isArray(media.items) || !independentText(full)) return held('media_context_required');
