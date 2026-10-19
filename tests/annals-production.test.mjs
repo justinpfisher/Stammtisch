@@ -1542,7 +1542,7 @@ test('persistent safe-source pre-draft holds notify owner and authenticated memb
   assert.equal(messages[1].to,'member@example.test');
   assert.match(messages[0].body,/cannot safely proceed to automatic drafting/);
   assert.match(messages[0].body,/https:\/\/script\.google\.com\/macros\/s\/fictional-owner\/exec\?item=/);
-  assert.match(messages[1].body,/has not been published/);
+  assert.match(messages[1].body,/has not been confirmed/);
   assert.doesNotMatch(messages[1].body,/fictional-owner|someone@example.test|fictional detail|d{64}/);
   assert.equal(x.context.annalsResumeConsentedDrafts_(2),0);
   assert.equal(messages.length,2,'no repeat reminders or repeated attempts');
