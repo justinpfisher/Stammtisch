@@ -129,7 +129,9 @@ test('safe standalone text publishes even if an unrelated image is held privatel
   const s=sample();s.attachmentManifest.items=[{mime:'image/jpeg',size:1500}];
   assert.equal(policy.propose(s,draft(),id).eligible,true);
   s.source.excerpt += '\nSee attached photo.';
-  assert.equal(policy.propose(s,draft(),id).eligible,false);
+  const textWithoutHeldPhoto=policy.propose(s,draft(),id);
+  assert.equal(textWithoutHeldPhoto.eligible,true);
+  assert.equal(textWithoutHeldPhoto.entry.summary,sample().source.excerpt);
   const t=sample();t.attachmentManifest.held=true;
   assert.equal(policy.propose(t,draft(),id).eligible,true);
   const u=sample();u.attachmentManifest.items=[{mime:'image/png',size:100}];
@@ -511,7 +513,6 @@ test('member names are not sufficient to publish attributed speech, secrets or u
   const cases=[
     ['Ken said "The Lantern is glorious".','third_party_quotation_permission'],
     ['Jamie was accused of fraud.','private_personal_or_sensitive_content'],
-    ['Marc brought us to 200 Fictional Street.','private_personal_or_sensitive_content'],
     ['Email Marc at someone@example.test.','private_personal_or_sensitive_content']
   ];
   for (const [excerpt,reason] of cases){
@@ -522,6 +523,15 @@ test('member names are not sufficient to publish attributed speech, secrets or u
   }
 });
 
+
+  const contact={...sample(),source:{...sample().source,subject:'Fictional club note',
+    excerpt:'Marc brought us to 200 Fictional Street.'}};
+  const dContact={...draft(),category:'artefact',title:contact.source.subject,
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  const masked=policy.propose(contact,dContact,id);
+  assert.equal(masked.eligible,true);
+  assert.match(masked.entry.summary,/\[DETAIL OMITTED\]/);
+  assert.doesNotMatch(masked.entry.summary,/200 Fictional Street/);
 
 test('casual references to club rules remain Annals while actual CoL changes stay protected',()=>{
   assert.equal(policy.protectedRoute('A house rule','The fictional drink earned its own house rule.'),'annals');
