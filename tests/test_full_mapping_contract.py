@@ -259,6 +259,27 @@ class FullMappingContractTests(unittest.TestCase):
             "season_boundary_review"
         )
 
+    def test_new_draft_fails_as_season_transition_before_old_confirmations(self):
+        # A newly drafted member's list need not retain a person whose death
+        # was confirmed during 2026. Such changes must report the transition,
+        # not a false corruption of the preserved prior-season evidence.
+        source = public_as_sheet_cells()
+        baseline = sync.importer.import_data(None, PUBLIC["capturedAt"], CONFIRMATIONS,
+                                              sheets=source)
+        future = copy.deepcopy(source)
+        future["LEADERBOARD"]["A1"]["value"] = 2027
+        for member_id in sync.importer.MEMBERS:
+            future[member_id]["A1"]["value"] = serial("2027-01-03")
+        old = next(p for p in PUBLIC["members"][-1]["picks"] if p["name"] == "Dolly Parton")
+        self.assertEqual(old["pick"], 18)
+        future["jamie"][f"B{old['sourceRow']}"]["value"] = "Fictional Draft Replacement"
+        future["LEADERBOARD"][f"G{old['pick'] + 2}"]["value"] = "Fictional Draft Replacement"
+        with mock.patch.object(sync, "datetime") as clock:
+            clock.now.return_value = dt.datetime(2027, 1, 3, 12, tzinfo=dt.timezone.utc)
+            with self.assertRaisesRegex(ValueError, "New pool season requires review"):
+                sync.prepare(to_api(future), baseline, CONFIRMATIONS,
+                             "2027-01-03T12:00:00Z", allow_research=False)
+
     def test_unqualified_2027_source_season_remains_blocked(self):
         source = public_as_sheet_cells()
         baseline = sync.importer.import_data(None, PUBLIC["capturedAt"], CONFIRMATIONS,
