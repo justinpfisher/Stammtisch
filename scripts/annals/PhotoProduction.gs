@@ -158,8 +158,8 @@ function annalsStillPhotoSource_(original,item){
   var brands=[],major=word(8);
   brands.push(major);
   for(var i=16;i+4<=boxSize;i+=4)brands.push(word(i));
-  if(brands.includes('msf1')||brands.includes('avif')||brands.includes('avis'))return false;
-  return brands.some(function(x){return ['heic','heix','hevc','hevx','heim','heis','mif1'].includes(x);});
+  if(brands.some(function(x){return ['msf1','hevc','hevx','hevs','avif','avis'].includes(x);}))return false;
+  return brands.some(function(x){return ['heic','heix','heim','heis','mif1'].includes(x);});
 }
 function annalsPhotoSet_(id,source,create){
   if(typeof publishGuardedJpegOnly_==='function'&&!publishGuardedJpegOnly_(source))return [];
@@ -194,12 +194,27 @@ function annalsPhotoSet_(id,source,create){
         // thumbnail. Never publish its unchecked preview directly: validate
         // the source container, decode/orient/resize and re-encode pixels, then
         // use the established SHA-bound JPEG screening and signing pipeline.
-        if(!annalsStillPhotoSource_(original,item)||typeof AnnalsPhotoDerivative==='undefined'||
-            typeof AnnalsJpegCodec==='undefined')return;
-        var preview=original.getThumbnail();
-        if(!preview||preview.getContentType()!=='image/jpeg')return;
-        p=AnnalsPhotoDerivative.convert(preview.getBytes(),AnnalsJpegCodec,AnnalsMedia);
-        if(Math.max(p.width,p.height)<AnnalsPhotos.MIN_LONG_EDGE)return;
+        if(typeof AnnalsPhotoDerivative==='undefined'||typeof AnnalsJpegCodec==='undefined')return;
+        var prior=annalsRead_(f,'photo-conversion-'+item.index+'-private.json');
+        if(prior){
+          // A completed conversion is read back from its immutable marker and
+          // saved JPEG, even if Drive no longer supplies the original preview.
+          // A reserved, failed or uncertain conversion NEVER runs a second time.
+          p=annalsConvertPhotoOnce_(f,original,item);
+        }else{
+          if(!annalsStillPhotoSource_(original,item))return;
+          var preview=original.getThumbnail();
+          if(!preview||preview.getContentType()!=='image/jpeg')return;
+          var previewBytes=preview.getBytes(),preflight;
+          try{preflight=AnnalsMedia.sanitize(previewBytes,true);}catch(ignored){return;}
+          // Unavailable, malformed and undersized Drive previews are deferred
+          // before CPU-heavy decode. The scheduled private owner notice covers
+          // a genuine media-dependent submission after its one-hour grace.
+          if(Math.max(preflight.width,preflight.height)<AnnalsPhotos.MIN_LONG_EDGE)return;
+          p=annalsConvertPhotoOnce_(f,original,item,previewBytes);
+        }
+        if(!p)return;
+        p=AnnalsMedia.sanitize(p.bytes,true);
       }else{
         // Historical non-blob acceptance lane is unchanged. The current
         // guarded path above never uses unqualified low-resolution thumbnails.
@@ -222,7 +237,7 @@ function annalsPhotoSet_(id,source,create){
 
 // Pure JPEG conversion is CPU-heavy even without a provider call. Reserve once
 // per attachment before decoding; an interrupted execution never repeats it.
-function annalsConvertPhotoOnce_(folder,original,item){
+function annalsConvertPhotoOnce_(folder,original,item,previewBytes){
   if(!Number.isInteger(item.index)||item.index<0||item.index>255)return null;
   var markerName='photo-conversion-'+item.index+'-private.json',record=annalsRead_(folder,markerName);
   if(record){
@@ -234,7 +249,11 @@ function annalsConvertPhotoOnce_(folder,original,item){
   record={state:'attempt_reserved',at:new Date().toISOString(),attachmentIndex:item.index};
   annalsWriteOnce_(folder,markerName,record);
   try{
-    var converted=annalsQualifiedPhotoDerivative_(original,item);
+    // Reserve before all costly pixel decoding. JPEG decodes the authenticated
+    // original; other still formats decode only the qualified private JPEG
+    // preview already screened for size and container, never their raw bytes.
+    var converted=previewBytes===undefined ? annalsQualifiedPhotoDerivative_(original,item) :
+      AnnalsPhotoDerivative.convert(previewBytes,AnnalsJpegCodec,AnnalsMedia);
     if(!converted)throw new Error('Conversion held');
     var clean=AnnalsMedia.sanitize(converted.bytes,true);
     if(Math.max(clean.width,clean.height)<AnnalsPhotos.MIN_LONG_EDGE)throw new Error('Small derivative');
