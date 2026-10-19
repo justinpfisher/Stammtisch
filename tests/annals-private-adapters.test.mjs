@@ -150,6 +150,32 @@ test('qualified Drive previews of still HEIC HEIF PNG WebP enter the existing si
     assert.equal('base64' in saved[0].value[0],false);
   }
 });
+test('unsupported, animated, spoofed and malformed source containers cannot enter still-image preview conversion',()=>{
+  const c=vm.createContext({});vm.runInContext(photoSource,c);
+  const check=(mime,raw)=>{
+    const item={mime,accepted:true,size:raw.length};
+    return c.annalsStillPhotoSource_({getBlob:()=>({getBytes:()=>[...raw]})},item);
+  };
+  const png=Buffer.alloc(57);Buffer.from([137,80,78,71,13,10,26,10]).copy(png);
+  png.writeUInt32BE(13,8);png.write('IHDR',12);png.writeUInt32BE(800,16);
+  png.writeUInt32BE(800,20);png.write('IDAT',37);png.write('IEND',49);
+  const control=Buffer.alloc(20);control.writeUInt32BE(8);control.write('acTL',4);
+  const animatedPng=Buffer.concat([png.subarray(0,33),control,png.subarray(33)]);
+  const animatedWebp=Buffer.alloc(30);animatedWebp.write('RIFF');
+  animatedWebp.writeUInt32LE(animatedWebp.length-8,4);animatedWebp.write('WEBP',8);
+  animatedWebp.write('VP8X',12);animatedWebp.writeUInt32LE(10,16);animatedWebp[20]=2;
+  const sequence=Buffer.alloc(24);sequence.writeUInt32BE(24);sequence.write('ftyp',4);
+  sequence.write('msf1',8);sequence.write('heic',16);sequence.write('msf1',20);
+  assert.equal(check('image/png',animatedPng),false,'animated PNG');
+  assert.equal(check('image/webp',animatedWebp),false,'animated WebP');
+  assert.equal(check('image/heic',sequence),false,'HEIF sequence');
+  assert.equal(check('image/heic',png),false,'wrong MIME');
+  assert.equal(check('image/png',Buffer.from('<svg/>')),false);
+  assert.equal(check('image/gif',Buffer.from('GIF89a')),false);
+  assert.equal(check('image/png',png),true,'a normal still PNG remains eligible for preview');
+  assert.equal(c.annalsStillPhotoSource_({getBlob:()=>({getBytes:()=>[...png]})},
+    {mime:'image/png',size:png.length+1}),false,'source size mismatch');
+});
 function ruleHarness(){
   const root='root',folder='source',files=new Map(),sent=[],dispatches=[];
   const get=(f,n)=>files.get(f+'/'+n)||null,put=(f,n,v)=>files.set(f+'/'+n,clone(v));
