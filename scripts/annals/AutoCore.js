@@ -25,7 +25,6 @@ var AnnalsAuto = (function () {
   // "photograph") is NOT inherently a reason to suppress innocent text.
   var PRIVATE_DATA = /(?:\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b|https?:\/\/|www\.|\b(?:\+?1[- .]?)?\(?[2-9]\d{2}\)?[- .][2-9]\d{2}[- .]\d{4}\b|\b\d{1,5}\s+[\w'-]+\s+(?:street|st\.|avenue|ave\.|road|rd\.|drive|lane|boulevard|blvd\.)\b|\b(?:password|passcode|access code|door code|postal code|credit card|bank account|home address|private address|personal phone|private message|confidential|secret|medical diagnosis)\b|^\s*(?:from|sent|subject|to|cc|bcc)\s*:|^\s*>|^\s*--\s*$|<[^>]+>|\b(?:ignore previous instructions|system prompt|developer instructions|api key|publish this regardless|override safeguards)\b)/im;
   var ALLEGATION = /\b(?:accused of|allegedly|arrested for|charged with|fraud|assault|abuse|crime|criminal|illegal activity|diagnosed with|passed away|died by suicide)\b/i;
-  var IDENTIFYING = /\b(?:Justin|Marc|Matt|Ken|Jamie|Jerome)\b/i;
   var THIRD_PARTY = /\b(?:he said|she said|they said|he told me|she told me|they told me|according to|quoted from|overheard|guest named|colleague named|mr\.|mrs\.|dr\.)\b/i;
   var MEDIA_DEPENDENT = /\b(?:as pictured|in the photo|see (?:the )?(?:photo|image|picture|attachment|scan|file)|attached (?:photo|image|picture|recipe)|image says|photo shows|pictured here)\b/i;
   var NAMED_PERSON = /\b(?:with|by|from|said|called|named|met)[ \t]+[A-Z][a-z]+[ \t]+[A-Z][a-z]+\b/;
@@ -49,22 +48,17 @@ var AnnalsAuto = (function () {
   }
   function norm(value) { return String(value).trim().replace(/^\s*[-*•]\s*/, '').replace(/\s+/g, ' ').toLowerCase(); }
   function held(reason) { return { eligible: false, reason: reason }; }
-  // Ordinary recollections do not require named member attribution. Keep the
-  // submitted source private and replace first-name mentions only in the
-  // derivative. Quotes instead use the separate actual-speaker consent gate.
-  function redactMemberMentions(value) {
-    return String(value).replace(/\b(?:Justin|Marc|Matt|Ken|Jamie|Jerome)\b/gi, '[MEMBER]');
-  }
-  // Reported speech needs the distinct quotation permission even when the
-  // speaker's first name could otherwise be safely redacted.
-  var MEMBER_REPORTED_SPEECH = /\b(?:Justin|Marc|Matt|Ken|Jamie|Jerome)\s+(?:said|says|told|remarked|wrote|quoted|claimed)\b/i;
+  // Owner attests all six approve ordinary use of their first names and
+  // established club nicknames. This is not permission to attribute speech.
+  // "Fish" is Justin's established nickname; others are not invented here.
+  var MEMBER_REPORTED_SPEECH = /\b(?:Justin|Fish|Marc|Matt|Ken|Jamie|Jerome)\s+(?:said|says|told|remarked|wrote|quoted|claimed)\b/i;
   function sourceGrounded(source, phrase) {
     return !!norm(phrase) && norm(source).indexOf(norm(phrase)) >= 0;
   }
   function independentText(text) { return !MEDIA_DEPENDENT.test(text); }
   function protectedText(text) {
     return PRIVATE_DATA.test(text) || ALLEGATION.test(text) ||
-      IDENTIFYING.test(text) || THIRD_PARTY.test(text) || NAMED_PERSON.test(text);
+      THIRD_PARTY.test(text) || NAMED_PERSON.test(text);
   }
   var SPEAKERS = { justin:'fish', fish:'fish', marc:'marc', matt:'matt', ken:'ken', jamie:'jamie', jerome:'jerome' };
   function speakerId(value) { return SPEAKERS[String(value || '').trim().toLowerCase()] || null; }
@@ -140,7 +134,7 @@ var AnnalsAuto = (function () {
     var unexpectedSubjectIdentity = subjectSpeakers.length > 0 &&
       (subjectSpeakers.length !== 1 || subjectSpeakers[0] !== evidence.speakerPortrait);
     if (PRIVATE_DATA.test(full) || ALLEGATION.test(full) || THIRD_PARTY.test(full) ||
-        NAMED_PERSON.test(full) || IDENTIFYING.test(evidence.quote) ||
+        NAMED_PERSON.test(full) ||
         unexpectedSubjectIdentity || protectedText(evidence.quote))
       return held('private_personal_or_sensitive_content');
     var granted = speakerPermission && speakerPermission.speakerPortrait;
@@ -248,7 +242,7 @@ var AnnalsAuto = (function () {
       return proposeRemark(s, source, full, candidate, id, speakerPermission);
     }
     if (MEMBER_REPORTED_SPEECH.test(full)) return held('third_party_quotation_permission');
-    if (protectedText(redactMemberMentions(full))) return held('private_personal_or_sensitive_content');
+    if (protectedText(full)) return held('private_personal_or_sensitive_content');
     var media = privateSource.attachmentManifest;
     if (!media || !Array.isArray(media.items) || !independentText(full)) return held('media_context_required');
     if (!Array.isArray(candidate.riskFlags) || candidate.riskFlags.some(function (flag) {
@@ -258,11 +252,11 @@ var AnnalsAuto = (function () {
     if (!reasonableCategory(candidate.category, full)) return held('classification_not_supported');
     // Ignore unverified AI event dates; publish only the verified receipt period.
     if (typeof candidate.title !== 'string' || !candidate.title.trim() || candidate.title.length > 160 ||
-        protectedText(redactMemberMentions(candidate.title))) return held('title_missing_or_sensitive');
+        protectedText(candidate.title)) return held('title_missing_or_sensitive');
     // Model-created headlines are editorial labels, not historical evidence.
     // Prefer an innocuous original subject to unsupported model-created claims.
     var title = sourceGrounded(full,candidate.title) ? candidate.title.trim() : s.subject.trim();
-    if (!title || protectedText(redactMemberMentions(title)) || /(?:first ever|official record|unanimously decided|every member|all six were present)\b/i.test(title))
+    if (!title || protectedText(title) || /(?:first ever|official record|unanimously decided|every member|all six were present)\b/i.test(title))
       return held('title_asserts_unverified_fact');
     var recipe = candidate.recipe;
     if (!recipe || !Array.isArray(recipe.drinkIngredients) || !Array.isArray(recipe.syrupIngredients) || !Array.isArray(recipe.steps))
@@ -284,17 +278,17 @@ var AnnalsAuto = (function () {
     } else if (candidate.quoteVerbatim) return held('uncategorised_quote');
     var stamp = new Date(s.receivedAt);
     if (isNaN(stamp.getTime()) || stamp.getUTCFullYear() < 1990 || stamp.getUTCFullYear() > 2100) return held('invalid_receipt_date');
-    var entry = { id: 'annal-' + id.slice(0,24), category: candidate.category, title: censor(redactMemberMentions(title)),
-      summary: censor(redactMemberMentions(source)), year: stamp.getUTCFullYear(),
+    var entry = { id: 'annal-' + id.slice(0,24), category: candidate.category, title: censor(title),
+      summary: censor(source), year: stamp.getUTCFullYear(),
       dateLabel: 'Submitted ' + stamp.toISOString().slice(0,7), sortDate: '',
       quoteVerbatim: quote,
-      recipe: { drinkIngredients: recipe.drinkIngredients.map(function (line) { return censor(redactMemberMentions(line)); }),
-        syrupIngredients: recipe.syrupIngredients.map(function (line) { return censor(redactMemberMentions(line)); }),
-        steps: recipe.steps.map(function (line) { return censor(redactMemberMentions(line)); }),
+      recipe: { drinkIngredients: recipe.drinkIngredients.map(censor),
+        syrupIngredients: recipe.syrupIngredients.map(censor),
+        steps: recipe.steps.map(censor),
         ...(candidate.category === 'cocktail' && !recipe.steps.length ? { suggestedSteps: suggestedMethod(recipe, source) } : {}) },
       credit: 'anonymous' };
     return { eligible: true, entry: entry, mode: MODE };
   }
-  return Object.freeze({ MODE: MODE, QUOTE_MODE: QUOTE_MODE, NOTICE: NOTICE, sensitiveText: protectedText, protectedRoute: protectedRoute, censor: censor, redactMemberMentions: redactMemberMentions, cleanText: cleanText, quotationEvidence: quotationEvidence, independentText: independentText, suggestedMethod: suggestedMethod, propose: propose });
+  return Object.freeze({ MODE: MODE, QUOTE_MODE: QUOTE_MODE, NOTICE: NOTICE, sensitiveText: protectedText, protectedRoute: protectedRoute, censor: censor, cleanText: cleanText, quotationEvidence: quotationEvidence, independentText: independentText, suggestedMethod: suggestedMethod, propose: propose });
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = AnnalsAuto;
