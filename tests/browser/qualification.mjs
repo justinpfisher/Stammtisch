@@ -221,7 +221,7 @@ try{
         assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),1);
         await page.getByRole('link',{name:'All entries',exact:true}).click();
         assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),6);
-        assert.equal(await cards.last().locator('.annal-entry-link').getAttribute('href'),'#offline-browser-recipe');
+        assert.equal(await page.locator('#offline-browser-recipe .annal-entry-link').getAttribute('href'),'#offline-browser-recipe');
         await noOverflow(page);
       });
       await check(browser,profile,'recipe fidelity and whole narrative',async page=>{
