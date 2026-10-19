@@ -2,6 +2,16 @@
 
 [Current state](current-state.md) is the single production reference; [publication guidelines](annals-publication-guidelines.md) define content/rights. This runbook describes recurring operations and changes. Older launch procedures remain in Git history and dated evidence, not as prerequisites to routine updates.
 
+## Temporary owner-only read-only diagnostics
+
+After the reviewed PR #144 code is installed in the existing private project, two editor functions help reconcile the Version 46 exceptions. They are not new release gates or scheduled tasks.
+
+`annalsRecipeRecoveryReadbackInEditor(itemId)` checks the existing private recipe's exact eligibility, rights and one-shot markers without publishing, spending, or changing state. Use only the real item identifier privately in the authenticated editor. Its Boolean results and fixed reason codes identify a blocker; a green result does not authorise blind repetition of an uncertain operation.
+
+`annalsInboxCoverageReadbackInEditor()` compares a bounded sample of up to 20 Inbox threads and 80 messages with existing staging and notice records, returning aggregate counts only. Missing source counts require inspection in the dedicated Inbox and are not proof that legitimate mail was lost. The bounded sample is not complete mailbox reconciliation. No mail state, cursor, content, journal, trigger or credential is modified.
+
+An old held draft that already has its owner notice may receive one previously missing generic contributor notice in the normal existing intake cycle, with no AI or dispatch retry. Retire these temporary diagnostics after the documented exception is resolved.
+
 ## Routine operation
 
 The existing dedicated Gmail → private Drive/Apps Script → signed GitHub publisher → Pages service is established. One existing **15-minute `runAnnalsProductionIntake` HEAD trigger** handles intake and reconciliation. The private desk is owner-only. Do not recreate accounts, stamp activation, reset cursors, register existing consents again, clear attempts or rerun billed diagnostics.

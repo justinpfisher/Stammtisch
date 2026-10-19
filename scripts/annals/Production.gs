@@ -733,7 +733,15 @@ function annalsResumeConsentedDrafts_(limit) {
     }
     if (annalsFile_(folder, 'draft-private.json')) {
       var dispatched = annalsAutoAttemptSafe_(folder, id);
-      if (!dispatched && !annalsFile_(folder, 'draft-notice-private.json')) annalsNotifyDraftReady_(folder);
+      if (!dispatched) {
+        if (!annalsFile_(folder, 'draft-notice-private.json')) annalsNotifyDraftReady_(folder);
+        else if (!annalsFile_(folder, 'contributor-hold-notice-private.json')) {
+          // Older holds already have an owner notice. Give the verified member
+          // the missing once-only status without rewriting old evidence or
+          // repeating a provider or publication attempt.
+          try { annalsNotifyContributorHeld_(folder); } catch (ignored) {}
+        }
+      }
       continue;
     }
     // A fresh legitimate submission has one normal processing hour before
@@ -1653,6 +1661,114 @@ function annalsAutoPublishCandidate_(id, allowHeldRecovery) {
  * recipe after a deterministic matching fix. No AI call, journal reset,
  * automatic replay or unsupported media release is authorised.
  */
+/** Owner-only, read-only explanation of an existing recipe's one-shot exception.
+ * Inspect exactly one retained private item. Never return source, identity,
+ * keys, message IDs, or consent evidence; never reserve any attempt or send.
+ * This is a diagnostic, NOT authorisation to retry uncertain operations.
+ */
+function annalsRecipeRecoveryReadbackInEditor(itemId) {
+  annalsOwner_();
+  if (!/^[a-f0-9]{64}$/.test(itemId || '')) throw new Error('Exact existing item identity required');
+  var p=annalsProps_(),f=annalsFolder_(itemId),
+    source=annalsRead_(f,'source-private.json'),
+    draft=annalsRead_(f,'draft-private.json'),
+    held=annalsRead_(f,'auto-decision-private.json'),
+    sender=source&&source.source&&String(source.source.sender||'').toLowerCase()||'',
+    complete=!!(source&&source.source&&!source.source.sourceTruncated&&!source.source.subjectTruncated&&!source.source.excerptTruncated),
+    allowed=AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS')||''),
+    pResult=null;
+  try {
+    if(source&&draft)pResult=AnnalsAuto.propose(source,draft,itemId,null);
+  }catch(ignored){pResult={eligible:false,reason:'policy_evaluation_error'};}
+  var checks={
+    immutableSourcePresent:!!source,
+    exactSourceIdentity:!!source&&source.sourceId===itemId,
+    authenticatedOriginal:!!source&&source.senderAuthenticated===true,
+    privateAiPermissionAtReceipt:!!source&&source.aiConsentActive===true,
+    standingTextPermissionAtReceipt:!!source&&source.autoConsentAtReceipt===true,
+    originalComplete:complete,
+    cocktailDraftPresent:!!draft&&draft.category==='cocktail',
+    originalHeldForRecipe:!!held&&held.state==='held'&&held.reason==='recipe_measure_or_step_uncertain',
+    originalAiAttemptPresent:!!annalsFile_(f,'ai-attempt-private.json'),
+    noQuarantine:!annalsFile_(f,'quarantine-private.json'),
+    noRemoval:!annalsFile_(f,'removal-private.json'),
+    noApproval:!annalsFile_(f,'approval-private.json'),
+    noPublicationDispatch:!annalsFile_(f,'publication-dispatch-private.json'),
+    noRecoveryReservation:!annalsFile_(f,'reassessment-attempt-private.json'),
+    noRecoveryDecision:!annalsFile_(f,'auto-reassessment-private.json'),
+    senderAllowed:!!sender&&allowed.indexOf(sender)>=0,
+    afterActivation:complete&&Number.isFinite(Date.parse(source.source.receivedAt))&&
+      Date.parse(source.source.receivedAt)>=Date.parse(p.getProperty('ANNALS_ACTIVATED_AT')),
+    currentAiGrant:!!sender&&annalsConsentActive_(sender)===true,
+    currentStandingTextGrant:!!sender&&complete&&annalsStandingPublicationActive_(sender,source.source.receivedAt)===true,
+    deterministicTextEligible:!!pResult&&pResult.eligible===true
+  };
+  return {readOnly:true,singleItem:true,checkedAt:new Date().toISOString(),
+    checks:checks,eligibleForInitialReservation:Object.keys(checks).every(function(k){return checks[k]===true;}),
+    deterministicHoldReason:pResult&&pResult.eligible===false?
+      String(pResult.reason||'policy_evaluation_error').slice(0,90):'',
+    releaseAttempted:false,providerCalled:false,settingsChanged:false};
+}
+
+/** Bounded, one-time owner-only coverage sample from the EXISTING mailbox.
+ * Does not change mail, markers, cursors, content or provider reservations.
+ * Sample counts are deliberately not an assertion of all-mailbox coverage.
+ */
+function annalsInboxCoverageReadbackInEditor() {
+  annalsOwner_();
+  var root=annalsRoot_(),p=annalsProps_(),
+    allowed=AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS')||''),
+    threads=GmailApp.getInboxThreads(0,21),
+    sample=threads.slice(0,20),examined=0,possible=0,staged=0,unmatched=0,
+    stagedUnauthenticated=0,sourceHeld=0,ownerNoticePresent=0,
+    contributorNoticePresent=0,dispatchAttemptPresent=0,liveVerified=0,
+    sourcePreStagingExceptions=0,missingOlderMessageCount=0,invalidMessages=0;
+  var seen={},messageLimit=80;
+  for(var ti=0;ti<sample.length&&examined<messageLimit;ti++){
+    var messages=sample[ti].getMessages(),start=Math.max(0,messages.length-10);
+    missingOlderMessageCount+=start;
+    for(var mi=start;mi<messages.length&&examined<messageLimit;mi++){
+      examined++;
+      var m=messages[mi],messageId='',address='';
+      try{messageId=m.getId();address=AnnalsPilot.senderAddress(m.getFrom());}
+      catch(ignored){invalidMessages++;continue;}
+      if(!messageId||seen[messageId])continue;
+      seen[messageId]=true;
+      if(allowed.indexOf(address)<0)continue; // notices/unknown senders are not member intake evidence
+      possible++;
+      var id=annalsHash_(messageId),matches=root.getFoldersByName(id);
+      if(!matches.hasNext()){unmatched++;continue;}
+      var folder=annalsPrivate_(matches.next());
+      if(matches.hasNext()){invalidMessages++;continue;}
+      var source=annalsRead_(folder,'source-private.json');
+      if(!source){
+        unmatched++;
+        if(annalsFile_(folder,'intake-staging-error-private.json'))sourcePreStagingExceptions++;
+        continue;
+      }
+      staged++;
+      if(source.senderAuthenticated!==true)stagedUnauthenticated++;
+      if(annalsFile_(folder,'auto-decision-private.json')&&
+          (annalsRead_(folder,'auto-decision-private.json')||{}).state==='held')sourceHeld++;
+      if(annalsFile_(folder,'draft-notice-private.json'))ownerNoticePresent++;
+      if(annalsFile_(folder,'contributor-hold-notice-private.json'))contributorNoticePresent++;
+      if(annalsFile_(folder,'publication-dispatch-private.json'))dispatchAttemptPresent++;
+      if(annalsFile_(folder,'auto-live-verification-private.json'))liveVerified++;
+    }
+  }
+  return {readOnly:true,sampleOnly:true,rawSenderOrContentReturned:false,
+    inboxThreadCountInWindow:sample.length,moreThreadsBeyondWindow:threads.length>20,
+    examinedMessages:examined,olderMessagesNotExamined:missingOlderMessageCount,
+    messageLimitReached:examined>=messageLimit,invalidMessages:invalidMessages,
+    possibleAllowedSenderMessages:possible,withPrivateStagingSource:staged,
+    withoutPrivateStagingSource:unmatched,stagedButSenderUnverified:stagedUnauthenticated,
+    heldDecisionSeen:sourceHeld,ownerHoldNoticesRecorded:ownerNoticePresent,
+    contributorHoldNoticesRecorded:contributorNoticePresent,
+    dispatchAttemptMarkersSeen:dispatchAttemptPresent,verifiedLiveMarkersSeen:liveVerified,
+    preSourceStagingExceptionMarkers:sourcePreStagingExceptions,
+    noMailOrJournalChanges:true,noProviderCalls:true};
+}
+
 function annalsReassessHeldRecipe(nonce,id,confirmed){
   return annalsUiCall_(nonce,function(){return annalsLocked_(function(){
     var owner=annalsOwner_(),p=annalsProps_();
