@@ -1611,6 +1611,20 @@ function annalsApproveCorrection(nonce, id, expectedHash, consents, evidenceNote
     if(original.entry.photos && !annalsStandingGalleryCorrectionAllowed_(annalsRead_(folder,'source-private.json'),original.entry,folder))throw new Error('Gallery permission is no longer active');
     if(original.entry.photos)consents=Object.assign({},consents,{photoPublication:true});
     var entry = AnnalsProduction.publicEntry(review.entry), key = annalsProps_().getProperty('ANNALS_APPROVAL_KEY') || '';
+    // Reuse verified original permissions only for a photo-only correction.
+    // The new photograph still requires its own explicit permission.
+    if (entry.photo && !original.entry.photo && !original.entry.photos) {
+      var unchangedEntry = Object.assign({}, entry);
+      delete unchangedEntry.photo;
+      if (AnnalsProduction.serial(unchangedEntry) ===
+          AnnalsProduction.serial(original.entry)) {
+        var priorConsents = original.receipt.consents || {};
+        consents = Object.assign({}, consents, {
+          recipeVerified: priorConsents.recipeVerified === true,
+          namedAttribution: priorConsents.namedAttribution === true
+        });
+      }
+    }
     var receipt = { entryId: entry.id, approvedAt: new Date().toISOString(), reviewedBy: annalsOwner_(),
       consents: AnnalsProduction.consents(entry, consents), contentSha256: expectedHash };
     receipt.signature = annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial({ entry: entry, receipt: receipt }), key, Utilities.Charset.UTF_8));
