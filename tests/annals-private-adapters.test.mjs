@@ -3,6 +3,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import Media from '../scripts/annals/MediaCore.js';
