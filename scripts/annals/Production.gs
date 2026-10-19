@@ -1236,7 +1236,7 @@ function annalsNotifyContributorHeld_(folder) {
   var delivery='unknown_no_retry';
   try {
     GmailApp.sendEmail(sender,'Your Stammtisch Annals submission needs attention',
-      'Your contribution was received but has not been published. A private exception needs review. Please do not resend it unless asked. You will receive a separate link when publication is verified.');
+      'Your contribution was received, but publication on the public website has not been confirmed. A private exception needs review. Please do not resend it unless asked. You will receive a separate link when publication is verified.');
     delivery='sent';
   } catch (ignored) {}
   annalsFile_(folder,'contributor-hold-notice-private.json').setContent(
@@ -1742,6 +1742,7 @@ function annalsVerifyAutomaticPublications_(limit) {
         'A signed automatic submission remains unverified after 24 hours. Check the existing Annals GitHub Actions and Pages runs. Do not resend blindly.\n\n' +
         p.getProperty('ANNALS_REVIEW_URL') + '?item=' + encodeURIComponent(id)); }
       catch (ignored) {}
+      try { annalsNotifyContributorHeld_(folder); } catch (ignored) {}
     }
     try {
       var query = '?checked=' + encodeURIComponent(id.slice(0, 16)) + '-' + String(Date.now());
