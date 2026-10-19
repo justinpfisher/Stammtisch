@@ -78,3 +78,76 @@ test('a direct held-item link opens before listing, consent refresh or speaker l
   assert.match(start,/initReviewDesk\(\);/);
   assert.match(ui,/el\('refreshConsent'\)\.onclick=|el\('loadSpeakerMap'\)\.onclick=/);
 });
+
+
+test('private review desk presents both owner-only diagnostic reads without invoking the editor function picker',()=>{
+  const inline=ui.match(/<script>([\s\S]*?)<\/script>/)[1];
+  assert.doesNotThrow(()=>new vm.Script(inline));
+  assert.match(ui,/<button id="readInboxCoverage" type="button">Check sampled inbox status<\/button>/);
+  assert.match(ui,/<pre id="inboxCoverageResult" aria-label="Private inbox coverage counts"><\/pre>/);
+  assert.match(ui,/<button id="readRecipeRecoveryGates" type="button">Check saved recipe status — read only<\/button>/);
+  assert.match(ui,/<pre id="recipeRecoveryReadback" aria-label="Saved recipe eligibility checks"><\/pre>/);
+  assert.match(inline,/call\(method,\.\.\.args\)/);
+  assert.match(inline,/ownerReadback\('readInboxCoverage','inboxCoverageResult','annalsInboxCoverageReadbackInEditor'\)/);
+  assert.match(inline,/ownerReadback\('readRecipeRecoveryGates','recipeRecoveryReadback','annalsRecipeRecoveryReadbackInEditor',current\.id\)/);
+  assert.match(ui,/This does NOT verify a previous attempt or authorise a retry/);
+  assert.match(ui,/reconcile previous journals before any release/);
+  assert.match(ui,/No operation was repeated/);
+  assert.doesNotMatch(inline.slice(inline.indexOf('// These owner-only reads'),inline.indexOf('function attemptMessage')),
+    /annalsReassessHeldRecipe|annalsPublishApproved|annalsPrepareDraft|annalsDispatch/);
+});
+
+test('read-only diagnostics show bounded results and failed gate names without any retry or full-button lock',async()=>{
+  const inline=ui.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const start=inline.indexOf('async function ownerReadback('),end=inline.indexOf('function attemptMessage(',start);
+  assert.ok(start>=0&&end>start);
+  const elements=new Map(),calls=[],messages=[];
+  const get=id=>{
+    if(!elements.has(id))elements.set(id,{disabled:false,textContent:''});
+    return elements.get(id);
+  };
+  const sandbox={el:get,say:v=>messages.push(v),
+    call:async(name,...args)=>{
+      calls.push({name,args});
+      if(name==='annalsRecipeRecoveryReadbackInEditor')
+        return {readOnly:true,eligibleForInitialReservation:false,
+          checks:{sourcePresent:true,currentStandingTextGrant:false,noPublicationDispatch:true},
+          releaseAttempted:false,providerCalled:false,settingsChanged:false};
+      if(name==='annalsInboxCoverageReadbackInEditor')
+        return {readOnly:true,sampleOnly:true,examinedMessages:12,withoutPrivateStagingSource:1,noMailOrJournalChanges:true};
+      throw Error('Unanticipated method');
+    }};
+  const ctx=vm.createContext(sandbox);
+  vm.runInContext(inline.slice(start,end),ctx);
+  await ctx.ownerReadback('readRecipeRecoveryGates','recipeRecoveryReadback',
+    'annalsRecipeRecoveryReadbackInEditor','e'.repeat(64));
+  assert.match(get('recipeRecoveryReadback').textContent,/currentStandingTextGrant/);
+  assert.match(get('recipeRecoveryReadback').textContent,/Failed checks/);
+  assert.equal(get('readRecipeRecoveryGates').disabled,false);
+  await ctx.ownerReadback('readInboxCoverage','inboxCoverageResult','annalsInboxCoverageReadbackInEditor');
+  assert.match(get('inboxCoverageResult').textContent,/examinedMessages/);
+  assert.match(get('inboxCoverageResult').textContent,/Bounded inbox sample only/);
+  assert.equal(get('readInboxCoverage').disabled,false);
+  assert.deepEqual(calls.map(x=>x.name),
+    ['annalsRecipeRecoveryReadbackInEditor','annalsInboxCoverageReadbackInEditor']);
+  assert.equal(calls[0].args.length,1);
+  assert.equal(calls[1].args.length,0);
+  assert.ok(messages.every(x=>!x.includes('published')));
+});
+
+test('desk diagnostic errors stay visible but are never automatically repeated',async()=>{
+  const inline=ui.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const src=inline.slice(inline.indexOf('async function ownerReadback('),inline.indexOf('function attemptMessage('));
+  const nodes=new Map(),calls=[],messages=[];
+  const ctx=vm.createContext({
+    el:id=>{if(!nodes.has(id))nodes.set(id,{textContent:'',disabled:false});return nodes.get(id);},
+    say:value=>messages.push(value),
+    call:async(method)=>{calls.push(method);throw Error('Private permission unavailable');}
+  });
+  vm.runInContext(src,ctx);
+  await ctx.ownerReadback('readInboxCoverage','inboxCoverageResult','annalsInboxCoverageReadbackInEditor');
+  assert.equal(calls.length,1);
+  assert.equal(nodes.get('readInboxCoverage').disabled,false);
+  assert.match(nodes.get('inboxCoverageResult').textContent,/No operation was repeated/);
+  assert.equal(messages[0],'Private permission unavailable');
+});
