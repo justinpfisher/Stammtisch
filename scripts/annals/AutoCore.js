@@ -167,23 +167,35 @@ var AnnalsAuto = (function () {
     if (category === 'quotation') return /\b(?:my quote|i said|i wrote)\b/i.test(source);
     return true;
   }
+  // Compare a recipe against the source without treating email/Markdown
+  // decoration as ingredients. Never normalise quantities, units or wording.
+  // Original formatting remains untouched in the private source journal.
+  function recipeComparable(value) {
+    return String(value).normalize('NFC').split(/\r?\n/).map(function (line) {
+      return line.trim()
+        .replace(/^(?:[-•]\s+|\d+[.)]\s+)/, '')
+        .replace(/\*\*([^*]+)\*\*/g, '$1').replace(/__([^_]+)__/g, '$1')
+        .replace(/\*([^*]+)\*/g, '$1').replace(/_([^_]+)_/g, '$1');
+    }).join(' ').replace(/\s+/g, ' ').trim().toLowerCase();
+  }
   function sourceRecipeGrounded(source, recipe) {
     if (!recipe || !Array.isArray(recipe.drinkIngredients) || !Array.isArray(recipe.syrupIngredients) ||
         !Array.isArray(recipe.steps)) return false;
     var all = recipe.drinkIngredients.concat(recipe.syrupIngredients, recipe.steps);
     if (!recipe.drinkIngredients.length || all.length > 60 ||
-        all.some(function (line) { return typeof line !== 'string' || !sourceGrounded(source,line); })) return false;
+        all.some(function (line) { return typeof line !== 'string' || !recipeComparable(line) ||
+          recipeComparable(source).indexOf(recipeComparable(line)) < 0; })) return false;
     // Every original measurement line must be retained. Editorial commentary,
     // headings and informal banter do not have to be copied into the recipe.
-    var quantity = /(?:^|\s)(?:\d+(?:[./]\d+)?|[¼½¾])\s*(?:oz\b|ounces?\b|ml\b|mL\b|cl\b|g\b|grams?\b|cups?\b|tbsp\b|tsp\b|dash(?:es)?\b|drops?\b|parts?\b)/i;
-    var measurementLines = source.split(/\r?\n/).map(norm).filter(function (line) { return quantity.test(line); });
+    var quantity = /(?:^|\s)(?:\d+(?:[./]\d+|[¼½¾])?|[¼½¾])\s*(?:oz\b|ounces?\b|ml\b|mL\b|cl\b|g\b|grams?\b|cups?\b|tbsp\b|tsp\b|dash(?:es)?\b|drops?\b|parts?\b)/i;
+    var measurementLines = source.split(/\r?\n/).map(recipeComparable).filter(function (line) { return quantity.test(line); });
     if (measurementLines.some(function (line) {
-      return !all.some(function (part) { return norm(part) === line; });
+      return !all.some(function (part) { return recipeComparable(part) === line; });
     })) return false;
     var method = /^(?:stir|shake|strain|garnish|mix|pour|blend|muddle|simmer|boil|add|combine|chill|serve|heat|steep)\b/i;
-    var submittedSteps = source.split(/\r?\n/).map(norm).filter(function (line) { return method.test(line); });
+    var submittedSteps = source.split(/\r?\n/).map(recipeComparable).filter(function (line) { return method.test(line); });
     if (submittedSteps.some(function (line) {
-      return !recipe.steps.some(function (part) { return norm(part) === line; });
+      return !recipe.steps.some(function (part) { return recipeComparable(part).startsWith(line); });
     })) return false;
     // A submitted syrup preparation is material, not an optional flourish.
     // Missing syrup instructions are eligible for a separately labelled

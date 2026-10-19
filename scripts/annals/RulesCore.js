@@ -22,7 +22,7 @@ var AnnalsRules = (function () {
     if(['operative','discussion','question','quotation','joke','recollection','unclear'].indexOf(assessment.intent)<0)throw new Error('Unknown intent');
     if(assessment.intent!=='operative')return {state:assessment.intent==='unclear'?'awaiting_clarification':'discussion',question:assessment.clarification||'Did you intend this as an operative CoL rule change?'};
     text(assessment.requestExcerpt,6000);
-    if(source.text.indexOf(assessment.requestExcerpt)<0)throw new Error('Request mapping must match original source');
+    if(source.text.replace(/\r\n?/g,'\n').indexOf(assessment.requestExcerpt.replace(/\r\n?/g,'\n'))<0)throw new Error('Request mapping must match original source');
     if(!Array.isArray(assessment.changes)||!assessment.changes.length||assessment.changes.length>8)throw new Error('Bounded CoL provisions required');
     var seen={};
     var changes=assessment.changes.map(function(c){
@@ -30,7 +30,7 @@ var AnnalsRules = (function () {
       if(!Object.prototype.hasOwnProperty.call(base.provisions,c.provision)||seen[c.provision]||base.provisions[c.provision]!==c.before)
         throw new Error('Stale or unknown CoL provision');
       seen[c.provision]=true;text(c.after,6000);text(c.sourceExcerpt,2000);
-      if(source.text.indexOf(c.sourceExcerpt)<0||c.after===c.before||c.after.split('\n')[0]!==c.before.split('\n')[0])throw new Error('Exact source and provision boundary required');
+      if(source.text.replace(/\r\n?/g,'\n').indexOf(c.sourceExcerpt.replace(/\r\n?/g,'\n'))<0||c.after===c.before||c.after.split('\n')[0]!==c.before.split('\n')[0])throw new Error('Exact source and provision boundary required');
       if(/^#(?!## )|^## /m.test(c.after.slice(c.after.indexOf('\n')+1)))throw new Error('Change exceeds provision boundary');
       return copy(c);
     });
@@ -49,6 +49,31 @@ var AnnalsRules = (function () {
       baseVersion:base.id,baseDigest:base.digest,state:questions.length?'awaiting_clarification':'awaiting_implementation',
       explanation:text(assessment.explanation,1000),changes:changes,retrospective:copy(retro),questions:questions,
       requestExcerpt:assessment.requestExcerpt,correctionOf:assessment.correctionOf?source.text.indexOf(assessment.correctionOf)>=0?id(assessment.correctionOf):(function(){throw new Error('Correction reference must be explicit');})():null};
+  }
+  // A complete member-authored replacement can be retained for deterministic
+  // engineering review even if the one-shot AI response invents a source span.
+  // This outline never qualifies, adopts, publishes or executes rules.
+  function fullRewriteOutline(source,base,revisionId) {
+    if(!source||source.senderAuthenticated!==true||source.freshOperativeWindow!==true||
+       source.replayed===true||source.truncated===true||MEMBERS.indexOf(source.member)<0||
+       typeof source.text!=='string'||source.text.length>38000||
+       !base||!base.id||!/^[a-f0-9]{64}$/.test(base.digest||''))throw new Error('Original authenticated source and operative base required');
+    var original=source.text.replace(/\r\n?/g,'\n');
+    if(!/\b(?:complete|full)\s+(?:updated|revised|replacement|new)\s+(?:col\s+|celebration of life(?: pool)?\s+)?rules\b/i.test(original.slice(0,900)))
+      throw new Error('Complete operative rewrite intent is not established');
+    var header=original.search(/^\s*CELEBRATION OF LIFE POOL\s*$/m);
+    if(header<0)throw new Error('Submitted rule document header is absent');
+    var lines=original.slice(header).split('\n'),sections=[];
+    lines.forEach(function(line,index){
+      var heading=line.trim();
+      if(heading.length>=3&&heading.length<=72&&/^[A-Z][A-Z0-9 &\/’'\-]+$/.test(heading)&&/[A-Z]{3}/.test(heading) &&
+         !/^\d+$/.test(heading))sections.push({heading:heading,line:index+1});
+    });
+    if(sections.length<3||sections.length>35)throw new Error('Complete rule document sections cannot be identified');
+    return {kind:'complete-member-rewrite-outline-v1',state:'awaiting_implementation',
+      revisionId:id(revisionId),baseVersion:base.id,baseDigest:base.digest,
+      receivedAt:stamp(source.receivedAt),sections:sections,
+      meaningVerified:false,regressionPassed:false,published:false,providerCalled:false};
   }
   function qualify(revision,base,evidence){
     if(revision.state!=='awaiting_implementation'||revision.baseVersion!==base.id||revision.baseDigest!==base.digest)throw new Error('Stale base requires renewed interpretation');
@@ -170,6 +195,6 @@ var AnnalsRules = (function () {
       explanation:text(r.explanation,1000),changes:r.changes.map(function(c){return {provision:text(c.provision,100),before:text(c.before,6000),after:text(c.after,6000)};}),
       correctionOf:r.correctionOf===null?null:id(r.correctionOf)};
   }
-  return Object.freeze({provisions:provisions,intake:intake,qualify:qualify,publish:publish,select:select,publicRecord:publicRecord,stamp:stamp,typography:typography,literalWording:literalWording,editorialRewrite:editorialRewrite,oldestSteal:oldestSteal,acceptanceDescriptor:acceptanceDescriptor,OLDEST_DEATH_STEAL_CLAUSE:OLDEST_DEATH_STEAL_CLAUSE,OLDEST_DEATH_STEAL_EXPLANATION:OLDEST_DEATH_STEAL_EXPLANATION});
+  return Object.freeze({provisions:provisions,intake:intake,fullRewriteOutline:fullRewriteOutline,qualify:qualify,publish:publish,select:select,publicRecord:publicRecord,stamp:stamp,typography:typography,literalWording:literalWording,editorialRewrite:editorialRewrite,oldestSteal:oldestSteal,acceptanceDescriptor:acceptanceDescriptor,OLDEST_DEATH_STEAL_CLAUSE:OLDEST_DEATH_STEAL_CLAUSE,OLDEST_DEATH_STEAL_EXPLANATION:OLDEST_DEATH_STEAL_EXPLANATION});
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=AnnalsRules;

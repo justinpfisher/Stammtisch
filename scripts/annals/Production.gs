@@ -1215,11 +1215,23 @@ function annalsNotifyDraftReady_(folder) {
   if (annalsFile_(folder, 'draft-notice-private.json')) return false;
   var p = annalsProps_(), reviewUrl = p.getProperty('ANNALS_REVIEW_URL');
   if (!reviewUrl || !/^https:\/\/script\.google\.com\/macros\/s\//.test(reviewUrl)) throw new Error('Private review URL not configured');
+  var hold = annalsRead_(folder, 'auto-decision-private.json');
+  var safeReasons = {
+    recipe_measure_or_step_uncertain: 'original recipe quantities or steps could not be matched automatically',
+    material_uncertainty: 'a substantive rights or safety question remains',
+    private_personal_or_sensitive_content: 'the submission may contain private or sensitive information',
+    consent_or_source_missing: 'the source or standing permissions need verification',
+    source_incomplete: 'the original text is incomplete',
+    third_party_quotation_permission: 'quoted material needs separate speaker permission'
+  };
+  var holdExplanation = hold && Object.prototype.hasOwnProperty.call(safeReasons,hold.reason) ?
+    safeReasons[hold.reason] : 'an eligibility or processing check did not complete';
   annalsWriteOnce_(folder, 'draft-notice-private.json', { state: 'attempted_once', at: new Date().toISOString() });
   var delivery = 'unknown_no_retry';
   try {
     GmailApp.sendEmail(p.getProperty('ANNALS_OWNER_EMAIL'), 'Private Annals draft ready',
-      'A consented submission requires private attention; no automatic publication was confirmed. Any manual publication requires your exact approval.\n\n' + reviewUrl + '?item=' + encodeURIComponent(folder.getName()));
+      'Automatic Annals publication was not confirmed. This submission is held privately because ' + holdExplanation +
+      '. Eligible member contributions normally publish under standing permissions without routine approval. Review this particular exception privately.\n\n' + reviewUrl + '?item=' + encodeURIComponent(folder.getName()));
     delivery = 'sent';
   } catch (e) {}
   annalsFile_(folder, 'draft-notice-private.json').setContent(JSON.stringify({ state: delivery, at: new Date().toISOString() }));
@@ -1572,6 +1584,48 @@ function annalsAutoPublishCandidate_(id, allowHeldRecovery) {
   saved.publicationState = accepted ? 'dispatch_accepted' : 'dispatch_not_configured_or_held';
   annalsFile_(folder, 'approval-private.json').setContent(JSON.stringify(saved));
   return accepted;
+}
+/** One-shot exception recovery for any previously held, source-grounded
+ * recipe after a deterministic matching fix. No AI call, journal reset,
+ * automatic replay or unsupported media release is authorised.
+ */
+function annalsReassessHeldRecipe(nonce,id,confirmed){
+  return annalsUiCall_(nonce,function(){return annalsLocked_(function(){
+    var owner=annalsOwner_(),p=annalsProps_();
+    if(confirmed!==true||!/^[a-f0-9]{64}$/.test(id||''))
+      throw new Error('Explicit one-time exception confirmation required');
+    var folder=annalsFolder_(id),source=annalsRead_(folder,'source-private.json'),
+      draft=annalsRead_(folder,'draft-private.json'),held=annalsRead_(folder,'auto-decision-private.json');
+    var sender=source&&source.source&&String(source.source.sender||'').toLowerCase();
+    if(!source||source.sourceId!==id||source.senderAuthenticated!==true||
+       source.aiConsentActive!==true||source.autoConsentAtReceipt!==true||
+       !source.source||source.source.sourceTruncated||source.source.subjectTruncated||source.source.excerptTruncated||
+       !draft||draft.category!=='cocktail'||!held||held.state!=='held'||
+       held.reason!=='recipe_measure_or_step_uncertain'||
+       !annalsFile_(folder,'ai-attempt-private.json')||
+       annalsFile_(folder,'quarantine-private.json')||annalsFile_(folder,'removal-private.json')||
+       annalsFile_(folder,'approval-private.json')||annalsFile_(folder,'publication-dispatch-private.json')||
+       annalsFile_(folder,'reassessment-attempt-private.json')||
+       annalsFile_(folder,'auto-reassessment-private.json')||
+       AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS')||'').indexOf(sender)<0||
+       Date.parse(source.source.receivedAt)<Date.parse(p.getProperty('ANNALS_ACTIVATED_AT'))||
+       !annalsConsentActive_(sender)||!annalsStandingPublicationActive_(sender,source.source.receivedAt)||
+       !AnnalsAuto.propose(source,draft,id,null).eligible)
+      throw new Error('Original recipe and current permissions are not eligible for one-time recovery');
+    var attempt={state:'attempt_reserved',at:new Date().toISOString(),owner:owner,
+      sourceDigest:annalsHash_(AnnalsProduction.serial(source.source)),
+      draftDigest:annalsHash_(AnnalsProduction.serial(draft)),aiCall:false,dispatchWasAbsent:true};
+    annalsWriteOnce_(folder,'reassessment-attempt-private.json',attempt);
+    var accepted=annalsAutoPublishCandidate_(id,true);
+    var saved=annalsRead_(folder,'approval-private.json'),
+      reassessment=annalsRead_(folder,'auto-reassessment-private.json');
+    var status=saved?
+      (saved.publicationState==='dispatch_accepted'?'dispatch_accepted':'held_after_reassessment'):
+      (reassessment&&reassessment.reason||'reassessment_stopped_before_decision');
+    annalsFile_(folder,'reassessment-attempt-private.json').setContent(JSON.stringify(Object.assign({},attempt,
+      {state:status,finishedAt:new Date().toISOString(),dispatchAccepted:accepted===true})));
+    return {status:status,aiCall:false,dispatchAccepted:accepted===true};
+  });});
 }
 /** Owner-confirmed, one-shot deterministic recheck of an existing held quote draft.
  * This never calls AI and never retries an item with any approval or dispatch record.
