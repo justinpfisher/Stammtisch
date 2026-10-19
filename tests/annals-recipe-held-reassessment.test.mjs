@@ -160,3 +160,74 @@ test('legacy owner-held recipe gets one contributor status without retroactive A
   assert.equal(records.has('reassessment-attempt-private.json'),false);
   assert.equal(records.has('publication-dispatch-private.json'),false);
 });
+
+
+function publishedReadbackFixture({httpStatus=200, pageStatus=200, changedArchive=false}={}){
+  const x=fixture(),e={id:'annal-'+id.slice(0,24),category:'cocktail',
+    title:'Imaginary test glass',summary:'An entirely invented recipe.',year:2026,
+    dateLabel:'Submitted 2026-10',sortDate:'',quoteVerbatim:'',
+    recipe:{drinkIngredients:['1 oz invented cordial'],syrupIngredients:[],steps:['Stir carefully.']},
+    credit:'anonymous'};
+  const proof={entryId:e.id,mode:'standing-consent-text-v1',signature:'fictional-signature'};
+  x.records.set('approval-private.json',{entry:e,receipt:{contentSha256:'f'.repeat(64)},
+    publication:proof,approvalMode:proof.mode,publicationState:'dispatch_accepted'});
+  x.records.set('publication-dispatch-private.json',{state:'accepted'});
+  const calls=[];
+  x.ctx.UrlFetchApp={fetch:(url,opts)=>{
+    calls.push(url);
+    assert.equal(opts.method,'get');
+    assert.equal(opts.followRedirects,false);
+    assert.equal(opts.validateHttpsCertificates,true);
+    if(url.includes('raw.githubusercontent.com')){
+      return {getResponseCode:()=>httpStatus,getContentText:()=>JSON.stringify({
+        entries:changedArchive?[{...e,title:'Altered test'}]:[e],approvals:[proof]})};
+    }
+    if(url.includes('stammtischbrewery.com')){
+      return {getResponseCode:()=>pageStatus,getContentText:()=>'<article id="'+e.id+'"></article>'};
+    }
+    throw Error('Unexpected public-only domain');
+  }};
+  return {...x,calls,e,proof};
+}
+test('owner-only publication readback independently checks signed public entry and page without sending anything',()=>{
+  const x=publishedReadbackFixture(),snapshot=JSON.stringify([...x.records.entries()]);
+  const result=x.ctx.annalsPublishedReceiptReadbackInEditor(id);
+  assert.equal(result.readOnly,true);
+  assert.equal(result.publicEvidenceMatches,true);
+  assert.equal(result.archiveHttpStatus,200);
+  assert.equal(result.pageHttpStatus,200);
+  assert.equal(result.privateLiveMarkerPresent,false);
+  assert.equal(result.publicationNoticeAttemptMarkerPresent,false);
+  assert.equal(result.publisherOrAiCalled,false);
+  assert.equal(result.mailAttempted,false);
+  assert.equal(result.journalsOrCursorsChanged,false);
+  assert.equal(Object.values(result.checks).every(v=>v===true),true);
+  assert.equal(x.calls.length,2);
+  assert.equal(JSON.stringify([...x.records.entries()]),snapshot);
+  assert.doesNotMatch(JSON.stringify(result),/example\.test|fictional-signature|imaginary test|annal-e/);
+});
+test('owner verification isolates changed public data and redirects without recording a live marker',()=>{
+  for(const opts of [{changedArchive:true},{httpStatus:302},{pageStatus:302}]){
+    const x=publishedReadbackFixture(opts),old=JSON.stringify([...x.records.entries()]);
+    const v=x.ctx.annalsPublishedReceiptReadbackInEditor(id);
+    assert.equal(v.publicEvidenceMatches,false,JSON.stringify(opts));
+    if(opts.changedArchive)assert.equal(v.checks.archiveDigestMatchesReceipt,false);
+    if(opts.httpStatus!==undefined)assert.equal(v.archiveHttpStatus,opts.httpStatus);
+    if(opts.pageStatus!==undefined)assert.equal(v.pageHttpStatus,opts.pageStatus);
+    assert.equal(JSON.stringify([...x.records.entries()]),old);
+    assert.equal(x.records.has('auto-live-verification-private.json'),false);
+  }
+});
+test('owner verification declines remote reads for incomplete original approval and retains all records',()=>{
+  const x=fixture(),before=JSON.stringify([...x.records.entries()]);
+  x.ctx.UrlFetchApp={fetch:()=>assert.fail('Incomplete approval must not cause network calls')};
+  const v=x.ctx.annalsPublishedReceiptReadbackInEditor(id);
+  assert.equal(v.readOnly,true);
+  assert.equal(v.publicEvidenceMatches,false);
+  assert.equal(v.checks.privateApprovalAccepted,false);
+  assert.equal(v.checks.privateDispatchAccepted,false);
+  assert.equal(v.archiveHttpStatus,null);
+  assert.equal(v.pageHttpStatus,null);
+  assert.equal(JSON.stringify([...x.records.entries()]),before);
+  assert.throws(()=>x.ctx.annalsPublishedReceiptReadbackInEditor('not-valid'),/Exact existing item identity required/);
+});
