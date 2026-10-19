@@ -1,12 +1,14 @@
 /* Private production automation. Owner-only Apps Script project. */
 function annalsProps_() { return PropertiesService.getScriptProperties(); }
 function annalsHex_(bytes) { return bytes.map(function (b) { return ('0' + (b & 255).toString(16)).slice(-2); }).join(''); }
-function annalsHash_(value) { return annalsHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, value, Utilities.Charset.UTF_8)); }
-/** Bytes require Apps Script's two-argument computeDigest overload. The
- * three-argument overload is String+Charset ONLY; do not reinterpret binary
- * JPEG bytes as text or change legacy string/receipt digest semantics. */
-function annalsHashBytes_(bytes) {
-  return annalsHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bytes));
+/** SHA-256 for signed text and original binary bytes. Apps Script's
+ * three-argument overload accepts String only; Byte[] requires two arguments.
+ * Preserve UTF-8 text digests exactly, including existing signed receipts. */
+function annalsHash_(value) {
+  var algorithm = Utilities.DigestAlgorithm.SHA_256;
+  return annalsHex_(typeof value === 'string' ?
+    Utilities.computeDigest(algorithm, value, Utilities.Charset.UTF_8) :
+    Utilities.computeDigest(algorithm, value));
 }
 function annalsOwner_() {
   return AnnalsProduction.owner(Session.getActiveUser().getEmail(), Session.getEffectiveUser().getEmail(),
@@ -1080,7 +1082,7 @@ function annalsSavePhotoDerivative(nonce, id, base64) {
     var previous = annalsFile_(folder, 'photo-derivative-private.jpg');
     if (previous) previous.setTrashed(true);
     var file = annalsPrivate_(folder.createFile(Utilities.newBlob(bytes, 'image/jpeg', 'photo-derivative-private.jpg')));
-    var metadata = { sha256: annalsHashBytes_(bytes), size: bytes.length, name: 'photo-derivative-private.jpg', savedAt: new Date().toISOString() };
+    var metadata = { sha256: annalsHash_(bytes), size: bytes.length, name: 'photo-derivative-private.jpg', savedAt: new Date().toISOString() };
     annalsSavePrivate_(folder, 'photo-derivative-private.json', metadata);
     return { saved: true, sha256: metadata.sha256, size: metadata.size };
   }); });
@@ -1141,7 +1143,7 @@ function annalsImportScreenedPhotoFromPrivateItem(nonce, id) {
         if (again.length !== saved.length ||
             !again.every(function (v, i) { return (v & 255) === (saved[i] & 255); }))
           throw new Error('Existing derivative contains unexpected metadata');
-        var sha = annalsHashBytes_(saved), size = saved.length;
+        var sha = annalsHash_(saved), size = saved.length;
         annalsWriteOnce_(folder, 'photo-derivative-private.json', {
           sha256: sha, size: size, name: 'photo-derivative-private.jpg',
           savedAt: new Date().toISOString()
@@ -1156,7 +1158,7 @@ function annalsPhotoDerivative_(folder) {
   var metadata = annalsRead_(folder, 'photo-derivative-private.json'), file = annalsFile_(folder, 'photo-derivative-private.jpg');
   if (!metadata || !file) return null;
   var bytes = file.getBlob().getBytes();
-  if (bytes.length !== metadata.size || annalsHashBytes_(bytes) !== metadata.sha256 || !annalsJpegDerivativeSafe_(bytes)) throw new Error('Private photo derivative integrity failed');
+  if (bytes.length !== metadata.size || annalsHash_(bytes) !== metadata.sha256 || !annalsJpegDerivativeSafe_(bytes)) throw new Error('Private photo derivative integrity failed');
   return { sha256: metadata.sha256, size: metadata.size, base64: Utilities.base64Encode(bytes) };
 }
 /** Produce a small metadata-free thumbnail privately. Original media is never
@@ -1187,7 +1189,7 @@ function annalsAutoThumbnail_(id, source) {
   var thumb = photo.getThumbnail();
   if (!thumb) return null;
   var sanitised = AnnalsMedia.sanitize(thumb.getBytes());
-  var hash = annalsHashBytes_(sanitised.bytes);
+  var hash = annalsHash_(sanitised.bytes);
   var metadata = { sha256:hash,size:sanitised.bytes.length,width:sanitised.width,
     height:sanitised.height,source:'automated_drive_thumbnail',savedAt:new Date().toISOString() };
   var img = annalsPrivate_(folder.createFile(
