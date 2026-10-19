@@ -976,6 +976,9 @@ function annalsReviewStatus_(folder, source, approval) {
   var decision = annalsRead_(folder, 'auto-decision-private.json');
   if (decision && decision.state === 'held') return 'Held — ' + String(decision.reason || 'policy_review_required').slice(0,100);
   if (approval || decision && decision.state === 'eligible') return 'Eligible for publication';
+  var preDraftNotice=annalsRead_(folder,'draft-notice-private.json');
+  if (preDraftNotice&&!annalsFile_(folder,'draft-private.json')&&!annalsFile_(folder,'approval-private.json'))
+    return 'Held — '+String(preDraftNotice.reason||'private review needed').replace(/_/g,' ').slice(0,100);
   if (annalsFile_(folder, 'ai-attempt-private.json') && !annalsFile_(folder, 'draft-private.json'))
     return 'Failed — recovery decision required';
   if (annalsFile_(folder, 'draft-private.json')) return 'Drafted privately';
