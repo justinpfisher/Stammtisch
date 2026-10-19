@@ -565,3 +565,82 @@ test('member names in ordinary cocktails are preserved but protected details and
   const sensitive={...s,source:{...s.source,excerpt:'Marc shared his bank account with Fish.'}};
   assert.equal(policy.propose(sensitive,{...d,category:'monthly_gathering',recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}},id).reason,'private_personal_or_sensitive_content');
 });
+
+
+test('safe remainder publishes specific private-detail omissions without hiding approved member names',()=>{
+  const s=sample();
+  s.source.subject='Fish and Marc prepared a fictional toast';
+  s.source.excerpt='Marc prepared imaginary cordial. Their meeting address was 2400 Example Road. Jamie provided the garnish.';
+  const original=s.source.excerpt;
+  const screened=policy.safeSource(s.source.subject,s.source.excerpt,false);
+  assert.equal(screened.valid,true);
+  assert.equal(screened.redacted,true);
+  assert.match(screened.excerpt,/Marc prepared imaginary cordial/);
+  assert.match(screened.excerpt,/meeting address was \[DETAIL OMITTED\]/);
+  assert.match(screened.excerpt,/Jamie provided the garnish/);
+  assert.doesNotMatch(screened.excerpt,/Example Road|2400/);
+  const d={...draft(),category:'monthly_gathering',title:s.source.subject,
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  const decision=policy.propose(s,d,id);
+  assert.equal(decision.eligible,true);
+  assert.equal(decision.entry.title,s.source.subject);
+  assert.equal(decision.entry.summary,screened.excerpt);
+  assert.equal(s.source.excerpt,original,'the authoritative original must remain untouched');
+  const page=buildPublishedAnnals([decision.entry],[proof(decision.entry)],secret).html;
+  assert.match(page,/Fish and Marc/);
+  assert.doesNotMatch(page,/2400 Example Road|Example Road|\[MEMBER\]/);
+});
+test('sensitive and unconsented quoted sentences are omitted while adjacent safe prose can publish',()=>{
+  const s=sample();
+  s.source.subject='Hypothetical club notes';
+  s.source.excerpt=[
+    'Marc prepared a fictional cordial. Jamie was diagnosed with an illness. Matt brought imaginary citrus.',
+    'Ken said: "An unattributed invented sentence."',
+    'Fish cleaned the invented bar.'
+  ].join('\n');
+  const before=s.source.excerpt;
+  const screened=policy.safeSource(s.source.subject,s.source.excerpt,false);
+  assert.equal(screened.valid,true);
+  assert.equal(screened.redacted,true);
+  assert.match(screened.excerpt,/Marc prepared/);
+  assert.match(screened.excerpt,/Matt brought/);
+  assert.match(screened.excerpt,/Fish cleaned/);
+  assert.doesNotMatch(screened.excerpt,/diagnosed|illness|Ken said|unattributed/);
+  const d={...draft(),category:'monthly_gathering',title:s.source.subject,
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  const approved=policy.propose(s,d,id);
+  assert.equal(approved.eligible,true);
+  assert.equal(approved.entry.summary,screened.excerpt);
+  assert.equal(s.source.excerpt,before);
+});
+test('only-sensitive submissions cannot be published as empty or contextless Annals',()=>{
+  const s=sample();s.source.subject='Hypothetical club note';
+  s.source.excerpt='Matt was diagnosed with a medical condition.';
+  const safe=policy.safeSource(s.source.subject,s.source.excerpt,false);
+  assert.equal(safe.valid,false);
+  const d={...draft(),category:'monthly_gathering',title:s.source.subject,
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  assert.equal(policy.propose(s,d,id).eligible,false);
+});
+test('redaction never rewrites submitted recipe measures or protected CoL material',()=>{
+  const s=sample();s.source.subject='Fish fictional cordial recipe';
+  s.source.excerpt='1 oz imagined syrup from 2400 Example Road\n2 oz invented juice\nStir with ice.';
+  const draftRecipe={...draft(),title:s.source.subject,
+    recipe:{drinkIngredients:['1 oz imagined syrup','2 oz invented juice'],syrupIngredients:[],steps:['Stir with ice.']}};
+  const screened=policy.safeSource(s.source.subject,s.source.excerpt,false);
+  assert.equal(screened.valid,true);
+  assert.equal(screened.recipeMaterialRedacted,true);
+  assert.equal(policy.propose(s,draftRecipe,id).reason,'recipe_measure_or_step_uncertain');
+  assert.deepEqual(policy.safeSource('CoL scoring change','Change how Steals are awarded.',false),
+    {valid:false,reason:'col_proposal_private_review'});
+});
+test('exact potential member quotations stay available for private attribution, never converted to anecdotal text',()=>{
+  const plain=policy.safeSource('Quote from Ken','Ken: "An imaginary ceremonial toast."',true);
+  assert.equal(plain.valid,true);
+  assert.equal(plain.excerpt,'Ken: "An imaginary ceremonial toast."');
+  const story=policy.safeSource('Club notes','Marc brought imaginary fruit.\nKen said: "A fictional remark."',false);
+  assert.equal(story.valid,true);
+  assert.equal(story.excerpt,'Marc brought imaginary fruit.');
+  const unsafe=policy.safeSource('Quote from Ken','Ken: "The password is 1234."',true);
+  assert.equal(unsafe.valid,false);
+});
