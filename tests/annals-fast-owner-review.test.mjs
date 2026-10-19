@@ -151,3 +151,16 @@ test('desk diagnostic errors stay visible but are never automatically repeated',
   assert.match(nodes.get('inboxCoverageResult').textContent,/No operation was repeated/);
   assert.equal(messages[0],'Private permission unavailable');
 });
+
+
+test('owner-only live receipt check is available from the already authenticated private item desk',()=>{
+  const s=ui.match(/<script>([\s\S]*?)<\/script>/)[1];
+  assert.doesNotThrow(()=>new vm.Script(s));
+  assert.match(ui,/id="publishedReconciliation" hidden/);
+  assert.match(ui,/id="readPublicationReconciliation" type="button"/);
+  assert.match(ui,/id="publicationReconciliationResult"/);
+  assert.match(s,/el\('publishedReconciliation'\)\.hidden=!current\.approved\|\|current\.publicationState!=='dispatch_accepted'/);
+  assert.match(s,/ownerReadback\('readPublicationReconciliation','publicationReconciliationResult','annalsPublishedReceiptReadbackInEditor',current\.id\)/);
+  const owner=s.slice(s.indexOf('async function ownerReadback('),s.indexOf('function attemptMessage('));
+  assert.doesNotMatch(owner,/annalsDispatchApproved|annalsReassessHeldRecipe|annalsApproveReview|GmailApp/);
+});
