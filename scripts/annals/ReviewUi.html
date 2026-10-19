@@ -37,7 +37,13 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 </details>
 <p class="muted">Members can revoke future quote attribution with <strong>REVOKE ANNALS QUOTE ATTRIBUTION</strong> or hide their illustration from all future Annals entries with <strong>HIDE MY ANNALS PORTRAIT</strong>, emailed from the authenticated address. No settings here activate publication.</p>
 </fieldset>
-<section id="queue"><h2>Contributions</h2><button id="refreshList">Refresh contributions</button><ul id="items"></ul><button id="more" hidden>More contributions</button></section>
+<section id="queue"><h2>Contributions</h2>
+<details><summary>Check recent inbox coverage — read only</summary>
+<p class="muted">Compares a bounded sample of messages in the existing dedicated inbox with private staging and notification records. It does not reset cursors, change mail, retry submissions or establish complete inbox coverage.</p>
+<button id="readInboxCoverage" type="button">Check sampled inbox status</button>
+<pre id="inboxCoverageResult" aria-label="Private inbox coverage counts"></pre>
+</details>
+<button id="refreshList">Refresh contributions</button><ul id="items"></ul><button id="more" hidden>More contributions</button></section>
 <section id="detail" hidden><button id="back">Back to contributions</button><h2 id="subject"></h2><p id="itemStatus" role="status" class="muted"></p>
 <fieldset><legend>Hold an owner-identified test permanently</legend>
 <p class="muted">Quarantine prevents drafting, automatic publication and quote reassessment. The original and all audit records remain private and intact.</p>
@@ -140,10 +146,15 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 <p class="muted">This checks the saved source and existing private draft against current consents and deterministic quotation rules. It makes no AI request. If eligible, it makes one signed publication request. Any uncertain dispatch result remains stopped and is never retried automatically.</p>
 <label><input type="checkbox" id="quoteRecoveryConfirmed">I reviewed this exact original email and saved AI draft, and authorize one deterministic reassessment of this held quotation.</label>
 <button id="reassessHeldQuote">Reassess this held quotation once</button></fieldset>
-<fieldset id="recipeRecovery" hidden><legend>One-time recovery of a held recipe</legend>
-<p class="muted">Only an already-preserved source with a recipe-format matching hold can be rechecked. This uses the retained private draft and current permissions without calling AI or reprocessing a held photograph. One signed dispatch may occur; uncertain outcomes remain stopped.</p>
-<label><input type="checkbox" id="recipeRecoveryConfirmed">I reviewed this exact held original and existing draft for faithful amounts and steps and authorise one deterministic reassessment.</label>
-<button id="reassessHeldRecipe">Reassess this held recipe once</button></fieldset>
+<fieldset id="recipeRecovery" hidden><legend>Held recipe — inspect before acting</legend>
+<p class="muted">The earlier recovery attempt had an uncertain result. Start with the existing <strong>read-only</strong> eligibility checks. Even if every condition passes, that does not establish a safe second attempt; reconcile previous journals before any release.</p>
+<button id="readRecipeRecoveryGates" type="button">Check saved recipe status — read only</button>
+<pre id="recipeRecoveryReadback" aria-label="Saved recipe eligibility checks"></pre>
+<details><summary>One-time recipe release controls</summary>
+<p class="muted">Only an already-preserved source with a recipe-format matching hold can be rechecked. This uses the retained private draft and current permissions without calling AI or retrying a held photograph. A signed dispatch may occur. If an earlier attempt is uncertain, stop instead of retrying.</p>
+<label><input type="checkbox" id="recipeRecoveryConfirmed">I independently reconciled the original held item and all earlier publication attempts, verified its exact measures and rights, and authorise a truly unconsumed one-time reassessment.</label>
+<button id="reassessHeldRecipe">Reassess this held recipe once</button>
+</details></fieldset>
 </section>
 <script>
 let nonce, current, continuation, review, historyReview=null, pendingPhotoBase64=null, photoPreviewUrl=null;
@@ -197,6 +208,30 @@ async function call(name,...args){
     throw new Error(reviewErrorMessage(reviewErrorKind(error)));
   }
 }
+// These owner-only reads avoid the Apps Script editor's function picker.
+// They run through the same authenticated private desk as its other reads.
+// Disable only the selected button, not every control during a slow Inbox scan.
+async function ownerReadback(buttonId,resultId,method,...args){
+  const button=el(buttonId),output=el(resultId);
+  button.disabled=true;output.textContent='Checking retained private status…';
+  try{
+    const result=await call(method,...args);
+    if(!result||result.readOnly!==true)throw new Error('Unexpected read-only result');
+    const failed=Array.isArray(result.checks)?[]:
+      Object.entries(result.checks||{}).filter(([_,ok])=>ok!==true).map(([key])=>key);
+    if(method==='annalsRecipeRecoveryReadbackInEditor'){
+      output.textContent=(failed.length?
+        'Failed checks: '+failed.join(', ')+'. Do not repeat a held recovery.\n\n':
+        'Eligibility readback has no failed Boolean checks. This does NOT verify a previous attempt or authorise a retry.\n\n')+JSON.stringify(result,null,2);
+    }else{
+      output.textContent='Bounded inbox sample only; cross-check the dedicated mailbox and retained notice journals.\n\n'+JSON.stringify(result,null,2);
+    }
+    say('Read-only status loaded. No retry, publication, cursor or setting change was requested.');
+  }catch(error){
+    output.textContent='Read-only check could not complete. No operation was repeated.';
+    say(error.message);
+  }finally{button.disabled=false;}
+}
 function attemptMessage(outcome){const messages={network_error:'The request could not reach the AI provider.',provider_response_error:'The provider response could not be read.',invalid_response:'The provider response did not pass validation.',private_storage_error:'The private draft could not be saved.'};let message=messages[outcome&&outcome.reason]||'The AI attempt was interrupted or held.';if(outcome&&outcome.reason==='provider_http_error')message='The AI provider returned HTTP '+(Number.isInteger(outcome.httpStatus)?outcome.httpStatus:'error')+'.';return message+' No automatic retry will spend more.';}
 function updateQueuedItem(){if(!current)return;const b=Array.from(el('items').querySelectorAll('button')).find(b=>b.dataset.itemId===current.id);if(b)b.textContent=current.subject+' — '+(current.quarantined?'Quarantined - owner-identified test':current.removal?'Removal: '+current.removal.state:current.status);}
 function updateLiteralStageControl(){el('stageLiteralRule').disabled=!literalStageQualified||!current||current.quarantined===true;}
@@ -208,7 +243,7 @@ async function act(fn){document.querySelectorAll('button').forEach(b=>b.disabled
   updateRuleAcceptanceControls();
 }updateLiteralStageControl();}}
 async function list(reset){if(reset){el('items').replaceChildren();continuation=null;}const page=await call('annalsReviewList',nonce,continuation);page.items.forEach(item=>{const li=document.createElement('li'),b=document.createElement('button');b.dataset.itemId=item.id;b.textContent=item.subject+' — '+item.state;b.onclick=()=>act(()=>open(item.id));li.append(b);el('items').append(li)});continuation=page.continuation;el('more').hidden=!continuation;say('Private review is ready.');}
-async function open(id){current=await call('annalsReviewItem',nonce,id);updateQueuedItem();review=null;pendingPhotoBase64=null;el('queue').hidden=true;el('detail').hidden=false;el('subject').textContent=current.subject;el('itemStatus').textContent=current.status+(current.holdReason?' — '+current.holdReason:'');el('quoteRecovery').hidden=!current.reassessmentAvailable;el('quoteRecoveryConfirmed').checked=false;el('recipeRecovery').hidden=current.holdReason!=='recipe_measure_or_step_uncertain'||!current.draft||!!current.approved||!!current.quarantined;el('recipeRecoveryConfirmed').checked=false;el('source').value=('EMAIL SUBJECT (original field):\n'+current.subject+'\n\nEMAIL BODY (original field):\n'+current.text).slice(0,12000);el('original').href=current.folderUrl;el('ruleProposalBox').hidden=current.protectiveRoute!=='col_proposal'||!!current.ruleRequest;el('ruleRequestBox').hidden=!current.ruleRequest;el('ruleRequestPacket').textContent=current.ruleRequest?JSON.stringify(current.ruleRequest,null,2):'';el('recordPendingRule').disabled=!current.rulesReady||!current.ruleRequest;el('releaseRuleImplementation').disabled=!current.rulesReady||!current.ruleRequest||current.ruleRequest.state!=='awaiting_implementation';el('ruleImplementationEvidence').value='';el('historyBox').hidden=current.protectiveRoute==='col_proposal'||current.quarantined;el('rulePacket').textContent=current.ruleProposal?JSON.stringify(current.ruleProposal,null,2):'';historyReview=null;el('historyPreview').textContent=current.historyReview?JSON.stringify(current.historyReview.chapters,null,2):'';el('approveHistoryRevision').disabled=true;el('historyConfirmed').checked=false;el('attachments').replaceChildren();current.attachments.forEach(a=>{const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.value=a.name;check.className='media';check.disabled=!['image/jpeg','image/png'].includes(a.mime)||a.size>4194304;label.append(check,document.createTextNode(a.name));el('attachments').append(label)});
+async function open(id){current=await call('annalsReviewItem',nonce,id);updateQueuedItem();review=null;pendingPhotoBase64=null;el('queue').hidden=true;el('detail').hidden=false;el('recipeRecoveryReadback').textContent='';el('subject').textContent=current.subject;el('itemStatus').textContent=current.status+(current.holdReason?' — '+current.holdReason:'');el('quoteRecovery').hidden=!current.reassessmentAvailable;el('quoteRecoveryConfirmed').checked=false;el('recipeRecovery').hidden=current.holdReason!=='recipe_measure_or_step_uncertain'||!current.draft||!!current.approved||!!current.quarantined;el('recipeRecoveryConfirmed').checked=false;el('source').value=('EMAIL SUBJECT (original field):\n'+current.subject+'\n\nEMAIL BODY (original field):\n'+current.text).slice(0,12000);el('original').href=current.folderUrl;el('ruleProposalBox').hidden=current.protectiveRoute!=='col_proposal'||!!current.ruleRequest;el('ruleRequestBox').hidden=!current.ruleRequest;el('ruleRequestPacket').textContent=current.ruleRequest?JSON.stringify(current.ruleRequest,null,2):'';el('recordPendingRule').disabled=!current.rulesReady||!current.ruleRequest;el('releaseRuleImplementation').disabled=!current.rulesReady||!current.ruleRequest||current.ruleRequest.state!=='awaiting_implementation';el('ruleImplementationEvidence').value='';el('historyBox').hidden=current.protectiveRoute==='col_proposal'||current.quarantined;el('rulePacket').textContent=current.ruleProposal?JSON.stringify(current.ruleProposal,null,2):'';historyReview=null;el('historyPreview').textContent=current.historyReview?JSON.stringify(current.historyReview.chapters,null,2):'';el('approveHistoryRevision').disabled=true;el('historyConfirmed').checked=false;el('attachments').replaceChildren();current.attachments.forEach(a=>{const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.value=a.name;check.className='media';check.disabled=!['image/jpeg','image/png'].includes(a.mime)||a.size>4194304;label.append(check,document.createTextNode(a.name));el('attachments').append(label)});
 ruleAcceptancePrepared=null;ruleAcceptanceState=null;literalStageQualified=false;el('ruleAcceptanceSecurityConfirmed').checked=false;el('signingReconciliationConfirmed').checked=false;el('ruleAcceptancePreparation').textContent='';el('ruleAcceptanceStatus').textContent='';el('signingQualificationResult').textContent='';el('signingDiagnosticResult').textContent='';el('ruleAcceptanceBox').hidden=current.protectiveRoute!=='col_proposal';
 ['aiConsent','publication','recipeVerified','quotePublication','namedAttribution','photoPublication','reviewed','correctionPhotoPublication'].forEach(id=>el(id).checked=false);el('evidence').value='';el('photoFile').value='';el('includePhoto').checked=false;el('photoAlt').value='';
 if(photoPreviewUrl)URL.revokeObjectURL(photoPreviewUrl);photoPreviewUrl=null;el('photoPreview').hidden=!current.photoDerivative;if(current.photoDerivative){el('photoPreview').src='data:image/jpeg;base64,'+current.photoDerivative.base64;el('includePhoto').checked=!!(current.correctionReview?.entry?.photo||current.publishedEntry?.photo||current.review?.entry?.photo);el('photoAlt').value=(current.correctionReview?.entry?.photo||current.publishedEntry?.photo||current.review?.entry?.photo||{}).alt||'';}
@@ -273,6 +308,11 @@ el('approveHistoryRevision').onclick=()=>act(async()=>{if(!historyReview||!el('h
 el('reconcileHistory').onclick=()=>act(async()=>{const r=await call('annalsReconcileHistory',nonce);say(r.verified?'History revision '+r.revision+' verified live.':'History is not verified live. No request was replayed.');});
 el('quarantine').onclick=()=>act(async()=>{const result=await call('annalsQuarantineSubmission',nonce,current.id,val('quarantineReason'),el('quarantineConfirmed').checked);if(!result||result.quarantined!==true)throw new Error('Quarantine was not confirmed. Check the saved private record before any further action.');current.quarantined=true;current.status='Quarantined - owner-identified test';el('itemStatus').textContent=current.status;updateQueuedItem();say('Test quarantined privately. Originals and audit records are preserved.');});
 el('prepare').onclick=()=>act(async()=>{say('Preparing the private draft…');await call('annalsPrepareDraft',nonce,current.id,val('source'),[...document.querySelectorAll('.media:checked')].map(i=>i.value),el('aiConsent').checked);await open(current.id);});
+el('readInboxCoverage').onclick=()=>ownerReadback('readInboxCoverage','inboxCoverageResult','annalsInboxCoverageReadbackInEditor');
+el('readRecipeRecoveryGates').onclick=()=>{
+  if(!current||!/^[a-f0-9]{64}$/.test(current.id))return;
+  return ownerReadback('readRecipeRecoveryGates','recipeRecoveryReadback','annalsRecipeRecoveryReadbackInEditor',current.id);
+};
 el('reassessHeldRecipe').onclick=()=>act(async()=>{
   if(!el('recipeRecoveryConfirmed').checked)throw new Error('Confirm a one-time source-grounded recipe reassessment.');
   const result=await call('annalsReassessHeldRecipe',nonce,current.id,true);
