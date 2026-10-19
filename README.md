@@ -14,7 +14,7 @@ Owner request → implement → appropriate automated checks → review/merge �
 
 The static site publishes from **`main` / root** through the existing branch-based GitHub Pages service. There is no application build or public server to maintain. Automated publishers using `GITHUB_TOKEN` must explicitly request a Pages build; a bot commit alone does not start one. Private Annals reconciliation separately checks real hosted content before recording publication success.
 
-Use a branch and applicable hosted CI. For the full offline Python/Node suite:
+Use the GMKtec checkout for ordinary implementation and affected checks **first**, followed by the public repository's independent GitHub-hosted PR CI (do not connect a personal self-hosted runner). For the full offline Python/Node suite:
 
 ```sh
 node scripts/local-dev.mjs check
