@@ -16,13 +16,25 @@ test('guarded JPEG production remains distinct from genuine acceptance and retai
  for(const key of ['ANNALS_PHOTOS_GUARDED_JPEG_ENABLED','ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED','ANNALS_SIGNING_REMEDIATED_AT','ANNALS_AUTO_MEDIA_ENABLED']){const before=values[key];delete values[key];assert.equal(c.annalsPhotosReady_(),false,key);values[key]=before;}
  c.Date.now=()=>Date.parse('2027-11-08T00:00:00Z');assert.equal(c.annalsPhotosReady_(),true);
 });
-test('guarded source format gate rejects HEIC, ambiguous mixtures, unsupported files and oversized sets before reading derivatives',()=>{
+test('guarded source gate accepts qualified still HEIC HEIF PNG WebP and mixed sets; unsafe types stay private',()=>{
  const {c}=harness();const jpeg={accepted:true,mime:'image/jpeg',size:8000};
- for(const items of [[jpeg],[jpeg,jpeg,jpeg]])assert.equal(c.publishGuardedJpegOnly_({attachmentManifest:{items}}),true);
- for(const items of [[],[...Array(4)].map(()=>jpeg),[jpeg,{...jpeg,mime:'image/heic'}],[{...jpeg,mime:'image/png'}],[{...jpeg,accepted:false}],[{...jpeg,size:9000000}]]){
-   const source={imageConsentAtReceipt:true,attachmentManifest:{items}};assert.equal(c.publishGuardedJpegOnly_(source),false);
-   assert.equal(c.annalsPhotoSet_('a'.repeat(64),source,false).length,0);
+ c.AnnalsPhotoDerivative={convert:()=>{throw Error('Do not decode in gate test');}};
+ c.AnnalsJpegCodec={};
+ for(const mime of ['image/jpeg','image/png','image/webp','image/heic','image/heif']){
+   assert.equal(c.publishGuardedJpegOnly_({attachmentManifest:{items:[{...jpeg,mime}]}}),true,mime);
  }
+ assert.equal(c.publishGuardedJpegOnly_({attachmentManifest:{items:[jpeg,
+   {...jpeg,mime:'image/heic'},{...jpeg,mime:'image/png'}]}}),true);
+ for(const items of [[],Array(4).fill(jpeg),[{...jpeg,mime:'image/gif'}],
+    [{...jpeg,mime:'image/svg+xml'}],[{...jpeg,mime:'image/heic-sequence'}],
+    [{...jpeg,mime:'image/png',accepted:false}],[{...jpeg,mime:'image/webp',size:9000000}],
+    [jpeg,{...jpeg,mime:'video/quicktime'}]]){
+   assert.equal(c.publishGuardedJpegOnly_({attachmentManifest:{items}}),false);
+ }
+ delete c.AnnalsPhotoDerivative;
+ assert.equal(c.publishGuardedJpegOnly_({attachmentManifest:{items:[jpeg]}}),true);
+ assert.equal(c.publishGuardedJpegOnly_({attachmentManifest:{items:[{...jpeg,mime:'image/heic'}]}}),false,
+   'a partial private installation must never enable unchecked conversions');
 });
 test('hosted guarded gate still requires signing qualification without arbitrary AI expiry',()=>{
  const args={securityVerified:true,guardedJpegEnabled:true,now:new Date('2026-10-18T05:00:00Z')};
