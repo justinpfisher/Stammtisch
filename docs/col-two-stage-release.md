@@ -1,5 +1,12 @@
 # CoL staged release protocol
 
+## Editorial interpretation decision — 19 October 2026
+
+The owner authorised AI to choose and explain the most defensible interpretation of a genuine authenticated member amendment without any further interpretation approval. Full rewrites in Stammtisch's mock-institutional style, with non-operative ceremonial asides and examples, are welcome. Record genuine unresolved conflicts and gaps as clearly labelled **Matters for Club Deliberation** within the versioned rules when a qualified release is available. Release independently qualified portions without holding them for unrelated questions. See [CoL editorial interpretation](col-editorial-interpretation.md).
+
+This changes the *editorial decision process*, not the source/version/signature/independent-Viewer or executable-calculation proof. A model interpretation does not by itself change official points, awards, eligibility, the annual clock or the Sheet. Where a selected reading needs engineering, record it as non-operative until the matching source, tests and signed prospective rule release pass. Do not replay a consumed one-shot request or convert an already held private original into public GitHub content.
+
+
 Technical reference for the qualified rule subsystem, not an ordinary website release checklist. [Current state](current-state.md) and Issue #24 record genuine qualification and the operative oldest-death amendment. The launch-era claims below about disabled v3/empty state and pending original acceptance are historical; do not repeat the completed acceptance. The signed source/version/clock checks still apply to each affected CoL operation.
 
 The deployed private baseline has the oldest-death Steal class enabled; literal typography remains disabled. The merged repository adds `editorial-rewrite-v1`: a source-matched, multi-section, formatting-only class that requires identical words, numbers, punctuation, exceptions and executable parameters. Its unattended release becomes available only after the reviewed source is installed in the existing private Apps Script project and the previously qualified v3 signing, source and clock safeguards still apply. Arbitrary semantic changes, formulas, eligibility, future scheduling and retrospective recalculation remain held for implementation, not for a second member vote or owner-adoption gate.

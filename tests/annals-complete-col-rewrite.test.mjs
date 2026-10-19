@@ -45,6 +45,13 @@ test('large complete rules email and complete baseline fit the one-shot bounded 
   assert.equal(request.store,false);
   assert.equal(request.tools,undefined);
   assert.equal(request.text.format.strict,true);
+  // Interpretation is editorially autonomous, but still source grounded.
+  assert.match(request.instructions,/select and explain the most defensible/i);
+  assert.match(request.instructions,/no further vote or approval/i);
+  assert.match(request.instructions,/mock-institutional style/i);
+  assert.match(request.instructions,/label ceremonial asides and examples non-operative/i);
+  assert.match(request.instructions,/never invent an exact date/i);
+  assert.match(request.instructions,/EXACT CONTIGUOUS VERBATIM SUBSTRING/i);
 });
 test('very large source-plus-baseline stays held before any provider reservation',()=>{
   const ctx=vm.createContext({

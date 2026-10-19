@@ -2,6 +2,14 @@
 
 Maintained reference, updated 19 October 2026 after the owner-signed Kingston Windfall photograph correction, accepted dispatch, verified public archive/asset, successful Pages deployment, and owner-provided iPhone visual verification of the public page. Full-size image opening and Android acceptance remain untested. Update this file in place when supported by new evidence; dated reports remain evidence, not competing instructions. Earlier dated private observations remain historical evidence.
 
+## 19 October CoL editorial interpretation decision
+
+The owner now authorises AI to select and explain the most defensible source-grounded interpretation of an authenticated prospective CoL amendment, without a separate member vote or owner interpretation approval. Full Stammtisch-style rewriting may distinguish ceremonial notes from operative provisions. A qualified future version should show **Matter for Club Deliberation (non-operative)** immediately within any affected provision where a conflict or gap survives. Qualified independent portions should not wait for unrelated uncertainties. See [CoL editorial interpretation](col-editorial-interpretation.md) and the [version-bound release protocol](col-two-stage-release.md). Technical source, signature, historical allocation and independent Sheet safeguards remain.
+
+The genuine 18 October complete-rule replacement remains privately retained after its one-shot `invalid_response` and has not been replayed. The 19 October comparison identifies proposed changes to age-100 award entitlements, birthday eligibility and descriptors, annual scoring boundary and draft procedure. Existing age/diamond calculations and the operative oldest/youngest benefits remain separate from this held rewrite. A defensible interpretation is not an operative award until source-matched code, authoritative calculation reconciliation and the complete prospective signed publication witness establish it. **No new CoL revision, scoring change, historical reallocation or push notification has been verified from that submission.**
+
+The public-repository AI prompt adjustment is source work, not evidence that the owner-only Apps Script project has installed it. The existing retained private attempt and journals stay immutable; further work must use a non-replay, independently qualified engineering continuation.
+
 ## Established production baseline
 
 | Capability | Last verified state | Evidence / remaining boundary |
