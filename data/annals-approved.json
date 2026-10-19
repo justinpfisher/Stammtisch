@@ -27,23 +27,26 @@
         ]
       },
       "credit": "anonymous",
-      "contributorPortrait": "marc"
+      "contributorPortrait": "marc",
+      "photo": {
+        "sha256": "ee47c45a0d84121fdd761df6fb9f08e04b276a3504ab5922dd040101b2ac8b44",
+        "alt": "An amber-coloured cocktail in a stemmed glass garnished with thin apple slices."
+      }
     }
   ],
   "approvals": [
     {
-      "approvedAt": "2026-10-19T10:00:04.620Z",
+      "approvedAt": "2026-10-19T20:02:14.288Z",
       "consents": {
         "namedAttribution": true,
-        "photoPublication": false,
+        "photoPublication": true,
         "publication": true,
         "quotePublication": false,
         "recipeVerified": true
       },
-      "contentSha256": "0cdf8f8143bf122596feb7cefa7bff3a95411de135e312417354757cd1a07456",
+      "contentSha256": "26f03d51bef159af31ec060b53c172face39acc68015346c3b3f0335e64361bd",
       "entryId": "annal-96b5ae266a36793c6a203033",
-      "mode": "standing-consent-text-v1",
-      "signature": "2e6ae5c65f52609c935a3e77306849cb0985a380a4049f94ac1a47c2b5262590"
+      "signature": "dcfbe572af0fd1f1c6d73cbc18aa5d93a5211ea242fed4049eb402fea0f74dcb"
     }
   ]
 }
