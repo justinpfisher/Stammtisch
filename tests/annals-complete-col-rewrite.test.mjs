@@ -52,6 +52,11 @@ test('large complete rules email and complete baseline fit the one-shot bounded 
   assert.match(request.instructions,/label ceremonial asides and examples non-operative/i);
   assert.match(request.instructions,/never invent an exact date/i);
   assert.match(request.instructions,/EXACT CONTIGUOUS VERBATIM SUBSTRING/i);
+  assert.match(request.instructions,/expressly comprehensive new list of benefits/i);
+  assert.match(request.instructions,/neither mechanically reintroduce/i);
+  assert.match(request.instructions,/map source-grounded meaning into an existing provision only when/i);
+  assert.match(request.instructions,/leave clarification empty/i);
+  assert.match(request.instructions,/independent qualification and signed release/i);
 });
 test('very large source-plus-baseline stays held before any provider reservation',()=>{
   const ctx=vm.createContext({
