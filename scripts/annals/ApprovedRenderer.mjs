@@ -267,8 +267,7 @@ function photoMarkup(entry) {
   }).join('') + '</div>' : '';
 }
 function approvedEntryMarkup(entry) {
-  const esc = escapeHtml;
-  const text = editorialHtml;
+  const esc = escapeHtml, text = editorialHtml;
   const introduction = recipeIntroduction(entry);
   const section = (label, items) => items.length
     ? '<h4>' + label + '</h4><ul>' +
@@ -278,34 +277,65 @@ function approvedEntryMarkup(entry) {
     ? '<img class="annal-speaker-portrait" src="assets/members/annals/' +
       esc(speaker) + '-annals.webp" alt="Illustrated portrait of ' +
       esc(CONTRIBUTOR_PORTRAITS[speaker]) +
-      ', the speaker" width="64" height="64" loading="lazy" decoding="async">'
+      ', the speaker" width="66" height="66" loading="lazy" decoding="async">'
     : '';
-  const quoteCard = '<div class="annal-remark-card">' + speakerMarkup +
-    '<div class="annal-remark-words"><blockquote>' + text(entry.quoteVerbatim) + '</blockquote>' +
-      (/\[(?:expletive|POOP)\]/i.test(entry.quoteVerbatim)
-        ? '<p class="annal-quote-note">Editorially redacted quotation — not verbatim.</p>' : '') +
-    '</div></div>';
-  return '<article class="annal-entry' + (entry.category === 'quotation' ? ' annal-remark' : '') + '" id="' + esc(entry.id) + '">' +
-    '<p class="annal-type">' + esc(TYPES[entry.category]) + '</p>' +
-    (entry.category === 'quotation' ? '' : '<h4>' + text(entry.title) + '</h4>') +
-    (entry.submittedAt ? '<p class="annal-date">Submitted <time datetime="'+esc(entry.submittedAt)+'">'+esc(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',dateStyle:'long'}).format(new Date(entry.submittedAt)))+'</time> (Toronto)'+(entry.eventPeriod?' · Event: '+esc(entry.eventPeriod):' · Event date unrecorded')+'</p>' : entry.dateLabel ? '<p class="annal-date">' + esc(displayDate(entry.dateLabel)) + '</p>' : '') +
-    (entry.category === 'quotation' || !introduction ? '' : '<p class="annal-summary">' + text(introduction) + '</p>') +
-    (entry.correction?'<p class="annal-date">Corrected <time datetime="'+esc(entry.correction.at)+'">'+esc(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Toronto',dateStyle:'long'}).format(new Date(entry.correction.at)))+'</time> (Toronto): '+text(entry.correction.note)+'</p>':'') +
-    photoMarkup(entry) +
-    (entry.category === 'quotation' ? quoteCard : '') +
-    (entry.category === 'cocktail' ? '<div class="annal-recipe">' +
+  // A signed speaker portrait may identify the actual speaker. Do not
+  // reinterpret a contributor credit as evidence of who said the words.
+  const speakerName = speaker
+    ? '<p class="annal-remark-speaker">— ' + esc(CONTRIBUTOR_PORTRAITS[speaker]) + '</p>' : '';
+  const quoteCard = '<div class="annal-remark-card"><div class="annal-remark-words">' +
+    '<blockquote>' + text(entry.quoteVerbatim) + '</blockquote>' + speakerName +
+    (/\[(?:expletive|POOP)\]/i.test(entry.quoteVerbatim)
+      ? '<p class="annal-quote-note">Editorially redacted quotation — not verbatim.</p>' : '') +
+    '<p class="annal-context"><strong>Editorial context</strong>' + text(entry.summary) + '</p>' +
+    '</div>' + speakerMarkup + '</div>';
+  const date = entry.submittedAt
+    ? '<p class="annal-date">Submitted <time datetime="' + esc(entry.submittedAt) + '">' +
+      esc(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', dateStyle: 'long' })
+        .format(new Date(entry.submittedAt))) + '</time> (Toronto)' +
+      (entry.eventPeriod ? ' · Event: ' + esc(entry.eventPeriod) : ' · Event date unrecorded') + '</p>'
+    : entry.dateLabel ? '<p class="annal-date">' + esc(displayDate(entry.dateLabel)) + '</p>' : '';
+  const correction = entry.correction
+    ? '<p class="annal-date">Corrected <time datetime="' + esc(entry.correction.at) + '">' +
+      esc(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', dateStyle: 'long' })
+        .format(new Date(entry.correction.at))) + '</time> (Toronto): ' +
+      text(entry.correction.note) + '</p>' : '';
+  const recipe = entry.category === 'cocktail'
+    ? '<div class="annal-recipe"><div class="annal-recipe-column">' +
       section('Ingredients', entry.recipe.drinkIngredients) +
-      section('Homemade syrup', entry.recipe.syrupIngredients) +
-      section('Preparation', entry.recipe.steps) +
-      (entry.recipe.suggestedSteps?.length ? '<p class="annal-reconstruction-flag">Editorial reconstruction: suggested quantities or methods below are not the original recorded recipe.</p>' : '') +
-      section('Editorial suggestions — NOT part of the original recipe',
-        entry.recipe.suggestedSteps || []) + '</div>' : '') +
-    (entry.category === 'quotation' ? '' : entry.contributorPortrait ?
-      '<div class="annal-credited-illustration"><img class="annal-contributor-portrait" src="assets/members/annals/' +
-      esc(entry.contributorPortrait) + '-annals.webp" alt="Illustrated portrait of ' +
-      esc(CONTRIBUTOR_PORTRAITS[entry.contributorPortrait]) +
-      ', who contributed this entry" width="48" height="48" loading="lazy" decoding="async"></div>' :
-      contributorCreditMarkup(entry.credit)) +
+      (entry.recipe.syrupIngredients.length
+        ? '<div class="annal-syrup">' + section('Homemade syrup', entry.recipe.syrupIngredients) + '</div>' : '') +
+      '</div><div class="annal-recipe-column">' +
+      section('Preparation', entry.recipe.steps) + '</div>' +
+      (entry.recipe.suggestedSteps?.length
+        ? '<div class="annal-suggestion"><p class="annal-reconstruction-flag">Editorial reconstruction: suggested quantities or methods below are not the original recorded recipe.</p>' +
+          section('Editorial suggestions — NOT part of the original recipe', entry.recipe.suggestedSteps) + '</div>'
+        : '') + '</div>' : '';
+  const contributor = entry.category === 'quotation' ? contributorCreditMarkup(entry.credit)
+    : entry.contributorPortrait
+      ? '<div class="annal-credited-illustration"><img class="annal-contributor-portrait" src="assets/members/annals/' +
+        esc(entry.contributorPortrait) + '-annals.webp" alt="Illustrated portrait of ' +
+        esc(CONTRIBUTOR_PORTRAITS[entry.contributorPortrait]) +
+        ', who contributed this entry" width="42" height="42" loading="lazy" decoding="async">' +
+        '<span>Contributor</span></div>'
+      : contributorCreditMarkup(entry.credit);
+  const introductionMarkup = entry.category === 'quotation' ? ''
+    : (introduction
+      ? '<p class="annal-summary">' + text(introduction) + '</p>' : '');
+  return '<article class="annal-entry' +
+    (entry.category === 'quotation' ? ' annal-remark' : '') +
+    (Photos.photos(entry).length ? ' annal-entry--has-photo' : '') +
+    '" id="' + esc(entry.id) + '" data-annals-category="' + esc(entry.category) + '">' +
+    '<header class="annal-entry-head"><div><p class="annal-type">' +
+    esc(TYPES[entry.category]) + '</p><h2 class="annal-entry-title">' +
+    text(entry.title) + '</h2>' + date + correction +
+    '</div><a class="annal-permalink" href="#' + esc(entry.id) +
+    '" aria-label="Direct link to ' + esc(entry.title) + '">↗</a></header>' +
+    (entry.category === 'quotation' ? quoteCard
+      : '<div class="annal-overview">' + introductionMarkup + photoMarkup(entry) + '</div>') +
+    recipe +
+    '<footer class="annal-entry-foot">' + (contributor || '<span>Stammtisch Social Club</span>') +
+    '<a class="annal-entry-link" href="#' + esc(entry.id) + '">Link to entry ↗</a></footer>' +
     '</article>';
 }
 
