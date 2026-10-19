@@ -254,12 +254,19 @@ try{
           for(const link of await page.locator('nav a,main a,footer a').all())if(await link.isVisible())assert.ok((await link.boundingBox()).height>=44,'Small link target');
         }
       });
-      await check(browser,profile,'CoL form controls have visible keyboard focus and narrow-screen reflow',async page=>{
-        await page.goto(origin+'/celebration.html');
-        const search=page.locator('#celebrity-search'),reset=page.locator('#reset-filters');
+      await check(browser,profile,'form control focus visibility and 320px reflow',async page=>{
+        await page.goto(origin+'/annals.html');
+        // Fictional controls exercise the real shared stylesheet, not live data.
+        await page.evaluate(()=>{
+          const fixture=document.createElement('div');
+          fixture.innerHTML='<label for="fictional-focus-field">Fictional search</label><input id="fictional-focus-field" type="search"><button id="fictional-focus-button" type="button">Fictional reset</button>';
+          document.querySelector('main').append(fixture);
+        });
+        const search=page.locator('#fictional-focus-field'),reset=page.locator('#fictional-focus-button');
         await search.focus();
         assert.equal(await search.evaluate(e=>getComputedStyle(e).outlineWidth),'3px');
-        await reset.focus();
+        await page.keyboard.press('Tab');
+        assert.equal(await reset.evaluate(e=>document.activeElement===e),true);
         assert.equal(await reset.evaluate(e=>getComputedStyle(e).outlineWidth),'3px');
         await page.setViewportSize({width:320,height:740});
         await noOverflow(page);
