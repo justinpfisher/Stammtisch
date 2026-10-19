@@ -1566,3 +1566,34 @@ test('owner-only hold notification is safe when a contributor is not authenticat
   assert.equal(messages[0][0],'owner@example.test');
   assert.equal(x.files.has('contributor-hold-notice-private.json'),false);
 });
+
+
+test('ordinary AI drafting sees only independently screened safe remainder; private original and CoL remain exact',()=>{
+  const x=mock(),source={source:{subject:'Fish and Marc — fictional club note',
+    excerpt:'Marc prepared imaginary drinks. We met at 2400 Example Road. Jamie was diagnosed with a condition. Matt packed imaginary lemons.'}};
+  const original=structuredClone(source);
+  const ai=x.context.annalsAiSafeSourceText_(source);
+  assert.match(ai,/Fish and Marc/);
+  assert.match(ai,/Marc prepared imaginary drinks/);
+  assert.match(ai,/Matt packed imaginary lemons/);
+  assert.match(ai,/\[DETAIL OMITTED\]/);
+  assert.doesNotMatch(ai,/2400 Example Road|diagnosed with|condition/);
+  assert.equal(x.context.annalsSafeTextForAutoAi_(ai),true);
+  assert.equal(x.context.annalsAiIndependentSafeText_(source),true);
+  assert.equal(source.source.excerpt,original.source.excerpt);
+  assert.match(x.context.annalsAiSourceText_(source),/2400 Example Road/);
+  const col={source:{subject:'CoL scoring revision',excerpt:'Change the Steal formula in a hypothetical club game.'}};
+  assert.equal(x.context.annalsAiSafeSourceText_(col),'','operative rule source must use its dedicated route');
+  assert.match(x.context.annalsAiSourceText_(col),/Steal formula/);
+  assert.equal(x.calls.ai,0);
+});
+test('a separate original photo cannot suppress independent screened text, but photo-only content remains dependent',()=>{
+  const x=mock();
+  const text={source:{subject:'Imaginary gathering',excerpt:'Marc prepared a fictional drink. See the attached photo.'}};
+  assert.equal(x.context.annalsAiIndependentSafeText_(text),true);
+  assert.doesNotMatch(x.context.annalsAiSafeSourceText_(text),/See the attached photo/);
+  const photo={source:{subject:'Photo submission',excerpt:'See the attached photo.'}};
+  assert.equal(x.context.annalsAiIndependentSafeText_(photo),false);
+  assert.match(x.context.annalsAiSafeSourceText_(photo),/See the attached photo/);
+  assert.equal(x.calls.ai,0);
+});

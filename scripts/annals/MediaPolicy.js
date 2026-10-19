@@ -11,7 +11,9 @@ var AnnalsMediaPolicy = (function () {
     return value;
   }
   var MODE = 'standing-consent-image-v1';
-  var DANGEROUS = /\b(?:private|confidential|address|phone|password|allegedly|accused|fraud|assault|family|guest|child|children|home address|license plate|licence plate|reflection|face)\b|[\w.+-]+@[\w.-]+\.[a-z]{2,}|https?:\/\/|\b(?:Justin|Marc|Matt|Ken|Jamie|Jerome)\b/i;
+  // Names/nicknames alone are ordinary approved club references, never
+  // a reason to withhold a screened object photo or harmless caption.
+  var DANGEROUS = /\b(?:private|confidential|address|phone|password|allegedly|accused|fraud|assault|family|guest|child|children|home address|license plate|licence plate|reflection|face)\b|[\w.+-]+@[\w.-]+\.[a-z]{2,}|https?:\/\//i;
   var IMAGE_RISKS = ['faces_or_reflections', 'possible_personal_identifier','location_or_home_context','private_context',
     'unknown_attachment','photo_transcription_unverified','quote_consent_unconfirmed'];
   var AMOUNT = /\b(?:\d+(?:[./]\d+)?|[¼½¾])\s*(?:oz|ounces?|ml|cl|g|grams?|cups?|tbsp|tsp|dash(?:es)?|drops?|parts?)\b/i;
@@ -81,8 +83,12 @@ var AnnalsMediaPolicy = (function () {
       // not an AI-invented account of the depicted event.
       var eligibleFallback = ['media_context_required','photo_only_requires_safe_permission',
         'recipe_measure_or_step_uncertain','classification_not_supported'].indexOf(decision.reason) >= 0;
-      var body = String(source.source.excerpt || '').trim();
-      var subject = String(source.source.subject || '').trim();
+      // Image-only fallback must never bypass the ordinary text screener:
+      // even a positively screened photo cannot publish private raw captions.
+      var safe = Auto.safeSource(source.source.subject,source.source.excerpt,false);
+      if (!safe.valid) return decision;
+      var body = safe.excerpt.trim();
+      var subject = safe.subject.trim();
       var materialRisk = ['faces_or_reflections','possible_personal_identifier',
         'location_or_home_context','private_context','quote_consent_unconfirmed','unknown_attachment'];
       if (!permitted || !eligibleFallback || !imageCategory || !subject || subject.length > 150 ||
