@@ -68,7 +68,7 @@ test('calendar remains an honest recurring date reminder without a fictional dur
   assert.match(ics,/DTSTART;VALUE=DATE:20261016\r\n/);
   assert.match(ics,/DTEND;VALUE=DATE:20261017\r\n/);
   assert.match(ics,/RRULE:FREQ=MONTHLY;BYDAY=3FR\r\n/);
-  assert.match(ics,/8 p\.m\. Toronto time/);
+  assert.match(ics.replace(/\r\n[ \t]/g,''),/8 p\.m\. Toronto time/);
   assert.doesNotMatch(ics,/DTSTART;TZID=|DURATION:|LOCATION:/);
   for(const line of ics.split('\r\n'))assert.ok(line.length<=75,'Unfolded calendar line');
 });
