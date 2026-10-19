@@ -88,7 +88,13 @@ var AnnalsAuto = (function () {
         // arbitrarily substituting a person or inventing a narrative.
         var masked = text.replace(CONTACT_TOKENS,'[DETAIL OMITTED]')
           .replace(/\b(?:guest|visitor|colleague)\s+named\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b/g,
-            function(match) {return match.split(/\s+/)[0]+' [NAME OMITTED]';});
+            function(match) {return match.split(/\s+/)[0]+' [NAME OMITTED]';})
+          // The six members' approved first names remain intact. A distinct
+          // first-and-last name after a high-confidence person-introducing verb
+          // does not inherit those permissions. Mask that name rather than
+          // throwing away the surrounding otherwise safe recollection.
+          .replace(/\b(met|named|called)\s+[A-Z][a-z]+\s+[A-Z][a-z]+\b/g,
+            function(match, context) {return context+' [NAME OMITTED]';});
         var quoteRisk=(THIRD_PARTY.test(masked)||reportedSpeech(masked))&&!permittedSourceQuote;
         // A stand-alone request to contact an unpublished address has no
         // meaningful public content once its only detail has been removed.

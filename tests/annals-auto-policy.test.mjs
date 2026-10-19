@@ -688,3 +688,31 @@ test('an unapproved guest or unknown speaker quote is omitted without suppressin
   assert.equal(unknown.valid,false);
   assert.equal(unknown.reason,'third_party_quotation_permission');
 });
+
+
+test('an identifiable third-party full name is masked without discarding a safe member recollection',()=>{
+  const s=sample();
+  s.source.subject='Fish and Marc recall a fictional evening';
+  s.source.excerpt='Ken met Laurel Brewer at a fictional gathering. Jamie prepared an imaginary cordial.';
+  const before=s.source.excerpt,screened=policy.safeSource(s.source.subject,s.source.excerpt,false);
+  assert.equal(screened.valid,true);
+  assert.equal(screened.redacted,true);
+  assert.equal(screened.excerpt,'Ken met [NAME OMITTED] at a fictional gathering. Jamie prepared an imaginary cordial.');
+  const d={...draft(),category:'monthly_gathering',title:s.source.subject,
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  const approved=policy.propose(s,d,id);
+  assert.equal(approved.eligible,true);
+  assert.equal(approved.entry.summary,screened.excerpt);
+  assert.equal(approved.entry.title,s.source.subject);
+  assert.equal(s.source.excerpt,before,'private source must remain exact');
+  const page=buildPublishedAnnals([approved.entry],[proof(approved.entry)],secret).html;
+  assert.match(page,/Ken met \[NAME OMITTED\]/);
+  assert.match(page,/Jamie prepared/);
+  assert.doesNotMatch(page,/Laurel Brewer|\[MEMBER\]/);
+});
+test('a reported quotation cannot be made publishable by masking the alleged speaker name',()=>{
+  const safe=policy.safeSource('Club recollection','Marc brought an imaginary glass. Laurel Brewer said "a supposed quotation".',false);
+  assert.equal(safe.valid,true);
+  assert.equal(safe.excerpt,'Marc brought an imaginary glass.');
+  assert.doesNotMatch(safe.excerpt,/quotation|Laurel Brewer/);
+});
