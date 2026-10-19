@@ -34,6 +34,63 @@ class AnnalsInstallPackageTests(unittest.TestCase):
                 original = json.loads(PACKAGE.git("show", manifest["sourceCommit"] + ":scripts/annals/production-appsscript.json"))
                 self.assertEqual(installed, original)
 
+    def test_narrow_four_module_package_preserves_private_manifest(self):
+        modules = ("Production.gs", "PhotoProduction.gs", "RulesProduction.gs",
+                   "GuardedRelease.gs")
+        with tempfile.TemporaryDirectory() as directory:
+            first, second = Path(directory) / "narrow.zip", Path(directory) / "reordered.zip"
+            result = PACKAGE.build_package("HEAD", first, only=modules[::-1])
+            PACKAGE.build_package("HEAD", second, only=modules)
+            self.assertEqual(first.read_bytes(), second.read_bytes())
+            self.assertEqual(result["files"], 4)
+            self.assertTrue(result["selectedOnly"])
+            self.assertFalse(result["installed"])
+            with zipfile.ZipFile(first) as archive:
+                self.assertEqual(set(archive.namelist()), {
+                    "install/" + module for module in modules
+                } | {"source-manifest.json", "README.txt"})
+                manifest = json.loads(archive.read("source-manifest.json"))
+                self.assertEqual(
+                    [record["install"] for record in manifest["files"]],
+                    ["install/" + module for module in modules]
+                )
+                for record in manifest["files"]:
+                    original = PACKAGE.git(
+                        "show", manifest["sourceCommit"] + ":" + record["source"]
+                    )
+                    self.assertEqual(archive.read(record["install"]), original)
+                    self.assertEqual(record["sha256"], hashlib.sha256(original).hexdigest())
+                self.assertNotIn("install/appsscript.json", archive.namelist())
+                instructions = archive.read("README.txt").decode("utf8")
+                self.assertIn("Selected public module update", instructions)
+                self.assertIn("docs/current-state.md", instructions)
+                self.assertNotIn("2026-11-09", instructions)
+                self.assertIn("Do not reset or broadly disable", instructions)
+
+    def test_narrow_package_refuses_unknown_duplicate_or_private_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / "untrusted.zip"
+            for selection in (
+                (),
+                ("ExtraCode.gs",),
+                ("Production.gs", "Production.gs"),
+                ("production-appsscript.json",),
+            ):
+                with self.subTest(selection=selection):
+                    with self.assertRaises(ValueError):
+                        PACKAGE.build_package("HEAD", out, only=selection)
+                    self.assertFalse(out.exists())
+
+    def test_complete_package_reads_expiry_from_live_record_not_stale_date(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / "complete.zip"
+            result = PACKAGE.build_package("HEAD", out)
+            self.assertFalse(result["selectedOnly"])
+            with zipfile.ZipFile(out) as archive:
+                instructions = archive.read("README.txt").decode("utf8")
+                self.assertNotIn("2026-11-09", instructions)
+                self.assertIn("effective dispatch cutoff", instructions)
+
     def test_artifacts_cannot_be_written_into_public_checkout(self):
         with self.assertRaises(ValueError):
             PACKAGE.build_package("HEAD", ROOT / "accidental-public-install.zip")
