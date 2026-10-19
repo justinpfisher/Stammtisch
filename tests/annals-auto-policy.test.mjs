@@ -490,22 +490,22 @@ test('Markdown source emphasis, mixed fractions and wrapped preparation are not 
 });
 
 
-test('anonymous member stories and safe scare quotes publish with first names redacted in public derivatives',()=>{
+test('approved member first names and established nickname Fish appear literally in safe signed Annals stories',()=>{
   const s=sample();
-  s.source.subject='Marc and the ceremonial glass';
-  s.source.excerpt='Marc brought a fictional drink called "The Lantern". Jamie declared the evening excellent.';
+  s.source.subject='Justin (Fish) and Marc shared the fictional glass';
+  s.source.excerpt='Marc brought a fictional drink called "The Lantern". Matt, Ken, Jamie and Jerome enjoyed a hypothetical toast with Justin (Fish).';
   const d={...draft(),category:'monthly_gathering',title:s.source.subject,
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
   const decision=policy.propose(s,d,id);
   assert.equal(decision.eligible,true);
-  assert.match(decision.entry.title,/\[MEMBER\]/);
-  assert.match(decision.entry.summary,/\[MEMBER\]/);
-  assert.doesNotMatch(JSON.stringify(decision.entry),/\b(?:Marc|Jamie)\b/);
-  assert.match(s.source.excerpt,/Marc brought/);
+  assert.equal(decision.entry.title,s.source.subject);
+  assert.equal(decision.entry.summary,s.source.excerpt);
+  assert.doesNotMatch(JSON.stringify(decision.entry),/\[MEMBER\]/);
+  assert.equal(policy.sensitiveText('Fish brought a fictional drink for Marc.'),false);
   assert.equal(verifyPublicApproval(decision.entry,proof(decision.entry),secret),true);
   const page=buildPublishedAnnals([decision.entry],[proof(decision.entry)],secret).html;
+  for(const name of ['Justin','Fish','Marc','Matt','Ken','Jamie','Jerome'])assert.match(page,new RegExp('\\b'+name+'\\b'));
   assert.match(page,/The Lantern/);
-  assert.doesNotMatch(page,/Marc brought|Jamie declared/);
 });
 test('member names are not sufficient to publish attributed speech, secrets or unsupported event claims',()=>{
   const cases=[
@@ -527,4 +527,41 @@ test('casual references to club rules remain Annals while actual CoL changes sta
   assert.equal(policy.protectedRoute('A house rule','The fictional drink earned its own house rule.'),'annals');
   assert.equal(policy.protectedRoute('CoL rules rewrite','Change how Steals are awarded.'),'col_proposal');
   assert.equal(policy.protectedRoute('Club rules','I propose changing the rules.'),'col_proposal');
+});
+
+
+test('approved names in a genuinely speaker-authorised verbatim quotation retain original words',()=>{
+  const s=sample();
+  s.source.subject='Quote from Ken';
+  s.source.excerpt='Ken: "Fish and Marc attended the fictional rehearsal."';
+  const d={...draft(),category:'quotation',title:'Quote from Ken',
+    quoteVerbatim:'Fish and Marc attended the fictional rehearsal.',
+    interpretation:{intent:'direct_quote',speakerId:'ken',evidenceField:'body'},
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  const without=policy.propose(s,d,id);
+  assert.equal(without.eligible,false);
+  assert.equal(without.reason,'speaker_specific_publication_permission_missing');
+  const allowed=policy.propose(s,d,id,{speakerPortrait:'ken'});
+  assert.equal(allowed.eligible,true);
+  assert.equal(allowed.entry.quoteVerbatim,d.quoteVerbatim);
+  assert.equal(allowed.entry.speakerPortrait,'ken');
+  assert.equal(verifyPublicApproval(allowed.entry,proof(allowed.entry),secret),true);
+  const page=buildPublishedAnnals([allowed.entry],[proof(allowed.entry)],secret).html;
+  assert.match(page,/Fish and Marc attended the fictional rehearsal/);
+});
+test('member names in ordinary cocktails are preserved but protected details and reported speech still hold',()=>{
+  const s=sample();
+  s.source.subject='Fish invented a fictional cocktail for Matt';
+  s.source.excerpt='Marc measured 1 oz invented syrup and 2 oz imaginary juice.\nStir the invented liquids.';
+  const d={...draft(),title:s.source.subject,
+    recipe:{...draft().recipe,drinkIngredients:['1 oz invented syrup','2 oz imaginary juice'],
+      steps:['Stir the invented liquids.']}};
+  const permitted=policy.propose(s,d,id);
+  assert.equal(permitted.eligible,true);
+  assert.equal(permitted.entry.title,s.source.subject);
+  assert.match(permitted.entry.summary,/Marc measured/);
+  const reported={...s,source:{...s.source,excerpt:'Fish said "The imaginary drink was delicious".'}};
+  assert.equal(policy.propose(reported,{...d,category:'monthly_gathering',recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}},id).reason,'third_party_quotation_permission');
+  const sensitive={...s,source:{...s.source,excerpt:'Marc shared his bank account with Fish.'}};
+  assert.equal(policy.propose(sensitive,{...d,category:'monthly_gathering',recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}},id).reason,'private_personal_or_sensitive_content');
 });
