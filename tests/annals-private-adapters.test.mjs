@@ -122,9 +122,10 @@ test('qualified Drive previews of still HEIC HEIF PNG WebP enter the existing si
   const formats=[['image/heic',brands('heic','mif1')],['image/heif',brands('mif1','heic')],
     ['image/png',png],['image/webp',webp]];
   for(const [mime,raw] of formats){
-    const files=new Map(),saved=[];
+    const files=new Map(),records=new Map(),saved=[];
+    let thumbnailReads=0;
     const origin={getBlob:()=>({getBytes:()=>[...raw]}),
-      getThumbnail:()=>({getContentType:()=> 'image/jpeg',getBytes:()=>[...preview]})};
+      getThumbnail:()=>{thumbnailReads++;return {getContentType:()=> 'image/jpeg',getBytes:()=>[...preview]};}};
     files.set('original',origin);
     const props={ANNALS_PHOTOS_GUARDED_JPEG_ENABLED:'true',
       ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED:'true',ANNALS_AUTO_MEDIA_ENABLED:'true',
@@ -132,10 +133,18 @@ test('qualified Drive previews of still HEIC HEIF PNG WebP enter the existing si
     const c=vm.createContext({AnnalsMedia:Media,AnnalsPhotos:Photos,
       AnnalsJpegCodec:codec,AnnalsPhotoDerivative:derivative,
       annalsProps_:()=>({getProperty:k=>props[k]||null}),annalsImageConsentActive_:()=>true,
-      annalsFolder_:()=>({createFile:blob=>{files.set(blob.name,blob);return blob;}}),
-      annalsFile_:(_,name)=>files.get(name)||null,annalsRead_:()=>null,
+      annalsFolder_:()=>({createFile:blob=>{
+        const file={getBlob:()=>({getBytes:()=>blob.bytes})};
+        files.set(blob.name,file);return file;}}),
+      annalsFile_:(_,name)=>files.get(name)||null,
+      annalsRead_:(_,name)=>records.get(name)||null,
       annalsPrivate_:v=>v,annalsHash_:v=>createHash('sha256').update(Buffer.from(v)).digest('hex'),
-      annalsWriteOnce_:(_f,name,value)=>saved.push({name,value}),
+      annalsWriteOnce_:(_f,name,value)=>{
+        assert.equal(records.has(name),false,'one-shot journal and manifest must not be overwritten');
+        records.set(name,value);
+        files.set(name,{setContent:text=>records.set(name,JSON.parse(text))});
+        saved.push({name,value});
+      },
       Utilities:{base64Encode:v=>Buffer.from(v).toString('base64'),
         newBlob:(bytes,type,name)=>({bytes,type,name})}});
     vm.runInContext(readFileSync(new URL('../scripts/annals/GuardedRelease.gs',import.meta.url),'utf8'),c);
@@ -148,8 +157,14 @@ test('qualified Drive previews of still HEIC HEIF PNG WebP enter the existing si
     assert.equal(clean.width,800);assert.equal(clean.height,800);
     assert.deepEqual(clean.bytes,[...jpeg]);
     assert.equal(set[0].sha256,createHash('sha256').update(jpeg).digest('hex'));
-    assert.deepEqual(saved.map(x=>x.name),['photos-v2-private.json']);
-    assert.equal('base64' in saved[0].value[0],false);
+    assert.deepEqual(saved.map(x=>x.name),['photo-conversion-1-private.json','photos-v2-private.json']);
+    assert.equal(records.get('photo-conversion-1-private.json').state,'ready');
+    assert.equal(records.get('photo-conversion-1-private.json').sha256,set[0].sha256);
+    assert.equal('base64' in saved[1].value[0],false);
+    assert.equal(thumbnailReads,1);
+    origin.getThumbnail=()=>assert.fail('Completed derivative must be reused without reading Drive preview');
+    assert.equal(c.annalsPhotoSet_('a'.repeat(64),source,true)[0].sha256,set[0].sha256);
+    assert.equal(saved.length,2,'completed conversion and signed set must not repeat');
   }
 });
 test('unsupported, animated, spoofed and malformed source containers cannot enter still-image preview conversion',()=>{
