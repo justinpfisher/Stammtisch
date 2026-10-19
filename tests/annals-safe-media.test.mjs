@@ -187,3 +187,25 @@ test('approved first-name and nickname references do not veto a screened safe-ob
   const guest={...src,source:{...src.source,excerpt:'A guest prepared this fictional glass. Photo attached.'}};
   assert.equal(policy.enrich(guest,cand,id,base.propose(guest,cand,id),image).eligible,false);
 });
+
+
+test('photo-only fallback uses screened caption rather than an original private address',()=>{
+  const bytes=media.sanitize([...photo()]).bytes;
+  const picture={sha256:createHash('sha256').update(Buffer.from(bytes)).digest('hex'),size:bytes.length};
+  const src=source();
+  src.source.subject='Marc and Fish — fictional cocktail snapshot';
+  src.source.excerpt='Photo attached. Imaginary glass at 2400 Example Road.';
+  const candidate={...draft(),title:src.source.subject};
+  const original=src.source.excerpt;
+  const decision=base.propose(src,candidate,id);
+  assert.equal(decision.eligible,false);
+  const result=policy.enrich(src,candidate,id,decision,picture);
+  assert.equal(result.eligible,true);
+  assert.match(result.entry.title,/Marc and Fish/);
+  assert.match(result.entry.summary,/\[DETAIL OMITTED\]/);
+  assert.doesNotMatch(JSON.stringify(result.entry),/2400 Example Road/);
+  assert.equal(src.source.excerpt,original);
+  assert.equal(verifyPublicApproval(result.entry,sign(result.entry),secret),true);
+  const uncertain={...src,source:{...src.source,excerpt:'The guest had a medical emergency.'}};
+  assert.equal(policy.enrich(uncertain,candidate,id,base.propose(uncertain,candidate,id),picture).eligible,false);
+});
