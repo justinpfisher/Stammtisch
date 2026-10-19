@@ -1215,11 +1215,23 @@ function annalsNotifyDraftReady_(folder) {
   if (annalsFile_(folder, 'draft-notice-private.json')) return false;
   var p = annalsProps_(), reviewUrl = p.getProperty('ANNALS_REVIEW_URL');
   if (!reviewUrl || !/^https:\/\/script\.google\.com\/macros\/s\//.test(reviewUrl)) throw new Error('Private review URL not configured');
+  var hold = annalsRead_(folder, 'auto-decision-private.json');
+  var safeReasons = {
+    recipe_measure_or_step_uncertain: 'original recipe quantities or steps could not be matched automatically',
+    material_uncertainty: 'a substantive rights or safety question remains',
+    private_personal_or_sensitive_content: 'the submission may contain private or sensitive information',
+    consent_or_source_missing: 'the source or standing permissions need verification',
+    source_incomplete: 'the original text is incomplete',
+    third_party_quotation_permission: 'quoted material needs separate speaker permission'
+  };
+  var holdExplanation = hold && Object.prototype.hasOwnProperty.call(safeReasons,hold.reason) ?
+    safeReasons[hold.reason] : 'an eligibility or processing check did not complete';
   annalsWriteOnce_(folder, 'draft-notice-private.json', { state: 'attempted_once', at: new Date().toISOString() });
   var delivery = 'unknown_no_retry';
   try {
     GmailApp.sendEmail(p.getProperty('ANNALS_OWNER_EMAIL'), 'Private Annals draft ready',
-      'A consented submission requires private attention; no automatic publication was confirmed. Any manual publication requires your exact approval.\n\n' + reviewUrl + '?item=' + encodeURIComponent(folder.getName()));
+      'Automatic Annals publication was not confirmed. This submission is held privately because ' + holdExplanation +
+      '. Eligible member contributions normally publish under standing permissions without routine approval. Review this particular exception privately.\n\n' + reviewUrl + '?item=' + encodeURIComponent(folder.getName()));
     delivery = 'sent';
   } catch (e) {}
   annalsFile_(folder, 'draft-notice-private.json').setContent(JSON.stringify({ state: delivery, at: new Date().toISOString() }));
