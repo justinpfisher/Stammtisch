@@ -183,9 +183,13 @@ test('unsupported, animated, spoofed and malformed source containers cannot ente
   animatedWebp.write('VP8X',12);animatedWebp.writeUInt32LE(10,16);animatedWebp[20]=2;
   const sequence=Buffer.alloc(24);sequence.writeUInt32BE(24);sequence.write('ftyp',4);
   sequence.write('msf1',8);sequence.write('heic',16);sequence.write('msf1',20);
+  const hevc=Buffer.from(sequence);hevc.write('hevc',8);hevc.write('mif1',20);
+  const hevx=Buffer.from(sequence);hevx.write('hevx',8);hevx.write('heic',20);
   assert.equal(check('image/png',animatedPng),false,'animated PNG');
   assert.equal(check('image/webp',animatedWebp),false,'animated WebP');
   assert.equal(check('image/heic',sequence),false,'HEIF sequence');
+  assert.equal(check('image/heic',hevc),false,'HEVC image-sequence brand');
+  assert.equal(check('image/heif',hevx),false,'HEVX image-sequence brand');
   assert.equal(check('image/heic',png),false,'wrong MIME');
   assert.equal(check('image/png',Buffer.from('<svg/>')),false);
   assert.equal(check('image/gif',Buffer.from('GIF89a')),false);
