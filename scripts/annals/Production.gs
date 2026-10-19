@@ -1062,8 +1062,15 @@ function annalsSavePhotoDerivative(nonce, id, base64) {
   return annalsUiCall_(nonce, function () { return annalsLocked_(function () {
     var folder = annalsFolder_(id), source = annalsRead_(folder, 'source-private.json');
     if (!source || typeof base64 !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64) || base64.length > 44000) throw new Error('Invalid photo derivative');
-    var bytes = Utilities.base64Decode(base64);
-    if (bytes.length > 32768 || !annalsJpegDerivativeSafe_(bytes)) throw new Error('Photo derivative must be a small metadata-free JPEG');
+    var upload = Utilities.base64Decode(base64);
+    if (upload.length > 32768 || !annalsJpegDerivativeSafe_(upload))
+      throw new Error('Photo derivative must be a small JPEG');
+    // Canvas JPEGs commonly contain APP0/JFIF metadata. The hosted publisher
+    // requires exact equality to AnnalsMedia.sanitize(). Sanitize before
+    // computing the private digest or reserving any signed correction.
+    var clean = AnnalsMedia.sanitize(upload), bytes = clean.bytes;
+    if (!annalsJpegDerivativeSafe_(bytes) || bytes.length > 32768)
+      throw new Error('Metadata-free photo derivative unavailable');
     var previous = annalsFile_(folder, 'photo-derivative-private.jpg');
     if (previous) previous.setTrashed(true);
     var file = annalsPrivate_(folder.createFile(Utilities.newBlob(bytes, 'image/jpeg', 'photo-derivative-private.jpg')));

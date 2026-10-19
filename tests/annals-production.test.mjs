@@ -16,7 +16,7 @@ const candidate = () => ({ category: 'cocktail', title: 'Invented', summary: 'Sy
   recipe: entry().recipe, riskFlags: ['handwriting_ambiguous'],
   interpretation:{intent:'recipe',speakerId:'unknown',evidenceField:'body'} });
 const permissions = { publication: true, quotePublication: false, recipeVerified: true, namedAttribution: false, photoPublication: false };
-const photoJpeg = () => Buffer.from([255,216,255,224,0,4,0,0,255,192,0,17,8,0,1,0,1,3,1,17,0,2,17,0,3,17,0,255,218,0,2,0,255,217]);
+const photoJpeg = () => Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABsSFBcUERsXFhceHBsgKEIrKCUlKFE6PTBCYFVlZF9VXVtqeJmBanGQc1tdhbWGkJ6jq62rZ4C8ybqmx5moq6T/2wBDARweHigjKE4rK06kbl1upKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKT/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAL/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAgP/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCgEQf/2Q==','base64');
 const iter = items => { let i = 0; return { hasNext: () => i < items.length, next: () => items[i++] }; };
 function mock() {
   const owner = 'owner@example.test', files = new Map(), calls = { ai: 0 }, logs = [],
@@ -299,7 +299,10 @@ test('corrections and removals require the exact published entry and dispatch se
 test('photo derivatives are revalidated in private storage and require separate exact publication consent', () => {
   const x=mock(), id='a'.repeat(64), bytes=photoJpeg(), base64=bytes.toString('base64');
   const stored=x.context.annalsSavePhotoDerivative('valid',id,base64);
-  assert.equal(stored.size,bytes.length);assert.equal(x.context.annalsPhotoDerivative_(x.folder).base64,base64);
+  const clean=Buffer.from(x.context.AnnalsMedia.sanitize([...bytes]).bytes),canonical=clean.toString('base64');
+  assert.ok(stored.size<bytes.length,'JFIF metadata is removed before signing');
+  assert.equal(stored.size,clean.length);
+  assert.equal(x.context.annalsPhotoDerivative_(x.folder).base64,canonical);
   const withPhoto={...entry(),photo:{sha256:stored.sha256,alt:'Synthetic cocktail only'}};
   const review=x.context.annalsSaveReview('valid',id,withPhoto);
   assert.throws(()=>x.context.annalsApproveReview('valid',id,review.hash,permissions,'Synthetic image consent evidence',true));
@@ -308,9 +311,40 @@ test('photo derivatives are revalidated in private storage and require separate 
   x.context.UrlFetchApp.fetch=(url,options)=>{payload=JSON.parse(options.payload);return{getResponseCode:()=>204};};
   const consent={...permissions,photoPublication:true};
   assert.equal(x.context.annalsApproveReview('valid',id,review.hash,consent,'Synthetic photographer and exact image approval record',true).dispatchAccepted,true);
-  assert.equal(payload.event_type,'annals-approved-entry');assert.equal(payload.client_payload.imageBase64,base64);
+  assert.equal(payload.event_type,'annals-approved-entry');assert.equal(payload.client_payload.imageBase64,canonical);
   const bad=mock();assert.throws(()=>bad.context.annalsSavePhotoDerivative('valid',id,Buffer.from('not a JPEG').toString('base64')));
 });
+test('existing signed text cocktail accepts a distinct screened photo through exact one-time correction',()=>{
+  const x=mock(),id='a'.repeat(64),events=[];
+  Object.assign(x.props,{ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
+    ANNALS_GITHUB_TOKEN:'fictional',ANNALS_GITHUB_REPOSITORY:'owner/repo'});
+  x.context.UrlFetchApp.fetch=(_url,options)=>{
+    events.push(JSON.parse(options.payload));
+    return {getResponseCode:()=>204};
+  };
+  const initial=x.context.annalsSaveReview('valid',id,entry());
+  assert.equal(x.context.annalsApproveReview('valid',id,initial.hash,permissions,'Fictional source permission',true).dispatchAccepted,true);
+  const original=JSON.parse(x.files.get('approval-private.json').getBlob().getDataAsString());
+  const saved=x.context.annalsSavePhotoDerivative('valid',id,photoJpeg().toString('base64'));
+  const corrected={...original.entry,photo:{sha256:saved.sha256,alt:'A fictional orange glass'}};
+  const preview=x.context.annalsSaveCorrection('valid',id,corrected);
+  assert.throws(()=>x.context.annalsApproveCorrection('valid',id,preview.hash,permissions,'Fictional image rights',true));
+  const consent={...permissions,photoPublication:true};
+  assert.equal(x.context.annalsApproveCorrection('valid',id,preview.hash,consent,'Fictional scoped photographed glass permission',true).dispatchAccepted,true);
+  const record=JSON.parse(x.files.get('correction-approval-private.json').getBlob().getDataAsString());
+  assert.equal(record.entry.id,original.entry.id);
+  assert.equal(record.entry.photo.sha256,saved.sha256);
+  assert.equal(record.publicationState,'dispatch_accepted');
+  assert.equal(verifyPublicApproval(record.entry,record.publication,'p'.repeat(40)),true);
+  assert.equal(events.length,2);
+  assert.equal(events[0].event_type,'annals-approved-entry');
+  assert.equal(events[1].event_type,'annals-correct-entry');
+  assert.equal(events[1].client_payload.entry.photo.sha256,saved.sha256);
+  assert.equal(events[1].client_payload.imageBase64,x.context.annalsPhotoDerivative_(x.folder).base64);
+  assert.equal(x.files.has('correction-dispatch-private.json'),true);
+  assert.equal(x.files.has('ai-attempt-private.json'),false);
+});
+
 test('production intake resumes a long thread and wraps without reading while disabled', () => {
   const x=mock(), handled=[], messages=Array.from({length:12},(_,id)=>({id,getId:()=>String(id)})),seen=new Set();
   const thread={getId:()=> 'private-thread', getMessages:()=>messages};
