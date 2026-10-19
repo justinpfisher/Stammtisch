@@ -166,7 +166,7 @@ test('a mixed set of fictional entries sorts newest year first with existing nav
   const html = buildApprovedAnnals(
     [baseQuote, baseDrink], [qReceipt, dReceipt], TEST_SECRET,
   ).html;
-  assert.ok(html.indexOf('id="year-cocktail-2026"') < html.indexOf('id="year-quotation-2025"'));
+  assert.ok(html.indexOf('id="sample-cocktail-01"') < html.indexOf('id="sample-quotation-01"'));
   assert.ok(html.includes('href="celebration.html"'));
   assert.ok(html.includes('href="location.html"'));
   assert.ok(html.includes('width=device-width'));
@@ -199,7 +199,7 @@ test('club artefacts are a supported text-only public category', () => {
   };
   const receipt = signedTestReceipt(artefact);
   const result = buildApprovedAnnals([artefact], [receipt], TEST_SECRET);
-  assert.ok(result.html.includes('Club History'));
+  assert.ok(result.html.includes('Club Keepsakes'));
   assert.ok(result.html.includes('Fictional test keepsake'));
 });
 
@@ -238,7 +238,7 @@ test('Register of Remarks shows a verified speaker instead of the contributor be
   assert.match(html,/alt="Illustrated portrait of Ken, the speaker"/);
   assert.match(html,/This is an invented test quotation/);
   assert.doesNotMatch(html,/class="annal-contributor-portrait"|Recorded by/);
-  assert.match(html,/\.annal-speaker-portrait\{width:48px/); // iPhone size
+  assert.match(html,/href="annals.css"/); // responsive portraits belong to the external stylesheet
   assert.equal(contentDigest(record)===contentDigest({...record,speakerPortrait:'marc'}),false);
   assert.equal(verifyApproval({...record,speakerPortrait:'marc'},approved,TEST_SECRET),false);
 });
