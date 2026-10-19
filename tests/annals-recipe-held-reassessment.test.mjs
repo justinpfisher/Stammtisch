@@ -206,6 +206,7 @@ test('owner-only publication readback independently checks signed public entry a
   assert.equal(result.journalsOrCursorsChanged,false);
   assert.equal(Object.values(result.checks).every(v=>v===true),true);
   assert.equal(x.calls.length,2);
+  assert.ok(x.calls.every(url=>!url.includes(id.slice(0,16))), 'A public cache-busting URL must not include private item identifiers');
   assert.equal(JSON.stringify([...x.records.entries()]),snapshot);
   assert.doesNotMatch(JSON.stringify(result),/example\.test|fictional-signature|imaginary test|annal-e/);
 });
