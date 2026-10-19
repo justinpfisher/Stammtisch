@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
+import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 const script=readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8');
 const id='e'.repeat(64),sender='invented.member@example.test';
@@ -169,7 +170,9 @@ function publishedReadbackFixture({httpStatus=200, pageStatus=200, changedArchiv
     recipe:{drinkIngredients:['1 oz invented cordial'],syrupIngredients:[],steps:['Stir carefully.']},
     credit:'anonymous'};
   const proof={entryId:e.id,mode:'standing-consent-text-v1',signature:'fictional-signature'};
-  x.records.set('approval-private.json',{entry:e,receipt:{contentSha256:'f'.repeat(64)},
+  x.ctx.annalsHash_=value=>createHash('sha256').update(value).digest('hex');
+  const digest=x.ctx.annalsHash_(JSON.stringify(e));
+  x.records.set('approval-private.json',{entry:e,receipt:{contentSha256:digest},
     publication:proof,approvalMode:proof.mode,publicationState:'dispatch_accepted'});
   x.records.set('publication-dispatch-private.json',{state:'accepted'});
   const calls=[];
