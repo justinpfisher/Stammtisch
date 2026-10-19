@@ -12,10 +12,10 @@ import { emptyHistory, validateHistory } from './HistoryPublisher.mjs';
 const TYPES = Object.freeze({
   cocktail: 'The Cocktail Register',
   quotation: 'The Register of Remarks',
-  monthly_gathering: 'Club History',
+  monthly_gathering: 'Club Occasions',
   assembly: 'Annual Assemblies',
-  club_history: 'Club History',
-  artefact: 'Club History',
+  club_history: 'Archival Records',
+  artefact: 'Club Keepsakes',
 });
 
 const PUBLIC_KEYS = new Set([
@@ -366,40 +366,50 @@ function buildAnnals(entries, receipts, verifyReceipt, history = emptyHistory())
   if (new Set(receipts.map(r => r && r.entryId)).size !== receipts.length) {
     throw new Error('Duplicate approval receipt');
   }
-  accepted.sort((a, b) => b.year - a.year || b.sortDate.localeCompare(a.sortDate) ||
-    a.title.localeCompare(b.title));
-  // Public collection visibility follows actual approved, published entries only.
-  const displayCategory = item => ['monthly_gathering','artefact'].includes(item.category) ? 'club_history' : item.category;
-  const populatedTypes = Object.entries(TYPES).filter(([category]) =>
-    !['monthly_gathering','artefact'].includes(category) && accepted.some(item => displayCategory(item) === category));
-  const collections = populatedTypes.map(([category, label]) => {
-    const items = accepted.filter(item => displayCategory(item) === category);
-    const collectionId = 'collection-' + category.replaceAll('_', '-');
-    const byYear = new Map();
-    for (const item of items) {
-      if (!byYear.has(item.year)) byYear.set(item.year, []);
-      byYear.get(item.year).push(item);
-    }
-    const archive = [...byYear].map(([year, yearItems]) =>
-      '<section class="annal-year" aria-labelledby="year-' + category + '-' + year + '">' +
-      '<h3 id="year-' + category + '-' + year + '">' + year + '</h3>' +
-      yearItems.map(approvedEntryMarkup).join('') + '</section>').join('');
-    return '<section class="annal-collection" id="' + collectionId + '" aria-labelledby="heading-' + collectionId + '">' +
-      '<h2 id="heading-' + collectionId + '">' + escapeHtml(label) + '</h2>' + archive + '</section>';
-  }).join('');
-  const historyLink = history.chapters.length ? '<a href="history.html">Read Club History →</a>' : '';
-  const photosLink = accepted.some(e => Photos.photos(e).length) ? '<a href="photos.html">Photos →</a>' : '';
-  const navigation = populatedTypes.length > 1 || historyLink || photosLink
-    ? '<nav class="annal-collections" aria-label="Browse Annals collections">' +
-      populatedTypes.map(([category, label]) =>
-        '<a href="#collection-' + category.replaceAll('_', '-') + '">' + escapeHtml(label) + '</a>').join('') +
-      historyLink + photosLink + '</nav>'
-    : '';
+  // Newest first by verified submission or public receipt, falling back to source dates.
+  const orderTime = item => {
+    const receipt = receipts.find(r => r?.entryId === item.id);
+    const raw = item.submittedAt || receipt?.approvedAt ||
+      (item.sortDate ? item.sortDate + 'T00:00:00Z' : item.year + '-01-01T00:00:00Z');
+    return Date.parse(raw);
+  };
+  accepted.sort((a, b) => orderTime(b) - orderTime(a) || b.year - a.year ||
+    b.sortDate.localeCompare(a.sortDate) || a.title.localeCompare(b.title));
+  // Filtering enhances static signed HTML; the content is visible without JavaScript.
+  const populatedTypes = Object.keys(TYPES).filter(category =>
+    accepted.some(item => item.category === category));
+  const filterLabels = {
+    cocktail: 'Cocktails', quotation: 'Remarks', monthly_gathering: 'Occasions',
+    assembly: 'Assemblies', club_history: 'Records', artefact: 'Keepsakes',
+  };
+  const categoryAnchors = populatedTypes.map(category =>
+    '<span class="annal-anchor" id="collection-' +
+    category.replaceAll('_', '-') + '" aria-hidden="true"></span>').join('');
+  const historyLink = history.chapters.length
+    ? '<a class="annal-collection-link" href="history.html">Club History ↗</a>' : '';
+  const photosLink = accepted.some(e => Photos.photos(e).length)
+    ? '<a class="annal-collection-link" href="photos.html">Photographs ↗</a>' : '';
+  const filters = populatedTypes.length > 1
+    ? '<a href="#annals-entries" data-annals-filter="all" aria-current="true">All entries</a>' +
+      populatedTypes.map(category =>
+        '<a href="#collection-' + category.replaceAll('_', '-') +
+        '" data-annals-filter="' + category + '">' +
+        escapeHtml(filterLabels[category]) + '</a>').join('') : '';
+  const navigation = filters || historyLink || photosLink
+    ? '<nav class="annal-collections" aria-label="Browse published Annals">' +
+      filters + historyLink + photosLink + '</nav>' : '';
+  const listHeader = accepted.length
+    ? '<div class="annal-toolbar"><div><p class="eyebrow">A living index</p>' +
+      '<h2>Recently recorded</h2><p id="annal-result-count" role="status" aria-live="polite">' +
+      accepted.length + (accepted.length === 1 ? ' entry shown' : ' entries shown') +
+      ' · Newest first</p></div></div>' : '';
+  const stream = accepted.length
+    ? '<section class="annal-stream" id="annals-entries" aria-label="Published contributions">' +
+      accepted.map(approvedEntryMarkup).join('') + '</section>' : '';
   const emptyState = accepted.length === 0 && !history.chapters.length
-    ? '<p class="annal-empty">The record awaits an approved contribution.</p>'
-    : '';
+    ? '<p class="annal-empty">The record awaits an approved contribution.</p>' : '';
   const html = `<!doctype html>
-<html lang="en">
+<html lang="en-CA">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -409,51 +419,10 @@ function buildAnnals(entries, receipts, verifyReceipt, history = emptyHistory())
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="annals-photos.css">
 <script type="module" src="annals-photos.mjs"></script>
+<script type="module" src="annals-browse.mjs"></script>
+<link rel="stylesheet" href="annals.css">
 <style>
 ${REDACTION_CSS}
-.annal-hero{padding-block:65px 45px;border-bottom:1px solid #d4d3c4}
-.annal-hero h1{font-size:clamp(44px,7vw,78px);line-height:1.1;margin-top:15px}
-.annal-hero p:last-child{max-width:560px;font-size:14px;color:#64685e;margin-top:18px}
-.annal-collections{display:flex;flex-wrap:wrap;gap:8px 20px;padding-block:20px;border-bottom:1px solid #d4d3c4}
-.annal-collections a{display:inline-flex;align-items:center;min-height:44px;color:#193d32;font-size:12px}
-.annal-collection{padding-block:34px;border-bottom:1px solid #d4d3c4;scroll-margin-top:24px}
-.annal-collection>h2{font-size:34px;color:#846329;margin-bottom:15px}
-.annal-year{padding-top:18px}
-.annal-year h3{font:600 11px/1.5 Arial,sans-serif;color:#64685e;letter-spacing:.16em;text-transform:uppercase;margin-bottom:7px}
-.annal-entry{max-width:790px;padding-block:22px 30px;border-top:1px solid #d4d3c4}
-.annal-type{font:600 10px/1.6 Arial,sans-serif;color:#846329;text-transform:uppercase;letter-spacing:.17em}
-.annal-entry h4{font:400 clamp(27px,4vw,39px)/1.2 Georgia,serif;margin-top:8px}
-.annal-date,.annal-credit{color:#64685e;font-size:12px;margin-top:7px}
-.annal-credit{display:flex;align-items:center;gap:10px}
-.annal-contributor-portrait{display:block;width:48px;height:48px;flex:0 0 48px;object-fit:cover;border-radius:3px}
-.annal-credited-illustration{margin-top:13px;display:flex;align-items:center;min-height:48px}
-.annal-summary{margin-top:18px;line-height:1.8;font-size:15px}
-.annal-photo{margin:22px 0 0}.annal-photo img{display:block;width:100%;max-width:760px;max-height:70vh;object-fit:contain;background:#eae5d8}
-.annal-entry blockquote{border-left:3px solid #846329;padding-left:18px;margin:22px 0;font:italic 22px/1.5 Georgia,serif}
-.annal-remark-card{display:flex;gap:18px;align-items:flex-start;max-width:790px;padding:20px;border:1px solid #d4d3c4;border-radius:9px;background:#f4f0e5}
-.annal-remark-words{flex:1;min-width:0}
-.annal-remark .annal-type{margin-bottom:10px}
-.annal-remark blockquote{border:0;margin:0;padding:0;font:italic clamp(19px,3.5vw,25px)/1.45 Georgia,serif;color:#193d32;overflow-wrap:anywhere}
-.annal-speaker-portrait{width:64px;height:64px;flex:0 0 64px;border:2px solid #846329;border-radius:50%;object-fit:cover;background:#eae5d8}
-.annal-remark .annal-date{margin-bottom:8px}
-.annal-remark .annal-quote-note{margin-top:12px}
-.annal-recipe{margin-top:22px;padding:18px 22px;background:#eae5d8}
-.annal-recipe h4{font:600 12px/1.5 Arial,sans-serif;letter-spacing:.09em;text-transform:uppercase;margin:14px 0 8px}
-.annal-recipe ul{margin:0 0 15px;padding-left:20px;font-size:14px}
-.annal-empty{padding-block:20px;color:#64685e;font-style:italic}
-.annal-contribute{display:inline-flex;align-items:center;min-height:48px;margin-top:18px;padding:10px 16px;background:#193d32;color:#f6f2e9;text-decoration:none;font-size:12px}
-.annal-note{margin-top:10px;color:#64685e;font-size:11px}
-.annal-guidance{max-width:790px;margin-top:22px;border-top:1px solid #d4d3c4;border-bottom:1px solid #d4d3c4}
-.annal-guidance>summary{min-height:48px;padding:16px 0;font-size:19px;line-height:1.4}
-.annal-guidance-body{display:grid;gap:16px;padding:4px 0 22px;font-size:14px;line-height:1.8;overflow-wrap:anywhere}
-.annal-hero .annal-guidance-body p{max-width:none;font-size:inherit;color:inherit;margin:0}
-.annal-guidance-body ul{margin:0;padding-left:22px}
-.annal-guidance-body li+li{margin-top:12px}
-.annal-guidance-body h2{font-size:21px}
-.annal-editorial-notice{margin:24px 0 38px;padding-top:16px;border-top:1px solid #d4d3c4;color:#64685e;font:italic 12px/1.7 Georgia,serif;max-width:790px}
-.annal-quote-note{font:italic 12px/1.6 Georgia,serif;color:#64685e}
-.annal-reconstruction-flag{padding:10px 12px;margin-block:16px;border-left:3px solid #846329;background:#eee9de;color:#5f4c2f;font-size:12px}
-@media(max-width:700px){.annal-hero{padding-block:38px 30px}.annal-collection{padding-block:27px}.annal-collection>h2{font-size:29px}.annal-entry{padding-block:18px 25px}.annal-remark-card{gap:12px;padding:14px}.annal-speaker-portrait{width:48px;height:48px;flex-basis:48px}}
 </style>
 </head>
 <body>
@@ -463,11 +432,12 @@ ${REDACTION_CSS}
 <nav aria-label="Main navigation"><a href="index.html#the-club">The Club</a><a href="celebration.html">Celebration of Life</a><a href="location.html">Annual Assembly</a></nav>
 </div></header>
 <main id="main" class="shell">
-<section class="annal-hero"><p class="eyebrow">The permanent record</p>
+<section class="annal-hero"><div class="annal-hero-inner">
+<div><p class="eyebrow">The permanent record</p>
 <h1>The <em>Annals of Stammtisch.</em></h1>
-<p>A considered chronicle of shared occasions, extraordinary refreshments, and matters deemed worthy of posterity.</p>
-<a class="annal-contribute" href="mailto:annals@stammtischbrewery.com">Members: contribute to the Annals <span aria-hidden="true">→</span></a>
-<p class="annal-note">Members only.</p>
+<p class="annal-deck">A considered chronicle of shared occasions, extraordinary refreshments, and matters deemed worthy of posterity.</p></div>
+<div class="annal-action"><a class="annal-contribute" href="mailto:annals@stammtischbrewery.com">Members: contribute <span aria-hidden="true">→</span></a>
+<p class="annal-note">Members only.</p></div></div>
 <details class="annal-guidance">
 <summary>On Matters Worth Committing to Posterity <span aria-hidden="true">+</span></summary>
 <div class="annal-guidance-body">
@@ -476,7 +446,7 @@ ${REDACTION_CSS}
 <li><strong>Cocktails &amp; recipes:</strong> For the advancement of the liquid arts. Include ingredients, quantities, and instructions—including any homemade syrups. A photo is welcome, should the spirit move you.</li>
 <li><strong>The Register of Remarks:</strong> A turn of phrase that deserves another turn. Send the exact words, who said them, and any essential context. Wit may be borrowed; attribution must be correct.</li>
 <li><strong>Club History &amp; keepsakes:</strong> Every institution has its chapters. Send a recollection, the origins of a tradition, or an artefact worth preserving. We’ll weave members’ contributions into a history, piece by piece. Fragments welcome; a magnum opus is unnecessary.</li>
-<li><strong>Celebration of Life rules:</strong> Submit a revision or addition, stating the change and when it takes effect. Please supply the clause, not merely the cause for complaint.</li>
+<li><strong>Celebration of Life rules:</strong> Rules and amendments are maintained exclusively on the <a href="celebration.html">Celebration of Life page</a>; proposals may still be sent to the member contribution address.</li>
 </ul>
 <h2>Address the record</h2>
 <p>Email <a href="mailto:annals@stammtischbrewery.com">annals@stammtischbrewery.com</a> from your recognised member address. Write normally and attach what you have. No forms, categories, or command of the subjunctive required.</p>
@@ -485,8 +455,10 @@ ${REDACTION_CSS}
 <p>Corrections are welcome at the same address. The last word need not be the final version.</p>
 </div>
 </details></section>
+${categoryAnchors}
+${listHeader}
 ${navigation}
-${collections}${emptyState}
+${stream}${emptyState}
 <p class="annal-editorial-notice">${EDITORIAL_NOTICE}</p>
 </main>
 <footer class="site-footer"><div class="shell footer-inner"><p>The Stammtisch Social Club<span>A tradition of gathering.</span></p><nav aria-label="Footer navigation"><a href="index.html">The Club</a><a href="annals.html" aria-current="page">The Annals</a><a href="celebration.html">Celebration of Life</a><a href="location.html">The Annual Assembly</a></nav></div></footer>
