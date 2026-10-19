@@ -18,7 +18,7 @@ var AnnalsAuto = (function () {
     var proposal = /\b(?:propos\w*|suggest\w*|recommend\w*|prefer\w*|amend\w*|chang\w*|revis\w*|replac\w*|adopt\w*|should|(?:could|can|shall)\s+we|what\s+if|how\s+about|let[’']?s|let\s+us|instead|new|different|idea|increase|decrease|double|halve|abolish|remove|allow|must|ought|need\s+to)\b/i;
     // Questions and ambiguous governance references need private consideration
     // even without an explicit amendment verb. Never infer adoption from them.
-    var specific = /\b(?:CoL|celebration\s+of\s+life|diamond|birthday\s+buffet|devil[’']?s\s+share|jettison|celebrity\s+(?:pool|draft)|rules?|scor(?:e|es|ing)|eligibility|rollover|drafting|draft\s+(?:order|procedures?)|selection\s+method|points?\s+(?:formula|calculations?|system))\b/i;
+    var specific = /\b(?:CoL|celebration\s+of\s+life|diamond|birthday\s+buffet|devil[’']?s\s+share|jettison|celebrity\s+(?:pool|draft)|scor(?:e|es|ing)|eligibility|rollover|drafting|draft\s+(?:order|procedures?)|selection\s+method|points?\s+(?:formula|calculations?|system))\b/i;
     return specific.test(text) || domain.test(text) && proposal.test(text) ? 'col_proposal' : 'annals';
   }
   // Specific hard stops. Generic club language ("home", "family", "history",
