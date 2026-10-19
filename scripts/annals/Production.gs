@@ -1096,7 +1096,6 @@ function annalsImportScreenedPhotoFromPrivateItem(nonce, id) {
         annalsFile_(folder, 'correction-approval-private.json') ||
         annalsFile_(folder, 'correction-dispatch-private.json') ||
         annalsFile_(folder, 'removal-private.json') ||
-        annalsFile_(folder, 'photo-derivative-private.jpg') ||
         annalsFile_(folder, 'photo-derivative-private.json'))
       throw new Error('An uncorrected published cocktail is required');
     // Require one specifically named screened candidate inside this already
@@ -1116,6 +1115,34 @@ function annalsImportScreenedPhotoFromPrivateItem(nonce, id) {
       throw new Error('Invalid screened JPEG candidate');
     // Reuse the already qualified Version 49 canonicalization and private
     // derivative storage; do not create a correction or dispatch in this call.
+    var orphan = annalsFile_(folder, 'photo-derivative-private.jpg');
+    if (orphan) {
+      var clean = AnnalsMedia.sanitize(bytes).bytes;
+      return annalsLocked_(function () {
+        if (annalsFile_(folder, 'photo-derivative-private.json') ||
+            annalsFile_(folder, 'correction-review-private.json') ||
+            annalsFile_(folder, 'correction-approval-private.json') ||
+            annalsFile_(folder, 'correction-dispatch-private.json') ||
+            annalsFile_(folder, 'removal-private.json'))
+          throw new Error('Private photo correction state changed');
+        var file = annalsFile_(folder, 'photo-derivative-private.jpg');
+        if (!file || file.getMimeType() !== 'image/jpeg') throw new Error('Missing private derivative');
+        var saved = file.getBlob().getBytes();
+        if (saved.length !== clean.length ||
+            !saved.every(function (v, i) { return (v & 255) === (clean[i] & 255); }))
+          throw new Error('Orphan differs from the screened canonical JPEG');
+        var again = AnnalsMedia.sanitize(saved).bytes;
+        if (again.length !== saved.length ||
+            !again.every(function (v, i) { return (v & 255) === (saved[i] & 255); }))
+          throw new Error('Existing derivative contains unexpected metadata');
+        var sha = annalsHash_(saved), size = saved.length;
+        annalsWriteOnce_(folder, 'photo-derivative-private.json', {
+          sha256: sha, size: size, name: 'photo-derivative-private.jpg',
+          savedAt: new Date().toISOString()
+        });
+        return { saved: true, reconciled: true, sha256: sha, size: size };
+      });
+    }
     return annalsSavePhotoDerivative(nonce, id, Utilities.base64Encode(bytes));
   });
 }
