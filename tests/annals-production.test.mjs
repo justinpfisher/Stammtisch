@@ -314,6 +314,37 @@ test('photo derivatives are revalidated in private storage and require separate 
   assert.equal(payload.event_type,'annals-approved-entry');assert.equal(payload.client_payload.imageBase64,canonical);
   const bad=mock();assert.throws(()=>bad.context.annalsSavePhotoDerivative('valid',id,Buffer.from('not a JPEG').toString('base64')));
 });
+test('existing signed text cocktail accepts a distinct screened photo through exact one-time correction',()=>{
+  const x=mock(),id='a'.repeat(64),events=[];
+  Object.assign(x.props,{ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
+    ANNALS_GITHUB_TOKEN:'fictional',ANNALS_GITHUB_REPOSITORY:'owner/repo'});
+  x.context.UrlFetchApp.fetch=(_url,options)=>{
+    events.push(JSON.parse(options.payload));
+    return {getResponseCode:()=>204};
+  };
+  const initial=x.context.annalsSaveReview('valid',id,entry());
+  assert.equal(x.context.annalsApproveReview('valid',id,initial.hash,permissions,'Fictional source permission',true).dispatchAccepted,true);
+  const original=JSON.parse(x.files.get('approval-private.json').getBlob().getDataAsString());
+  const saved=x.context.annalsSavePhotoDerivative('valid',id,photoJpeg().toString('base64'));
+  const corrected={...original.entry,photo:{sha256:saved.sha256,alt:'A fictional orange glass'}};
+  const preview=x.context.annalsSaveCorrection('valid',id,corrected);
+  assert.throws(()=>x.context.annalsApproveCorrection('valid',id,preview.hash,permissions,'Fictional image rights',true));
+  const consent={...permissions,photoPublication:true};
+  assert.equal(x.context.annalsApproveCorrection('valid',id,preview.hash,consent,'Fictional scoped photographed glass permission',true).dispatchAccepted,true);
+  const record=JSON.parse(x.files.get('correction-approval-private.json').getBlob().getDataAsString());
+  assert.equal(record.entry.id,original.entry.id);
+  assert.equal(record.entry.photo.sha256,saved.sha256);
+  assert.equal(record.publicationState,'dispatch_accepted');
+  assert.equal(verifyPublicApproval(record.entry,record.publication,'p'.repeat(40)),true);
+  assert.equal(events.length,2);
+  assert.equal(events[0].event_type,'annals-approved-entry');
+  assert.equal(events[1].event_type,'annals-correct-entry');
+  assert.equal(events[1].client_payload.entry.photo.sha256,saved.sha256);
+  assert.equal(events[1].client_payload.imageBase64,x.context.annalsPhotoDerivative_(x.folder).base64);
+  assert.equal(x.files.has('correction-dispatch-private.json'),true);
+  assert.equal(x.files.has('ai-attempt-private.json'),false);
+});
+
 test('production intake resumes a long thread and wraps without reading while disabled', () => {
   const x=mock(), handled=[], messages=Array.from({length:12},(_,id)=>({id,getId:()=>String(id)})),seen=new Set();
   const thread={getId:()=> 'private-thread', getMessages:()=>messages};
