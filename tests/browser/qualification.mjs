@@ -254,6 +254,16 @@ try{
           for(const link of await page.locator('nav a,main a,footer a').all())if(await link.isVisible())assert.ok((await link.boundingBox()).height>=44,'Small link target');
         }
       });
+      await check(browser,profile,'CoL form controls have visible keyboard focus and narrow-screen reflow',async page=>{
+        await page.goto(origin+'/celebration.html');
+        const search=page.locator('#celebrity-search'),reset=page.locator('#reset-filters');
+        await search.focus();
+        assert.equal(await search.evaluate(e=>getComputedStyle(e).outlineWidth),'3px');
+        await reset.focus();
+        assert.equal(await reset.evaluate(e=>getComputedStyle(e).outlineWidth),'3px');
+        await page.setViewportSize({width:320,height:740});
+        await noOverflow(page);
+      });
       await check(browser,profile,'320px populated reflow and chapter readability',async page=>{
         await page.setViewportSize({width:320,height:740});
         for(const file of ['annals.html','history.html']){await page.goto(origin+'/'+file);await noOverflow(page);}
