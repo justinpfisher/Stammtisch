@@ -65,7 +65,7 @@ const server=createServer(async(req,res)=>{
   if(/^\/assets\/annals\/[ab]{64}\.jpg$/.test(pathname)){res.setHeader('Content-Type','image/jpeg');res.end(tinyBytes);return;}
   if(documents.has(pathname)){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(documents.get(pathname));return;}
   // Public stylesheet and public brand assets only. Never serve source/data files.
-  if(['/styles.css','/annals-photos.css','/annals-photos.mjs','/col-rules-reader.mjs','/col-rules-witness.mjs','/col-rules-register.mjs'].includes(pathname)||pathname.startsWith('/assets/')&&!pathname.includes('..')){
+  if(['/styles.css','/annals.css','/annals-browse.mjs','/history.css','/annals-photos.css','/annals-photos.mjs','/col-rules-reader.mjs','/col-rules-witness.mjs','/col-rules-register.mjs'].includes(pathname)||pathname.startsWith('/assets/')&&!pathname.includes('..')){
     try{const bytes=await readFile(path.join(root,pathname));res.setHeader('Content-Type',pathname.endsWith('.css')?'text/css':pathname.endsWith('.mjs')?'text/javascript':'application/octet-stream');res.end(bytes);return;}catch{}
   }
   res.writeHead(404).end();
@@ -204,6 +204,25 @@ try{
         assert.match(await page.locator('main').innerText(),/Not yet in effect/);assert.match(await page.locator('main').innerText(),/Toronto/);
         await page.locator('details summary').focus();await page.keyboard.press('Enter');assert.equal(await page.locator('details').getAttribute('open'),'');
         assert.match(await page.locator('pre').first().innerText(),/Fictional unchanged source text/);assert.match(await page.locator('pre').last().innerText(),/Fictional revised layout text/);await noOverflow(page);
+      });
+      await check(browser,profile,'chronological cards and accessible category filtering',async page=>{
+        await page.goto(origin+'/annals.html');
+        const cards=page.locator('.annal-stream .annal-entry');
+        assert.equal(await cards.count(),6);
+        assert.equal(await cards.first().getAttribute('id'),'offline-browser-quote');
+        const columns=await page.locator('.annal-stream').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length);
+        assert.equal(columns,profile.name==='desktop-chromium'?2:1);
+        await page.getByRole('link',{name:'Remarks',exact:true}).click();
+        assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),1);
+        assert.equal(await page.locator('.annal-stream .annal-entry:visible').first().getAttribute('id'),'offline-browser-quote');
+        assert.match(await page.locator('#annal-result-count').innerText(),/1 entry shown/);
+        assert.match(page.url(),/#collection-quotation$/);
+        await page.reload();
+        assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),1);
+        await page.getByRole('link',{name:'All entries',exact:true}).click();
+        assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),6);
+        assert.equal(await page.locator('#offline-browser-recipe .annal-entry-link').getAttribute('href'),'#offline-browser-recipe');
+        await noOverflow(page);
       });
       await check(browser,profile,'recipe fidelity and whole narrative',async page=>{
         await page.goto(origin+'/annals.html');
