@@ -178,6 +178,44 @@ test('unsupported, animated, spoofed and malformed source containers cannot ente
   assert.equal(c.annalsStillPhotoSource_({getBlob:()=>({getBytes:()=>[...png]})},
     {mime:'image/png',size:png.length+1}),false,'source size mismatch');
 });
+test('unavailable image-dependent previews receive one private owner notice after one hour, never another provider call',()=>{
+ const script=readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8');
+ const first=script.indexOf('function annalsResumeConsentedDrafts_('),last=script.indexOf('function doGet()',first);
+ assert.ok(first>=0&&last>first);
+ const run=(age,independent=false,noticeExists=false,imageAllowed=true)=>{
+   const id='a'.repeat(64),clock=Date.parse('2026-10-19T21:00:00Z'),notices=[],cursor=[];
+   let ix=0;
+   const folder={getName:()=>id},folders={hasNext:()=>ix===0,next:()=>{ix++;return folder;}};
+   const source={senderAuthenticated:true,aiConsentActive:true,imageConsentAtReceipt:imageAllowed,
+     requiresClarification:false,source:{sender:'member@example.test',
+       receivedAt:new Date(clock-age).toISOString(),subject:'A fictional image',
+       excerpt:'Photo attached.'},attachmentManifest:{items:[{mime:'image/heic',size:1024,accepted:true}]}};
+   const c=vm.createContext({
+     Date:class extends Date {static now(){return clock;}},
+     annalsProps_:()=>({getProperty:()=>null,setProperty:(...a)=>cursor.push(a),deleteProperty:k=>cursor.push(['delete',k])}),
+     annalsRoot_:()=>({getFolders:()=>folders}),
+     annalsPrivate_:v=>v,
+     annalsRead_:(_f,name)=>name==='source-private.json'?source:null,
+     annalsFile_:(_f,name)=>name==='draft-notice-private.json'&&noticeExists?{}:null,
+     AnnalsAuto:{protectedRoute:()=> 'annals'},
+     annalsConsentActive_:()=>true,
+     annalsAiIndependentSafeText_:()=>independent,
+     annalsHasAiSource_:()=>true,annalsAiSafeSourceText_:()=> 'Photo attached.',
+     annalsSafeTextForAutoAi_:()=>true,
+     annalsProcessConsentedText_:()=>false,
+     annalsNotifyDraftReady_:(_f,reason)=>{notices.push(reason);return true;}
+   });
+   vm.runInContext(script.slice(first,last),c);
+   assert.equal(c.annalsResumeConsentedDrafts_(2),0);
+   assert.deepEqual(cursor,[['delete','ANNALS_DRAFT_CURSOR']]);
+   return notices;
+ };
+ assert.deepEqual(run(3600001),['image_or_source_review']);
+ assert.deepEqual(run(3599999),[]);
+ assert.deepEqual(run(7200000,true),[],'independently meaningful text is not a photo-only hold');
+ assert.deepEqual(run(7200000,false,true),[],'owner notice is once only');
+ assert.deepEqual(run(7200000,false,false,false),[],'no new image-consent inference');
+});
 function ruleHarness(){
   const root='root',folder='source',files=new Map(),sent=[],dispatches=[];
   const get=(f,n)=>files.get(f+'/'+n)||null,put=(f,n,v)=>files.set(f+'/'+n,clone(v));
