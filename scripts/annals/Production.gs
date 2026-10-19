@@ -1882,7 +1882,7 @@ function annalsPublishedReceiptReadbackInEditor(itemId) {
   }
   if(checks.privateApprovalAccepted&&checks.privateDispatchAccepted&&
      checks.privateContentDigestMatchesReceipt&&checks.privatePublicationSignaturePresent){
-    var query='?checked=verify-' + itemId.slice(0,12) + '-' + String(Date.now());
+    var query='?checked=verify-' + String(Date.now());
     var options={method:'get',muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true};
     try{
       var r=UrlFetchApp.fetch(
@@ -1962,7 +1962,7 @@ function annalsVerifyAutomaticPublications_(limit) {
       try { annalsNotifyContributorHeld_(folder); } catch (ignored) {}
     }
     try {
-      var query = '?checked=' + encodeURIComponent(id.slice(0, 16)) + '-' + String(Date.now());
+      var query = '?checked=published-' + String(Date.now());
       var archiveResponse = UrlFetchApp.fetch('https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/annals-approved.json' + query,
         { method: 'get', muteHttpExceptions: true, followRedirects: false, validateHttpsCertificates: true });
       if (archiveResponse.getResponseCode() !== 200) continue;
@@ -2058,7 +2058,7 @@ function annalsVerifyWithdrawnTest_(folder, id) {
     var expectedProof = annalsPublicRemoval_(current.entry, removal.approvedAt,
       annalsProps_().getProperty('ANNALS_PUBLISH_SIGNING_KEY') || '');
     if (!expectedProof || AnnalsProduction.serial(removal.proof) !== AnnalsProduction.serial(expectedProof)) return null;
-    var query = '?checked=withdrawn-' + encodeURIComponent(id.slice(0, 16)) + '-' + String(Date.now());
+    var query = '?checked=withdrawn-' + String(Date.now());
     var options = { method:'get', muteHttpExceptions:true, followRedirects:false, validateHttpsCertificates:true };
     var archiveResponse = UrlFetchApp.fetch('https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/annals-approved.json' + query, options);
     if (archiveResponse.getResponseCode() !== 200) return null;
