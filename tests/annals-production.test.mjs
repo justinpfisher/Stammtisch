@@ -434,11 +434,14 @@ test('Apps Script media digest uses Byte[] overload and preserves UTF-8 string h
   };
   assert.equal(x.context.annalsHash_('synthetic text'),
     createHash('sha256').update('synthetic text').digest('hex'));
+  assert.equal(x.context.annalsHash_([...photoJpeg()]),
+    createHash('sha256').update(photoJpeg()).digest('hex'),
+    'the shared helper must also hash binary bytes from other photo modules');
   const metadata=x.context.annalsSavePhotoDerivative('valid',id,photoJpeg().toString('base64'));
   const canonical=Buffer.from(x.context.AnnalsMedia.sanitize([...photoJpeg()]).bytes);
   assert.equal(metadata.sha256,createHash('sha256').update(canonical).digest('hex'));
   assert.equal(x.context.annalsPhotoDerivative_(x.folder).base64,canonical.toString('base64'));
-  assert.deepEqual(invocations,['text','bytes','bytes']);
+  assert.deepEqual(invocations,['text','bytes','bytes','bytes']);
 });
 test('previously stored matching private JPEG can receive missing manifest without replacing pixels',()=>{
   const x=mock(),id='a'.repeat(64),events=[];
