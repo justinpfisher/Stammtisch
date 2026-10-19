@@ -94,3 +94,20 @@ test('failed owner notification does not undo the one-shot CoL response hold',()
   assert.deepEqual(f.outcomes,[{reason:'invalid_response',httpStatus:200}]);
   assert.equal(f.calls.filter(url=>url.includes('/v1/responses')).length,1);
 });
+
+test('failed model mapping of a complete rule rewrite retains a verbatim source outline, not a release',()=>{
+  const f=fixture();
+  const originalRead=f.ctx.annalsRead_;
+  const complete={...source,source:{...source.source,
+    excerpt:['Here are the complete updated rules.',
+      'CELEBRATION OF LIFE POOL','POINTS','An invented rule.',
+      'DIAMONDS','An invented protection.',
+      'WINNING','An invented annual term.'].join('\n')}};
+  f.ctx.annalsRead_=(folder,name)=>name==='source-private.json'?complete:originalRead(folder,name);
+  assert.equal(f.ctx.annalsProcessRuleRequest_(messageId),false);
+  assert.equal(f.calls.filter(url=>url.includes('/v1/responses')).length,1);
+  assert.equal(f.written.get('col-source-outline-private.json').state,'awaiting_implementation');
+  assert.equal(f.written.has('col-rule-request-private.json'),false);
+  assert.deepEqual(f.notices.map(n=>n.kind),['received','outcome','source-outline-owner']);
+  assert.deepEqual(f.outcomes,[{reason:'invalid_response',httpStatus:200}]);
+});
