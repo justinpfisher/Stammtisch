@@ -197,6 +197,56 @@ test('unsupported, animated, spoofed and malformed source containers cannot ente
   assert.equal(c.annalsStillPhotoSource_({getBlob:()=>({getBytes:()=>[...png]})},
     {mime:'image/png',size:png.length+1}),false,'source size mismatch');
 });
+test('common-format decode is reserved exactly once; absent or undersized previews defer without spending attempt',()=>{
+  const Codec=require('../scripts/annals/JpegCodec.js');
+  const pix=new Uint8Array(800*800*4);for(let k=3;k<pix.length;k+=4)pix[k]=255;
+  const ready=Codec.encode({width:800,height:800,data:pix},75).data;
+  const small=Codec.encode({width:200,height:200,data:new Uint8Array(200*200*4).fill(255)},75).data;
+  const png=Buffer.alloc(57);Buffer.from([137,80,78,71,13,10,26,10]).copy(png);
+  png.writeUInt32BE(13,8);png.write('IHDR',12);png.writeUInt32BE(800,16);png.writeUInt32BE(800,20);
+  png.write('IDAT',37);png.write('IEND',49);
+  const values={ANNALS_PHOTOS_GUARDED_JPEG_ENABLED:'true',ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED:'true',
+    ANNALS_AUTO_MEDIA_ENABLED:'true',ANNALS_PHOTOS_V2_ENABLED:'true',ANNALS_SIGNING_REMEDIATED_AT:at};
+  const files=new Map(),records=new Map(),writes=[];let previewBytes=null,decodeCalls=0,previewReads=0;
+  files.set('original',{getBlob:()=>({getBytes:()=>[...png]}),
+    getThumbnail:()=>{previewReads++;return previewBytes&&{getContentType:()=> 'image/jpeg',getBytes:()=>[...previewBytes]};}});
+  const c=vm.createContext({
+    AnnalsMedia:Media,AnnalsPhotos:Photos,AnnalsJpegCodec:Codec,
+    AnnalsPhotoDerivative:{convert:()=>{decodeCalls++;throw Error('Synthetic interrupted codec');}},
+    annalsProps_:()=>({getProperty:k=>values[k]||null}),
+    annalsImageConsentActive_:()=>true,
+    annalsFolder_:()=>({createFile:()=>assert.fail('A failed codec must not create an asset')}),
+    annalsFile_:(_f,name)=>files.get(name)||null,
+    annalsRead_:(_f,name)=>records.get(name)||null,
+    annalsPrivate_:v=>v,annalsHash_:()=>assert.fail('No unsafe photo digest'),
+    annalsWriteOnce_:(_f,name,value)=>{
+      assert.equal(records.has(name),false);
+      records.set(name,value);writes.push(name);
+      files.set(name,{setContent:txt=>records.set(name,JSON.parse(txt))});
+    },
+    Utilities:{base64Encode:()=>assert.fail('No image after interrupted codec')}
+  });
+  vm.runInContext(readFileSync(new URL('../scripts/annals/GuardedRelease.gs',import.meta.url),'utf8'),c);
+  vm.runInContext(photoSource,c);
+  const source={imageConsentAtReceipt:true,source:{sender:'fictional@example.test',receivedAt:at},
+    attachmentManifest:{items:[{index:1,storageName:'original',mime:'image/png',size:png.length,accepted:true}]}};
+  assert.equal(c.annalsPhotoSet_('a'.repeat(64),source,true).length,0);
+  assert.deepEqual(writes,[]);assert.equal(decodeCalls,0,'no thumbnail means no decode reservation');
+  previewBytes=small;
+  assert.equal(c.annalsPhotoSet_('a'.repeat(64),source,true).length,0);
+  assert.deepEqual(writes,[]);assert.equal(decodeCalls,0,'undersized preview deferred without expensive decoding');
+  previewBytes=ready;
+  assert.equal(c.annalsPhotoSet_('a'.repeat(64),source,true).length,0);
+  assert.deepEqual(writes,['photo-conversion-1-private.json'],'one immutable reservation before pixel decode');
+  assert.equal(records.get('photo-conversion-1-private.json').state,'held_no_retry');
+  assert.equal(decodeCalls,1);
+  previewBytes=ready;
+  const reads=previewReads;
+  assert.equal(c.annalsPhotoSet_('a'.repeat(64),source,true).length,0);
+  assert.equal(decodeCalls,1,'failed or uncertain decoder must not be repeated');
+  assert.equal(previewReads,reads,'held attempt bypasses Drive preview retrieval');
+  assert.deepEqual(writes,['photo-conversion-1-private.json']);
+});
 test('unavailable image-dependent previews receive one private owner notice after one hour, never another provider call',()=>{
  const script=readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8');
  const first=script.indexOf('function annalsResumeConsentedDrafts_('),last=script.indexOf('function doGet()',first);
