@@ -53,7 +53,7 @@ approvals.push({...responsiveApproval,signature:createHmac('sha256',fixtureKey).
 const index=photoIndex(Array.from({length:2500},(_,i)=>({...gallery,id:'offline-photo-'+String(i).padStart(6,'0'),title:'Fictional photo '+i,summary:i===2499?'needle archival caption':'Fictional archived fixture',submittedAt:(2000+i%26)+'-10-15T12:00:00Z',year:2000+i%26})));
 const annals=buildPublishedAnnals(entries,approvals,fixtureKey,history).html;
 const ruleRegister={schemaVersion:1,baseline:{id:'col-browser-baseline',recordedAt:'2026-10-15T12:00:00Z',description:'Fictional browser fixture baseline.'},revisions:[{id:'col-browser-fictional',member:'marc',submittedAt:'2026-10-15T12:00:00Z',publishedAt:null,effectiveAt:null,state:'awaiting_implementation',baseVersion:'col-browser-baseline',explanation:'Fictional rule-layout fixture only.',changes:[{provision:'PRIZE',before:'## PRIZE\n'+('Fictional unchanged source text. '.repeat(40)),after:'## PRIZE\n'+('Fictional revised layout text. '.repeat(40))}],correctionOf:null}],events:[]};
-const documents=new Map([['/index.html',await readFile(path.join(root,'index.html'),'utf8')],['/annals.html',annals],['/history.html',renderHistory(history)],['/photos.html',await readFile(path.join(root,'photos.html'),'utf8')],['/col-revisions.html',renderRegister(ruleRegister)]]);
+const documents=new Map([['/index.html',(await readFile(path.join(root,'index.html'),'utf8')).replace(/src="https:\/\/[^\"]+"/g,'src="assets/crest.webp"')],['/annals.html',annals],['/history.html',renderHistory(history)],['/photos.html',await readFile(path.join(root,'photos.html'),'utf8')],['/col-revisions.html',renderRegister(ruleRegister)]]);
 const metadata=new Map([['/data/photos/index.json',index.manifest],...index.pages.map(p=>['/'+p.path,p.data])]);
 const ruleFixture=browserRuleFixture();
 documents.set('/col-reader-fixture.html','<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Fictional rule reader</title><link rel="stylesheet" href="styles.css"><main>'+ruleFixture.html+'</main><script type="module">import {refreshOfficialRules} from "./col-rules-reader.mjs"; await refreshOfficialRules(); document.documentElement.dataset.finished="true";</script></html>');
@@ -210,7 +210,7 @@ try{
         const hero=page.locator('main > section.monthly-hero');
         assert.equal(await hero.getAttribute('id'),'monthly-stammtisch');
         assert.match(await hero.locator('h1').innerText(),/The next Stammtisch/);
-        await page.waitForFunction(()=>/^\\d{4}-\\d{2}-\\d{2}$/.test(
+        await page.waitForFunction(()=>/^\d{4}-\d{2}-\d{2}$/.test(
           document.querySelector('[data-monthly-date]').getAttribute('datetime')||''));
         assert.match(await hero.innerText(),/8 p.m. Toronto time/);
         assert.equal(await page.locator('header.site-header nav[aria-label="Main navigation"] a').count(),5);
