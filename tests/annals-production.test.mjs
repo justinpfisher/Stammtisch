@@ -349,6 +349,74 @@ test('existing signed text cocktail accepts a distinct screened photo through ex
   assert.equal(x.files.has('ai-attempt-private.json'),false);
 });
 
+test('photo-only correction reuses already signed recipe and illustration permissions without weakening image scope',()=>{
+  const x=mock(),id='a'.repeat(64),events=[];
+  Object.assign(x.props,{ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
+    ANNALS_GITHUB_TOKEN:'fictional',ANNALS_GITHUB_REPOSITORY:'owner/repo'});
+  x.context.UrlFetchApp.fetch=(_url,options)=>{events.push(JSON.parse(options.payload));return{getResponseCode:()=>204};};
+  x.context.annalsContributorPortrait_=()=> 'marc';
+  const originalEntry={...entry(),contributorPortrait:'marc'};
+  const originalConsents={...permissions,namedAttribution:true};
+  const originalReview=x.context.annalsSaveReview('valid',id,originalEntry);
+  assert.equal(x.context.annalsApproveReview('valid',id,originalReview.hash,originalConsents,
+    'Fictional signed recipe and portrait rights',true).dispatchAccepted,true);
+  const approval=JSON.parse(x.files.get('approval-private.json').getBlob().getDataAsString());
+  assert.equal(approval.receipt.consents.recipeVerified,true);
+  assert.equal(approval.receipt.consents.namedAttribution,true);
+  assert.equal(approval.receipt.consents.photoPublication,false);
+  const derivative=x.context.annalsSavePhotoDerivative('valid',id,photoJpeg().toString('base64'));
+  const photo={sha256:derivative.sha256,alt:'A fictional drink in a glass'};
+  const correction=x.context.annalsSaveCorrection('valid',id,{...approval.entry,photo});
+  const hiddenUiConsents={publication:true,quotePublication:false,recipeVerified:false,
+    namedAttribution:false,photoPublication:true};
+  assert.equal(x.context.annalsApproveCorrection('valid',id,correction.hash,hiddenUiConsents,
+    'Fictional owner review of only the screened image',true).dispatchAccepted,true);
+  const saved=JSON.parse(x.files.get('correction-approval-private.json').getBlob().getDataAsString());
+  assert.equal(saved.receipt.consents.recipeVerified,true);
+  assert.equal(saved.receipt.consents.namedAttribution,true);
+  assert.equal(saved.receipt.consents.photoPublication,true);
+  assert.deepEqual(saved.entry.recipe,approval.entry.recipe);
+  assert.equal(saved.entry.summary,approval.entry.summary);
+  assert.equal(saved.entry.contributorPortrait,'marc');
+  assert.equal(saved.entry.photo.sha256,derivative.sha256);
+  assert.equal(verifyPublicApproval(saved.entry,saved.publication,'p'.repeat(40)),true);
+  assert.equal(events.length,2);
+  assert.equal(events[1].event_type,'annals-correct-entry');
+  assert.equal(events[1].client_payload.imageBase64,
+    x.context.annalsPhotoDerivative_(x.folder).base64);
+});
+test('signed prior permissions cannot cover modified recipe text or missing new photo permission',()=>{
+  const fixture=()=>{
+    const x=mock(),id='a'.repeat(64);
+    Object.assign(x.props,{ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
+      ANNALS_GITHUB_TOKEN:'fictional',ANNALS_GITHUB_REPOSITORY:'owner/repo'});
+    x.context.UrlFetchApp.fetch=()=>({getResponseCode:()=>204});
+    x.context.annalsContributorPortrait_=()=> 'marc';
+    const review=x.context.annalsSaveReview('valid',id,{...entry(),contributorPortrait:'marc'});
+    x.context.annalsApproveReview('valid',id,review.hash,
+      {...permissions,namedAttribution:true},'Fictional original signed rights',true);
+    const signed=JSON.parse(x.files.get('approval-private.json').getBlob().getDataAsString());
+    const photo=x.context.annalsSavePhotoDerivative('valid',id,photoJpeg().toString('base64'));
+    return {x,id,signed,photo:{sha256:photo.sha256,alt:'Fictional cocktail photograph'}};
+  };
+  {
+    const {x,id,signed,photo}=fixture();
+    const preview=x.context.annalsSaveCorrection('valid',id,{...signed.entry,photo,
+      summary:'This is a modified fictional summary.'});
+    assert.throws(()=>x.context.annalsApproveCorrection('valid',id,preview.hash,
+      {publication:true,quotePublication:false,recipeVerified:false,namedAttribution:false,photoPublication:true},
+      'Fictional review requiring fresh recipe rights',true));
+    assert.equal(x.files.has('correction-approval-private.json'),false);
+  }
+  {
+    const {x,id,signed,photo}=fixture();
+    const preview=x.context.annalsSaveCorrection('valid',id,{...signed.entry,photo});
+    assert.throws(()=>x.context.annalsApproveCorrection('valid',id,preview.hash,
+      {publication:true,quotePublication:false,recipeVerified:false,namedAttribution:false,photoPublication:false},
+      'Fictional image rights not approved',true));
+    assert.equal(x.files.has('correction-approval-private.json'),false);
+  }
+});
 test('owner can import one already screened private-item JPEG without a browser picker or a new dispatch',()=>{
   const x=mock(),id='a'.repeat(64),events=[];
   Object.assign(x.props,{ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
