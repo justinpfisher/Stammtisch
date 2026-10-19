@@ -1585,6 +1585,48 @@ function annalsAutoPublishCandidate_(id, allowHeldRecovery) {
   annalsFile_(folder, 'approval-private.json').setContent(JSON.stringify(saved));
   return accepted;
 }
+/** One-shot exception recovery for any previously held, source-grounded
+ * recipe after a deterministic matching fix. No AI call, journal reset,
+ * automatic replay or unsupported media release is authorised.
+ */
+function annalsReassessHeldRecipe(nonce,id,confirmed){
+  return annalsUiCall_(nonce,function(){return annalsLocked_(function(){
+    var owner=annalsOwner_(),p=annalsProps_();
+    if(confirmed!==true||!/^[a-f0-9]{64}$/.test(id||''))
+      throw new Error('Explicit one-time exception confirmation required');
+    var folder=annalsFolder_(id),source=annalsRead_(folder,'source-private.json'),
+      draft=annalsRead_(folder,'draft-private.json'),held=annalsRead_(folder,'auto-decision-private.json');
+    var sender=source&&source.source&&String(source.source.sender||'').toLowerCase();
+    if(!source||source.sourceId!==id||source.senderAuthenticated!==true||
+       source.aiConsentActive!==true||source.autoConsentAtReceipt!==true||
+       !source.source||source.source.sourceTruncated||source.source.subjectTruncated||source.source.excerptTruncated||
+       !draft||draft.category!=='cocktail'||!held||held.state!=='held'||
+       held.reason!=='recipe_measure_or_step_uncertain'||
+       !annalsFile_(folder,'ai-attempt-private.json')||
+       annalsFile_(folder,'quarantine-private.json')||annalsFile_(folder,'removal-private.json')||
+       annalsFile_(folder,'approval-private.json')||annalsFile_(folder,'publication-dispatch-private.json')||
+       annalsFile_(folder,'reassessment-attempt-private.json')||
+       annalsFile_(folder,'auto-reassessment-private.json')||
+       AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS')||'').indexOf(sender)<0||
+       Date.parse(source.source.receivedAt)<Date.parse(p.getProperty('ANNALS_ACTIVATED_AT'))||
+       !annalsConsentActive_(sender)||!annalsStandingPublicationActive_(sender,source.source.receivedAt)||
+       !AnnalsAuto.propose(source,draft,id,null).eligible)
+      throw new Error('Original recipe and current permissions are not eligible for one-time recovery');
+    var attempt={state:'attempt_reserved',at:new Date().toISOString(),owner:owner,
+      sourceDigest:annalsHash_(AnnalsProduction.serial(source.source)),
+      draftDigest:annalsHash_(AnnalsProduction.serial(draft)),aiCall:false,dispatchWasAbsent:true};
+    annalsWriteOnce_(folder,'reassessment-attempt-private.json',attempt);
+    var accepted=annalsAutoPublishCandidate_(id,true);
+    var saved=annalsRead_(folder,'approval-private.json'),
+      reassessment=annalsRead_(folder,'auto-reassessment-private.json');
+    var status=saved?
+      (saved.publicationState==='dispatch_accepted'?'dispatch_accepted':'held_after_reassessment'):
+      (reassessment&&reassessment.reason||'reassessment_stopped_before_decision');
+    annalsFile_(folder,'reassessment-attempt-private.json').setContent(JSON.stringify(Object.assign({},attempt,
+      {state:status,finishedAt:new Date().toISOString(),dispatchAccepted:accepted===true})));
+    return {status:status,aiCall:false,dispatchAccepted:accepted===true};
+  });});
+}
 /** Owner-confirmed, one-shot deterministic recheck of an existing held quote draft.
  * This never calls AI and never retries an item with any approval or dispatch record.
  */
