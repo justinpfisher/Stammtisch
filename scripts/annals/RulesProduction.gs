@@ -140,7 +140,7 @@ function annalsProcessRuleRequest_(id){
       outline=AnnalsRules.fullRewriteOutline({
         senderAuthenticated:true,member:annalsSpeakerIdentities_()[source.source.sender],
         freshOperativeWindow:true,replayed:false,truncated:false,
-        text:source.source.subject+'\\n'+source.source.excerpt,
+        text:source.source.subject+'\n'+source.source.excerpt,
         receivedAt:source.source.receivedAt
       },base,'col-'+id.slice(0,24));
       annalsWriteOnce_(f,'col-source-outline-private.json',outline);
