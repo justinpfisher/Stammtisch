@@ -66,6 +66,8 @@ test('fast readback reports malformed budget, missing signing or invalid cutoff 
   assert.equal(h.logs.length,1);
 });
 test('a direct held-item link opens before listing, consent refresh or speaker lookup',()=>{
+  const inlineScript=ui.match(/<script>([\s\S]*?)<\/script>/)[1];
+  assert.doesNotThrow(()=>new vm.Script(inlineScript));
   const start=ui.slice(ui.indexOf('async function initReviewDesk()'));
   assert.match(start,/nonce=\(await call\('annalsReviewSession'\)\)\.nonce/);
   assert.match(start,/if\(\/\^\[a-f0-9\]\{64\}\$\/\.test\(item\|\|''\)\)\{/);
