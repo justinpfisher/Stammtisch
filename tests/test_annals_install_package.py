@@ -65,8 +65,7 @@ class AnnalsInstallPackageTests(unittest.TestCase):
                 self.assertIn("Selected public module update", instructions)
                 self.assertIn("docs/current-state.md", instructions)
                 self.assertNotIn("2026-11-09", instructions)
-                self.assertNotIn("re-register consents", instructions.lower().replace(
-                    "do not re-register consents", ""))
+                self.assertIn("Do not reset or broadly disable", instructions)
 
     def test_narrow_package_refuses_unknown_duplicate_or_private_manifest(self):
         with tempfile.TemporaryDirectory() as directory:
