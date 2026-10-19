@@ -1,0 +1,16 @@
+/* Public Club History: calm reading layout, deliberately separate from cards. */
+.history-reading{max-width:890px;padding-top:42px;padding-bottom:66px;overflow-wrap:anywhere}
+.history-back{display:inline-flex;align-items:center;min-height:44px;color:var(--forest);font:600 12px/1.5 var(--sans);text-decoration:underline;text-underline-offset:4px}
+.history-masthead{margin:29px 0 36px;padding-bottom:27px;border-bottom:1px solid var(--line)}
+.history-masthead h1{font:clamp(43px,6.5vw,72px)/1.08 var(--serif);letter-spacing:-.036em;margin:9px 0 0}
+.history-lead{font:clamp(17px,2vw,20px)/1.6 var(--serif);color:#506151;max-width:720px;margin:15px 0 0}
+.history-meta{display:flex;gap:8px 18px;flex-wrap:wrap;align-items:center;font:12px/1.6 var(--sans);color:var(--muted);margin-top:18px}
+.history-meta a{color:var(--forest);min-height:44px;display:inline-flex;align-items:center}
+.history-chapter{margin:0 0 42px;max-width:760px}
+.history-chapter h2{font:clamp(28px,3vw,37px)/1.24 var(--serif);color:var(--brass);margin:0 0 19px}
+.history-chapter p{font:17px/1.85 var(--serif);margin-bottom:18px}
+.history-pending{padding:30px 28px;background:#fcf9f0;border-left:3px solid var(--brass);color:#526053;font:italic 16px/1.6 var(--serif)}
+.history-reading footer{max-width:760px;border-top:1px solid var(--line);padding-top:22px;margin-top:38px;color:var(--muted);font:italic 12px/1.75 var(--serif)}
+.history-reading footer a{color:var(--forest);min-height:44px;display:inline-flex;align-items:center;font:600 12px/1.5 var(--sans)}
+.history-reading footer p{margin:12px 0 0}
+@media(max-width:560px){.history-reading{padding-top:23px;padding-bottom:38px}.history-masthead{margin-top:18px}.history-chapter p{font-size:16px}.history-pending{padding:22px 18px}}
