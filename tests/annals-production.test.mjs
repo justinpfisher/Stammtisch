@@ -1494,3 +1494,73 @@ test('informal proposal and rules-question messages cannot reach ordinary review
     assert.ok(!x.files.has('approval-private.json'));assert.ok(!x.files.has('publication-dispatch-private.json'));
   }
 });
+
+
+test('ordinary Annals recollections and keepsakes use signed publication dispatch without changing canonical history',()=>{
+  const x=mock(),dispatched=[];
+  x.context.annalsOrdinarySourceGate_=()=>true;
+  x.context.annalsDispatchEvent_=(folder,eventType,payload,marker)=>{
+    dispatched.push({eventType,category:payload.entry.category,marker});return true;
+  };
+  for(const category of ['monthly_gathering','artefact','club_history']){
+    const e={...entry(),category,recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+    assert.equal(x.context.annalsDispatchApproved_(x.folder,e,{mode:'standing-consent-text-v1'},'annals-auto-entry',
+      'publication-dispatch-private.json'),true,category);
+  }
+  assert.equal(dispatched.length,3);
+  assert.deepEqual(dispatched.map(x=>x.category),['monthly_gathering','artefact','club_history']);
+  assert.equal(x.files.has('col-release-pending-private.json'),false);
+  assert.equal(x.calls.ai,0);
+});
+
+test('persistent safe-source pre-draft holds notify owner and authenticated member exactly once without AI or replay',()=>{
+  const x=mock(),messages=[],id='d'.repeat(64),oldLedger=x.props.ANNALS_BUDGET_LEDGER;
+  x.props.ANNALS_ALLOWED_SENDERS='member@example.test,other@example.test';
+  x.props.ANNALS_REVIEW_URL='https://script.google.com/macros/s/fictional-owner/exec';
+  x.folder.getName=()=>id;
+  x.root.getFolders=()=>iter([x.folder]);
+  x.context.annalsConsentActive_=()=>true;
+  x.context.annalsStandingPublicationActive_=()=>true;
+  x.context.GmailApp={sendEmail:(to,subject,body)=>messages.push({to,subject,body})};
+  const original={
+    sourceId:id,senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,
+    source:{sender:'member@example.test',subject:'Fictional club account',
+      excerpt:'Please contact someone@example.test for a fictional detail.',
+      receivedAt:'2026-10-08T23:45:00Z',
+      sourceTruncated:false,excerptTruncated:false,subjectTruncated:false},
+    attachmentManifest:{items:[]}
+  };
+  x.files.get('source-private.json').setContent(JSON.stringify(original));
+  assert.equal(x.context.annalsResumeConsentedDrafts_(2),0);
+  assert.equal(messages.length,0,'no premature hold notice while processing normally');
+  original.source.receivedAt='2026-10-08T22:00:00Z';
+  x.files.get('source-private.json').setContent(JSON.stringify(original));
+  assert.equal(x.context.annalsResumeConsentedDrafts_(2),0);
+  assert.equal(messages.length,2,'one owner notice and one contributor notice');
+  assert.equal(messages[0].to,'owner@example.test');
+  assert.equal(messages[1].to,'member@example.test');
+  assert.match(messages[0].body,/cannot safely proceed to automatic drafting/);
+  assert.match(messages[0].body,/https:\/\/script\.google\.com\/macros\/s\/fictional-owner\/exec\?item=/);
+  assert.match(messages[1].body,/has not been published/);
+  assert.doesNotMatch(messages[1].body,/fictional-owner|someone@example.test|fictional detail|d{64}/);
+  assert.equal(x.context.annalsResumeConsentedDrafts_(2),0);
+  assert.equal(messages.length,2,'no repeat reminders or repeated attempts');
+  assert.equal(x.props.ANNALS_BUDGET_LEDGER,oldLedger);
+  assert.equal(x.calls.ai,0);
+  assert.equal(x.files.has('ai-attempt-private.json'),false);
+  assert.equal(x.files.has('publication-dispatch-private.json'),false);
+});
+
+test('owner-only hold notification is safe when a contributor is not authenticated',()=>{
+  const x=mock(),messages=[];
+  x.props.ANNALS_REVIEW_URL='https://script.google.com/macros/s/fictional-owner/exec';
+  x.props.ANNALS_ALLOWED_SENDERS='member@example.test';
+  x.context.GmailApp={sendEmail:(...args)=>messages.push(args)};
+  x.files.get('source-private.json').setContent(JSON.stringify({
+    source:{sender:'member@example.test',receivedAt:'2026-10-08T22:00:00Z'},senderAuthenticated:false
+  }));
+  assert.equal(x.context.annalsNotifyDraftReady_(x.folder,'sender_unverified'),true);
+  assert.equal(messages.length,1);
+  assert.equal(messages[0][0],'owner@example.test');
+  assert.equal(x.files.has('contributor-hold-notice-private.json'),false);
+});
