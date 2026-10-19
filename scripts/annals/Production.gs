@@ -1371,7 +1371,8 @@ function annalsDispatchEvent_(folder, eventType, clientPayload, markerName) {
 function annalsDispatchApproved_(folder, entry, approval, eventType, markerName) {
   if (annalsFile_(folder, 'quarantine-private.json')) throw new Error('Quarantined test cannot be published');
   annalsOrdinarySourceGate_(annalsRead_(folder,'source-private.json'));
-  if (eventType !== 'annals-correct-entry' && !entry.photos && ['club_history','monthly_gathering','artefact'].indexOf(entry.category) >= 0) throw new Error('Use the distinct Living History workflow');
+  // Ordinary member stories/keepsakes are public Annals entries. They do not
+  // edit the separately versioned canonical Club History chapter ledger.
   if (!approval) return false;
   var payload = { entry: entry, approval: approval };
   if (entry.photos) {
