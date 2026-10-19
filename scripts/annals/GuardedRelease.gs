@@ -66,6 +66,50 @@ function annalsGuardedLaunchReadbackCore_(){
   r.controls=annalsGuardedControls_();console.log(JSON.stringify(r));return r;
 }
 function annalsGuardedLaunchReadbackInEditor(){annalsOwner_();return annalsLocked_(annalsGuardedLaunchReadbackCore_);}
+/** Read-only, bounded production configuration snapshot. This does NOT run
+ * the heavyweight signing/source-reconciliation gates, read private Drive,
+ * call a provider or examine journals. It cannot certify a publication.
+ * Use when the comprehensive owner diagnostic exceeds Apps Script limits.
+ */
+function annalsQuickProductionReadbackInEditor(){
+  annalsOwner_();
+  var p=annalsProps_().getProperties(),flags={};
+  ['ANNALS_PRODUCTION_INTAKE_ENABLED','ANNALS_AI_ENABLED','ANNALS_AUTO_PUBLICATION_ENABLED',
+    'ANNALS_AUTO_MEDIA_ENABLED','ANNALS_PHOTOS_V2_ENABLED','ANNALS_PHOTOS_GUARDED_JPEG_ENABLED',
+    'ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED','ANNALS_PHOTOS_HOSTED_ACCEPTED',
+    'ANNALS_HISTORY_PUBLICATION_ENABLED'].forEach(function(k){flags[k]=p[k]==='true';});
+  var budget=null;
+  try{budget=JSON.parse(p.ANNALS_BUDGET_LEDGER||'null');}catch(ignored){}
+  var approved=p.ANNALS_APPROVAL_KEY||'',publisher=p.ANNALS_PUBLISH_SIGNING_KEY||'',
+    history=p.ANNALS_HISTORY_SIGNING_KEY||'';
+  var cutoff=annalsPublisherExpiry_(),triggers=null;
+  try{triggers=ScriptApp.getProjectTriggers();}catch(ignored){}
+  var report={
+    kind:'owner-fast-configuration-readback-v1',observedAt:new Date().toISOString(),
+    flags:flags,allowedSenderCount:AnnalsPilot.allowedSenders(p.ANNALS_ALLOWED_SENDERS||'').length,
+    intakeTriggerCount:triggers?triggers.length:null,
+    soleTriggerIsIntake:!!(triggers&&triggers.length===1&&
+      triggers[0].getHandlerFunction()==='runAnnalsProductionIntake'),
+    budgetMonth:budget&&/^\\d{4}-\\d{2}$/.test(budget.month||'')?budget.month:null,
+    budgetReservedCents:budget&&budget.schemaVersion===1&&
+      Number.isSafeInteger(budget.reservedCents)&&budget.reservedCents>=0&&budget.reservedCents<=500?
+      budget.reservedCents:null,
+    approvalSigningMaterialPresent:approved.length>=32,
+    publisherSigningMaterialPresent:publisher.length>=32,
+    historySigningMaterialPresent:history.length>=32,
+    signingMaterialsSeparate:approved.length>=32&&publisher.length>=32&&history.length>=32&&
+      approved!==publisher&&approved!==history&&publisher!==history,
+    publisherCredentialPresent:!!p.ANNALS_GITHUB_TOKEN,
+    publisherCutoff:Number.isFinite(cutoff)?new Date(cutoff).toISOString():null,
+    publisherCutoffInFuture:Number.isFinite(cutoff)&&cutoff>Date.now(),
+    providerAuthenticationVerifiedByThisCheck:false,
+    signedJournalOrConsentVerificationPerformed:false,
+    publicationVerifiedByThisCheck:false
+  };
+  console.log(JSON.stringify(report));
+  return report;
+}
+
 
 // This marker describes risk-accepted production, never genuine photo acceptance.
 function annalsGuardedPhotosReady_(){
