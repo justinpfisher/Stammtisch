@@ -340,6 +340,18 @@ def prepare(workbook, existing, confirmations, checked_at, allow_research=True):
             expected = base * (2 if pick["pick"] in (1, 50) else 1)
             if pick["points"] != expected:
                 raise ValueError("Verified passing points disagree with the club's scoring rules")
+    # The scoring year ends on December 31, even when existing picks stay
+    # active until the January draft. The attribution of post-year passings
+    # during that gap has not been adopted. Keep unchanged hourly checks
+    # quiet, but do not expose new awards, entries, edits or death dates as
+    # part of the previous scoring year's public results.
+    # This is a safeguard, not a new rule or an automatic rollover.
+    if date.fromisoformat(candidate["asOf"]).year > candidate["year"]:
+        if public_material(candidate) != public_material(existing):
+            raise ValueError("Post-year scoring boundary requires qualified transition")
+        return {"status": "ready", "pending": 0, "publish": False,
+                "confirmationsAdded": 0}, None, None
+
     known_sources = {}
     for member in candidate["members"]:
         for pick in member["picks"]:
@@ -427,6 +439,7 @@ def failure_code(exc):
         ("A confirmed record no longer matches", "confirmed_record_identity"),
         ("The record conflicts with a verified actual death date", "verified_date_conflict"),
         ("The sheet conflicts with a verified date of passing", "confirmed_sheet_date_conflict"),
+        ("Post-year scoring boundary requires qualified transition", "season_boundary_review"),
         ("New pool season requires review", "season_review"),
         ("Spreadsheet snapshot date regressed or is missing", "snapshot_date_regressed"),
         ("Spreadsheet snapshot date is in the future", "future_snapshot_date"),

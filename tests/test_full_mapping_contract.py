@@ -10,6 +10,7 @@ import importlib.util
 import json
 import pathlib
 import unittest
+from unittest import mock
 
 ROOT = pathlib.Path(__file__).parents[1]
 SPEC = importlib.util.spec_from_file_location("celebration_sync_contract", ROOT / "scripts/sync-celebration-sheet.py")
@@ -215,6 +216,62 @@ class FullMappingContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "discovery date precedes"):
             sync.prepare(to_api(sheets), PUBLIC, CONFIRMATIONS, PUBLIC["capturedAt"],
                          allow_research=False)
+
+    def test_january_snapshot_does_not_republish_unchanged_prior_year(self):
+        # The picks can remain active pending the January draft, while 2026
+        # calendar-year scoring has ended. Pure as-of/ageing changes stay quiet.
+        source = public_as_sheet_cells()
+        baseline = sync.importer.import_data(None, PUBLIC["capturedAt"], CONFIRMATIONS,
+                                              sheets=source)
+        future = copy.deepcopy(source)
+        for member_id in sync.importer.MEMBERS:
+            future[member_id]["A1"]["value"] = serial("2027-01-03")
+        with mock.patch.object(sync, "datetime") as clock:
+            clock.now.return_value = dt.datetime(2027, 1, 3, 12, tzinfo=dt.timezone.utc)
+            result, candidate, additions = sync.prepare(
+                to_api(future), baseline, CONFIRMATIONS, "2027-01-03T12:00:00Z",
+                allow_research=False
+            )
+        self.assertEqual(result, {
+            "status": "ready", "pending": 0, "publish": False,
+            "confirmationsAdded": 0
+        })
+        self.assertIsNone(candidate)
+        self.assertIsNone(additions)
+
+    def test_january_snapshot_holds_changed_material_without_research(self):
+        source = public_as_sheet_cells()
+        baseline = sync.importer.import_data(None, PUBLIC["capturedAt"], CONFIRMATIONS,
+                                              sheets=source)
+        future = copy.deepcopy(source)
+        for member_id in sync.importer.MEMBERS:
+            future[member_id]["A1"]["value"] = serial("2027-01-03")
+        # Even an apparently harmless public change cannot quietly become
+        # part of finalized 2026 records during an unresolved scoring gap.
+        future["buttons"]["B2"]["value"] = "Fictional changed award description"
+        with mock.patch.object(sync, "datetime") as clock:
+            clock.now.return_value = dt.datetime(2027, 1, 3, 12, tzinfo=dt.timezone.utc)
+            with self.assertRaisesRegex(ValueError, "Post-year scoring boundary"):
+                sync.prepare(to_api(future), baseline, CONFIRMATIONS,
+                             "2027-01-03T12:00:00Z", allow_research=False)
+        self.assertEqual(
+            sync.failure_code(ValueError("Post-year scoring boundary requires qualified transition")),
+            "season_boundary_review"
+        )
+
+    def test_unqualified_2027_source_season_remains_blocked(self):
+        source = public_as_sheet_cells()
+        baseline = sync.importer.import_data(None, PUBLIC["capturedAt"], CONFIRMATIONS,
+                                              sheets=source)
+        future = copy.deepcopy(source)
+        future["LEADERBOARD"]["A1"]["value"] = 2027
+        for member_id in sync.importer.MEMBERS:
+            future[member_id]["A1"]["value"] = serial("2027-01-03")
+        with mock.patch.object(sync, "datetime") as clock:
+            clock.now.return_value = dt.datetime(2027, 1, 3, 12, tzinfo=dt.timezone.utc)
+            with self.assertRaisesRegex(ValueError, "New pool season requires review"):
+                sync.prepare(to_api(future), baseline, CONFIRMATIONS,
+                             "2027-01-03T12:00:00Z", allow_research=False)
 
     def test_exact_named_tab_cannot_silently_become_other_member(self):
         sheets = public_as_sheet_cells()
