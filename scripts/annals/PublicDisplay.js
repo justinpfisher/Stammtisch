@@ -26,6 +26,17 @@ function recipeIntroduction(entry) {
   const recipe = entry.recipe;
   if (entry.category !== 'cocktail' || !recipe ||
       ![...recipe.drinkIngredients,...recipe.syrupIngredients,...recipe.steps].length) return entry.summary;
+  // A contributed email may include full Ingredients / Instructions sections
+  // verbatim. Those are already rendered from the separately signed recipe
+  // arrays below the introductory paragraph. Do not repeat them as prose.
+  // Recognise only a full-line section heading; never cut a sentence merely
+  // because it mentions the words "ingredients" or "instructions".
+  const sectionHeading = /(?:^|\r?\n)[ \t]*(?:ingredients|instructions|preparation|method|homemade syrup)[ \t]*:?[ \t]*(?=\r?\n|$)/gi;
+  const firstHeading = sectionHeading.exec(entry.summary);
+  if (firstHeading) {
+    const intro = entry.summary.slice(0,firstHeading.index).trim();
+    if (intro) return intro.replace(/\*([^*\n]+)\*/g,'$1');
+  }
   const normalize = value => value.toLowerCase().replace(/\s+/g,' ').trim().replace(/[.;:]$/,'');
   const recorded = [...recipe.drinkIngredients,...recipe.syrupIngredients,...recipe.steps];
   const exact = recorded.map(normalize);
