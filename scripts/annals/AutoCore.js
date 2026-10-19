@@ -114,6 +114,19 @@ var AnnalsAuto = (function () {
       return {valid:false,reason:'source_incomplete'};
     if (protectedRoute(subject,excerpt)!=='annals') return {valid:false,reason:'col_proposal_private_review'};
     var a=safeField(subject,allowMemberQuote===true),b=safeField(excerpt,allowMemberQuote===true);
+    // Remove incidental "see attached photo" sentences when a stand-alone
+    // contribution remains. An image-only submission keeps its source for
+    // the distinct positive photo-screening/depiction-rights workflow.
+    if (MEDIA_DEPENDENT.test(b.text)) {
+      var sentences=b.text.split('\n').reduce(function (out,line) {
+        return out.concat(line.split(/(?<=[.!?])\s+(?=[A-Z"“])/));
+      },[]);
+      var independent=sentences.filter(function(s){return s.trim()&&!MEDIA_DEPENDENT.test(s);});
+      if(independent.join(' ').trim().length>=16) {
+        b.text=independent.join('\n').trim();
+        b.changed=true;
+      }
+    }
     var changed=a.changed||b.changed;
     // Entirely sensitive bodies must not yield meaningless "Club note"
     // publication. Subject-only, genuinely safe member submissions are fine.
