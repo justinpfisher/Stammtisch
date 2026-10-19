@@ -1,13 +1,13 @@
 # Current operating state
 
-Maintained reference, reconciled 18 October 2026. Update this file in place when supported by new evidence; dated reports remain evidence, not competing instructions. Private observations below were independently read back during the 18 October production completion.
+Maintained reference, reconciled 18 October 2026 after the private Version 45 release. Update this file in place when supported by new evidence; dated reports remain evidence, not competing instructions. Private observations below were independently read back during the 18 October production completion.
 
 ## Established production baseline
 
 | Capability | Last verified state | Evidence / remaining boundary |
 | --- | --- | --- |
 | Website | GitHub Pages, `main` / root, HTTPS | Settings independently inspected 18 October; existing hosting retained |
-| Private Annals | Existing owner-only **Version 44**, one 15-minute HEAD intake trigger | Same existing owner-only `/exec` deployment advanced in place 18 October 2026; seven reviewed modules independently read back; [Issue #24](https://github.com/justinpfisher/Stammtisch/issues/24) records evidence and remaining token renewal |
+| Private Annals | Existing owner-only **Version 45**, one 15-minute HEAD intake trigger | Existing `/exec` deployment advanced in place after merged PR #135; identity, owner-only access, trigger and project were preserved. See the dated report below and [Issue #24](https://github.com/justinpfisher/Stammtisch/issues/24). |
 | Intake, AI, ordinary automatic text | Enabled for future eligible traffic | Existing genuine signed text publish/withdrawal and permanent signing qualification reused; scoped member rights and item checks remain |
 | Photographs | Guarded **JPEG only**, 1–3 inputs, each at most 8 MiB | Private media/v2/guarded/transport and hosted guarded/transport enabled. Re-encoded, metadata-free derivatives only. Broad photo release unset; genuine photo acceptance remains false. PNG/WebP/HEIC/HEIF/mixed/unknown inputs held |
 | Club History | Enabled for future eligible traffic | Distinct 64-character private/hosted authority installed 18 October; non-publishing workflow run `39142718815` and owner-only Version 43 verification confirmed matching authority, separate keys, current source and no gate/content/credential changes. Hosted release and private publication switches were then enabled in that order. Public revision remains 0 with no chapters; no genuine History contribution has been published or accepted |
@@ -71,3 +71,16 @@ Two distinct genuine, authenticated submissions were located in the existing pri
 - [Issue #24](https://github.com/justinpfisher/Stammtisch/issues/24): concise actionable tracker and dated evidence comments. Issue #18 is machine deduplication state; never close or edit it as backlog cleanup.
 
 ChatGPT's external Stammtisch Project instructions are outside this repository's editing surface. Their old “not live”, per-item approval and reasoning-router text is superseded. Replace their operational paragraphs with: **“Follow the latest owner decisions, repository AGENTS.md and docs/current-state.md. An ordinary update includes tested merge, deployment and live verification. Reuse completed qualifications; no model/usage gate or separate routine go-live instruction. Preserve actual privacy, rights, authentication, integrity and spending controls.”** Retain the club identity/style brief.
+
+
+## 18 October private Version 45 repair update
+
+The five reviewed modules from merged PR #135 (AutoCore, RulesCore, RulesProduction, Production and ReviewUi) were copied from the merged commit into the existing private Apps Script project and saved. The existing owner-only web deployment was advanced in place to Version 45; the project identity, manifest, private files, existing execution identity, “Only myself” access, existing /exec address and single 15-minute HEAD trigger were retained. The deployed page and its owner session endpoint returned successfully under Version 45. The owner desk listed the retained Kingston Windfall recipe hold and the Celebration of Life Pool rewrite hold. The public recipe entry was not verified and is not claimed.
+
+The complete status-only production readback did not finish within Apps Script’s execution window during this session. Accordingly current feature flags, reserved budget, publisher cutoff, signing configuration, and journal totals have not been newly verified; the last fully verified baseline remains the historical Version 44 readback recorded above. The exact saved editor source was not independently exported and hashed after saving, so this update reports the source transfer and saved deployment, not a hash-based readback. No production setting, trigger, credential, journal, cursor, consent or hold was intentionally reset.
+
+The private contribution list endpoint remains slow and the loaded owner desk controls were disabled during these checks. No held-recipe reassessment or signed dispatch was attempted. The retained draft, exact original source wording, syrup and method, and current item-specific permission could therefore not be rechecked; the MPO photograph remains held with no retry. The dedicated Gmail inbox is still unavailable through the connected personal Gmail account, so the 7:16 p.m. notice, immutable receipt, cursor, staged sources and all genuine mail since activation have not been reconciled exhaustively.
+
+The owner-only production desk exposed the retained CoL submission and an independently verified-operative amendment. The complete original, one-shot failed AI response and authoritative implementation were not available through a working item detail view in this session. No new CoL provision was qualified, implemented or released. The existing rules, historical points and awards, revision integrity, independent death verification and passings-only notifications were not changed.
+
+The deployed public website and existing controls were not exercised end-to-end in this session. Consequently natural intake after this release, public publication verification, Club History isolation, correction behavior, photo handling, navigation and notification behavior are not newly claimed. No synthetic submission, model retry, photo retry, cursor reset, or forced publication occurred.
