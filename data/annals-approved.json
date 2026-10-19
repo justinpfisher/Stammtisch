@@ -1,5 +1,49 @@
 {
   "schemaVersion": 1,
-  "entries": [],
-  "approvals": []
+  "entries": [
+    {
+      "id": "annal-96b5ae266a36793c6a203033",
+      "category": "cocktail",
+      "title": "Kingston Windfall cocktail recipe",
+      "summary": "The *Kingston Windfall* is a fall-inspired craft cocktail that combines\nJamaican rum with autumnal apple cider and spice notes.\n\nIngredients\n\n   - *1½ oz (45 ml)* Jamaican rum\n   - *¾ oz (22 ml)* Freshly squeezed lemon juice\n   - *¾ oz (22 ml)* Apple cider syrup (or cinnamon apple cider syrup)\n   - *¼ oz (7.5 ml)* Honey syrup (3:1 ratio of honey to water)\n   - *1 dash* Angostura bitters\n\nInstructions\n\n   1.\n      - *Combine* all ingredients into a cocktail shaker filled with ice.\n   - *Shake* vigorously until well-chilled.\n   - *Strain* the mixture into a chilled coupe glass.\n   - *Garnish* with a dash of bitters on top and a light dusting of\n      cinnamon.",
+      "year": 2026,
+      "dateLabel": "Submitted 2026-10",
+      "sortDate": "",
+      "quoteVerbatim": "",
+      "recipe": {
+        "drinkIngredients": [
+          "1½ oz (45 ml) Jamaican rum",
+          "¾ oz (22 ml) Freshly squeezed lemon juice",
+          "¾ oz (22 ml) Apple cider syrup (or cinnamon apple cider syrup)",
+          "¼ oz (7.5 ml) Honey syrup (3:1 ratio of honey to water)",
+          "1 dash Angostura bitters"
+        ],
+        "syrupIngredients": [],
+        "steps": [
+          "Combine all ingredients into a cocktail shaker filled with ice.",
+          "Shake vigorously until well-chilled.",
+          "Strain the mixture into a chilled coupe glass.",
+          "Garnish with a dash of bitters on top and a light dusting of cinnamon."
+        ]
+      },
+      "credit": "anonymous",
+      "contributorPortrait": "marc"
+    }
+  ],
+  "approvals": [
+    {
+      "approvedAt": "2026-10-19T10:00:04.620Z",
+      "consents": {
+        "namedAttribution": true,
+        "photoPublication": false,
+        "publication": true,
+        "quotePublication": false,
+        "recipeVerified": true
+      },
+      "contentSha256": "0cdf8f8143bf122596feb7cefa7bff3a95411de135e312417354757cd1a07456",
+      "entryId": "annal-96b5ae266a36793c6a203033",
+      "mode": "standing-consent-text-v1",
+      "signature": "2e6ae5c65f52609c935a3e77306849cb0985a380a4049f94ac1a47c2b5262590"
+    }
+  ]
 }
