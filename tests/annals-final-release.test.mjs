@@ -81,7 +81,13 @@ test('history retains private provenance and makes receipt dates distinct from e
 test('history rejects invented passages, unsupported dates, privacy, incomplete source and fabricated history',()=>{
   for(const r of [{...raw(),statement:'No source says this.'},{...raw(),period:'2020'},{...raw(),field:'receipt'}])assert.throws(()=>history.claim(source(),r));
   assert.throws(()=>history.claim({...source(),source:{...source().source,excerptTruncated:true}},raw()));
-  for(const statement of ['The secret door code was 1234.','A fictional test record.','Ken was there.'])assert.throws(()=>history.claim(source(statement),{...raw(),statement,period:''}));
+  for(const statement of ['The secret door code was 1234.','A fictional test record.'])assert.throws(()=>history.claim(source(statement),{...raw(),statement,period:''}));
+  // A member's approved name is not private by itself. Naming a member
+  // still does not establish attendance or allow an unreviewed history fact.
+  const memberRecollection=history.claim(source('Ken was there.'),{...raw(),statement:'Ken was there.',period:''});
+  assert.equal(memberRecollection.status,'recollection');
+  assert.throws(()=>history.apply(history.empty(),memberRecollection,false,at,''));
+
 });
 test('history additions need owner reconciliation; exact corroboration is the only unattended operation',()=>{
   const first=history.claim(source(),raw());assert.throws(()=>history.apply(history.empty(),first,false,at,''));
