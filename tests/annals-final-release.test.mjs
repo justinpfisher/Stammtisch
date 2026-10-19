@@ -36,6 +36,47 @@ test('genuine recipe context survives line, paragraph and informal prose duplica
   }
   assert.equal(recipeIntroduction({...entry(),summary:'Created for a quiet evening.\n'+entry().summary}),'Created for a quiet evening.');
 });
+test('formatted recipe headings and wrapped bullet instructions appear only in structured Preparation',()=>{
+  const recipeFixture=entry(),submittedSummary=[
+    'A fictional autumn cordial shared during an imaginary gathering.',
+    '',
+    'Ingredients',
+    '',
+    ' - *1/2 oz cordial*',
+    ' - *2 oz water*',
+    '',
+    'Instructions',
+    '',
+    ' 1.',
+    '    - *Simmer* the syrup for 5 minutes.',
+    ' - *Stir* the drink with ice.',
+    '',
+    'Notes',
+    'An imaginary toast accompanied this fictional recipe.'
+  ].join('\n');
+  const e={...recipeFixture,summary:submittedSummary};
+  const signed=approval(e),before=contentDigest(e);
+  const intro=recipeIntroduction(e);
+  assert.equal(intro,'A fictional autumn cordial shared during an imaginary gathering. An imaginary toast accompanied this fictional recipe.');
+  const html=buildPublishedAnnals([e],[signed],secret).html;
+  assert.match(html,/class="annal-summary">A fictional autumn cordial shared during an imaginary gathering. An imaginary toast accompanied this fictional recipe./);
+  assert.equal((html.match(/<h4>Preparation<\/h4>/g)||[]).length,1);
+  assert.equal((html.match(/Simmer the syrup for 5 minutes\./g)||[]).length,1);
+  assert.equal((html.match(/Stir the drink with ice\./g)||[]).length,1);
+  assert.doesNotMatch(html,/Instructions[^<]*- \*Simmer\*/);
+  assert.equal(contentDigest(e),before);
+  assert.equal(e.summary,submittedSummary,'The signed original must remain unchanged');
+});
+test('current released cocktail's source formatting never repeats ingredients or instructions in intro',()=>{
+  const archive=JSON.parse(readFileSync(new URL('../data/annals-approved.json',import.meta.url),'utf8'));
+  for(const e of archive.entries.filter(x=>x.category==='cocktail'&&x.recipe?.steps?.length)){
+    const original=JSON.stringify(e),summary=recipeIntroduction(e);
+    assert.doesNotMatch(summary,/\b(?:Instructions|Ingredients)\s*[-:]\s*\*/i);
+    for(const step of e.recipe.steps)assert.equal(summary.includes(step),false);
+    assert.equal(JSON.stringify(e),original);
+  }
+});
+
 test('structured recipe extraction retains quantities from subject-only, body-only and combined sources',()=>{
   const body='1/2 oz cordial\n2 oz water\nStir gently.',draft={category:'cocktail',title:'1/2 oz cordial',quoteVerbatim:'',riskFlags:[],recipe:{drinkIngredients:['1/2 oz cordial','2 oz water'],syrupIngredients:[],steps:['Stir gently.']}};
   for(const [subject,excerpt] of [[body,''],['',body],['1/2 oz cordial','2 oz water\nStir gently.']]){
