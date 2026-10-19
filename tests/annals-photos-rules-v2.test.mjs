@@ -247,4 +247,10 @@ test('integrated group photo uses six standing grants while guest images and ext
   const d={category:'assembly',riskFlags:['faces_or_reflections'],imageReviews:[screen]},set=[{sha256:hash,width:1,height:1}];
   const result=context.annalsPhotoDecision_(s,d,'a'.repeat(64),{eligible:false,reason:'material_uncertainty'},set);assert.equal(result.eligible,true);assert.equal(result.entry.photos.length,1);assert.equal(result.entry.eventPeriod,'');
   for(const risk of [{childrenOrGuests:true},{kind:'document_or_text'}])assert.equal(context.annalsPhotoDecision_(s,{...d,imageReviews:[{...screen,...risk}]},'a'.repeat(64),{eligible:false,reason:'material_uncertainty'},set).eligible,false);
+  const privatePlace={...s,source:{...s.source,excerpt:'All six of us. The fictional meeting was at 2400 Example Road.'}};
+  const screened=context.annalsPhotoDecision_(privatePlace,d,'a'.repeat(64),{eligible:false,reason:'material_uncertainty'},set);
+  assert.equal(screened.eligible,true);
+  assert.match(screened.entry.summary,/\[DETAIL OMITTED\]/);
+  assert.doesNotMatch(JSON.stringify(screened.entry),/2400 Example Road/);
+  assert.equal(privatePlace.source.excerpt,'All six of us. The fictional meeting was at 2400 Example Road.');
 });
