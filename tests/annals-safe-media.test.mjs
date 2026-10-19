@@ -167,3 +167,23 @@ test('a specifically stated syrup ratio never receives contradictory basic sugar
   assert.match(policy.suggestedQuantities(unspecific,'1 oz invented syrup').join(' '),
     /Suggested basic syrup, not the original/);
 });
+
+
+test('approved first-name and nickname references do not veto a screened safe-object photograph',()=>{
+  const bytes=media.sanitize([...photo()]).bytes;
+  const image={sha256:createHash('sha256').update(Buffer.from(bytes)).digest('hex'),size:bytes.length};
+  const src=source();
+  src.source.subject='Fish and Marc — fictional cocktail photo';
+  src.source.excerpt='Jamie prepared this fictional glass. Photo attached.';
+  const cand={...draft('cocktail'),title:src.source.subject};
+  const decision=base.propose(src,cand,id);
+  assert.equal(decision.eligible,false,'photo-dependent draft retains its media gate');
+  const result=policy.enrich(src,cand,id,decision,image);
+  assert.equal(result.eligible,true);
+  assert.match(result.entry.title,/Fish and Marc/);
+  assert.match(result.entry.summary,/Jamie prepared/);
+  assert.equal(result.entry.photo.sha256,image.sha256);
+  assert.equal(verifyPublicApproval(result.entry,sign(result.entry),secret),true);
+  const guest={...src,source:{...src.source,excerpt:'A guest prepared this fictional glass. Photo attached.'}};
+  assert.equal(policy.enrich(guest,cand,id,base.propose(guest,cand,id),image).eligible,false);
+});
