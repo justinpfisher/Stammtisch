@@ -102,6 +102,15 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}, polic
         oldestIncomplete ? ['Some dates or ages remain unverified; final eligibility is not yet established.'] : [])
   });
 
+  // Future semantic releases may retire extra age-100 draft privileges.
+  // No current signed rule supplies this policy. It is deliberately dormant
+  // unless a separately verified, effective version supplies its timestamp.
+  // A passing on the UTC publication date cannot be ordered against a
+  // timestamp using only a death DATE: show that benefit as unconfirmed.
+  const centuryRetirement = typeof policy.age100PrivilegeEndsAt === 'string' &&
+    /^\d{4}-\d\d-\d\dT/.test(policy.age100PrivilegeEndsAt) &&
+    Number.isFinite(Date.parse(policy.age100PrivilegeEndsAt))
+      ? policy.age100PrivilegeEndsAt.slice(0,10) : null;
   const draft = [...members].sort((a,b) => a.score-b.score || a.name.localeCompare(b.name)).map(member => {
     const owned = events.filter(x => x.owners.some(p => p.memberId === member.id));
     const benefits = [];
@@ -112,8 +121,14 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}, polic
       if (blue) benefits.push({ kind:'Steal', event:event.name, at:event.diedOn, confirmed:Boolean(event.diedOn), reason:'Blue Diamond' });
       if (brown) benefits.push({ kind:'Blood Diamond', event:event.name, at:event.diedOn, confirmed:Boolean(event.diedOn), reason:'Brown Diamond' });
       if (event.age === 100 && !birthday) {
-        benefits.push({ kind:brown ? 'Blood Diamond' : 'Steal', event:event.name, at:event.diedOn,
-          confirmed:event.ageConfirmed && Boolean(event.diedOn) && (event.diamond || Boolean(event.discoveredOn)), reason:brown ? 'Brown Diamond at 100: second Blood Diamond' : blue ? 'Blue Diamond at 100: second Steal' : 'Age 100' });
+        // Only a STRICTLY later death date is safely prospective. The
+        // date-of-release case needs actual-time evidence and stays a
+        // provisional benefit; never retract historical awarded privileges.
+        const retired = centuryRetirement && event.diedOn && event.diedOn > centuryRetirement;
+        const boundaryUncertain = centuryRetirement && event.diedOn === centuryRetirement;
+        if (!retired) benefits.push({ kind:brown ? 'Blood Diamond' : 'Steal', event:event.name, at:event.diedOn,
+          confirmed:!boundaryUncertain && event.ageConfirmed && Boolean(event.diedOn) && (event.diamond || Boolean(event.discoveredOn)),
+          reason:boundaryUncertain ? 'Age-100 rule-change date needs individual verification' : brown ? 'Brown Diamond at 100: second Blood Diamond' : blue ? 'Blue Diamond at 100: second Steal' : 'Age 100' });
       }
     }
     if (policy.oldestDeathSteal === true && oldestOwners.includes(member.id)) {
