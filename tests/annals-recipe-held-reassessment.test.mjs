@@ -16,7 +16,7 @@ function fixture({eligible=true,consent=true,dispatch=false}={}){
     ['ai-attempt-private.json',{state:'attempt_reserved',model:'fictional'}]
   ]);
   if(dispatch)records.set('publication-dispatch-private.json',{state:'accepted'});
-  const calls=[],ctx=vm.createContext({
+  const calls=[],overrides={
     annalsUiCall_:(_nonce,fn)=>fn(),annalsLocked_:fn=>fn(),annalsOwner_:()=>sender,
     annalsProps_:()=>({getProperty:k=>({ANNALS_ALLOWED_SENDERS:sender,ANNALS_ACTIVATED_AT:'2026-10-01T00:00:00Z'}[k]||'')}),
     annalsFolder_:()=>({}),
@@ -31,8 +31,10 @@ function fixture({eligible=true,consent=true,dispatch=false}={}){
       records.set('auto-reassessment-private.json',{state:'held',reason:'fictional_dispatch_unavailable'});
       return false;
     }
-  });
+  };
+  const ctx=vm.createContext({});
   vm.runInContext(script,ctx);
+  Object.assign(ctx,overrides);
   return {ctx,records,calls};
 }
 test('one-time recipe exception preserves original decision, does not call AI and forbids replay',()=>{
