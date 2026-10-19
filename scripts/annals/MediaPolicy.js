@@ -44,7 +44,11 @@ var AnnalsMediaPolicy = (function () {
     }
     var syrupMentioned = /\b(?:homemade\s+)?(?:syrup|shrub|cordial)\b/i.test(source);
     var syrupMeasured = (recipe.syrupIngredients || []).some(function (item) { return AMOUNT.test(item); });
-    if (syrupMentioned && !syrupMeasured && ideas.length < 2) {
+    // Do not append a generic 1:1 sugar syrup method when the original
+    // specifically provides a different syrup ratio (for example honey 3:1).
+    // Such an editorial suggestion would be misleading even if labelled.
+    var sourceSpecifiesRatio = /\b\d+\s*:\s*\d+\s*(?:ratio|parts?)?\b/i.test(source);
+    if (syrupMentioned && !syrupMeasured && !sourceSpecifiesRatio && ideas.length < 2) {
       ideas.push('Suggested basic syrup, not the original: combine equal parts sugar and water by volume; cool before use. Fruit and herb syrups can differ.');
     }
     return ideas.slice(0,2);

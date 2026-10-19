@@ -152,3 +152,16 @@ test('long suggested quantity guidance stays within the 220-character public lin
   assert.ok(parts.length>=1&&parts.length<=2);
   for(const part of parts)assert.ok(part.length<=220,'suggestion too long');
 });
+
+
+test('a specifically stated syrup ratio never receives contradictory basic sugar-syrup advice',()=>{
+  const recipe={drinkIngredients:[
+    '¾ oz (22 ml) imaginary cider syrup',
+    '¼ oz (7.5 ml) fictional honey syrup (3:1 ratio of honey to water)'
+  ],syrupIngredients:[],steps:['Shake the imaginary liquid.']};
+  const source=recipe.drinkIngredients.join('\n');
+  assert.deepEqual(policy.suggestedQuantities(recipe,source),[]);
+  const unspecific={drinkIngredients:['1 oz invented syrup'],syrupIngredients:[],steps:[]};
+  assert.match(policy.suggestedQuantities(unspecific,'1 oz invented syrup').join(' '),
+    /Suggested basic syrup, not the original/);
+});
