@@ -131,6 +131,11 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 <p class="muted">The private approval record stays in Drive. Exact approval submits only the approved public entry to the Annals publishing workflow.</p>
 <button id="publish" hidden>Send approved entry to publishing workflow</button>
 <section id="publishedActions" hidden><h2>Published entry maintenance</h2><p id="publishedState" class="muted"></p>
+<fieldset id="publishedReconciliation" hidden><legend>Publication confirmation — read only</legend>
+<p class="muted">Compare this exact signed approved entry with the public archive and website, and inspect whether the existing once-only live-verification and publication-email markers were saved. This sends no message, creates no marker and does not repeat publication.</p>
+<button id="readPublicationReconciliation" type="button">Check public receipt and notification state</button>
+<pre id="publicationReconciliationResult" aria-label="Private publication verification status"></pre>
+</fieldset>
 <button id="startCorrection">Prepare an exact text correction</button>
 <fieldset id="correctionApproval" hidden><legend>Approve correction</legend><pre id="correctionExact"></pre>
 <label><input type="checkbox" id="correctionPublication">The contributor and anyone identified approved this corrected exact text for the public website and public GitHub history.</label>
@@ -223,8 +228,13 @@ async function ownerReadback(buttonId,resultId,method,...args){
       output.textContent=(failed.length?
         'Failed checks: '+failed.join(', ')+'. Do not repeat a held recovery.\n\n':
         'Eligibility readback has no failed Boolean checks. This does NOT verify a previous attempt or authorise a retry.\n\n')+JSON.stringify(result,null,2);
-    }else{
+    }else if(method==='annalsInboxCoverageReadbackInEditor'){
       output.textContent='Bounded inbox sample only; cross-check the dedicated mailbox and retained notice journals.\n\n'+JSON.stringify(result,null,2);
+    }else{
+      output.textContent=(result.publicEvidenceMatches?
+        'Signed public archive and page evidence match. A missing private journal/notice still needs routine reconciliation.\n\n':
+        'One or more public verification conditions did not pass. Inspect the response statuses and Boolean checks; do not redispatch.\n\n')+
+        JSON.stringify(result,null,2);
     }
     say('Read-only status loaded. No retry, publication, cursor or setting change was requested.');
   }catch(error){
@@ -254,7 +264,7 @@ el('flags').textContent='Review flags: '+(d.riskFlags||[]).join(', ');el('approv
 el('checkSigningRotation').disabled=!current.signedRotationEvidenceAvailable;
 el('continueHistoricOldestRule').disabled=!current.historicOldestContinuationReady||!!current.ruleRequest||!!current.quarantined;
 el('publish').hidden=!current.approved||current.publicationState==='dispatch_accepted'||current.dispatchAttempted;
-el('publishedActions').hidden=!current.approved;el('correctionApproval').hidden=true;el('saveCorrection').hidden=!current.approved;review=current.correctionReview||null;
+el('publishedActions').hidden=!current.approved;el('publishedReconciliation').hidden=!current.approved||current.publicationState!=='dispatch_accepted';el('publicationReconciliationResult').textContent='';el('correctionApproval').hidden=true;el('saveCorrection').hidden=!current.approved;review=current.correctionReview||null;
 el('publishedState').textContent=current.removal?'Removal status: '+current.removal.state:current.correctionApproval?'Correction status: '+current.correctionApproval.publicationState:'Current public entry status: '+(current.publicationState||'not confirmed');
 el('removalBox').hidden=!current.approved||!!current.removal||current.publicationState!=='dispatch_accepted';
 el('startCorrection').hidden=!current.approved||!!current.correctionApproval||!!current.removal;el('saveCorrection').hidden=!current.approved||!!current.correctionApproval||!!current.removal;el('removalConfirmed').checked=false;el('removalReason').value='';
@@ -309,6 +319,10 @@ el('reconcileHistory').onclick=()=>act(async()=>{const r=await call('annalsRecon
 el('quarantine').onclick=()=>act(async()=>{const result=await call('annalsQuarantineSubmission',nonce,current.id,val('quarantineReason'),el('quarantineConfirmed').checked);if(!result||result.quarantined!==true)throw new Error('Quarantine was not confirmed. Check the saved private record before any further action.');current.quarantined=true;current.status='Quarantined - owner-identified test';el('itemStatus').textContent=current.status;updateQueuedItem();say('Test quarantined privately. Originals and audit records are preserved.');});
 el('prepare').onclick=()=>act(async()=>{say('Preparing the private draft…');await call('annalsPrepareDraft',nonce,current.id,val('source'),[...document.querySelectorAll('.media:checked')].map(i=>i.value),el('aiConsent').checked);await open(current.id);});
 el('readInboxCoverage').onclick=()=>ownerReadback('readInboxCoverage','inboxCoverageResult','annalsInboxCoverageReadbackInEditor');
+el('readPublicationReconciliation').onclick=()=>{
+  if(!current||!current.approved||!/^[a-f0-9]{64}$/.test(current.id))return;
+  return ownerReadback('readPublicationReconciliation','publicationReconciliationResult','annalsPublishedReceiptReadbackInEditor',current.id);
+};
 el('readRecipeRecoveryGates').onclick=()=>{
   if(!current||!/^[a-f0-9]{64}$/.test(current.id))return;
   return ownerReadback('readRecipeRecoveryGates','recipeRecoveryReadback','annalsRecipeRecoveryReadbackInEditor',current.id);
