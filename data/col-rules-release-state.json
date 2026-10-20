@@ -31,10 +31,27 @@
       "candidateDigest": "2bff2b4efa09ae317c4b728bd0251bc322b69c233c2e217835cd2a6c7015f6ab",
       "revisionId": "col-7627d10078568faf30a91294",
       "previous": "447206a5f23e52a85a3132c1db5d6a642764439435476b41c9e40ead4b7ecd27",
-      "phase": "activation_pending",
+      "phase": "release_pending",
       "stagedAt": "2026-10-20T23:43:08.652Z",
       "activationDigest": "9f668dd83f9a64a1b1779aa3498239e27029bd7fdfd8c5ee0bd213b4cd383d54",
-      "confirmation": null
+      "confirmation": {
+        "observedAt": "2026-10-20T23:50:13.515Z",
+        "sourceDigest": "2c7183156440db4332c08713a0b7804be3bcea2c8f26e1f8643c666ff8beaecd",
+        "candidateDigest": "2bff2b4efa09ae317c4b728bd0251bc322b69c233c2e217835cd2a6c7015f6ab",
+        "activationDigest": "9f668dd83f9a64a1b1779aa3498239e27029bd7fdfd8c5ee0bd213b4cd383d54",
+        "baseStateDigest": "fc88c0631c00f1fb24cf991a3b98455e5f3208b80af421c6d4ff60eef16ffed6",
+        "producer": {
+          "repository": "justinpfisher/Stammtisch",
+          "workflow": ".github/workflows/annals-col-rules-v3.yml",
+          "job": "staged",
+          "runId": "39517589531",
+          "runAttempt": 1,
+          "workflowHead": "8ffc14b0bb5c86c5fbdcea89f082faa3e6755604",
+          "checkoutHead": "8ffc14b0bb5c86c5fbdcea89f082faa3e6755604"
+        },
+        "sealDigest": null,
+        "snapshotDigest": "b42e696b59f39f557dd550b5b7389ec5217dccee10ed04189677c2e5b42db265"
+      }
     }
   ],
   "events": [
@@ -84,6 +101,14 @@
       "phase": "activation_pending",
       "at": "2026-10-20T23:47:18.240Z",
       "evidenceDigest": "7baec17ecd25fe38ad8ea086a74a48234ea74adc9389ab72fbab58c3f068308a",
+      "reason": ""
+    },
+    {
+      "revisionId": "col-7627d10078568faf30a91294",
+      "candidateDigest": "2bff2b4efa09ae317c4b728bd0251bc322b69c233c2e217835cd2a6c7015f6ab",
+      "phase": "release_pending",
+      "at": "2026-10-20T23:50:53.333Z",
+      "evidenceDigest": "a1564afb57c8cea54a8160517fc257ac3cb23bf732a0dd79de973ad52c531313",
       "reason": ""
     }
   ]
