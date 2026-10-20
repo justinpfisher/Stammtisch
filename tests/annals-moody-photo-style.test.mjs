@@ -1,40 +1,63 @@
-/* Source-only safeguards for the selected Cocktail Register photographic direction. */
+/* Editorial photo treatment must not masquerade as the signed source. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const css = readFileSync(new URL('../annals-photos.css', import.meta.url), 'utf8');
-const photoUi = readFileSync(new URL('../annals-photos.mjs', import.meta.url), 'utf8');
-const guide = readFileSync(new URL('../docs/brand-editorial-style-guide.md', import.meta.url), 'utf8');
-const archive = readFileSync(new URL('../annals.html', import.meta.url), 'utf8');
+const css=readFileSync(new URL('../annals-photos.css',import.meta.url),'utf8');
+const photoUi=readFileSync(new URL('../annals-photos.mjs',import.meta.url),'utf8');
+const guide=readFileSync(new URL('../docs/brand-editorial-style-guide.md',import.meta.url),'utf8');
+const archive=readFileSync(new URL('../annals.html',import.meta.url),'utf8');
+const production=readFileSync(new URL('../scripts/annals/apply-approved-entry.mjs',import.meta.url),'utf8');
+const workflow=readFileSync(new URL('../.github/workflows/annals-publish.yml',import.meta.url),'utf8');
+const backfill=readFileSync(new URL('../.github/workflows/annals-photo-style.yml',import.meta.url),'utf8');
+const style=readFileSync(new URL('../scripts/annals/cocktail-image-style.py',import.meta.url),'utf8');
 
-test('owner-selected option 2 is the documentary cocktail standard', () => {
-  assert.match(guide, /Moody & Atmospheric \(option 2\)/);
-  assert.match(guide, /dark forest-green/i);
-  assert.match(guide, /authentic drink hues/i);
-  assert.match(guide, /signed public image bytes unchanged/i);
-  assert.match(guide, /recipe name, recipe description, ingredient list or preparation instructions/);
+test('the approved direction is actual visual editing, never a CSS surround',()=>{
+  assert.match(guide,/Moody & Atmospheric \(option 2\)/);
+  assert.match(guide,/actual background separation/);
+  assert.match(guide,/Original photograph/);
+  assert.match(guide,/not evidence of a different venue/);
+  assert.match(guide,/without an additional external AI subscription/);
+  assert.match(css,/background:transparent/);
+  assert.match(css,/filter:none/);
+  assert.doesNotMatch(css,/filter:contrast\(1\.04\) brightness\(\.96\) saturate\(\.96\)/);
 });
 
-test('dark archival styling only selects Cocktail Register previews', () => {
-  assert.match(css, /\.annal-entry\[data-annals-category="cocktail"\] \.annal-gallery figure/);
-  assert.match(css, /\.photos-card\[data-photos-collection="cocktail"\] \.photos-grid figure/);
-  assert.match(css, /background:#193d32/);
-  assert.match(css, /border:1px solid #846329/);
-  assert.match(css, /filter:contrast\(1\.04\) brightness\(\.96\) saturate\(\.96\)/);
-  assert.doesNotMatch(css.split('/* Moody Cocktail Register photography:')[1], /(?:^|\n)\s*\.photo-viewer img\s*\{/);
-  assert.match(css, /@media\(forced-colors:active\), \(prefers-contrast:more\)/);
+test('image styling remains scoped to cocktails and preserves full original access',()=>{
+  assert.match(css,/\.annal-entry\[data-annals-category="cocktail"\] \.annal-gallery/);
+  assert.match(css,/\.photos-card\[data-photos-collection="cocktail"\] \.photos-grid/);
+  assert.match(photoUi,/card\.dataset\.photosCollection=row\.collection/);
+  assert.match(photoUi,/a\.dataset\.styledSrc/);
+  assert.match(photoUi,/data-original/);
+  assert.match(photoUi,/Original photograph/);
+  assert.match(photoUi,/photo.*styleCocktailPreviews|styleCocktailPreviews/);
+  assert.match(photoUi,/img\.alt=p\.alt/);
+  assert.match(photoUi,/a\.href=p\.src/);
 });
 
-test('gallery index identifies collection without modifying photographic data', () => {
-  assert.match(photoUi, /card\.dataset\.photosCollection=row\.collection/);
-  assert.match(photoUi, /a\.href=p\.src/);
-  assert.match(photoUi, /img\.alt=p\.alt/);
-  assert.match(photoUi, /if\(p\.caption\)/);
+test('the source-first publishing gate precedes optional styling',()=>{
+  assert.match(production,/buildPublishedAnnals\(entries, approvals, secret, history\)/);
+  assert.match(workflow,/node scripts\/annals\/apply-approved-entry\.mjs/);
+  assert.match(workflow,/python scripts\/annals\/cocktail-image-style\.py/);
+  assert.ok(workflow.indexOf('node scripts/annals/apply-approved-entry.mjs') <
+            workflow.indexOf('python scripts/annals/cocktail-image-style.py'));
+  assert.match(production,/styled-v1\.jpg/);
+  assert.match(style,/hashlib\.sha256\(data\)\.hexdigest\(\) != expected/);
+  assert.match(style,/if entry\.get\("category"\) != "cocktail":/);
+  assert.match(style,/insufficient_confidence/);
+  assert.doesNotMatch(style,/requests\.get|https:\/\//);
 });
 
-test('existing signed Kingston Windfall photo remains a qualifying original', () => {
-  assert.match(archive, /data-annals-category="cocktail"/);
-  assert.match(archive, /Kingston Windfall/);
-  assert.match(archive, /<img src="assets\/annals\/annal-[a-f0-9]+\.jpg"/);
+test('one-time approved originals are re-verified before backfill',()=>{
+  assert.match(backfill,/buildPublishedAnnals\(data.entries,data.approvals,secret,history\)/);
+  assert.match(backfill,/--verify-only --strict/);
+  assert.match(backfill,/--index data\/annals-approved\.json/);
+  assert.match(backfill,/gh api --method POST repos\/justinpfisher\/Stammtisch\/pages\/builds/);
+  assert.match(backfill,/paths:\s*\n\s*- scripts\/annals\/cocktail-image-style\.py/);
+});
+
+test('original signed Kingston Windfall image and entry remain sources',()=>{
+  assert.match(archive,/data-annals-category="cocktail"/);
+  assert.match(archive,/Kingston Windfall/);
+  assert.match(archive,/<img src="assets\/annals\/annal-[a-f0-9]+\.jpg"/);
 });
