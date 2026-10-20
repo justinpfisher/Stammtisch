@@ -95,6 +95,14 @@ test('rights must be separate HMAC attestation; existing public photo consent al
   const grantProof=grant();
   assert.equal(grantProof.entryId,kingston.id);
   assert.equal(grantProof.sourceSha256,sha(original));
+  assert.throws(()=>verifyEditorialPermit(permit(),{
+    entryId:kingston.id,sourceSha256:sha(original),referenceSha256:sha(original),
+    signingKey:key,permitSigningKey:key,now
+  }),/unavailable/);
+  assert.throws(()=>verifyEditorialPermit(permit(),{
+    entryId:kingston.id,sourceSha256:sha(original),referenceSha256:sha(original),
+    signingKey:key,now
+  }),/unavailable/);
   for(const patch of [
     {rightsActive:false},{screened:false},{budgetReserved:false},
     {sourceSha256:'0'.repeat(64)},{referenceSha256:'0'.repeat(64)},
@@ -105,7 +113,8 @@ test('rights must be separate HMAC attestation; existing public photo consent al
   ])assert.throws(()=>verifyEditorialPermit({...permit(),...patch},{
     entryId:kingston.id,sourceSha256:sha(original),signingKey:key,permitSigningKey:permitKey,now}));
   assert.throws(()=>verifyEditorialPermit(permit(),{
-    entryId:kingston.id,sourceSha256:sha(original),referenceSha256:sha(original),signingKey:key,
+    entryId:kingston.id,sourceSha256:sha(original),referenceSha256:sha(original),
+    signingKey:key,permitSigningKey:permitKey,
     now:new Date('2026-10-21T09:20:00Z')}),/expired/);
 });
 test('Kingston edit prompt preserves its tapered glass, three apples, stem and whole-scene art direction',()=>{
