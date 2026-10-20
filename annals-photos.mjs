@@ -50,6 +50,7 @@ export function qualifiedEditorialPhoto(record,source,sourceSha){
   if(record.source!==source||record.sourceSha256!==sourceSha||
      record.asset!==output||record.status!=='qualified'||
      record.artDirection!=='moody-atmospheric-v2'||
+     record.generationOperation!=='image-edit'||
      record.rightsQualified!==true||record.safetyQualified!==true||
      record.visualQualified!==true||!sha256.test(record.editorialSha256||'')||
      record.editorialSha256===sourceSha||

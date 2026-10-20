@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {SITE_FILES,SITE_ORIGIN,observeHostedSite} from '../scripts/annals/observe-hosted-site.mjs';
 
 function responseFor(bytes,{status=200,redirected=false,length=null,onCancel=()=>{}}={}){
@@ -17,10 +18,39 @@ function responseFor(bytes,{status=200,redirected=false,length=null,onCancel=()=
     })}
   };
 }
+const fictionalId='annal-'+'f'.repeat(24);
+const fictionalOriginal='assets/annals/'+fictionalId+'.jpg';
+const fictionalEditorial='assets/annals/'+fictionalId+'-editorial-v2.jpg';
+const fictionalOriginalBytes=Buffer.from('fictional approved drink photograph bytes; no actual image or member data');
+const fictionalEditorialBytes=Buffer.from('fictional generated editorial pixels; not a real model result');
+const checksum=bytes=>createHash('sha256').update(bytes).digest('hex');
 function fixture(override={}){
   const calls=[];
   let cancelled=false;
-  const fakeSource=name=>Buffer.from('fixture-'+name);
+  const signedRecord={schemaVersion:1,entries:override.withEditorial?[{
+    id:fictionalId,category:'cocktail',
+    photo:{sha256:checksum(fictionalOriginalBytes),alt:'Entirely fictional browser photograph'}
+  }]:[],approvals:[]};
+  const editorialRecord={schemaVersion:1,artDirection:'moody-atmospheric-v2',
+    images:override.withEditorial?[{
+      source:fictionalOriginal,sourceSha256:checksum(fictionalOriginalBytes),
+      asset:fictionalEditorial,editorialSha256:checksum(fictionalEditorialBytes),
+      status:'qualified',artDirection:'moody-atmospheric-v2',
+      rightsQualified:true,safetyQualified:true,visualQualified:true,
+      width:1024,height:1536,
+      alt:'AI-stylized fictional drink image for offline byte verification only.',
+      generationProvider:'fictional-fixture',generationModel:'fictional-no-call',
+      generationOperation:override.wrongOperation?'text-to-image':'image-edit',
+      generatedAt:'2026-10-19T20:00:00Z',reviewedAt:'2026-10-19T20:01:00Z',
+      reviewMethod:'ai-visual-assessment'
+    }]:[]};
+  const fakeSource=name=>{
+    if(name==='data/annals-approved.json')return Buffer.from(JSON.stringify(signedRecord));
+    if(name==='data/annals-editorial-photos.json')return Buffer.from(JSON.stringify(editorialRecord));
+    if(name===fictionalOriginal)return override.corruptSourceInBoth?Buffer.from('different unapproved photo'):fictionalOriginalBytes;
+    if(name===fictionalEditorial)return fictionalEditorialBytes;
+    return Buffer.from('fixture-'+name);
+  };
   const readFileImpl=async name=>{
     if(override.missing===name)throw Error('private fixture');
     return fakeSource(name);
@@ -29,14 +59,14 @@ function fixture(override={}){
     const u=new URL(url),name=u.pathname.slice(1);
     calls.push({url,options,name});
     assert.equal(u.origin,'https://stammtischbrewery.com');
-    assert.ok(SITE_FILES.includes(name));
+    assert.ok(SITE_FILES.includes(name)||override.withEditorial&&[fictionalOriginal,fictionalEditorial].includes(name));
     assert.equal(options.method,'GET');
     assert.equal(options.redirect,'error');
     assert.equal(options.credentials,'omit');
     assert.equal(options.cache,'no-store');
     if(override.network===name)throw Error('network');
     const bytes=override.actualOversized===name
-      ?Buffer.alloc(1024*1024+1,97)
+      ?Buffer.alloc(name===fictionalEditorial?5*1024*1024+1:1024*1024+1,97)
       :override.changed===name?Buffer.from('wrong'):fakeSource(name);
     return responseFor(bytes,{
       status:override.http===name?404:200,
@@ -60,6 +90,8 @@ test('matching live 15-file archive yields only source-bound public hashes and t
   assert.equal(result.kind,'public-site-exact-byte-observation-only');
   assert.equal(result.files.length,15);
   assert.equal(f.calls.length,15);
+  assert.equal(result.signedCocktailSources,0);
+  assert.equal(result.qualifiedEditorialAssets,0);
   assert.equal(result.publishingActivated,false);
   assert.equal(result.privateReleaseQualified,false);
   for(const item of result.files){
@@ -81,4 +113,33 @@ for(const [label,change] of [
   const f=fixture(change);
   await assert.rejects(f.run());
   if(change.actualOversized)assert.equal(f.cancelled(),true);
+});
+
+test('every separately qualified editorial and its signed original are independently witnessed live',async()=>{
+  const f=fixture({withEditorial:true}),result=await f.run();
+  assert.equal(result.files.length,17);
+  assert.equal(f.calls.length,17);
+  assert.equal(result.signedCocktailSources,1);
+  assert.equal(result.qualifiedEditorialAssets,1);
+  assert.deepEqual(result.files.slice(-2).map(x=>x.path),[fictionalOriginal,fictionalEditorial]);
+  assert.equal(result.files.at(-2).sha256,checksum(fictionalOriginalBytes));
+  assert.equal(result.files.at(-1).sha256,checksum(fictionalEditorialBytes));
+});
+test('exact-byte publication witness refuses changed generated pixels',async()=>{
+  const f=fixture({withEditorial:true,changed:fictionalEditorial});
+  await assert.rejects(f.run(),/differs from source/);
+});
+test('signed photo digest rejects tampering even if checkout and live files agree',async()=>{
+  const f=fixture({withEditorial:true,corruptSourceInBoth:true});
+  await assert.rejects(f.run(),/differs from signed photo source/);
+});
+test('a text-to-image output is not recognised as a genuine source-bound editing operation',async()=>{
+  const f=fixture({withEditorial:true,wrongOperation:true});
+  await assert.rejects(f.run(),/evidence unavailable or invalid/);
+  assert.equal(f.calls.length,0);
+});
+test('oversized editorial assets cannot exhaust a public observation job',async()=>{
+  const f=fixture({withEditorial:true,actualOversized:fictionalEditorial});
+  await assert.rejects(f.run(),/exceeds bound/);
+  assert.equal(f.cancelled(),true);
 });
