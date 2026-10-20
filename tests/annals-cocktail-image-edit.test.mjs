@@ -146,7 +146,7 @@ test('one mocked edit invokes only the actual /images/edits URL, with bounded ou
   const candidate=actualEditedFixture(),request=makeSunburstEditRequest({
     subject:subject(),referenceBytes:original});
   let called=0;
-  const edited=await requestSunburstEdit({request,apiKey:'test-only',
+  const edited=await requestSunburstEdit({request,apiKey:'test-only',permitVerification:grant(),reservedAttempt:true,
     fetchImpl:async(url,args)=>{
       called++;assert.equal(url,EDIT_ENDPOINT);
       assert.equal(args.method,'POST');assert.equal(args.redirect,'error');
@@ -170,11 +170,11 @@ test('network/provider/model failures do not produce a publishable image or repe
     jsonResponse({data:[{b64_json:original.toString('base64')},{b64_json:original.toString('base64')}]})
   ]){
     let called=0;
-    await assert.rejects(requestSunburstEdit({request,apiKey:'test',
+    await assert.rejects(requestSunburstEdit({request,apiKey:'test',permitVerification:grant(),reservedAttempt:true,
       fetchImpl:async()=>{called++;return response;}}));
     assert.equal(called,1);
   }
-  await assert.rejects(requestSunburstEdit({request,apiKey:'',fetchImpl:()=>{
+  await assert.rejects(requestSunburstEdit({request,apiKey:'',permitVerification:grant(),reservedAttempt:true,fetchImpl:()=>{
     throw Error('No API should be called')}}),/unavailable/);
 });
 test('independent assessor must consider original/edit/reference and explicitly fail uncertain visual quality',async()=>{
@@ -186,7 +186,7 @@ test('independent assessor must consider original/edit/reference and explicitly 
   assert.deepEqual(request.response_format.json_schema.schema.required.sort(),
     Object.keys(passedReview()).sort());
   let called=0;
-  const result=await assessSunburstEdit({request,apiKey:'test-only',
+  const result=await assessSunburstEdit({request,apiKey:'test-only',permitVerification:grant(),reservedAttempt:true,
     fetchImpl:async url=>{called++;assert.equal(url,REVIEW_ENDPOINT);
       return jsonResponse({choices:[{message:{content:JSON.stringify(passedReview())}}]});}});
   assert.equal(called,1);assert.equal(result.assessment.qualified,true);
