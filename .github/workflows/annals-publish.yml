@@ -32,20 +32,8 @@ jobs:
           ANNALS_PHOTOS_ACCEPTANCE_UNTIL: ${{ vars.ANNALS_PHOTOS_ACCEPTANCE_UNTIL }}
           ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED: ${{ vars.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED }}
         run: node scripts/annals/apply-approved-entry.mjs
-      - name: Prepare optional image treatment (existing hosted runner)
-        continue-on-error: true
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install pinned local image tools
-        continue-on-error: true
-        run: python -m pip install --disable-pip-version-check --quiet numpy==1.26.4 opencv-python-headless==4.11.0.86
-      - name: Create separate moody cocktail image derivatives
-        # The original just passed exact signed approval and source screening.
-        # This optional visual postprocessing never blocks the signed entry.
-        # If quality is uncertain, the public viewer uses the original JPEG.
-        continue-on-error: true
-        run: python scripts/annals/cocktail-image-style.py --index data/annals-approved.json
+      - name: Verify qualified editorial assets without creating artificial photographs
+        run: node scripts/annals/verify-editorial-photos.mjs
       - name: Commit consented public entry
         run: |
           git config user.name "github-actions[bot]"

@@ -83,5 +83,5 @@ test('gallery uses actual responsive thumbnail widths while enlargement retains 
   const approval={entryId:entry.id,approvedAt:'2026-10-15T12:00:00Z',mode:'standing-consent-photos-v2',consents:{publication:true,photoPublication:true,quotePublication:false,recipeVerified:false,namedAttribution:false},contentSha256:contentDigest(entry)};
   approval.signature=createHmac('sha256',key).update(JSON.stringify(canon({entry,approval}))).digest('hex');
   const html=buildPublishedAnnals([entry],[approval],key).html;
-  assert.match(html,/-thumb\.jpg 300w/);assert.match(html,/\.jpg 1200w/);assert.match(html,/data-photo-view href="assets\/annals\/[a-f0-9]{64}\.jpg"/);assert.match(html,/loading="lazy"/);
+  assert.match(html,/-thumb\.jpg 300w/);assert.match(html,/\.jpg 1200w/);assert.match(html,/data-photo-view data-photo-sha256="[a-f0-9]{64}" href="assets\/annals\/[a-f0-9]{64}\.jpg"/);assert.match(html,/loading="lazy"/);
 });

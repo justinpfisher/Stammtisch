@@ -50,17 +50,40 @@ const largeAsset={path:'assets/annals/'+largeHash+'.jpg',bytes:largeBytes},thumb
 const responsiveEntry={...base,id:'offline-responsive-gallery',category:'assembly',title:'Fictional responsive image fixture',summary:'Fictional geometry only; no photographic quality claim.',photos:[{sha256:largeHash,width:1600,height:900,alt:'Fictional green geometry fixture'}]};
 entries.push(responsiveEntry);const responsiveApproval={...a,entryId:responsiveEntry.id,contentSha256:contentDigest(responsiveEntry)};
 approvals.push({...responsiveApproval,signature:createHmac('sha256',fixtureKey).update(JSON.stringify(canonical({entry:responsiveEntry,approval:responsiveApproval}))).digest('hex')});
+// Public-safe, entirely fictional image/control fixture. Shared pixels intentionally
+// test UI routing only; they do not attest real AI generation or visual quality.
+const cocktailPhoto={sha256:largeHash,width:1600,height:900,
+  alt:'Fictional coloured geometry representing a cocktail photograph'};
+const cocktailEntry={...base,id:'offline-cocktail-editorial',
+  category:'cocktail',title:'Fictional editorial cocktail viewer',
+  summary:'Fictional styling controls only.',photos:[cocktailPhoto]};
+entries.push(cocktailEntry);
+const cocktailApproval={...a,entryId:cocktailEntry.id,contentSha256:contentDigest(cocktailEntry),
+  consents:{...a.consents,recipeVerified:true}};
+approvals.push({...cocktailApproval,signature:createHmac('sha256',fixtureKey).update(
+  JSON.stringify(canonical({entry:cocktailEntry,approval:cocktailApproval}))).digest('hex')});
+const fictionalEditorialAsset=largeAsset.path.replace(/\.jpg$/,'-editorial-v2.jpg');
+const fictionalEditorialManifest={schemaVersion:1,artDirection:'moody-atmospheric-v2',images:[{
+  source:largeAsset.path,sourceSha256:largeHash,asset:fictionalEditorialAsset,
+  editorialSha256:largeHash,status:'qualified',artDirection:'moody-atmospheric-v2',
+  rightsQualified:true,safetyQualified:true,visualQualified:true,
+  width:1600,height:900,
+  alt:'AI-stylized fictional cocktail image for offline viewer tests.',
+  generationProvider:'fictional-test-only',generationModel:'no-generation',
+  generatedAt:'2026-10-19T20:00:00Z',reviewedAt:'2026-10-19T20:01:00Z',
+  reviewMethod:'ai-visual-assessment'}]};
 const index=photoIndex(Array.from({length:2500},(_,i)=>({...gallery,id:'offline-photo-'+String(i).padStart(6,'0'),title:'Fictional photo '+i,summary:i===2499?'needle archival caption':'Fictional archived fixture',submittedAt:(2000+i%26)+'-10-15T12:00:00Z',year:2000+i%26})));
 const annals=buildPublishedAnnals(entries,approvals,fixtureKey,history).html;
 const ruleRegister={schemaVersion:1,baseline:{id:'col-browser-baseline',recordedAt:'2026-10-15T12:00:00Z',description:'Fictional browser fixture baseline.'},revisions:[{id:'col-browser-fictional',member:'marc',submittedAt:'2026-10-15T12:00:00Z',publishedAt:null,effectiveAt:null,state:'awaiting_implementation',baseVersion:'col-browser-baseline',explanation:'Fictional rule-layout fixture only.',changes:[{provision:'PRIZE',before:'## PRIZE\n'+('Fictional unchanged source text. '.repeat(40)),after:'## PRIZE\n'+('Fictional revised layout text. '.repeat(40))}],correctionOf:null}],events:[]};
 const documents=new Map([['/index.html',(await readFile(path.join(root,'index.html'),'utf8')).replace(/src="https:\/\/[^\"]+"/g,'src="assets/crest.webp"')],['/location.html',(await readFile(path.join(root,'location.html'),'utf8')).replace(/src="https:\/\/[^\"]+"/g,'src="assets/crest.webp"')],['/celebration.html',(await readFile(path.join(root,'celebration.html'),'utf8')).replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'')],['/annals.html',annals],['/history.html',renderHistory(history)],['/photos.html',await readFile(path.join(root,'photos.html'),'utf8')],['/col-revisions.html',renderRegister(ruleRegister)]]);
-const metadata=new Map([['/data/photos/index.json',index.manifest],...index.pages.map(p=>['/'+p.path,p.data])]);
+const metadata=new Map([['/data/annals-editorial-photos.json',fictionalEditorialManifest],['/data/photos/index.json',index.manifest],...index.pages.map(p=>['/'+p.path,p.data])]);
 const ruleFixture=browserRuleFixture();
 documents.set('/col-reader-fixture.html','<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Fictional rule reader</title><link rel="stylesheet" href="styles.css"><main>'+ruleFixture.html+'</main><script type="module">import {refreshOfficialRules} from "./col-rules-reader.mjs"; await refreshOfficialRules(); document.documentElement.dataset.finished="true";</script></html>');
 const server=createServer(async(req,res)=>{
   const pathname=new URL(req.url,'http://localhost').pathname;
   if(req.method!=='GET'){res.writeHead(405).end();return;}
   if(metadata.has(pathname)){res.setHeader('Content-Type','application/json');res.end(JSON.stringify(metadata.get(pathname)));return;}
+  if(pathname==='/'+fictionalEditorialAsset){res.setHeader('Content-Type','image/jpeg');res.end(largeBytes);return;}
   if(pathname==='/'+largeAsset.path||pathname==='/'+thumbAsset.path){res.setHeader('Content-Type','image/jpeg');res.end(pathname==='/'+largeAsset.path?largeBytes:thumbAsset.bytes);return;}
   if(/^\/assets\/annals\/[ab]{64}\.jpg$/.test(pathname)){res.setHeader('Content-Type','image/jpeg');res.end(tinyBytes);return;}
   if(documents.has(pathname)){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(documents.get(pathname));return;}
@@ -146,6 +169,48 @@ try{
         await card.locator('[data-photo-view]').click();const dialog=page.getByRole('dialog',{name:'Photograph viewer'});await dialog.waitFor({state:'visible'});
         assert.match(await dialog.locator('img').getAttribute('src'),new RegExp(largeHash+'\\.jpg$'));
         await page.keyboard.press('Escape');assert.equal(await card.locator('[data-photo-view]').evaluate(e=>document.activeElement===e),true);await noOverflow(page);
+      });
+      await check(browser,profile,'fictional source-bound editorial, original and compact viewer',async page=>{
+        await page.setViewportSize({width:320,height:740});
+        await page.goto(origin+'/annals.html');
+        const card=page.locator('#offline-cocktail-editorial');
+        const opener=card.locator('a[data-photo-view]');
+        await page.waitForFunction(()=>document.querySelector('#offline-cocktail-editorial a[data-editorial-src]'));
+        assert.equal(await opener.getAttribute('href'),largeAsset.path);
+        assert.equal(await opener.getAttribute('data-editorial-src'),fictionalEditorialAsset);
+        assert.match(await card.locator('img').getAttribute('alt'),/AI-stylized fictional/);
+        assert.match(await card.innerText(),/AI-stylized editorial photograph/);
+        await opener.click();
+        const dialog=page.getByRole('dialog',{name:'Photograph viewer'});
+        await dialog.waitFor({state:'visible'});
+        assert.equal(await dialog.locator('img').getAttribute('src'),fictionalEditorialAsset);
+        const original=dialog.getByRole('link',{name:'Original photograph'});
+        assert.equal(await original.getAttribute('href'),new URL(largeAsset.path,origin).href);
+        assert.equal(await original.isVisible(),true);
+        for(const button of await dialog.getByRole('button').all()){
+          const box=await button.boundingBox();assert.ok(box.width>=44&&box.height>=44);
+        }
+        await noOverflow(page);
+        await dialog.getByRole('button',{name:'Close'}).click();
+        assert.equal(await opener.evaluate(e=>document.activeElement===e),true);
+      });
+      await check(browser,profile,'unqualified fictional editorial falls back to signed original',async page=>{
+        await page.route('**/data/annals-editorial-photos.json',route=>route.fulfill({
+          status:200,contentType:'application/json',
+          body:JSON.stringify({...fictionalEditorialManifest,images:[]})
+        }));
+        await page.goto(origin+'/annals.html');
+        const card=page.locator('#offline-cocktail-editorial');
+        await page.waitForLoadState('networkidle');
+        const opener=card.locator('a[data-photo-view]');
+        assert.equal(await opener.getAttribute('data-editorial-src'),null);
+        assert.equal(await card.locator('img').getAttribute('src'),thumbAsset.path);
+        await opener.click();
+        const dialog=page.getByRole('dialog',{name:'Photograph viewer'});
+        await dialog.waitFor({state:'visible'});
+        assert.equal(await dialog.locator('img').getAttribute('src'),new URL(largeAsset.path,origin).href);
+        assert.equal(await dialog.locator('[data-original]').isVisible(),false);
+        await noOverflow(page);
       });
       await check(browser,profile,'gallery keyboard viewer restores focus',async page=>{
         await page.goto(origin+'/annals.html');
@@ -243,7 +308,7 @@ try{
       await check(browser,profile,'chronological cards and accessible category filtering',async page=>{
         await page.goto(origin+'/annals.html');
         const cards=page.locator('.annal-stream .annal-entry');
-        assert.equal(await cards.count(),6);
+        assert.equal(await cards.count(),7);
         assert.equal(await cards.first().getAttribute('id'),'offline-browser-quote');
         const columns=await page.locator('.annal-stream').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length);
         assert.equal(columns,profile.name==='desktop-chromium'?2:1);
@@ -255,7 +320,7 @@ try{
         await page.reload();
         assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),1);
         await page.getByRole('link',{name:'All entries',exact:true}).click();
-        assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),6);
+        assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),7);
         assert.equal(await page.locator('#offline-browser-recipe .annal-entry-link').getAttribute('href'),'#offline-browser-recipe');
         await noOverflow(page);
       });

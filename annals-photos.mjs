@@ -7,10 +7,13 @@ export function installViewer(root=document){
     const caption=a.closest('figure')?.querySelector('figcaption')?.textContent?.trim();
     // The signed original stays available. An independently generated visual
     // treatment is explicitly labelled as editorial, never as source evidence.
-    const hasStyle=!!a.dataset.styledSrc,original=dialog.querySelector('[data-original]');
-    dialog.querySelector('img').src=hasStyle?a.dataset.styledSrc:a.href;
-    dialog.querySelector('img').alt=img.alt;
-    dialog.querySelector('p').textContent=(caption||img.alt)+(hasStyle?' · Editorial image treatment.':'')+
+    const hasStyle=!!a.dataset.editorialSrc,original=dialog.querySelector('[data-original]');
+    dialog.querySelector('img').src=hasStyle?a.dataset.editorialSrc:a.href;
+    dialog.querySelector('img').alt=hasStyle?a.dataset.editorialAlt||img.alt:img.alt;
+    const description=(caption||img.alt);
+    dialog.querySelector('p').textContent=description+
+      (hasStyle&&!description.includes('AI-stylized editorial photograph; setting illustrative.')
+        ?' · AI-stylized editorial photograph; setting illustrative.':'')+
       ' — '+(index+1)+' of '+links.length;
     original.href=a.href;original.hidden=!hasStyle;
   }
@@ -36,27 +39,73 @@ export function installViewer(root=document){
     show(links.indexOf(a));dialog.showModal();dialog.querySelector('[data-close]').focus();
   });
 }
-// Progressive presentation only; no signed source, caption or alt text changes.
-// Missing/invalid transformations leave the approved documentary JPEG intact.
-export function styleCocktailPreviews(root=document){
-  if(typeof Image==='undefined')return;
-  const links=root.querySelectorAll(
+// Editorial photographs are opt-in by a qualified, source-matched manifest.
+// An asset's presence or successful encoding is never evidence of visual quality.
+const editorialSource=/^assets\/annals\/(?:annal-[a-f0-9]{24}|[a-f0-9]{64})\.jpg$/;
+const sha256=/^[a-f0-9]{64}$/;
+let editorialManifestPromise;
+export function qualifiedEditorialPhoto(record,source,sourceSha){
+  if(!record||!editorialSource.test(source||'')||!sha256.test(sourceSha||''))return null;
+  const output=source.slice(0,-4)+'-editorial-v2.jpg';
+  if(record.source!==source||record.sourceSha256!==sourceSha||
+     record.asset!==output||record.status!=='qualified'||
+     record.artDirection!=='moody-atmospheric-v2'||
+     record.rightsQualified!==true||record.safetyQualified!==true||
+     record.visualQualified!==true||!sha256.test(record.editorialSha256||'')||
+     !Number.isInteger(record.width)||!Number.isInteger(record.height)||
+     record.width<480||record.height<480||record.width>2560||record.height>2560||
+     typeof record.alt!=='string'||record.alt.length<12||record.alt.length>240||
+     !record.alt.includes('AI-stylized'))return null;
+  return record;
+}
+function editorialManifest(){
+  if(!editorialManifestPromise) editorialManifestPromise=fetch('data/annals-editorial-photos.json',{cache:'no-store'})
+    .then(r=>{if(!r.ok)throw Error('No editorial manifest');return r.json();})
+    .then(data=>data?.schemaVersion===1&&data.artDirection==='moody-atmospheric-v2'&&
+      Array.isArray(data.images)&&data.images.length<=1000?data.images:[])
+    .catch(()=>[]);
+  return editorialManifestPromise;
+}
+export async function styleCocktailPreviews(root=document){
+  if(typeof Image==='undefined'||typeof fetch!=='function')return;
+  const links=[...root.querySelectorAll(
     '.annal-entry[data-annals-category="cocktail"] a[data-photo-view],'+
-    '.photos-card[data-photos-collection="cocktail"] a[data-photo-view]');
+    '.photos-card[data-photos-collection="cocktail"] a[data-photo-view]')];
+  if(!links.length)return;
+  const images=await editorialManifest();
   for(const a of links){
-    const original=a.getAttribute('href');
-    if(!/^assets\/annals\/(?:annal-[a-f0-9]{24}|[a-f0-9]{64})\.jpg$/.test(original||''))continue;
-    const styled=original.slice(0,-4)+'-styled-v1.jpg',probe=new Image();
+    if(!a.isConnected||a.dataset.editorialSrc)continue;
+    const source=a.getAttribute('href'),sourceSha=a.dataset.photoSha256;
+    const record=images.map(item=>qualifiedEditorialPhoto(item,source,sourceSha)).find(Boolean);
+    if(!record)continue;
+    const probe=new Image();
     probe.onload=()=>{
-      if(!a.isConnected||a.getAttribute('href')!==original)return;
+      if(!a.isConnected||a.getAttribute('href')!==source||a.dataset.photoSha256!==sourceSha)return;
       const img=a.querySelector('img');if(!img)return;
+      const originalAlt=img.alt;
       img.removeAttribute('srcset');img.removeAttribute('sizes');
-      img.src=styled;
-      a.dataset.styledSrc=styled;
-      a.dataset.editorialStyle='moody';
+      img.addEventListener('error',()=>{
+        if(img.getAttribute('src')===record.asset){
+          img.src=source;img.alt=originalAlt;delete a.dataset.editorialSrc;
+          delete a.dataset.editorialAlt;delete a.dataset.editorialStyle;
+          a.closest('figure')?.querySelector('[data-editorial-caption]')?.remove();
+        }
+      },{once:true});
+      img.src=record.asset;img.alt=record.alt;img.width=record.width;img.height=record.height;
+      a.dataset.editorialSrc=record.asset;a.dataset.editorialAlt=record.alt;
+      a.dataset.editorialStyle='moody-atmospheric-v2';
+      const figure=a.closest('figure');
+      if(figure){
+        let caption=figure.querySelector('figcaption');
+        if(!caption){caption=document.createElement('figcaption');figure.append(caption);}
+        const label=document.createElement('span');label.dataset.editorialCaption='';
+        label.textContent=(caption.textContent.trim()?' · ':'')+
+          'AI-stylized editorial photograph; setting illustrative.';
+        caption.append(label);
+      }
     };
-    probe.onerror=()=>{}; // no style asset means show the original
-    probe.src=styled;
+    probe.onerror=()=>{}; // A missing/unreadable editorial asset leaves the original intact.
+    probe.src=record.asset;
   }
 }
 const labels={cocktail:'The Cocktail Register',assembly:'Annual Assemblies',club_history:'Club History'};
@@ -86,7 +135,7 @@ export async function installIndex(){
           const title=document.createElement('h2'),link=document.createElement('a');link.href='annals.html#'+row.entryId;link.textContent=row.title;title.append(link);card.append(title);
           const date=document.createElement('p');date.textContent=(labels[row.collection]||'Annals')+' · '+(row.eventPeriod?'Event: '+row.eventPeriod:'Event date unrecorded')+(row.submittedAt?' · Submitted '+new Intl.DateTimeFormat('en-CA',{dateStyle:'medium',timeZone:'America/Toronto'}).format(new Date(row.submittedAt)):'');card.append(date);
           const gallery=document.createElement('div');gallery.className='photos-grid';
-          for(const p of row.photos){const figure=document.createElement('figure'),a=document.createElement('a'),img=document.createElement('img');a.href=p.src;a.dataset.photoView='';const responsive=/^assets\/annals\/[a-f0-9]{64}\.jpg$/.test(p.src)&&Math.max(p.width,p.height)>=800;img.src=responsive?p.src.replace(/\.jpg$/,'-thumb.jpg'):p.src;if(responsive){img.srcset=img.src+' '+Math.round(p.width*400/Math.max(p.width,p.height))+'w, '+p.src+' '+p.width+'w';img.sizes='(max-width: 560px) 90vw, (max-width: 900px) 45vw, 360px';}img.alt=p.alt;img.loading='lazy';img.decoding='async';if(p.width){img.width=p.width;img.height=p.height;}a.append(img);figure.append(a);if(p.caption){const caption=document.createElement('figcaption');caption.textContent=p.caption;figure.append(caption);}gallery.append(figure);}
+          for(const p of row.photos){const figure=document.createElement('figure'),a=document.createElement('a'),img=document.createElement('img');a.href=p.src;a.dataset.photoView='';a.dataset.photoSha256=p.sha256;const responsive=/^assets\/annals\/[a-f0-9]{64}\.jpg$/.test(p.src)&&Math.max(p.width,p.height)>=800;img.src=responsive?p.src.replace(/\.jpg$/,'-thumb.jpg'):p.src;if(responsive){img.srcset=img.src+' '+Math.round(p.width*400/Math.max(p.width,p.height))+'w, '+p.src+' '+p.width+'w';img.sizes='(max-width: 560px) 90vw, (max-width: 900px) 45vw, 360px';}img.alt=p.alt;img.loading='lazy';img.decoding='async';if(p.width){img.width=p.width;img.height=p.height;}a.append(img);figure.append(a);if(p.caption){const caption=document.createElement('figcaption');caption.textContent=p.caption;figure.append(caption);}gallery.append(figure);}
           card.append(gallery);results.append(card);styleCocktailPreviews(card);count++;
         }
       }

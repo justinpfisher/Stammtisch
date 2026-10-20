@@ -2,6 +2,7 @@ import Media from './MediaCore.js';
 import Photos from './PhotoContracts.js';
 import {resolvePhotoBlobs} from './PhotoTransport.mjs';
 import {photoThumbnail} from './PhotoThumbnail.mjs';
+import {EDITORIAL_MANIFEST_PATH,validateEditorialManifest,pruneEditorialManifest} from './EditorialPhotoManifest.mjs';
 
 // Trusted deployment configuration only. An email/payload cannot arm this lane.
 export function photoReleaseAllowed({entryId,photosEnabled,guardedJpegEnabled=false,securityVerified,acceptanceEntryId,acceptanceUntil,now=new Date()}){
@@ -78,7 +79,7 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
     retiredIds.push(event.client_payload.entryId);
     const result = buildPublishedAnnals(entries, approvals, secret, history);
     return { data: { schemaVersion: 1, entries, approvals, retiredIds }, html: result.html,
-      assetsToDelete: [{ path: `assets/annals/${event.client_payload.entryId}.jpg` }, {path:`assets/annals/${event.client_payload.entryId}-styled-v1.jpg`}, ...Photos.photos(removed).filter(p=>!entries.some(e=>Photos.photos(e).some(x=>x.sha256===p.sha256))).flatMap(p=>[{path:`assets/annals/${p.sha256}.jpg`},{path:`assets/annals/${p.sha256}-thumb.jpg`},{path:`assets/annals/${p.sha256}-styled-v1.jpg`}])], assetsToWrite: [] };
+      assetsToDelete: [{ path: `assets/annals/${event.client_payload.entryId}.jpg` }, {path:`assets/annals/${event.client_payload.entryId}-editorial-v2.jpg`}, ...Photos.photos(removed).filter(p=>!entries.some(e=>Photos.photos(e).some(x=>x.sha256===p.sha256))).flatMap(p=>[{path:`assets/annals/${p.sha256}.jpg`},{path:`assets/annals/${p.sha256}-thumb.jpg`},{path:`assets/annals/${p.sha256}-editorial-v2.jpg`}])], assetsToWrite: [] };
   } else {
     const keys = Object.keys(event.client_payload).sort().join(',');
     if (keys !== 'approval,entry' && keys !== 'approval,entry,imageBase64' && keys !== 'approval,entry,images' && keys !== 'approval,entry,imageBlobs') throw new Error('Invalid entry payload');
@@ -137,10 +138,10 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
       if (index < 0 || approvalIndex < 0 || Date.parse(approval.approvedAt) <= Date.parse(approvals[approvalIndex].approvedAt) || contentDigest(entries[index]) === contentDigest(entry)) {
         throw new Error('Correction must replace an existing entry with changed exact text');
       }
-      if (entries[index].photo && !entry.photo) assetsToDelete.push({ path: `assets/annals/${entry.id}.jpg` }, { path: `assets/annals/${entry.id}-styled-v1.jpg` });
+      if (entries[index].photo && !entry.photo) assetsToDelete.push({ path: `assets/annals/${entry.id}.jpg` }, { path: `assets/annals/${entry.id}-editorial-v2.jpg` });
       const priorPhotos=entries[index].photos || [];
       entries[index] = entry; approvals[approvalIndex] = approval;
-      for(const p of priorPhotos)if(!entries.some(e=>Photos.photos(e).some(x=>x.sha256===p.sha256)))assetsToDelete.push({path:`assets/annals/${p.sha256}.jpg`},{path:`assets/annals/${p.sha256}-thumb.jpg`},{path:`assets/annals/${p.sha256}-styled-v1.jpg`});
+      for(const p of priorPhotos)if(!entries.some(e=>Photos.photos(e).some(x=>x.sha256===p.sha256)))assetsToDelete.push({path:`assets/annals/${p.sha256}.jpg`},{path:`assets/annals/${p.sha256}-thumb.jpg`},{path:`assets/annals/${p.sha256}-editorial-v2.jpg`});
     }
     if (imageBytes) assetsToWrite.push({ path: `assets/annals/${entry.id}.jpg`, bytes: imageBytes });
   }
@@ -160,9 +161,14 @@ async function main() {
   if(Buffer.byteLength(JSON.stringify({event_type:event.action,client_payload:event.client_payload}))>60000)throw Error('Dispatch envelope exceeds bound');
   const result = await applyApprovedEntry({ event, data, secret: process.env.ANNALS_PUBLISH_SIGNING_KEY, history, now, photosEnabled,
     blobTransportEnabled:process.env.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED==='true' });
+  const originalManifest=JSON.parse(await readFile(EDITORIAL_MANIFEST_PATH,'utf8'));
+  validateEditorialManifest(originalManifest,data.entries);
+  const pruned=pruneEditorialManifest(originalManifest,result.data.entries);
+  for(const asset of pruned.removedAssets)result.assetsToDelete.push({path:asset});
   for (const item of result.assetsToDelete) await rm(item.path, { force: true });
   for (const item of result.assetsToWrite) { await mkdir(path.dirname(item.path), { recursive: true }); await writeFile(item.path, item.bytes); }
   await writeFile(dataPath, JSON.stringify(result.data, null, 2) + '\n');
+  await writeFile(EDITORIAL_MANIFEST_PATH,JSON.stringify(pruned.manifest,null,2)+'\n');
   await writeFile('annals.html', result.html + '\n');
   await writePhotoIndex(result.data.entries);
   console.log('Approved Annals entry rendered.');
