@@ -281,7 +281,7 @@ function annalsPhotoDecision_(source,draft,id,decision,set){
       decision.reason==='material_uncertainty'&&draft.riskFlags.some(function(flag){return ['faces_or_reflections','date_unconfirmed','other_uncertainty','attribution_unconfirmed'].indexOf(flag)<0;})||
       !subject||subject.length>150||text.length>250||AnnalsAuto.sensitiveText(subject+'\n'+text))return decision;
     decision={eligible:true,entry:{id:'annal-'+id.slice(0,24),category:draft.category==='assembly'?'assembly':draft.category==='cocktail'?'cocktail':'club_history',
-      title:AnnalsAuto.censor(subject),summary:AnnalsAuto.censor(text)||'A photograph submitted to the Annals; event date unrecorded.',
+      title:AnnalsAuto.censor(subject),summary:AnnalsAuto.censor(text)||'A photograph has been admitted to the record. Further particulars were not supplied.',
       year:Number(source.source.receivedAt.slice(0,4)),dateLabel:'Submitted '+source.source.receivedAt.slice(0,7),sortDate:'',quoteVerbatim:'',
       recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]},credit:'anonymous'}};
   }
