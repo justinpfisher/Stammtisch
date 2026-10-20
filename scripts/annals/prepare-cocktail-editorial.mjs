@@ -108,10 +108,12 @@ async function run(){
     await writeFile(marker,JSON.stringify(attempt,null,2)+'\n',{mode:0o600});
     const generatedAt=new Date().toISOString();
     const edited=await requestSunburstEdit({request:editRequest,
+      permitVerification:proof,reservedAttempt:true,
       apiKey:process.env.ANNALS_EDITORIAL_IMAGE_API_KEY});
     const reviewRequest=makeVisualReviewRequest({
       subject,editedBytes:edited.bytes,referenceBytes});
     const judgement=await assessSunburstEdit({request:reviewRequest,
+      permitVerification:proof,reservedAttempt:true,
       apiKey:process.env.ANNALS_EDITORIAL_IMAGE_API_KEY});
     attempt.generationUsage=edited.usage;
     attempt.reviewUsage=judgement.usage;
