@@ -16,6 +16,13 @@ export function installViewer(root=document){
         ?' · AI-stylized editorial photograph; setting illustrative.':'')+
       ' — '+(index+1)+' of '+links.length;
     original.href=a.href;original.hidden=!hasStyle;
+    // A solitary photograph has nowhere to navigate. Keep just its relevant
+    // source/original and Close controls, including on narrow phones.
+    const controls=dialog.querySelector('.photo-viewer-controls');
+    controls.classList.toggle('is-single',links.length===1);
+    controls.classList.toggle('has-editorial',hasStyle);
+    dialog.querySelector('[data-prev]').hidden=links.length===1;
+    dialog.querySelector('[data-next]').hidden=links.length===1;
   }
   root.addEventListener('click',event=>{
     const a=event.target.closest('a[data-photo-view]');if(!a||event.ctrlKey||event.metaKey||event.shiftKey)return;
@@ -27,9 +34,9 @@ export function installViewer(root=document){
       dialog.innerHTML='<div class="photo-viewer-controls"><button class="photo-button" data-prev type="button">Previous</button><button class="photo-button" data-next type="button">Next</button><a class="photo-button" data-original href="" target="_blank" rel="noopener noreferrer" hidden>Original photograph</a><button class="photo-button" data-close type="button">Close</button></div><img alt=""><p aria-live="polite"></p>';
       document.body.append(dialog);dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialog.querySelector('[data-prev]').onclick=()=>show(index-1);dialog.querySelector('[data-next]').onclick=()=>show(index+1);
       dialog.addEventListener('keydown',e=>{
-        if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();show(index+(e.key==='ArrowLeft'?-1:1));}
+        if(links.length>1&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){e.preventDefault();show(index+(e.key==='ArrowLeft'?-1:1));}
         if(e.key==='Tab'){
-          const buttons=[...dialog.querySelectorAll('button,a:not([hidden])')],first=buttons[0],last=buttons.at(-1);
+          const buttons=[...dialog.querySelectorAll('button:not([hidden]),a:not([hidden])')],first=buttons[0],last=buttons.at(-1);
           if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
           else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
         }

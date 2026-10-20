@@ -188,6 +188,10 @@ try{
         const original=dialog.getByRole('link',{name:'Original photograph'});
         assert.equal(await original.getAttribute('href'),new URL(largeAsset.path,origin).href);
         assert.equal(await original.isVisible(),true);
+        assert.equal(await dialog.locator('[data-prev]').isVisible(),false);
+        assert.equal(await dialog.locator('[data-next]').isVisible(),false);
+        assert.equal(await dialog.locator('.photo-viewer-controls').evaluate(e=>e.classList.contains('is-single')),true);
+
         for(const button of await dialog.getByRole('button').all()){
           const box=await button.boundingBox();assert.ok(box.width>=44&&box.height>=44);
         }
@@ -211,6 +215,10 @@ try{
         await dialog.waitFor({state:'visible'});
         assert.equal(await dialog.locator('img').getAttribute('src'),new URL(largeAsset.path,origin).href);
         assert.equal(await dialog.locator('[data-original]').isVisible(),false);
+        assert.equal(await dialog.locator('[data-prev]').isVisible(),false);
+        assert.equal(await dialog.locator('[data-next]').isVisible(),false);
+        assert.equal(await dialog.getByRole('button',{name:'Close'}).isVisible(),true);
+
         await noOverflow(page);
       });
       await check(browser,profile,'gallery keyboard viewer restores focus',async page=>{
@@ -218,6 +226,8 @@ try{
         const opener=page.locator('#offline-browser-gallery [data-photo-view]').first();
         await opener.focus();await page.keyboard.press('Enter');
         const dialog=page.getByRole('dialog',{name:'Photograph viewer'});await dialog.waitFor({state:'visible'});
+        assert.equal(await dialog.locator('[data-prev]').isVisible(),true);
+        assert.equal(await dialog.locator('[data-next]').isVisible(),true);
         assert.match(await dialog.innerText(),/1 of 2/);await page.keyboard.press('ArrowRight');assert.match(await dialog.innerText(),/2 of 2/);
         await page.keyboard.press('Escape');assert.equal(await opener.evaluate(e=>document.activeElement===e),true);await noOverflow(page);
       });
