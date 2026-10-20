@@ -121,6 +121,22 @@ async function run(){
     const edited=await requestSunburstEdit({request:editRequest,
       permitVerification:proof,reservedAttempt:true,
       apiKey:process.env.ANNALS_EDITORIAL_IMAGE_API_KEY});
+    // Persist paid output BEFORE any further billing or visual-qualification
+    // request. Otherwise an optional-usage discrepancy, assessment hold or
+    // process interruption irreversibly discards a paid, source-bound edit.
+    // These files are private, *not* publication candidates or approval.
+    const base='cocktail-'+subject.sourceSha256;
+    await writeFile(path.join(privateOutput,base+'-generated-private.jpg'),
+      edited.bytes,{flag:'wx',mode:0o600});
+    await writeFile(path.join(privateOutput,base+'-generation-private.json'),
+      JSON.stringify({sourceSha256:subject.sourceSha256,
+        editorialSha256:edited.editedSha256,
+        provider:edited.provider,model:edited.model,
+        generationOperation:edited.operation,
+        requestDigest:edited.requestDigest,usage:edited.usage,
+        generatedAt,publicRelease:false,visualQualified:false},null,2)+'\n',
+      {flag:'wx',mode:0o600});
+    attempt.editedSha256=edited.editedSha256;
     attempt.generationUsage=edited.usage;
     const generationCents=imageSpendCents(edited.usage);
     // Provider usage missing or over-limit: no SECOND billable review.
@@ -142,7 +158,6 @@ async function run(){
       const row=proposedEditorialRecord({subject,edited,
         review:judgement.assessment,permitVerification:proof,
         generatedAt,reviewedAt:attempt.reviewedAt});
-      const base='cocktail-'+subject.sourceSha256;
       await writeFile(path.join(privateOutput,base+'-candidate.jpg'),
         edited.bytes,{flag:'wx',mode:0o600});
       await writeFile(path.join(privateOutput,base+'-qualified-metadata-private.json'),

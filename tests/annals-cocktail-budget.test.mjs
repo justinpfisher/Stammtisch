@@ -104,6 +104,22 @@ test('model usage is priced separately and unknown usage fails closed',()=>{
  assert.equal(reviewSpendCents({prompt_tokens:1000,completion_tokens:200}),1);
  assert.equal(enforceTotalSpend({editCents:180,reviewCents:1}),181);
  assert.equal(imageSpendCents({input_tokens:123}),null);
+ // Image Edit responses may omit the optional output breakdown while still
+ // reporting total output tokens; these must not be mistaken for free requests.
+ assert.equal(imageSpendCents({
+   input_tokens:120000,input_tokens_details:{image_tokens:100000,text_tokens:20000},
+   output_tokens:30000
+ }),180);
+ assert.equal(imageSpendCents({input_tokens:120000,output_tokens:30000}),186);
+ assert.equal(imageSpendCents({
+   input_tokens:120000,input_tokens_details:{image_tokens:100000,text_tokens:20000},
+   output_tokens:30000,output_tokens_details:{image_tokens:20000,text_tokens:0}
+ }),180);
+ // Reject garbage and incomplete provider usage, rather than sending a second
+ // chargeable request based on an invented zero.
+ assert.equal(imageSpendCents({input_tokens:10,output_tokens:-1}),null);
+ assert.equal(imageSpendCents({input_tokens_details:{image_tokens:'0',text_tokens:30},output_tokens:100}),null);
+ assert.equal(imageSpendCents({input_tokens:20,output_tokens:NaN}),null);
  assert.equal(reviewSpendCents({total_tokens:123}),null);
  assert.throws(()=>enforceTotalSpend({editCents:180,reviewCents:null}),/unknown/);
  assert.throws(()=>enforceTotalSpend({editCents:201}),/limit/);
