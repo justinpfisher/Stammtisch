@@ -201,9 +201,10 @@ async function boundedJson(response,limit=12*1024*1024){
 }
 
 function dataUrl(buffer){return 'data:image/jpeg;base64,'+buffer.toString('base64')}
-export async function requestSunburstEdit({request,apiKey,fetchImpl=fetch}){
+export async function requestSunburstEdit({request,apiKey,permitVerification,reservedAttempt=false,fetchImpl=fetch}){
   if(!request||request.model!==EDIT_MODEL||request.images?.length<1||
-     request.images?.length>2||!apiKey||typeof apiKey!=='string')
+     request.images?.length>2||!apiKey||typeof apiKey!=='string'||
+     !SHA.test(permitVerification?.attemptDigest||'')||reservedAttempt!==true)
     throw Error('Authorised editing provider unavailable');
   // Exactly one attempt. Caller MUST reserve the private one-shot marker and
   // authorised budget before invoking this function. Never auto retry.
@@ -276,8 +277,9 @@ export function qualifyVisualReview(result){
     failedChecks:CHECKS.filter(k=>result[k]!==true)};
 }
 
-export async function assessSunburstEdit({request,apiKey,fetchImpl=fetch}){
-  if(!request||request.model!==REVIEW_MODEL||!apiKey)
+export async function assessSunburstEdit({request,apiKey,permitVerification,reservedAttempt=false,fetchImpl=fetch}){
+  if(!request||request.model!==REVIEW_MODEL||!apiKey||
+     !SHA.test(permitVerification?.attemptDigest||'')||reservedAttempt!==true)
     throw Error('Independent visual assessor unavailable');
   const response=await fetchImpl(REVIEW_ENDPOINT,{method:'POST',
     headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
