@@ -70,6 +70,8 @@ test('public viewer offers original access only for an actual reviewed editorial
   assert.match(ui,/data-original/);assert.match(ui,/AI-stylized editorial photograph/);
   assert.match(ui,/editorialManifestPromise/);assert.match(ui,/probe.onerror/);
   assert.match(css,/\.photo-viewer \[hidden\] \{display:none!important;\}/);
+  assert.match(ui,/classList\.toggle\('is-single',links\.length===1\)/);
+  assert.match(ui,/button:not\(\[hidden\]\),a:not\(\[hidden\]\)/);
 });
 
 test('signed publication commits derivative manifest changes with their retired assets',()=>{
