@@ -1,6 +1,6 @@
 # Stammtisch Social Club — Brand and Editorial Style Guide
 
-**Version 1.1 · 19 October 2026 · Owner-selected editorial, history and visual-description direction**
+**Version 1.2 · 19 October 2026 · Owner-selected editorial, history, visual-description and cocktail-photography direction**
 
 **Purpose:** The practical reference for AI and human contributors updating the public Stammtisch website, Annals, Club History and Celebration of Life presentation. This establishes a consistent visual identity and editorial voice; it is not a new publication-approval step or a source of club rules.
 
@@ -81,6 +81,24 @@ Use approved derivative assets already in the repository; do not republish sourc
 Illustrations should have dignified, slightly vintage rendering and match the crest's visual world. Do not introduce unrelated AI clip art, caricatures or gratuitous coats of arms.
 
 Photography is welcome for real drinks, gatherings and artefacts when the established screening and depiction/ownership permissions apply. It should feel documentary, not like generic staged stock photography. Keep originals private, publish approved screened derivatives only, and maintain alt text that describes the image rather than repeating nearby copy.
+
+### Cocktail Register photography — adopted Direction 2: Moody & Atmospheric
+
+The owner selected **Moody & Atmospheric (option 2)** over the lighter, editorial-props and illustrated treatments. It is the **preferred visual treatment for cocktail imagery**, not a command to redraw original member creations or restyle their submitted recipes.
+
+- **Light:** Rich, low-key atmosphere with warm, concentrated highlights that retain the clarity of the drink, rim, garnish and glass.
+- **Background:** Dark forest-green, deep warm neutral or understated pub-like surroundings. A dark frame, warm brass detail and soft fall-off create Club character without hiding the subject.
+- **Colour:** Authentic drink hues, natural garnish and glass transparency. The existing cream/forest/brass palette should frame the photograph rather than tint its contents green or gold.
+- **Composition:** One drink clearly presented, with enough surrounding breathing room for responsive crops. Keep source framing and garnish honest; do not cut off the meaningful part of a glass.
+- **Consistency:** Share framing, aspect-ratio behaviour, subtle colour balance and caption placement across Cocktail Register cards and photographic-index previews. Original aspect ratios may differ. Do not enforce a false standard glass or garnish.
+- **Restraint:** No imagined bottles, bar interiors, new props, added fruit, additional drinks, alternate recipe ingredients, fabricated smoke or invented venue. A source photograph with a light background need not be replaced or synthetically reconstructed.
+- **Accessibility:** The full-size photo remains legible and unfiltered; alt text describes what is actually depicted, and a separate editorial caption may carry dry Stammtisch humour.
+- **Authenticity and release:** Keep the source original privately and all approved signed public image bytes unchanged. Any genuinely altered derivative must go through the existing scoped image rights, screening, metadata removal and new exact signed publication/correction route. This preference does **not** authorize silent retroactive replacement or a new automatic generative-image service.
+
+**Practical initial website treatment:** Give eligible Cocktail Register photographs a consistent dark-forest/brass gallery frame and restrained thumbnail-only colour tuning using the existing static CSS. This changes presentation only and leaves the signed underlying JPEG, screen-reader description, recipe and original full-size lightbox unchanged. Never apply the cocktail treatment indiscriminately to members' portraits, historical documents or other photographic collections.
+
+The intended result resembles a well-kept private club's drinks ledger: the lighting shows more ambition than the proceedings require.
+
 
 ## 6. Layout and interaction
 

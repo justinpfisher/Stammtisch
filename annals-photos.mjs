@@ -47,7 +47,7 @@ export async function installIndex(){
         for(const row of rows){
           const period=row.eventPeriod||row.submittedAt.slice(0,7);
           if(month&&period.slice(5,7)!==month||query&&![row.title,row.text].join(' ').normalize('NFKC').toLocaleLowerCase('en-CA').includes(query))continue;
-          const card=document.createElement('article');card.className='photos-card';
+          const card=document.createElement('article');card.className='photos-card';card.dataset.photosCollection=row.collection;
           const title=document.createElement('h2'),link=document.createElement('a');link.href='annals.html#'+row.entryId;link.textContent=row.title;title.append(link);card.append(title);
           const date=document.createElement('p');date.textContent=(labels[row.collection]||'Annals')+' · '+(row.eventPeriod?'Event: '+row.eventPeriod:'Event date unrecorded')+(row.submittedAt?' · Submitted '+new Intl.DateTimeFormat('en-CA',{dateStyle:'medium',timeZone:'America/Toronto'}).format(new Date(row.submittedAt)):'');card.append(date);
           const gallery=document.createElement('div');gallery.className='photos-grid';
