@@ -72,8 +72,9 @@ export function imageSpendCents(usage){
     Math.max(detailedInput,
       valid(usage.input_tokens)&&usage.input_tokens===
         input.image_tokens+input.text_tokens?detailedInput:totalInput);
-  const detailOutput=valid(output?.image_tokens)&&valid(output?.text_tokens)
-    ?output.image_tokens+output.text_tokens:null;
+  const detailOutput=valid(output?.image_tokens)&&
+    (output.text_tokens===undefined||valid(output.text_tokens))
+    ?output.image_tokens+(output.text_tokens??0):null;
   const totalOutput=valid(usage.output_tokens)?usage.output_tokens:null;
   if(detailOutput===null&&totalOutput===null)return null;
   const billableOutput=detailOutput===null?totalOutput:
