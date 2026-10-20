@@ -49,7 +49,7 @@
           "workflowHead": "8ffc14b0bb5c86c5fbdcea89f082faa3e6755604",
           "checkoutHead": "8ffc14b0bb5c86c5fbdcea89f082faa3e6755604"
         },
-        "sealDigest": null,
+        "sealDigest": "e524d0ae6e95ce77fd094d05b951752da6afb6ad43fb45b19b194cdfd3b5baf3",
         "snapshotDigest": "b42e696b59f39f557dd550b5b7389ec5217dccee10ed04189677c2e5b42db265"
       }
     }
@@ -109,6 +109,14 @@
       "phase": "release_pending",
       "at": "2026-10-20T23:50:53.333Z",
       "evidenceDigest": "a1564afb57c8cea54a8160517fc257ac3cb23bf732a0dd79de973ad52c531313",
+      "reason": ""
+    },
+    {
+      "revisionId": "col-7627d10078568faf30a91294",
+      "candidateDigest": "2bff2b4efa09ae317c4b728bd0251bc322b69c233c2e217835cd2a6c7015f6ab",
+      "phase": "sealed",
+      "at": "2026-10-20T23:54:01.931Z",
+      "evidenceDigest": "8bbc4991ef32c502eaa4453ca7779aa0f22b7667acd530657dbfdf0c39c30680",
       "reason": ""
     }
   ]
