@@ -10,7 +10,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {verifyPublicApproval} from './ApprovedRenderer.mjs';
 import {
-  verifiedCocktailSource,verifyEditorialPermit,makeSunburstEditRequest,
+  verifiedCocktailSource,verifyEditorialPermit,stripJpegMetadata,makeSunburstEditRequest,
   requestSunburstEdit,makeVisualReviewRequest,assessSunburstEdit,
   proposedEditorialRecord
 } from './CocktailImageEdit.mjs';
@@ -88,6 +88,7 @@ async function run(){
   catch{throw Error('Private editorial rights receipt invalid')}
   const proof=verifyEditorialPermit(permit,{
     entryId:subject.entryId,sourceSha256:subject.sourceSha256,
+    referenceSha256:referenceBytes?sourceDigest(stripJpegMetadata(referenceBytes)):'',
     signingKey:process.env.ANNALS_PUBLISH_SIGNING_KEY});
   const privateOutput=await privateDirectory(options['private-output']);
   // Perform ALL no-spend validation before a durable one-shot reservation.
