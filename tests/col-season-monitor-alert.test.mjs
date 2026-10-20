@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 
-const workflow = readFileSync(new URL('../.github/workflows/celebration-sheet-monitor.yml', import.meta.url), 'utf8');
+const workflow = readFileSync(new URL('../.github/workflows/celebration-sheet-monitor.yml', import.meta.url), 'utf8').replace(/\r\n/g,'\n');
 const segment = workflow.split('      - name: Open or update a monitor failure alert\n')[1];
 assert.ok(segment, 'The existing bounded failure alert must remain available');
 const script = segment.split('          script: |\n')[1].trimEnd().split('\n')

@@ -58,7 +58,9 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 <label>Private recommendation and unresolved effects<textarea id="ruleRecommendation" maxlength="2000"></textarea></label>
 <button id="prepareRuleProposal">Save private comparison and effects review</button><pre id="rulePacket"></pre>
 <p class="muted">An authenticated older request may be continued once without changing its original receipt. This requires completed security and hosted qualification. The original remains intact.</p>
-<button id="continueHistoricOldestRule" disabled>Continue the authenticated oldest-death amendment</button></fieldset>
+<button id="continueHistoricOldestRule" disabled>Continue the authenticated oldest-death amendment</button>
+<p class="muted">A consumed invalid-response CoL rewrite can use its retained original once with the fixed centenary template. This never retries AI; the version remains non-operative until the complete signed v3 release is verified.</p>
+<button id="continueHeldCentenaryRule" disabled>Continue the retained complete CoL replacement once</button></fieldset>
 <fieldset id="ruleAcceptanceBox" hidden><legend>Supervised first CoL acceptance</legend>
 <p>This uses the preserved original amendment once. Prepare is read-only. Arming reserves one 45-minute window; it does not publish or enable general processing. Configure the returned public-safe descriptor as <code>ANNALS_RULES_V3_ACCEPTANCE</code> in GitHub, then use the original continuation above. Keep the descriptor until final reconciliation, including recovery after expiry.</p>
 <button id="prepareRuleAcceptance">Prepare exact original acceptance</button><pre id="ruleAcceptancePreparation"></pre>
@@ -251,6 +253,7 @@ async function act(fn){document.querySelectorAll('button').forEach(b=>b.disabled
   el('diagnoseSigningQualification').disabled=!current.signedRotationEvidenceAvailable;
   el('recordSigningQualification').disabled=!current.signedRotationEvidenceAvailable||!el('signingReconciliationConfirmed').checked;
   el('continueHistoricOldestRule').disabled=!current.historicOldestContinuationReady||!!current.ruleRequest||!!current.quarantined;
+  el('continueHeldCentenaryRule').disabled=!current.heldCentenaryContinuationReady||!!current.ruleRequest||!!current.quarantined;
   updateRuleAcceptanceControls();
 }updateLiteralStageControl();}}
 async function list(reset){if(reset){el('items').replaceChildren();continuation=null;}const page=await call('annalsReviewList',nonce,continuation);page.items.forEach(item=>{const li=document.createElement('li'),b=document.createElement('button');b.dataset.itemId=item.id;b.textContent=item.subject+' — '+item.state;b.onclick=()=>act(()=>open(item.id));li.append(b);el('items').append(li)});continuation=page.continuation;el('more').hidden=!continuation;say('Private review is ready.');}
@@ -264,6 +267,7 @@ el('useContributorPortrait').checked=!!d.contributorPortrait||(!current.approved
 el('flags').textContent='Review flags: '+(d.riskFlags||[]).join(', ');el('approval').hidden=true;el('save').disabled=current.approved;el('quarantine').disabled=!quarantineAvailable(current);el('quarantineConfirmed').checked=false;el('quarantineReason').value='';el('prepare').disabled=!!current.quarantined;el('reassessHeldQuote').disabled=!!current.quarantined;el('reassessHeldRecipe').disabled=!!current.quarantined;
 el('checkSigningRotation').disabled=!current.signedRotationEvidenceAvailable;
 el('continueHistoricOldestRule').disabled=!current.historicOldestContinuationReady||!!current.ruleRequest||!!current.quarantined;
+el('continueHeldCentenaryRule').disabled=!current.heldCentenaryContinuationReady||!!current.ruleRequest||!!current.quarantined;
 el('publish').hidden=!current.approved||current.publicationState==='dispatch_accepted'||current.dispatchAttempted;
 el('publishedActions').hidden=!current.approved;el('publishedReconciliation').hidden=!current.approved||current.publicationState!=='dispatch_accepted';el('publicationReconciliationResult').textContent='';el('correctionApproval').hidden=true;el('saveCorrection').hidden=!current.approved;review=current.correctionReview||null;
 el('publishedState').textContent=current.removal?'Removal status: '+current.removal.state:current.correctionApproval?'Correction status: '+current.correctionApproval.publicationState:'Current public entry status: '+(current.publicationState||'not confirmed');
@@ -320,6 +324,12 @@ el('continueHistoricOldestRule').onclick=()=>act(async()=>{
   current.historicOldestContinuationReady=false;
   el('continueHistoricOldestRule').disabled=true;
   say(result?.dispatchAccepted?'The original member request is continuing through signed, independently checked publication. It is not yet operative.':'The original request remains preserved. No publication was confirmed; inspect the single saved attempt before any further action.');
+});
+el('continueHeldCentenaryRule').onclick=()=>act(async()=>{
+  const result=await call('annalsContinueHeldCentenaryRule',nonce,current.id);
+  current.heldCentenaryContinuationReady=false;
+  el('continueHeldCentenaryRule').disabled=true;
+  say(result?.dispatchAccepted?'A non-operative centenary candidate was dispatched through the existing signed v3 checks. AI and historical awards were untouched.':'The retained source remains held. No release was confirmed; inspect the existing one-shot record and do not retry.');
 });
 el('recordPendingRule').onclick=()=>act(async()=>{const result=await call('annalsRecordPendingRule',nonce,current.id,JSON.parse(val('ruleImplementationEvidence')));el('recordPendingRule').disabled=true;say(result.dispatchAccepted?'Pending status dispatch accepted; no rule is adopted. Await exact hosted verification.':'Status held or uncertain. Inspect private saved evidence; do not retry.')});
 el('releaseRuleImplementation').onclick=()=>act(async()=>{const result=await call('annalsReleaseRuleImplementation',nonce,current.id,JSON.parse(val('ruleImplementationEvidence')));el('releaseRuleImplementation').disabled=true;say(result.dispatchAccepted?'Coordinated dispatch accepted. Actual publication is still awaiting exact hosted verification.':'Release held or uncertain. Inspect saved private evidence; do not retry.')});

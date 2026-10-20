@@ -543,6 +543,59 @@ function annalsContinueHistoricOldestRule(nonce,id){
       published:false,retryAllowed:false};
   });});
 }
+/** One-shot continuation for the already consumed complete-rule AI failure.
+ * Uses only the original authenticated source and the deterministic bounded
+ * centenary template. It neither changes the saved AI journal nor calls AI. */
+function annalsContinueHeldCentenaryRule(nonce,id){
+  return annalsUiCall_(nonce,function(){return annalsLocked_(function(){
+    var f=annalsFolder_(id),source=annalsRead_(f,'source-private.json');
+    var attempt=annalsRead_(f,'ai-attempt-private.json'),outcome=annalsRead_(f,'ai-outcome-private.json');
+    var contextReady=annalsStagedRulesReady_()||!!annalsRuleAcceptanceRecord_(id,'stage');
+    if(!contextReady||!source||source.rulesAuthorityVersion!==2||source.rulesActivationEligible!==true||
+       source.senderAuthenticated!==true||source.aiConsentActive!==true||!source.source||
+       source.source.sourceTruncated||source.source.subjectTruncated||source.source.excerptTruncated||
+       !attempt||attempt.state!=='attempt_reserved'||attempt.purpose!=='col_rule_request_v2'||
+       !outcome||outcome.state!=='held'||outcome.reason!=='invalid_response'||outcome.httpStatus!==200||
+       annalsFile_(f,'quarantine-private.json')||annalsFile_(f,'col-proposal-private.json')||
+       annalsFile_(f,'col-rule-request-private.json')||annalsFile_(f,'col-centenary-continuation-private.json')||
+       annalsFile_(f,'col-v3-stage-dispatch-private.json')||
+       !annalsConsentActive_(source.source.sender)||!annalsStandingPublicationActive_(source.source.sender,source.source.receivedAt))
+      throw new Error('Only the retained complete source with its consumed invalid-response journal may continue once');
+    var pending=annalsRead_(annalsRoot_(),'col-release-pending-private.json');
+    if(pending&&['verified_live','verified_cancelled'].indexOf(pending.state)<0)
+      throw new Error('Another rule release needs exact reconciliation');
+    var context=annalsRuleContext_(),member=annalsSpeakerIdentities_()[source.source.sender];
+    var original={senderAuthenticated:true,member:member,freshOperativeWindow:true,replayed:false,
+      truncated:false,text:source.source.subject+'\n'+source.source.excerpt,receivedAt:source.source.receivedAt};
+    var request=AnnalsRules.age100Retirement(original,context.base,'col-'+id.slice(0,24));
+    var clean=AnnalsRules.publicRecord(request);clean.baseDigest=request.baseDigest;
+    var content={revision:clean,qualification:AnnalsRules.AGE100_RETIREMENT_QUALIFICATION,
+      baseFiles:context.baseFiles,implementationCommit:context.commit,behaviorDigest:context.behaviorDigest,source:null};
+    annalsWriteOnce_(f,'col-centenary-continuation-private.json',{schemaVersion:1,
+      kind:'held-invalid-response-centenary-v1',sourceId:id,receivedAt:source.source.receivedAt,
+      authorizedAt:new Date().toISOString(),state:'reserved'});
+    annalsWriteOnce_(f,'col-rule-request-private.json',request);
+    var dispatched=annalsRuleStagedDispatch_(id,'stage',content,context.state,{revisionId:request.id,stageContent:content});
+    return {continuationRecorded:true,dispatchAccepted:!!(dispatched&&dispatched.dispatchAccepted),
+      published:false,retryAllowed:false};
+  });});
+}
+function annalsHeldCentenaryContinuationReady_(f,source,id){
+  try{
+    var attempt=annalsRead_(f,'ai-attempt-private.json'),outcome=annalsRead_(f,'ai-outcome-private.json');
+    var pending=annalsRead_(annalsRoot_(),'col-release-pending-private.json');
+    return !!(id&&annalsStagedRulesReady_()&&source&&source.rulesAuthorityVersion===2&&
+      source.rulesActivationEligible===true&&source.senderAuthenticated===true&&source.aiConsentActive===true&&source.source&&
+      !source.source.sourceTruncated&&!source.source.subjectTruncated&&!source.source.excerptTruncated&&
+      attempt&&attempt.state==='attempt_reserved'&&attempt.purpose==='col_rule_request_v2'&&
+      outcome&&outcome.state==='held'&&outcome.reason==='invalid_response'&&outcome.httpStatus===200&&
+      !annalsFile_(f,'quarantine-private.json')&&!annalsFile_(f,'col-proposal-private.json')&&
+      !annalsFile_(f,'col-rule-request-private.json')&&!annalsFile_(f,'col-centenary-continuation-private.json')&&
+      !annalsFile_(f,'col-v3-stage-dispatch-private.json')&&
+      (!pending||['verified_live','verified_cancelled'].indexOf(pending.state)>=0)&&
+      annalsConsentActive_(source.source.sender)&&annalsStandingPublicationActive_(source.source.sender,source.source.receivedAt));
+  }catch(held){return false;}
+}
 function annalsRuleFreshSource_(id){
   var f=annalsFolder_(id),source=annalsRead_(f,'source-private.json'),request=annalsRead_(f,'col-rule-request-private.json');
   var historic=annalsRead_(f,'col-oldest-continuation-private.json');

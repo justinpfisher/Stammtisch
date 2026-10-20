@@ -1037,6 +1037,8 @@ function annalsReviewItem(nonce, id) {
         annalsHistoricOldestContinuationReady_(f,source),
       historicOldestContinuationReady: typeof annalsHistoricOldestContinuationReady_==='function'&&
         annalsHistoricOldestContinuationReady_(f,source)&&typeof annalsRuleOldestReady_==='function'&&annalsRuleOldestReady_(id),
+      heldCentenaryContinuationReady: typeof annalsHeldCentenaryContinuationReady_==='function'&&
+        annalsHeldCentenaryContinuationReady_(f,source,id),
       rulesReady: typeof annalsRulesReady_==='function'&&annalsRulesReady_(),
       historyReview: annalsRead_(f,'history-review-private.json'),
       truncated: source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated,

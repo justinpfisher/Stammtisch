@@ -117,13 +117,27 @@ function checkOldest(revision,base){
   const clean=Rules.publicRecord(revision);
   if(digest({...clean,baseDigest:revision.baseDigest})!==digest(revision))throw Error('Unexpected oldest-death candidate fields');
 }
+function checkCentenaryRetirement(revision,base){
+  const expected=Rules.age100RetirementChanges(base);
+  if(revision.state!=='awaiting_implementation'||revision.baseVersion!==base.id||revision.baseDigest!==base.digest||
+    revision.publishedAt!==null||revision.effectiveAt!==null||revision.correctionOf!==null||
+    revision.explanation!==Rules.AGE100_RETIREMENT_EXPLANATION||revision.changes.length!==expected.length)
+    throw Error('Centenary retirement requires the exact complete-source prospective template');
+  expected.forEach((change,index)=>{
+    const actual=revision.changes[index];
+    if(!actual||actual.provision!==change.provision||actual.before!==change.before||actual.after!==change.after)
+      throw Error('Centenary retirement differs from the independently bounded template');
+  });
+  const clean=Rules.publicRecord(revision);
+  if(digest({...clean,baseDigest:revision.baseDigest})!==digest(revision))throw Error('Unexpected centenary candidate fields');
+}
 export function stageCandidate({state,files,envelope,secret,enabled=false,now=new Date(),implementationCommit,behaviorDigest,sourceWitness,basePublishedAt=null}){
   if(enabled!==true)throw Error('Staged rules disabled');
   const content=verifyEnvelope(envelope,'stage',state,secret,now);
   exact(content,['revision','qualification','baseFiles','implementationCommit','behaviorDigest','source']);
   if(state.operations.length>=5000||state.events.length>=19996||serializedBytes(state)>MAX_LEDGER_BYTES-16384)throw Error('Release ledger capacity reached; preserve current version');
   if(state.operations.some(op=>!['release_pending','failed'].includes(op.phase)))throw Error('Reconcile the single pending operation first');
-  if(!['literal-typography-v1','oldest-death-steal-v1','editorial-rewrite-v1'].includes(content.qualification)||content.implementationCommit!==implementationCommit||content.behaviorDigest!==behaviorDigest||!hex(behaviorDigest)||digest(content.baseFiles)!==digest(snapshotHashes(files)))throw Error('Candidate implementation or exact base mismatch');
+  if(!['literal-typography-v1','oldest-death-steal-v1','editorial-rewrite-v1',Rules.AGE100_RETIREMENT_QUALIFICATION].includes(content.qualification)||content.implementationCommit!==implementationCommit||content.behaviorDigest!==behaviorDigest||!hex(behaviorDigest)||digest(content.baseFiles)!==digest(snapshotHashes(files)))throw Error('Candidate implementation or exact base mismatch');
   if(content.source!==null)throw Error('Candidate source comes only from the independent Viewer observation');
   validateSource(sourceWitness,sourceWitness,implementationCommit,now);
   const projected=currentOperation(state)?materializeFiles(files,currentOperation(state),basePublishedAt):files;
@@ -131,10 +145,11 @@ export function stageCandidate({state,files,envelope,secret,enabled=false,now=ne
   if(currentOperation(state)&&currentOperation(state).revisionId!==base.id)throw Error('Current snapshot differs from operative release');
   if(content.qualification==='literal-typography-v1')checkWording(content.revision,base);
   else if(content.qualification==='editorial-rewrite-v1')checkEditorial(content.revision,base);
-  else checkOldest(content.revision,base);
+  else if(content.qualification==='oldest-death-steal-v1')checkOldest(content.revision,base);
+  else checkCentenaryRetirement(content.revision,base);
   if(digest(Rules.provisions(markdown))!==digest(base.provisions)||register.revisions.some(r=>r.id===content.revision.id)||state.events.some(op=>op.revisionId===content.revision.id)||state.operations.some(op=>op.revisionId===content.revision.id))throw Error('Stale narrative or replayed revision');
   const provisions={...base.provisions};
-  let updatedMarkdown=markdown;
+  let updatedMarkdown=markdown.replace(/\r\n/g,'\n');
   for(const change of content.revision.changes){
     if(updatedMarkdown.split(change.before).length!==2||provisions[change.provision]!==change.before)throw Error('Exact narrative boundary required');
     provisions[change.provision]=change.after;
