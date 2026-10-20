@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-import {mkdtemp,readdir,rm} from 'node:fs/promises';
+import {mkdtemp,readdir,rm,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -46,4 +46,16 @@ test('no caller-selected source URL or environment key is supported by the CLI',
     assert.notEqual(run.status,0);
     assert.doesNotMatch(run.stderr,/private.*(image|key|credential)|OPENAI_API_KEY/i);
   }
+});
+
+test('every successful paid edit is retained owner-privately before another paid visual review',async()=>{
+  const source=await readFile(script,'utf8');
+  const edit=source.indexOf('const edited=await requestSunburstEdit(');
+  const saved=source.indexOf("'"+'-generated-private.jpg'+"'");
+  const meta=source.indexOf("'"+'-generation-private.json'+"'");
+  const review=source.indexOf('const judgement=await assessSunburstEdit(');
+  assert.ok(edit>0&&saved>edit&&meta>saved&&review>meta);
+  assert.match(source,/generated-private\.jpg'[\s\S]*flag:'wx',mode:0o600/);
+  assert.match(source,/publicRelease:false,visualQualified:false/);
+  assert.match(source,/reserved-no-retry/);
 });
