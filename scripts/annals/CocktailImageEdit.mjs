@@ -6,6 +6,7 @@
 import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {verifyPublicApproval} from './ApprovedRenderer.mjs';
+import {MONTHLY_CENTS,PHOTO_CENTS,torontoPeriod} from './CocktailEditorialBudget.mjs';
 import {metadataFreeJpegDimensions,photoSources} from './EditorialPhotoManifest.mjs';
 
 export const EDIT_MODEL='gpt-image-2.5-sunburst';
@@ -65,13 +66,17 @@ export function verifyEditorialPermit(permit,{entryId,sourceSha256,referenceSha2
   // original's photoPublication Boolean alone never grants these.
   if(!permit||typeof permit!=='object'||Array.isArray(permit)||
      Object.keys(permit).sort().join(',')!==
-       'budgetReserved,entryId,expiresAt,issuedAt,nonce,referenceSha256,rightsActive,scope,screened,signature,sourceSha256'||
+       'budgetPeriod,budgetReserved,entryId,expiresAt,issuedAt,monthlyCeilingCents,nonce,perPhotoCeilingCents,referenceSha256,reservedCents,rightsActive,scope,screened,signature,sourceSha256'||
      permit.scope!=='cocktail-editorial-transform-v1'||
      permit.entryId!==entryId||permit.sourceSha256!==sourceSha256||
      permit.referenceSha256!==referenceSha256||
      (referenceSha256!==''&&!SHA.test(referenceSha256))||
      (entryId==='annal-96b5ae266a36793c6a203033'&&!SHA.test(referenceSha256))||
      permit.rightsActive!==true||permit.budgetReserved!==true||
+     permit.budgetPeriod!==torontoPeriod(now)||
+     permit.monthlyCeilingCents!==MONTHLY_CENTS||
+     permit.perPhotoCeilingCents!==PHOTO_CENTS||
+     permit.reservedCents!==PHOTO_CENTS||
      permit.screened!==true||!SHA.test(sourceSha256||'')||
      !/^[0-9a-f]{32}$/.test(permit.nonce||'')||
      !/^[0-9a-f]{64}$/.test(permit.signature||'')||
@@ -89,6 +94,9 @@ export function verifyEditorialPermit(permit,{entryId,sourceSha256,referenceSha2
   if(!timingSafeEqual(expected,Buffer.from(permit.signature,'hex')))
     throw Error('Editorial authorisation signature invalid');
   return Object.freeze({sourceSha256,entryId,
+    budgetPeriod:permit.budgetPeriod,
+    monthlyCeilingCents:MONTHLY_CENTS,perPhotoCeilingCents:PHOTO_CENTS,
+    reservedCents:PHOTO_CENTS,budgetReserved:true,
     attemptDigest:hash(Buffer.from(permit.signature,'hex'))});
 }
 

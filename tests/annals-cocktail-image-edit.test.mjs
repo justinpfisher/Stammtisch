@@ -42,6 +42,8 @@ const permit=()=>{
   const unsigned={
     scope:'cocktail-editorial-transform-v1',entryId:kingston.id,
     sourceSha256:sha(original),referenceSha256:sha(original),rightsActive:true,screened:true,
+    budgetPeriod:'2026-10',monthlyCeilingCents:500,
+    perPhotoCeilingCents:200,reservedCents:200,
     budgetReserved:true,nonce:'a'.repeat(32),
     issuedAt:'2026-10-20T09:00:00Z',expiresAt:'2026-10-20T10:00:00Z'
   };
@@ -94,7 +96,9 @@ test('rights must be separate HMAC attestation; existing public photo consent al
   assert.equal(grantProof.sourceSha256,sha(original));
   for(const patch of [
     {rightsActive:false},{screened:false},{budgetReserved:false},
-    {sourceSha256:'0'.repeat(64)},{referenceSha256:'0'.repeat(64)},{signature:'0'.repeat(64)},
+    {sourceSha256:'0'.repeat(64)},{referenceSha256:'0'.repeat(64)},
+    {monthlyCeilingCents:501},{perPhotoCeilingCents:201},
+    {budgetPeriod:'2026-11'},{reservedCents:100},{signature:'0'.repeat(64)},
     {scope:'ordinary-photo-publication'}, {expiresAt:'2026-10-20T09:10:00Z'},
     {nonce:'b'.repeat(32)}
   ])assert.throws(()=>verifyEditorialPermit({...permit(),...patch},{
