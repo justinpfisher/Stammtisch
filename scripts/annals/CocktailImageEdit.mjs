@@ -59,15 +59,18 @@ export function verifiedCocktailSource({entry,approval,signingKey,sourcePath,sou
     sourceBytes,width,height,sourceAlt:p.alt||''});
 }
 
-export function verifyEditorialPermit(permit,{entryId,sourceSha256,signingKey,now=new Date()}){
+export function verifyEditorialPermit(permit,{entryId,sourceSha256,referenceSha256='',signingKey,now=new Date()}){
   // A separate private HMAC receipt must attest real active scoped transform
   // rights and a one-shot private budget reservation. The signed public
   // original's photoPublication Boolean alone never grants these.
   if(!permit||typeof permit!=='object'||Array.isArray(permit)||
      Object.keys(permit).sort().join(',')!==
-       'budgetReserved,entryId,expiresAt,issuedAt,nonce,rightsActive,scope,screened,signature,sourceSha256'||
+       'budgetReserved,entryId,expiresAt,issuedAt,nonce,referenceSha256,rightsActive,scope,screened,signature,sourceSha256'||
      permit.scope!=='cocktail-editorial-transform-v1'||
      permit.entryId!==entryId||permit.sourceSha256!==sourceSha256||
+     permit.referenceSha256!==referenceSha256||
+     (referenceSha256!==''&&!SHA.test(referenceSha256))||
+     (entryId==='annal-96b5ae266a36793c6a203033'&&!SHA.test(referenceSha256))||
      permit.rightsActive!==true||permit.budgetReserved!==true||
      permit.screened!==true||!SHA.test(sourceSha256||'')||
      !/^[0-9a-f]{32}$/.test(permit.nonce||'')||
