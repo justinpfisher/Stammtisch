@@ -26,6 +26,15 @@
         "sealDigest": "762f7a3198f13e6e9794524a02b03adc837c8e2ef224e518bf40b1ec6303e09d",
         "snapshotDigest": "ee633366c994873a261312ac364855de3c9764ad6f0bbbc721c58433f6de2ee3"
       }
+    },
+    {
+      "candidateDigest": "2bff2b4efa09ae317c4b728bd0251bc322b69c233c2e217835cd2a6c7015f6ab",
+      "revisionId": "col-7627d10078568faf30a91294",
+      "previous": "447206a5f23e52a85a3132c1db5d6a642764439435476b41c9e40ead4b7ecd27",
+      "phase": "candidate",
+      "stagedAt": "2026-10-20T23:43:08.652Z",
+      "activationDigest": null,
+      "confirmation": null
     }
   ],
   "events": [
@@ -59,6 +68,14 @@
       "phase": "sealed",
       "at": "2026-10-18T00:46:54.776Z",
       "evidenceDigest": "7412e76347847ce879a3e9506ca1c91b1b1088776dcb0df4f8403b0b1ce22ca8",
+      "reason": ""
+    },
+    {
+      "revisionId": "col-7627d10078568faf30a91294",
+      "candidateDigest": "2bff2b4efa09ae317c4b728bd0251bc322b69c233c2e217835cd2a6c7015f6ab",
+      "phase": "candidate",
+      "at": "2026-10-20T23:43:08.652Z",
+      "evidenceDigest": "a9f037a0e3e94e4f62f310ce06ee302a4bdfe0c21058114ae458961010101904",
       "reason": ""
     }
   ]
