@@ -24,7 +24,8 @@ function canonicalPhotoDirection(){
   const end=guide.indexOf('**Publication and image-generation sequence**',start);
   if(title<0||start<0||end<=start||end-start>12000)
     throw Error('Canonical photographic art direction missing');
-  return guide.slice(start,end);
+  // Avoid repeating obsolete implementation names in model instructions.
+  return guide.slice(start,end).replace(/GrabCut/g,'legacy cutout');
 }
 const CHECKS=[
   'recognisableOriginalDrink','sameGlassBowlAndFacets','intactRim',
