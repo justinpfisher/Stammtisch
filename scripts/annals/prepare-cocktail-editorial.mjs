@@ -45,6 +45,10 @@ async function privateFile(p,required=true){
 async function privateDirectory(p){
   if(!p||!path.isAbsolute(p))throw Error('Private output directory required');
   const resolved=await realpath(p);
+  const canonical=process.env.ANNALS_EDITORIAL_BUDGET_DIR;
+  if(!canonical||!path.isAbsolute(canonical)||
+     resolved!==await realpath(canonical))
+    throw Error('Canonical private image budget directory unavailable');
   if(resolved===repo||resolved.startsWith(repo+path.sep))
     throw Error('Private outputs cannot reside inside public GitHub repository');
   if(!(await stat(resolved)).isDirectory())throw Error('Private output directory unavailable');
@@ -74,8 +78,9 @@ async function run(){
   }
   if(process.env.ANNALS_EDITORIAL_IMAGE_ENABLED!=='true'||
      !process.env.ANNALS_EDITORIAL_IMAGE_API_KEY||
-     !process.env.ANNALS_PUBLISH_SIGNING_KEY)
-    throw Error('Image provider, private signing or explicit spending activation unavailable');
+     !process.env.ANNALS_PUBLISH_SIGNING_KEY||
+     process.env.ANNALS_EDITORIAL_PROJECT_HARD_LIMIT_VERIFIED!=='true')
+    throw Error('Image provider, project hard cap, private signing or activation unavailable');
   if(!verifyPublicApproval(entry,approval,process.env.ANNALS_PUBLISH_SIGNING_KEY))
     throw Error('Signed source publication invalid');
   const subject=verifiedCocktailSource({entry,approval,
