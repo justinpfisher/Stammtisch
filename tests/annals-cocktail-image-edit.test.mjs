@@ -41,7 +41,7 @@ const subject=()=>verifiedCocktailSource({
 const permit=()=>{
   const unsigned={
     scope:'cocktail-editorial-transform-v1',entryId:kingston.id,
-    sourceSha256:sha(original),rightsActive:true,screened:true,
+    sourceSha256:sha(original),referenceSha256:sha(original),rightsActive:true,screened:true,
     budgetReserved:true,nonce:'a'.repeat(32),
     issuedAt:'2026-10-20T09:00:00Z',expiresAt:'2026-10-20T10:00:00Z'
   };
@@ -50,7 +50,7 @@ const permit=()=>{
 };
 const now=new Date('2026-10-20T09:20:00Z');
 const grant=()=>verifyEditorialPermit(permit(),{
-  entryId:kingston.id,sourceSha256:sha(original),signingKey:key,now
+  entryId:kingston.id,sourceSha256:sha(original),referenceSha256:sha(original),signingKey:key,now
 });
 function actualEditedFixture(){
   const altered=Buffer.from(original);
@@ -94,13 +94,13 @@ test('rights must be separate HMAC attestation; existing public photo consent al
   assert.equal(grantProof.sourceSha256,sha(original));
   for(const patch of [
     {rightsActive:false},{screened:false},{budgetReserved:false},
-    {sourceSha256:'0'.repeat(64)},{signature:'0'.repeat(64)},
+    {sourceSha256:'0'.repeat(64)},{referenceSha256:'0'.repeat(64)},{signature:'0'.repeat(64)},
     {scope:'ordinary-photo-publication'}, {expiresAt:'2026-10-20T09:10:00Z'},
     {nonce:'b'.repeat(32)}
   ])assert.throws(()=>verifyEditorialPermit({...permit(),...patch},{
     entryId:kingston.id,sourceSha256:sha(original),signingKey:key,now}));
   assert.throws(()=>verifyEditorialPermit(permit(),{
-    entryId:kingston.id,sourceSha256:sha(original),signingKey:key,
+    entryId:kingston.id,sourceSha256:sha(original),referenceSha256:sha(original),signingKey:key,
     now:new Date('2026-10-21T09:20:00Z')}),/expired/);
 });
 test('Kingston edit prompt preserves its tapered glass, three apples, stem and whole-scene art direction',()=>{
