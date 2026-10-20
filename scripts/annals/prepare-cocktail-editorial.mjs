@@ -9,6 +9,7 @@ import {createHash} from 'node:crypto';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {verifyPublicApproval} from './ApprovedRenderer.mjs';
+import {reserveCocktailBudget,imageSpendCents,reviewSpendCents,enforceTotalSpend} from './CocktailEditorialBudget.mjs';
 import {
   verifiedCocktailSource,verifyEditorialPermit,stripJpegMetadata,makeSunburstEditRequest,
   requestSunburstEdit,makeVisualReviewRequest,assessSunburstEdit,
@@ -93,10 +94,15 @@ async function run(){
   const privateOutput=await privateDirectory(options['private-output']);
   // Perform ALL no-spend validation before a durable one-shot reservation.
   const editRequest=makeSunburstEditRequest({subject,referenceBytes});
+  // One canonical owner-private ledger, independent of the existing text AI
+  // allowance. A valid signed budget flag is not itself a spend reservation.
+  const reservation=await reserveCocktailBudget({directory:privateOutput,
+    entryId:subject.entryId,sourceSha256:subject.sourceSha256,permit});
   const marker=path.join(privateOutput,
     sourceDigest(Buffer.from(proof.attemptDigest+subject.sourceSha256))+'-attempt-private.json');
   const attempt={state:'reserved-no-retry',entryId:subject.entryId,
     sourceSha256:subject.sourceSha256,attemptDigest:proof.attemptDigest,
+    budgetPeriod:reservation.period,reservedCents:reservation.reservationCents,
     reservedAt:new Date().toISOString(),apiCallsAttempted:false};
   // 'wx' is deliberately exclusive; a crash or uncertain API response
   // leaves the file and prevents billing another call on re-execution.
@@ -110,13 +116,20 @@ async function run(){
     const edited=await requestSunburstEdit({request:editRequest,
       permitVerification:proof,reservedAttempt:true,
       apiKey:process.env.ANNALS_EDITORIAL_IMAGE_API_KEY});
+    attempt.generationUsage=edited.usage;
+    const generationCents=imageSpendCents(edited.usage);
+    // Provider usage missing or over-limit: no SECOND billable review.
+    attempt.generationEstimatedCents=generationCents;
+    enforceTotalSpend({editCents:generationCents});
     const reviewRequest=makeVisualReviewRequest({
       subject,editedBytes:edited.bytes,referenceBytes});
     const judgement=await assessSunburstEdit({request:reviewRequest,
       permitVerification:proof,reservedAttempt:true,
       apiKey:process.env.ANNALS_EDITORIAL_IMAGE_API_KEY});
-    attempt.generationUsage=edited.usage;
     attempt.reviewUsage=judgement.usage;
+    attempt.reviewEstimatedCents=reviewSpendCents(judgement.usage);
+    attempt.totalEstimatedCents=enforceTotalSpend({
+      editCents:generationCents,reviewCents:attempt.reviewEstimatedCents});
     attempt.reviewedAt=new Date().toISOString();
     attempt.passed=judgement.assessment.qualified;
     attempt.failedChecks=judgement.assessment.failedChecks;
