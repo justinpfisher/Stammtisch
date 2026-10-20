@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 3,
+  "kind": "col-activation-awaiting-independent-readback",
+  "candidateDigest": "2bff2b4efa09ae317c4b728bd0251bc322b69c233c2e217835cd2a6c7015f6ab",
+  "previous": "447206a5f23e52a85a3132c1db5d6a642764439435476b41c9e40ead4b7ecd27",
+  "baseStateDigest": "346a71002d4f5db1cfe93db331615866b63467da864ddf0e2cf00f5643794968",
+  "candidateObservedAt": "2026-10-20T23:46:10.202Z",
+  "authorizedAt": "2026-10-20T23:47:18.240Z",
+  "expiresAt": "2026-10-21T00:32:18.240Z",
+  "source": {
+    "sourceDigest": "2c7183156440db4332c08713a0b7804be3bcea2c8f26e1f8643c666ff8beaecd",
+    "observedAt": "2026-10-20T23:47:18.051Z",
+    "repoCommit": "e2388040a270444cb722a912068cc9475ae3829c",
+    "workflowRun": "39517195758"
+  },
+  "effectiveAt": null,
+  "publishedAt": null
+}

@@ -31,9 +31,9 @@
       "candidateDigest": "2bff2b4efa09ae317c4b728bd0251bc322b69c233c2e217835cd2a6c7015f6ab",
       "revisionId": "col-7627d10078568faf30a91294",
       "previous": "447206a5f23e52a85a3132c1db5d6a642764439435476b41c9e40ead4b7ecd27",
-      "phase": "candidate",
+      "phase": "activation_pending",
       "stagedAt": "2026-10-20T23:43:08.652Z",
-      "activationDigest": null,
+      "activationDigest": "9f668dd83f9a64a1b1779aa3498239e27029bd7fdfd8c5ee0bd213b4cd383d54",
       "confirmation": null
     }
   ],
@@ -76,6 +76,14 @@
       "phase": "candidate",
       "at": "2026-10-20T23:43:08.652Z",
       "evidenceDigest": "a9f037a0e3e94e4f62f310ce06ee302a4bdfe0c21058114ae458961010101904",
+      "reason": ""
+    },
+    {
+      "revisionId": "col-7627d10078568faf30a91294",
+      "candidateDigest": "2bff2b4efa09ae317c4b728bd0251bc322b69c233c2e217835cd2a6c7015f6ab",
+      "phase": "activation_pending",
+      "at": "2026-10-20T23:47:18.240Z",
+      "evidenceDigest": "7baec17ecd25fe38ad8ea086a74a48234ea74adc9389ab72fbab58c3f068308a",
       "reason": ""
     }
   ]
