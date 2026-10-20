@@ -58,7 +58,8 @@ const cocktailEntry={...base,id:'offline-cocktail-editorial',
   category:'cocktail',title:'Fictional editorial cocktail viewer',
   summary:'Fictional styling controls only.',photos:[cocktailPhoto]};
 entries.push(cocktailEntry);
-const cocktailApproval={...a,entryId:cocktailEntry.id,contentSha256:contentDigest(cocktailEntry)};
+const cocktailApproval={...a,entryId:cocktailEntry.id,contentSha256:contentDigest(cocktailEntry),
+  consents:{...a.consents,recipeVerified:true}};
 approvals.push({...cocktailApproval,signature:createHmac('sha256',fixtureKey).update(
   JSON.stringify(canonical({entry:cocktailEntry,approval:cocktailApproval}))).digest('hex')});
 const fictionalEditorialAsset=largeAsset.path.replace(/\.jpg$/,'-editorial-v2.jpg');
