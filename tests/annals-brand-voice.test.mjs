@@ -69,9 +69,8 @@ test('private candidate accepts new caption and older saved image assessments', 
   const legacy = structuredClone(common);
   delete legacy.imageReviews[0].caption;
   assert.equal(Production.candidate(legacy, true).imageReviews[0].caption, undefined);
-  assert.throws(() => Production.candidate({ ...common,
-    imageReviews: [assessment('Amber drink in a glass', 'X'.repeat(201))] }, true),
-    /Invalid text/);
+  assert.equal(Production.candidate({ ...common,
+    imageReviews: [assessment('Amber drink in a glass', 'X'.repeat(201))] }, true).imageReviews[0].caption, '');
 });
 
 test('only screened, visually grounded captions pass; absence never blocks the photo', () => {
