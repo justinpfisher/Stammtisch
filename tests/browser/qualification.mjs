@@ -185,7 +185,7 @@ try{
         await dialog.waitFor({state:'visible'});
         assert.equal(await dialog.locator('img').getAttribute('src'),fictionalEditorialAsset);
         const original=dialog.getByRole('link',{name:'Original photograph'});
-        assert.equal(await original.getAttribute('href'),largeAsset.path);
+        assert.equal(await original.getAttribute('href'),new URL(largeAsset.path,origin).href);
         assert.equal(await original.isVisible(),true);
         for(const button of await dialog.getByRole('button').all()){
           const box=await button.boundingBox();assert.ok(box.width>=44&&box.height>=44);
@@ -208,7 +208,7 @@ try{
         await opener.click();
         const dialog=page.getByRole('dialog',{name:'Photograph viewer'});
         await dialog.waitFor({state:'visible'});
-        assert.equal(await dialog.locator('img').getAttribute('src'),largeAsset.path);
+        assert.equal(await dialog.locator('img').getAttribute('src'),new URL(largeAsset.path,origin).href);
         assert.equal(await dialog.locator('[data-original]').isVisible(),false);
         await noOverflow(page);
       });
@@ -308,7 +308,7 @@ try{
       await check(browser,profile,'chronological cards and accessible category filtering',async page=>{
         await page.goto(origin+'/annals.html');
         const cards=page.locator('.annal-stream .annal-entry');
-        assert.equal(await cards.count(),6);
+        assert.equal(await cards.count(),7);
         assert.equal(await cards.first().getAttribute('id'),'offline-browser-quote');
         const columns=await page.locator('.annal-stream').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length);
         assert.equal(columns,profile.name==='desktop-chromium'?2:1);
@@ -320,7 +320,7 @@ try{
         await page.reload();
         assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),1);
         await page.getByRole('link',{name:'All entries',exact:true}).click();
-        assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),6);
+        assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),7);
         assert.equal(await page.locator('#offline-browser-recipe .annal-entry-link').getAttribute('href'),'#offline-browser-recipe');
         await noOverflow(page);
       });
