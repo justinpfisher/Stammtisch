@@ -186,7 +186,7 @@ test('unqualified literal staging stays closed even when the shared protocol is 
 
 test('desk action cleanup preserves literal qualification after reads, unrelated actions and failures',async()=>{
  const ui=read('scripts/annals/ReviewUi.html'),source=ui.slice(ui.indexOf('function updateLiteralStageControl()'),ui.indexOf('async function list(reset)'));
- const ids=['stageLiteralRule','prepare','save','approve','approveRemoval','quarantine','checkSigningRotation','diagnoseSigningQualification','recordSigningQualification','continueHistoricOldestRule'];
+ const ids=['stageLiteralRule','prepare','save','approve','approveRemoval','quarantine','checkSigningRotation','diagnoseSigningQualification','recordSigningQualification','continueHistoricOldestRule','continueHeldCentenaryRule'];
  const nodes=Object.fromEntries(ids.map(id=>[id,{disabled:false,checked:false}]));nodes.signingReconciliationConfirmed={checked:false};nodes.detail={querySelectorAll:()=>ids.filter(id=>id!=='back').map(id=>nodes[id])};
  const c=vm.createContext({document:{querySelectorAll:()=>ids.map(id=>nodes[id])},el:id=>nodes[id],say:()=>{},quarantineAvailable:()=>false,updateRuleAcceptanceControls:()=>{},current:{quarantined:false},literalStageQualified:false});
  vm.runInContext(source,c);

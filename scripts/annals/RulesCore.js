@@ -172,6 +172,90 @@ var AnnalsRules = (function () {
       retrospective:{requested:false,period:'',results:'',clubAgreementExcerpt:''},correctionOf:''};
     return intake(source,assessment,base,revisionId);
   }
+  // This is a narrowly bounded semantic interpretation of one complete
+  // authenticated rules replacement. It removes only the age-100-only draft
+  // bonuses, preserves each Diamond's ordinary benefit and leaves every other
+  // unresolved proposal visibly non-operative in its own provision.
+  var AGE100_RETIREMENT_QUALIFICATION='centenary-benefit-retirement-v1';
+  var AGE100_RETIREMENT_EXPLANATION='The complete member-authored replacement enumerates ordinary Diamond, oldest/youngest and Devil’s Share benefits but omits the former age-100-only bonuses. The selected prospective reading removes only those extra age-100 benefits; the ten-point exception, point multiplier, ordinary Blue/Brown benefit, Birthday Buffet exception and all earlier awards remain unchanged. Renewal, birthday-register, protection-lifecycle, draft-vacancy and sequencing questions remain non-operative Matters for Club Deliberation.';
+  var AGE100_RETIREMENT_MATTER='**Matter for Club Deliberation (non-operative).** The complete replacement lists the ordinary Diamond benefits but omits the former age-100-only Steal and additional Diamond benefits. Selected interpretation: the omission ends only those extra benefits prospectively from this version’s verified effective timestamp. Until then, the preceding verified rules govern. The ten points, the normal Blue Diamond Steal, the normal Brown Diamond Blood Diamond, the Birthday Buffet age-100 exception, and all previously awarded benefits remain unchanged. A plausible alternative is that the omitted bonuses were intended to continue.';
+  var RENEWAL_MATTER='**Matter for Club Deliberation (non-operative).** The replacement proposes a Renewal-to-Renewal period but supplies no verified Gregorian Renewal date, exact cutoff, or transition for already recorded results. The existing January 1–December 31 period, tied-winner prize rule and prior-year award treatment remain operative until a precise boundary and matching calculations are independently qualified. No immediate or retrospective change is inferred.';
+  var BIRTHDAY_MATTER='**Matter for Club Deliberation (non-operative).** The submitted birthday labels do not establish a conversion to the verified Gregorian register; the six current birthdays remain operative. The source also refers to a group-chat report date and excludes Protections, while the authoritative record distinguishes group discovery from actual death and monitor time and the existing award path does not use a verified report timestamp or Protection status for this transfer. Continue using the recorded group discovery date, never a news-monitor time or actual-death date as a substitute. The proposed conversion, report-date refinement and Protection exclusion require a source-matched implementation; existing verified allocations remain unchanged.';
+  var DRAFT_VACANCY_MATTER='**Matter for Club Deliberation (non-operative).** “Five or more” draft picks do not guarantee five vacant places when jettisons are optional. Continue filling actual vacancies to restore lists to 50; do not force an extra pick or displace a celebrity. The existing vacancy calculation remains in force until a replacement is independently matched to the Sheet and tested.';
+  var DRAFT_SEQUENCE_MATTERS='**Matter for Club Deliberation (non-operative).** The replacement supplies a seven-stage order, but its annual boundary and treatment of rights carried across a boundary are unresolved. The existing sequence, calendar-year benefit period, tie treatment and earned-right ordering remain operative until a complete transition is independently implemented and qualified. No new order or unspent-right rule is inferred.\n\n**Matter for Club Deliberation (non-operative).** The replacement says Protections last until death and cannot be transferred or cancelled. Those lifecycle limits require a verified register representation and matching draft/jettison behavior. Existing protection handling remains operative until that implementation is independently qualified.';
+  function replaceOnce(value,needle,replacement,label){
+    if(typeof value!=='string'||value.split(needle).length!==2)throw new Error('Expected unchanged '+label+' baseline');
+    return value.replace(needle,replacement);
+  }
+  function appendMatter(base,provision,matter){
+    var before=base&&base.provisions&&base.provisions[provision];
+    if(typeof before!=='string'||before.indexOf('Matter for Club Deliberation')>=0)throw new Error('Expected unamended '+provision+' baseline');
+    return {provision:provision,before:before,after:before+'\n\n'+matter};
+  }
+  function age100RetirementChanges(base){
+    if(!base||!base.provisions)throw new Error('Exact operative CoL base required');
+    var p=base.provisions,pointsBonus='If the celebrity is 100 years old when they die, you receive 10 points, and a Steal at the next draft. Diamond bonuses apply as described below; a Brown Diamond at 100 earns two Blood Diamonds instead of a Steal.';
+    var blueBonus='\n\nIf your Blue Diamond dies at exactly 100, you earn two Steals.';
+    var brownBonus='\n\nIf your Brown Diamond dies at exactly 100, you earn two Blood Diamonds.';
+    var points=replaceOnce(p['POINTS'],pointsBonus,'If the celebrity is 100 years old when they die, you receive 10 points.\n\n'+AGE100_RETIREMENT_MATTER,'POINTS');
+    var blue=replaceOnce(p['BLUE DIAMOND'],blueBonus,'','BLUE DIAMOND');
+    var brown=replaceOnce(p['BROWN DIAMOND'],brownBonus,'','BROWN DIAMOND');
+    return [
+      {provision:'POINTS',before:p['POINTS'],after:points},
+      {provision:'BLUE DIAMOND',before:p['BLUE DIAMOND'],after:blue},
+      {provision:'BROWN DIAMOND',before:p['BROWN DIAMOND'],after:brown},
+      appendMatter(base,'PRIZE',RENEWAL_MATTER),
+      appendMatter(base,'BIRTHDAY BUFFET',BIRTHDAY_MATTER),
+      appendMatter(base,'DRAFTING',DRAFT_VACANCY_MATTER),
+      appendMatter(base,'DRAFT - ORDER OF BUSINESS',DRAFT_SEQUENCE_MATTERS)
+    ];
+  }
+  function age100Retirement(source,base,revisionId){
+    if(!source||source.senderAuthenticated!==true||source.freshOperativeWindow!==true||source.replayed===true||
+      source.truncated===true||MEMBERS.indexOf(source.member)<0||typeof source.text!=='string')
+      throw new Error('Complete authenticated age-100 replacement required');
+    var outline=fullRewriteOutline(source,base,revisionId);
+    var normalized=source.text.replace(/\r\n?/g,'\n');
+    var header=normalized.search(/^\s*CELEBRATION OF LIFE POOL\s*$/m),rulesText=normalized.slice(header),ruleLines=rulesText.split('\n');
+    function sectionText(name){
+      var section=outline.sections.find(function(item){return item.heading===name;});
+      if(!section)throw new Error('Complete replacement is missing the '+name+' provision');
+      var next=outline.sections.filter(function(item){return item.line>section.line;}).sort(function(a,b){return a.line-b.line;})[0];
+      return ruleLines.slice(section.line-1,next?next.line-1:ruleLines.length).join('\n');
+    }
+    var pointSection=sectionText('POINTS'),blueSection=sectionText('BLUE DIAMOND'),brownSection=sectionText('BROWN DIAMOND');
+    // The source must omit the extra entitlement in the actual complete rules,
+    // not merely in surrounding commentary or a quoted comparison.
+    if(/\b100\b/i.test(blueSection)||/\b100\b/i.test(brownSection)||
+      /\b100\b[^.\n]{0,140}\b(?:Steal|Protection|Blood Diamond)\b/i.test(pointSection)||
+      /\b(?:Steal|Protection|Blood Diamond)\b[^.\n]{0,140}\b100\b/i.test(pointSection))
+      throw new Error('The complete replacement retains or ambiguously restates an age-100 draft benefit');
+    function sourceMatch(text,pattern,label){var match=text.match(pattern);if(!match)throw new Error('Complete replacement does not support the bounded '+label+' interpretation');return match[0];}
+    var requestIntro=sourceMatch(normalized.slice(0,900),/\b(?:complete|full)\s+(?:updated|revised|replacement|new)\s+(?:col\s+|celebration of life(?: pool)?\s+)?rules\b/i,'complete-rules');
+    var pointSource=sourceMatch(pointSection,/\b(?:celebrity|celebrities)[^\n.]{0,120}\b100\b[^\n.]{0,120}\b10 points?\b/i,'ten-point');
+    var blueSource=sourceMatch(blueSection,/Blue Diamond[^\n.]{0,120}\bSteal\b/i,'ordinary Blue Diamond');
+    var brownSource=sourceMatch(brownSection,/Brown Diamond[^\n.]{0,120}\bProtection\b/i,'ordinary Brown Diamond');
+    var renewalSource=sourceMatch(rulesText,/Renewal Stammtisch/i,'Renewal');
+    var birthdaySource=sourceMatch(rulesText,/Birthday Buffet[^\n]{0,180}group chat/i,'Birthday Buffet');
+    var vacancySource=sourceMatch(rulesText,/draft[^\n.]{0,160}\bfive or more\b/i,'vacancy');
+    var protectionSource=sourceMatch(rulesText,/Protections?[^\n.]{0,120}\b(?:cannot|can't|may not)\b[^\n.]{0,80}\b(?:transferred|cancelled|canceled)\b/i,'Protection lifecycle');
+    if(normalized.indexOf('If your Blue Diamond dies at exactly 100')>=0||
+       normalized.indexOf('If your Brown Diamond dies at exactly 100')>=0||
+       normalized.indexOf('Brown Diamond at 100 earns two Blood Diamonds')>=0)
+      throw new Error('The replacement retains an age-100 Diamond bonus');
+    var changes=age100RetirementChanges(base);
+    changes[0].sourceExcerpt=pointSource;
+    changes[1].sourceExcerpt=blueSource;
+    changes[2].sourceExcerpt=brownSource;
+    changes[3].sourceExcerpt=renewalSource;
+    changes[4].sourceExcerpt=birthdaySource;
+    changes[5].sourceExcerpt=vacancySource;
+    changes[6].sourceExcerpt=protectionSource;
+    return intake(source,{intent:'operative',
+      requestExcerpt:requestIntro,
+      changes:changes,explanation:AGE100_RETIREMENT_EXPLANATION,clarification:'',effectiveAt:'',
+      retrospective:{requested:false,period:'',results:'',clubAgreementExcerpt:''},correctionOf:''},base,revisionId);
+  }
   // Public-safe capability for one supervised first production acceptance.
   // It is not a signing/remediation result and never enables general intake.
   function acceptanceDescriptor(value,now,phase){
@@ -195,6 +279,6 @@ var AnnalsRules = (function () {
       explanation:text(r.explanation,1000),changes:r.changes.map(function(c){return {provision:text(c.provision,100),before:text(c.before,6000),after:text(c.after,6000)};}),
       correctionOf:r.correctionOf===null?null:id(r.correctionOf)};
   }
-  return Object.freeze({provisions:provisions,intake:intake,fullRewriteOutline:fullRewriteOutline,qualify:qualify,publish:publish,select:select,publicRecord:publicRecord,stamp:stamp,typography:typography,literalWording:literalWording,editorialRewrite:editorialRewrite,oldestSteal:oldestSteal,acceptanceDescriptor:acceptanceDescriptor,OLDEST_DEATH_STEAL_CLAUSE:OLDEST_DEATH_STEAL_CLAUSE,OLDEST_DEATH_STEAL_EXPLANATION:OLDEST_DEATH_STEAL_EXPLANATION});
+  return Object.freeze({provisions:provisions,intake:intake,fullRewriteOutline:fullRewriteOutline,qualify:qualify,publish:publish,select:select,publicRecord:publicRecord,stamp:stamp,typography:typography,literalWording:literalWording,editorialRewrite:editorialRewrite,oldestSteal:oldestSteal,age100Retirement:age100Retirement,age100RetirementChanges:age100RetirementChanges,acceptanceDescriptor:acceptanceDescriptor,OLDEST_DEATH_STEAL_CLAUSE:OLDEST_DEATH_STEAL_CLAUSE,OLDEST_DEATH_STEAL_EXPLANATION:OLDEST_DEATH_STEAL_EXPLANATION,AGE100_RETIREMENT_QUALIFICATION:AGE100_RETIREMENT_QUALIFICATION,AGE100_RETIREMENT_EXPLANATION:AGE100_RETIREMENT_EXPLANATION,AGE100_RETIREMENT_MATTER:AGE100_RETIREMENT_MATTER,RENEWAL_MATTER:RENEWAL_MATTER,BIRTHDAY_MATTER:BIRTHDAY_MATTER,DRAFT_VACANCY_MATTER:DRAFT_VACANCY_MATTER,DRAFT_SEQUENCE_MATTERS:DRAFT_SEQUENCE_MATTERS});
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=AnnalsRules;

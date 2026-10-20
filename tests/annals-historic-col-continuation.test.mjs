@@ -93,6 +93,63 @@ test('private desk preserves v30 quarantine-safe signing verifier and offers the
   assert.match(ui,/annalsContinueHistoricOldestRule/);
   assert.match(ui,/el\('checkSigningRotation'\)\.disabled=!current\.signedRotationEvidenceAvailable/);
   assert.match(ui,/el\('continueHistoricOldestRule'\)\.disabled=!current\.historicOldestContinuationReady/);
+  assert.match(ui,/id="continueHeldCentenaryRule"/);
+  assert.match(ui,/annalsContinueHeldCentenaryRule/);
+  assert.match(prod,/heldCentenaryContinuationReady:/);
+});
+
+test('consumed invalid-response continuation uses the bounded source template once and never calls AI',()=>{
+  const f=setup(),{context,map}=f;
+  const complete=['Here are the complete updated rules for our Celebration of Life Pool.','CELEBRATION OF LIFE POOL',
+    'POINTS','If your celebrity dies at 100, you win 10 points.','BLUE DIAMOND','When your Blue Diamond dies, you win a Steal.',
+    'BROWN DIAMOND','When your Brown Diamond dies, you win a Protection.','PRIZE','Renewal Stammtisch',
+    'BIRTHDAY BUFFET','Birthday Buffet is based on when the death is reported in our group chat',
+    'DRAFTING','Every player can draft five or more celebrities each year.',
+    'DRAFT - ORDER OF BUSINESS','Protections cannot be transferred or cancelled.','Coronation of Diamonds is the final stage.'].join('\n');
+  const held=source();held.rulesActivationEligible=true;held.source.excerpt=complete;
+  map.set('source-private.json',held);
+  const attempt={state:'attempt_reserved',purpose:'col_rule_request_v2',reservedCents:10};
+  const outcome={state:'held',reason:'invalid_response',httpStatus:200};
+  map.set('ai-attempt-private.json',attempt);map.set('ai-outcome-private.json',outcome);
+  context.annalsRuleContext_=()=>({base:structuredClone(current),baseFiles:{},commit:'c'.repeat(40),behaviorDigest:'d'.repeat(64),state:{}});
+  let staged=null;
+  context.annalsRuleStagedDispatch_=(sourceId,phase,content,state,pending)=>{
+    staged={sourceId,phase,content,state,pending};return {dispatchAccepted:true};
+  };
+  const result=context.annalsContinueHeldCentenaryRule('owner-only-fictitious-nonce',id);
+  assert.deepEqual(JSON.parse(JSON.stringify(result)),{continuationRecorded:true,dispatchAccepted:true,published:false,retryAllowed:false});
+  assert.equal(staged.phase,'stage');
+  assert.equal(staged.content.qualification,'centenary-benefit-retirement-v1');
+  assert.equal(staged.content.revision.state,'awaiting_implementation');
+  assert.equal(map.get('col-rule-request-private.json').changes.length,7);
+  assert.deepEqual(map.get('ai-attempt-private.json'),attempt);
+  assert.deepEqual(map.get('ai-outcome-private.json'),outcome);
+  assert.equal(map.get('col-centenary-continuation-private.json').state,'reserved');
+  assert.throws(()=>context.annalsContinueHeldCentenaryRule('owner-only-fictitious-nonce',id),/may continue once/);
+});
+
+test('invalid-response continuation rejects changed journal, truncation, quarantine, and unresolved pending release',()=>{
+  for(const patch of [
+    (_map)=>_map.set('ai-outcome-private.json',{state:'held',reason:'provider_result_unknown',httpStatus:0}),
+    (_map)=>_map.get('source-private.json').source.excerptTruncated=true,
+    (_map)=>_map.set('quarantine-private.json',{state:'held'}),
+    (_map)=>_map.set('col-rule-request-private.json',{state:'awaiting_implementation'})
+  ]){
+    const {context,map}=setup();
+    map.set('source-private.json',{...source(),rulesActivationEligible:true});
+    map.set('ai-attempt-private.json',{state:'attempt_reserved',purpose:'col_rule_request_v2'});
+    map.set('ai-outcome-private.json',{state:'held',reason:'invalid_response',httpStatus:200});
+    const complete=['Here are the complete updated rules for our Celebration of Life Pool.','CELEBRATION OF LIFE POOL',
+      'POINTS','If your celebrity dies at 100, you win 10 points.','BLUE DIAMOND','When your Blue Diamond dies, you win a Steal.',
+      'BROWN DIAMOND','When your Brown Diamond dies, you win a Protection.','PRIZE','Renewal Stammtisch',
+      'BIRTHDAY BUFFET','Birthday Buffet is based on when the death is reported in our group chat',
+      'DRAFTING','Every player can draft five or more celebrities each year.',
+      'DRAFT - ORDER OF BUSINESS','Protections cannot be transferred or cancelled.','Coronation of Diamonds is the final stage.'].join('\n');
+    map.get('source-private.json').source.excerpt=complete;
+    patch(map);
+    assert.throws(()=>context.annalsContinueHeldCentenaryRule('owner-only-fictitious-nonce',id));
+    assert.equal(map.has('col-centenary-continuation-private.json'),false);
+  }
 });
 
 test('subject context cannot be discarded by deterministic oldest-death continuation',()=>{

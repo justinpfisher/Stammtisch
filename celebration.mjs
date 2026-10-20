@@ -2,7 +2,7 @@ import { ageAt, basePoints, distinctionReason } from './celebration-rules.mjs';
 export { ageAt, basePoints } from './celebration-rules.mjs';
 import { calculateAwards, awardsMarkup, draftMarkup } from './celebration-awards.mjs?v=col-release-20261017';
 import {loadOperativeSnapshot} from './col-rules-reader.mjs';
-import {verifiedAwardPolicy} from './col-award-policy.mjs?v=col-release-20261017';
+import {verifiedAwardPolicy} from './col-award-policy.mjs?v=col-release-20261020';
 
 export function multiplierFor(pick) {
   return pick.pick === 1 || pick.pick === 50 || ['diamond', 'orange'].includes(pick.marker) ? 2 : 1;
@@ -130,7 +130,7 @@ export async function mountCelebration() {
   // witnessed rule release. The initial standings never wait for this read.
   loadOperativeSnapshot().then(snapshot=>{
     const policy=verifiedAwardPolicy(snapshot);
-    if(policy.oldestDeathSteal)renderAwardViews(calculateAwards(data,data.awardSettings??{},policy));
+    if(policy.oldestDeathSteal||policy.age100PrivilegeEndsAt)renderAwardViews(calculateAwards(data,data.awardSettings??{},policy));
   }).catch(()=>{});
   document.querySelector('#awards-date').textContent = data.year + ' season · Register updated ' + dateLabel(data.asOf) + '.';
   let selectedMember = 'all';
