@@ -1,33 +1,49 @@
 .annal-gallery,.photos-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:18px;margin-block:22px}.annal-gallery figure,.photos-grid figure{margin:0}.annal-gallery img,.photos-grid img{display:block;width:100%;height:auto;max-height:380px;object-fit:contain;background:#eae5d8}.annal-gallery a,.photos-grid a{display:block;min-height:44px}.annal-gallery figcaption{font-size:13px;margin-top:8px}.photo-controls{display:flex;flex-wrap:wrap;gap:14px;margin-block:24px}.photo-controls label{display:grid;gap:6px}.photo-controls input,.photo-controls select,.photo-button{font:inherit;min-height:44px;padding:10px;border:1px solid #846329;background:#f6f2e9;color:#193d32}.photo-button{cursor:pointer}.photo-viewer{border:2px solid #846329;background:#f6f2e9;color:#193d32;width:min(96vw,1050px);max-height:96vh;padding:16px}.photo-viewer::backdrop{background:#10251fe8}.photo-viewer img{display:block;max-width:100%;max-height:70vh;margin:auto;object-fit:contain}.photo-viewer-controls{display:flex;justify-content:space-between;gap:10px;margin-bottom:14px}.photo-viewer p{margin-block:12px;overflow-wrap:anywhere}.photos-card{border-top:1px solid #d4d3c4;padding-block:16px}.photos-card h2{font-size:24px}.photos-card p{font-size:13px;margin-block:10px}.photo-page{padding-block:45px}.photo-page h1{font-size:clamp(38px,7vw,68px)}.photo-page>p{max-width:700px}.photo-viewer :focus-visible,.photo-page :focus-visible,.annal-gallery :focus-visible{outline:3px solid #846329;outline-offset:4px}
 
-/* Moody Cocktail Register photography: a non-destructive archival presentation.
-   Applies only to cocktail preview galleries, not the signed asset, full-size
-   photo viewer, member portraits, historical images or recipe text. */
+/* Cocktail images have an actual photographic derivative. Never simulate the
+   chosen mood by filling unused space with forest-green sidebars. The source
+   JPEG is still available in the unfiltered original viewer link. */
 .annal-entry[data-annals-category="cocktail"] .annal-gallery figure,
 .photos-card[data-photos-collection="cocktail"] .photos-grid figure {
-  padding:clamp(7px,1.3vw,12px);
-  background:#193d32;
-  border:1px solid #846329;
-  box-shadow:0 4px 15px rgb(18 34 25 / .13);
+  padding:0;
+  background:transparent;
+  border:0;
+  box-shadow:none;
 }
 .annal-entry[data-annals-category="cocktail"] .annal-gallery a,
 .photos-card[data-photos-collection="cocktail"] .photos-grid a {
-  background:#132b23;
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  background:transparent;
 }
 .annal-entry[data-annals-category="cocktail"] .annal-gallery img,
 .photos-card[data-photos-collection="cocktail"] .photos-grid img {
-  background:#132b23;
-  filter:contrast(1.04) brightness(.96) saturate(.96);
+  width:100%;
+  height:auto;
+  max-height:460px;
+  object-fit:contain;
+  background:transparent;
+  border:1px solid var(--brass);
+  filter:none;
 }
 .annal-entry[data-annals-category="cocktail"] .annal-gallery figcaption,
 .photos-card[data-photos-collection="cocktail"] .photos-grid figcaption {
-  color:#f6f2e9;
+  color:var(--muted);
+  background:transparent;
   font-size:12px;
   line-height:1.5;
-  margin:9px 1px 1px;
+  margin-top:8px;
 }
-/* Let assistive/high-contrast presentations show the photograph plainly. */
-@media(forced-colors:active), (prefers-contrast:more) {
+.photo-viewer-controls { flex-wrap:wrap; align-items:center; }
+.photo-viewer-controls a.photo-button {
+  display:inline-flex;
+  align-items:center;
+  text-decoration:none;
+}
+@media (max-width:560px) {
   .annal-entry[data-annals-category="cocktail"] .annal-gallery img,
-  .photos-card[data-photos-collection="cocktail"] .photos-grid img { filter:none; }
+  .photos-card[data-photos-collection="cocktail"] .photos-grid img {
+    max-height:none;
+  }
 }
