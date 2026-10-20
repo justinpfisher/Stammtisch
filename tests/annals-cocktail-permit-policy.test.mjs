@@ -32,6 +32,7 @@ function rights(){
   receivedAt:'2026-10-18T16:52:26Z',
   now:at,senderAuthenticated:true,imageConsentAtReceipt:true,
   currentOriginalImagePermission:true,sourceRecordComplete:true,
+  securityRecoveryVerified:true,
   signedPhotoVerified:true,originalRightsVerified:true,
   cocktailCategoryVerified:true,safePhotoScreeningVerified:true,
   noUnconsentedPeopleOrPrivateDetails:true
@@ -70,7 +71,8 @@ test('revocations always prevail across existing ordinary and editorial scopes',
 test('source and rights must be verified by private authority, not sender allowlist or public manifest',()=>{
  const critical=[
   'senderAuthenticated','imageConsentAtReceipt','currentOriginalImagePermission',
-  'sourceRecordComplete','signedPhotoVerified','originalRightsVerified',
+  'sourceRecordComplete','securityRecoveryVerified',
+  'signedPhotoVerified','originalRightsVerified',
   'cocktailCategoryVerified','safePhotoScreeningVerified',
   'noUnconsentedPeopleOrPrivateDetails'
  ];
