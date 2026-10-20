@@ -38,7 +38,7 @@ export function installViewer(root=document){
 }
 // Editorial photographs are opt-in by a qualified, source-matched manifest.
 // An asset's presence or successful encoding is never evidence of visual quality.
-const editorialSource=/^assets\\/annals\\/(?:annal-[a-f0-9]{24}|[a-f0-9]{64})\\.jpg$/;
+const editorialSource=/^assets\/annals\/(?:annal-[a-f0-9]{24}|[a-f0-9]{64})\.jpg$/;
 const sha256=/^[a-f0-9]{64}$/;
 let editorialManifestPromise;
 export function qualifiedEditorialPhoto(record,source,sourceSha){
