@@ -5,7 +5,7 @@ import {existsSync,readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {qualifiedEditorialPhoto} from '../annals-photos.mjs';
 import {photoSources,validateEditorialManifest,pruneEditorialManifest,
-  verifyEditorialAssets,EDITORIAL_MANIFEST_PATH} from '../scripts/annals/EditorialPhotoManifest.mjs';
+  verifyEditorialAssets,metadataFreeJpegDimensions,EDITORIAL_MANIFEST_PATH} from '../scripts/annals/EditorialPhotoManifest.mjs';
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const manifest=JSON.parse(read(EDITORIAL_MANIFEST_PATH));
@@ -42,7 +42,7 @@ test('actual public manifest admits zero unqualified Kingston derivatives',()=>{
 test('a source-bound reviewed editorial JPEG can be admitted, but not by file presence alone',()=>{
   const rec=fixture();
   assert.equal(qualifiedEditorialPhoto(rec,source,sourceSha),rec);
-  for(const change of [{sourceSha256:'0'.repeat(64)},{visualQualified:false},
+  for(const change of [{sourceSha256:'0'.repeat(64)},{editorialSha256:sourceSha},{visualQualified:false},
     {rightsQualified:false},{safetyQualified:false},{status:'generated'},
     {asset:source.slice(0,-4)+'-styled-v1.jpg'},
     {alt:'A beautiful cocktail.'},{width:1}]){
@@ -55,6 +55,7 @@ test('manifest validation and withdrawal fail closed without changing original',
   const rec=fixture(),good={...manifest,images:[rec]};
   assert.equal(validateEditorialManifest(good,archive.entries),good);
   assert.throws(()=>validateEditorialManifest({...manifest,images:[fixture({visualQualified:false})]},archive.entries));
+  assert.throws(()=>validateEditorialManifest({...manifest,images:[fixture({editorialSha256:sourceSha})]},archive.entries));
   assert.throws(()=>validateEditorialManifest({...manifest,images:[rec,rec]},archive.entries));
   const pruned=pruneEditorialManifest(good,[]);
   assert.deepEqual(pruned.manifest.images,[]);
@@ -66,4 +67,21 @@ test('public viewer offers original access only for an actual reviewed editorial
   assert.match(ui,/data-original/);assert.match(ui,/AI-stylized editorial photograph/);
   assert.match(ui,/editorialManifestPromise/);assert.match(ui,/probe.onerror/);
   assert.match(css,/\.photo-viewer \[hidden\] \{display:none!important;\}/);
+});
+
+test('signed publication commits derivative manifest changes with their retired assets',()=>{
+  const workflow=read('.github/workflows/annals-publish.yml');
+  assert.match(workflow,/git add -A -- annals\.html data\/annals-approved\.json data\/annals-editorial-photos\.json data\/photos assets/);
+  assert.match(read('scripts/annals/apply-approved-entry.mjs'),/writeFile\(EDITORIAL_MANIFEST_PATH/);
+});
+test('strict JPEG screening rejects hidden data and metadata',()=>{
+  const original=readFileSync(new URL('../'+source,import.meta.url));
+  const dimensions=metadataFreeJpegDimensions(original);
+  assert.equal(dimensions.width,720);assert.equal(dimensions.height,960);
+  const app1=Buffer.from([255,225,0,4,0x41,0x42]);
+  assert.throws(()=>metadataFreeJpegDimensions(Buffer.concat([
+    original.subarray(0,2),app1,original.subarray(2)])),/metadata/i);
+  assert.throws(()=>metadataFreeJpegDimensions(Buffer.concat([
+    original.subarray(0,-2),app1,original.subarray(-2)])),/scan|hidden|metadata/i);
+  assert.throws(()=>metadataFreeJpegDimensions(Buffer.concat([original,original])),/scan|hidden|marker|JPEG/i);
 });
