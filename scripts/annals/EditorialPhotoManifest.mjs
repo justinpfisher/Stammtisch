@@ -38,6 +38,7 @@ export function validateEditorialManifest(manifest,entries){
        throw Error('Unqualified editorial manifest fields');
     if(!sourcePattern.test(row.source||'')||source.get(row.source)!==row.sourceSha256||
        !sha.test(row.sourceSha256)||!sha.test(row.editorialSha256)||
+       row.editorialSha256===row.sourceSha256||
        row.asset!==row.source.slice(0,-4)+'-editorial-v2.jpg'||
        row.status!=='qualified'||row.artDirection!=='moody-atmospheric-v2'||
        row.rightsQualified!==true||row.safetyQualified!==true||row.visualQualified!==true||
@@ -67,27 +68,50 @@ export function pruneEditorialManifest(manifest,publishedEntries){
 }
 
 export function metadataFreeJpegDimensions(bytes){
+  // Verify the *whole* output, not just its SOF header. App metadata, comments,
+  // additional scans and hidden data after SOS fail closed. The approved
+  // publisher may encode a full-resolution clean baseline JPEG.
   if(bytes.length<4000||bytes.length>5*1024*1024||bytes[0]!==0xff||
      bytes[1]!==0xd8||bytes.at(-2)!==0xff||bytes.at(-1)!==0xd9)
      throw Error('Editorial output is not bounded JPEG');
+  const end=bytes.length-2;
   let offset=2,width=0,height=0;
-  while(offset<bytes.length-2){
-    if(bytes[offset++]!==0xff)throw Error('Invalid JPEG marker');
-    while(bytes[offset]===0xff)offset++;
+  while(offset<end){
+    if(bytes[offset++]!==0xff)throw Error('Malformed JPEG marker');
+    while(offset<end&&bytes[offset]===0xff)offset++;
     const marker=bytes[offset++];
-    if(marker===0xda)break;
-    if(marker===0xd8||marker===0xd9||marker===0x01||marker>=0xd0&&marker<=0xd7)continue;
-    if(offset+1>=bytes.length)throw Error('Truncated JPEG');
+    if(marker>=0xe0&&marker<=0xef||marker===0xfe)
+      throw Error('Editorial JPEG metadata is not allowed');
+    if(marker===0x00||marker===0x01||marker===0xd8||marker===0xd9||
+       marker>=0xd0&&marker<=0xd7||offset+1>=end)
+      throw Error('Unsupported JPEG marker');
     const length=bytes.readUInt16BE(offset);
-    if(length<2||offset+length>bytes.length||marker>=0xe1&&marker<=0xef||marker===0xfe)
-      throw Error('JPEG metadata or malformed segment');
-    if([0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf].includes(marker)){
-      height=bytes.readUInt16BE(offset+3);width=bytes.readUInt16BE(offset+5);
+    if(length<2||offset+length>end)throw Error('Malformed JPEG segment');
+    if(marker===0xc0){
+      if(width||height||length<11||bytes[offset+2]!==8)
+        throw Error('Unsupported JPEG frame');
+      height=bytes.readUInt16BE(offset+3);
+      width=bytes.readUInt16BE(offset+5);
+      if(!width||!height||width>2560||height>2560)
+        throw Error('Editorial JPEG dimensions are invalid');
+    } else if(![0xc4,0xdb,0xdd,0xda].includes(marker)){
+      // Only baseline 8-bit colour images; no progressive or multi-frame
+      // surprise. A generator can first encode this safe publication format.
+      throw Error('Unsupported JPEG coding segment');
     }
     offset+=length;
+    if(marker===0xda){
+      if(!width||!height)throw Error('Incomplete JPEG before scan');
+      while(offset<end){
+        if(bytes[offset++]!==0xff)continue;
+        const next=bytes[offset++];
+        if(next!==0&&(next<0xd0||next>0xd7))
+          throw Error('Unexpected JPEG scan continuation or hidden payload');
+      }
+      return {width,height};
+    }
   }
-  if(!width||!height)throw Error('JPEG dimensions missing');
-  return {width,height};
+  throw Error('Incomplete JPEG scan');
 }
 
 export function verifyEditorialAssets(manifest,entries,root='.'){

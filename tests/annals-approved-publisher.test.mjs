@@ -62,7 +62,7 @@ test('publisher workflow is reachable only through the dedicated repository disp
   assert.match(workflow, /repository_dispatch:\s*\n\s*types:\s*\[annals-approved-entry, annals-auto-entry, annals-correct-entry, annals-remove-entry\]/);
   assert.match(workflow, /permissions:\s*\n\s*contents:\s*write/);
   assert.doesNotMatch(workflow, /actions:\s*write|workflow_dispatch|pull_request|schedule:/);
-  assert.match(workflow, /git add -A -- annals\.html data\/annals-approved\.json data\/photos assets/);
+  assert.match(workflow, /git add -A -- annals\.html data\/annals-approved\.json data\/annals-editorial-photos\.json data\/photos assets/);
   assert.match(workflow, /ANNALS_PUBLISH_SIGNING_KEY/);
 });
 

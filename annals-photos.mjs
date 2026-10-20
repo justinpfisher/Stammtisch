@@ -52,6 +52,7 @@ export function qualifiedEditorialPhoto(record,source,sourceSha){
      record.artDirection!=='moody-atmospheric-v2'||
      record.rightsQualified!==true||record.safetyQualified!==true||
      record.visualQualified!==true||!sha256.test(record.editorialSha256||'')||
+     record.editorialSha256===sourceSha||
      !Number.isInteger(record.width)||!Number.isInteger(record.height)||
      record.width<480||record.height<480||record.width>2560||record.height>2560||
      typeof record.alt!=='string'||record.alt.length<12||record.alt.length>240||

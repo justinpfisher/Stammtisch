@@ -65,7 +65,7 @@ approvals.push({...cocktailApproval,signature:createHmac('sha256',fixtureKey).up
 const fictionalEditorialAsset=largeAsset.path.replace(/\.jpg$/,'-editorial-v2.jpg');
 const fictionalEditorialManifest={schemaVersion:1,artDirection:'moody-atmospheric-v2',images:[{
   source:largeAsset.path,sourceSha256:largeHash,asset:fictionalEditorialAsset,
-  editorialSha256:largeHash,status:'qualified',artDirection:'moody-atmospheric-v2',
+  editorialSha256:'e'.repeat(64),status:'qualified',artDirection:'moody-atmospheric-v2',
   rightsQualified:true,safetyQualified:true,visualQualified:true,
   width:1600,height:900,
   alt:'AI-stylized fictional cocktail image for offline viewer tests.',
