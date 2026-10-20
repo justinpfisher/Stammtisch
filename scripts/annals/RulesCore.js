@@ -227,8 +227,7 @@ var AnnalsRules = (function () {
     // The source must omit the extra entitlement in the actual complete rules,
     // not merely in surrounding commentary or a quoted comparison.
     if(/\b100\b/i.test(blueSection)||/\b100\b/i.test(brownSection)||
-      /\b100\b[^.\n]{0,140}\b(?:Steal|Protection|Blood Diamond)\b/i.test(pointSection)||
-      /\b(?:Steal|Protection|Blood Diamond)\b[^.\n]{0,140}\b100\b/i.test(pointSection))
+      (/\b100\b/i.test(pointSection)&&/\b(?:Steal|Protection|Blood Diamond)s?\b/i.test(pointSection)))
       throw new Error('The complete replacement retains or ambiguously restates an age-100 draft benefit');
     function sourceMatch(text,pattern,label){var match=text.match(pattern);if(!match)throw new Error('Complete replacement does not support the bounded '+label+' interpretation');return match[0];}
     var requestIntro=sourceMatch(normalized.slice(0,900),/\b(?:complete|full)\s+(?:updated|revised|replacement|new)\s+(?:col\s+|celebration of life(?: pool)?\s+)?rules\b/i,'complete-rules');
