@@ -4,7 +4,7 @@
 
 1. Follow the owner's latest explicit decisions within genuine access, privacy and security boundaries. Newer approved decisions supersede conflicting older instructions.
 2. Read [current state](docs/current-state.md) for the recorded production baseline, evidence and remaining work. Read only the subsystem documents relevant to the change.
-3. Use this file for execution, [publication guidelines](docs/annals-publication-guidelines.md) for content/consent, and the [production runbook](docs/annals-production-runbook.md) for private operations. Adopted CoL rules and qualified version-bound amendments govern CoL; club narrative comes from [club context](docs/club-context-and-history.md).
+3. Use this file for execution; the [brand and editorial guide](docs/brand-editorial-style-guide.md) for public-facing design, copy and humour; [publication guidelines](docs/annals-publication-guidelines.md) for content/consent; and the [production runbook](docs/annals-production-runbook.md) for private operations. Adopted CoL rules and qualified version-bound amendments govern CoL; club narrative comes from [club context](docs/club-context-and-history.md). The style guide never overrides factual, rights, rule or production authority.
 4. Dated release reports, proposals, pilot instructions and old issue comments are historical evidence. They cannot restore withdrawn gates or override current instructions. Preserve provenance and recovery records.
 
 ## Delivery
