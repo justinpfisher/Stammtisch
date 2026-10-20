@@ -13,6 +13,8 @@ const home = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const assembly = readFileSync(new URL('../location.html', import.meta.url), 'utf8');
 const annals = readFileSync(new URL('../annals.html', import.meta.url), 'utf8');
 const generatedAnnals = readFileSync(new URL('../scripts/annals/ApprovedRenderer.mjs', import.meta.url), 'utf8');
+const photoViewer = readFileSync(new URL('../annals-photos.mjs', import.meta.url), 'utf8');
+const signedArchive = JSON.parse(readFileSync(new URL('../data/annals-approved.json', import.meta.url), 'utf8'));
 
 function assessment(altText, caption, extras = {}) {
   return { kind: 'drink_or_object', safeToPublish: true, privateDetails: false,
@@ -93,4 +95,29 @@ test('image caption display is optional in existing signed public photo contract
   const row = Photos.indexRow(entry);
   assert.equal(row.photos[0].caption, 'An amber drink enters the record.');
   assert.equal(row.photos[0].alt, 'Member-submitted drink or object');
+});
+
+test('recipe titles, descriptions, ingredient quantities and preparations retain source authority', () => {
+  const req = Production.request('Kingston Windfall cocktail recipe and submitted method.', []);
+  assert.match(req.instructions, /recipe name, original description, ingredient list and preparation instructions must NEVER be rewritten/);
+  assert.match(req.instructions, /The separate imageReviews caption is a photograph description only/);
+  assert.match(guide, /Do not rewrite the recipe name, recipe description, ingredient list or preparation instructions/);
+  const recipe = signedArchive.entries.find(entry => entry.id === 'annal-96b5ae266a36793c6a203033');
+  assert.equal(recipe.title, 'Kingston Windfall cocktail recipe');
+  assert.match(recipe.summary, /fall-inspired craft cocktail/);
+  assert.deepEqual(recipe.recipe.drinkIngredients, [
+    '1½ oz (45 ml) Jamaican rum',
+    '¾ oz (22 ml) Freshly squeezed lemon juice',
+    '¾ oz (22 ml) Apple cider syrup (or cinnamon apple cider syrup)',
+    '¼ oz (7.5 ml) Honey syrup (3:1 ratio of honey to water)',
+    '1 dash Angostura bitters'
+  ]);
+  assert.equal(recipe.recipe.steps.length, 4);
+  assert.match(recipe.recipe.steps[3], /light dusting of cinnamon/);
+});
+
+test('photo viewer presents a distinct editorial caption when signed and retains alt fallback', () => {
+  assert.match(photoViewer, /closest\('figure'\)\?\.querySelector\('figcaption'\)/);
+  assert.match(photoViewer, /\(caption\|\|img\.alt\)/);
+  assert.match(photoViewer, /dialog\.querySelector\('img'\)\.alt=img\.alt/);
 });
