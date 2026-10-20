@@ -43,5 +43,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Compare 15 deployed pages, assets and indexes to checked-out public bytes
+      - name: Verify 15 core files and each qualified signed/editorial photo live
         run: node scripts/annals/observe-hosted-site.mjs
