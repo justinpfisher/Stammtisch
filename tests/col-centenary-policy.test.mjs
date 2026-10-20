@@ -109,6 +109,7 @@ test('grouped Diamond headings from a fictional complete replacement are source-
     'The #1 position is the Blue Diamond.',
     'The #50 position is the Brown Diamond.',
     'Both Diamond selections earn double points at death.',
+    'For a Diamond over 100, negative points are doubled too.',
     'STEALS & PROTECTIONS',
     'STEAL',
     'A Steal can be used to take an eligible selection.',
@@ -139,6 +140,10 @@ test('grouped Diamond headings from a fictional complete replacement are source-
   const bonus=document.replace('When your Blue Diamond dies, you win a Steal.',
     'When your Blue Diamond dies, you win a Steal. At 100, another Steal applies.');
   assert.throws(()=>Rules.age100Retirement(makeSource(bonus),base,'col-fictional-grouped'),
+    /retains or ambiguously restates/);
+  const extraCentenaryBonus=document.replace('For a Diamond over 100, negative points are doubled too.',
+    'When a Diamond dies at 100, another two Steals are granted.');
+  assert.throws(()=>Rules.age100Retirement(makeSource(extraCentenaryBonus),base,'col-fictional-grouped'),
     /retains or ambiguously restates/);
   const missingMultiplier=document.replace('Both Diamond selections earn double points at death.',
     'Both Diamond selections are assigned at the draft.');
