@@ -4,6 +4,7 @@
 import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
+import {photoSources,validateEditorialManifest} from './EditorialPhotoManifest.mjs';
 
 export const SITE_ORIGIN='https://stammtischbrewery.com/';
 export const SITE_FILES=Object.freeze([
@@ -24,10 +25,11 @@ export const SITE_FILES=Object.freeze([
   'data/col-rules-release-state.json'
 ]);
 const MAX_BYTES=1024*1024;
+const MAX_EDITORIAL_BYTES=5*1024*1024;
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 
 /** Consume a Fetch stream incrementally and cancel before retaining oversized bodies. */
-async function readBoundedBody(response,name){
+async function readBoundedBody(response,name,limit=MAX_BYTES){
   const reader=response.body?.getReader?.();
   if(!reader)throw Error('Live public file unreadable: '+name);
   const chunks=[];
@@ -38,7 +40,7 @@ async function readBoundedBody(response,name){
       if(done)break;
       const chunk=Buffer.from(value);
       total+=chunk.length;
-      if(total>MAX_BYTES){
+      if(total>limit){
         try{await reader.cancel();}catch{}
         throw Error('Live public file exceeds bound: '+name);
       }
@@ -58,14 +60,37 @@ export async function observeHostedSite({fetchImpl=fetch,readFileImpl=readFile,c
   const started=clock();
   if(!(started instanceof Date)||!Number.isFinite(started.valueOf()))
     throw Error('Observation clock unavailable');
+  // Read exact public ledgers from this checkout: only their bounded photo
+  // paths may extend the otherwise fixed public-origin witness. A public
+  // filename supplied by an unscreened email is never a fetch target.
+  let archive,editorial;
+  try{
+    const archiveBytes=Buffer.from(await readFileImpl('data/annals-approved.json'));
+    const manifestBytes=Buffer.from(await readFileImpl('data/annals-editorial-photos.json'));
+    if(!archiveBytes.length||archiveBytes.length>MAX_BYTES||
+       !manifestBytes.length||manifestBytes.length>MAX_BYTES)
+       throw Error('Public photo indexes exceed bound');
+    archive=JSON.parse(archiveBytes.toString('utf8'));
+    editorial=JSON.parse(manifestBytes.toString('utf8'));
+    if(archive.schemaVersion!==1||!Array.isArray(archive.entries)||!Array.isArray(archive.approvals))
+      throw Error('Public signed archive shape invalid');
+    validateEditorialManifest(editorial,archive.entries);
+  }catch{throw Error('Public photo evidence unavailable or invalid');}
+  const originals=photoSources(archive.entries);
+  const photoDigests=new Map(originals);
+  for(const row of editorial.images)photoDigests.set(row.asset,row.editorialSha256);
+  const paths=[...new Set([...SITE_FILES,...photoDigests.keys()])];
   const observed=[];
-  for(const name of SITE_FILES){
+  for(const name of paths){
+    const limit=name.endsWith('-editorial-v2.jpg')?MAX_EDITORIAL_BYTES:MAX_BYTES;
     let source;
     try{source=Buffer.from(await readFileImpl(name));}
     catch{throw Error('Public source unavailable: '+name);}
-    if(source.length===0||source.length>MAX_BYTES)
+    if(source.length===0||source.length>limit)
       throw Error('Public source exceeds bound: '+name);
     const expected=digest(source);
+    if(photoDigests.has(name)&&photoDigests.get(name)!==expected)
+      throw Error('Public image differs from signed photo source or qualified editorial digest: '+name);
     let response;
     try{
       response=await fetchImpl(SITE_ORIGIN+name+'?source-check='+expected.slice(0,16),{
@@ -78,9 +103,9 @@ export async function observeHostedSite({fetchImpl=fetch,readFileImpl=readFile,c
       throw Error('Live public file unavailable: '+name);
     const reported=response.headers?.get?.('content-length');
     if(reported!==null&&reported!==undefined&&
-       (!/^\d+$/.test(String(reported))||Number(reported)>MAX_BYTES))
+       (!/^\d+$/.test(String(reported))||Number(reported)>limit))
       throw Error('Live public file exceeds bound: '+name);
-    const bytes=await readBoundedBody(response,name);
+    const bytes=await readBoundedBody(response,name,limit);
     if(bytes.length===0||digest(bytes)!==expected)
       throw Error('Live public file differs from source: '+name);
     observed.push(Object.freeze({path:name,sha256:expected,bytes:bytes.length}));
@@ -95,6 +120,8 @@ export async function observeHostedSite({fetchImpl=fetch,readFileImpl=readFile,c
     completedAt:finished.toISOString(),
     sourceCommit:process.env.GITHUB_SHA||null,
     files:Object.freeze(observed),
+    signedCocktailSources:originals.size,
+    qualifiedEditorialAssets:editorial.images.length,
     privateReleaseQualified:false,
     publishingActivated:false
   });
