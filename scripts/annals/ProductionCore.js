@@ -79,7 +79,12 @@ var AnnalsProduction = (function () {
         if (['drink_or_object','scenery','member_group','document_or_text','unknown'].indexOf(p.kind)<0 || ['safeToPublish','privateDetails','thirdPartyMaterial','childrenOrGuests'].some(function(k){return typeof p[k]!=='boolean';})) throw new Error('Invalid image assessment');
         // Caption is a proposed piece of visible editorial copy, not image-safety evidence.
         // Accept historical stored drafts without captions; new strict responses supply one.
-        text(p.altText,180);if(p.caption!==undefined)text(p.caption,200);return p;
+        text(p.altText,180);
+        // Optional editorial copy must never hold a source-grounded, eligible
+        // contribution when the model returns an unusable caption.
+        if(p.caption!==undefined && (typeof p.caption!=='string' || p.caption.length>200))
+          return Object.assign({},p,{caption:''});
+        return p;
       });
     }
     if (result.category === 'quotation' && !result.quoteVerbatim.trim()) throw new Error('Missing exact quotation');
