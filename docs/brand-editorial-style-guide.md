@@ -1,6 +1,6 @@
 # Stammtisch Social Club — Brand and Editorial Style Guide
 
-**Version 1.2 · 19 October 2026 · Owner-selected editorial, history, visual-description and cocktail-photography direction**
+**Version 1.3 · 19 October 2026 · Owner-selected editorial, history, visual-description and actual cocktail-photography direction**
 
 **Purpose:** The practical reference for AI and human contributors updating the public Stammtisch website, Annals, Club History and Celebration of Life presentation. This establishes a consistent visual identity and editorial voice; it is not a new publication-approval step or a source of club rules.
 
@@ -95,7 +95,11 @@ The owner selected **Moody & Atmospheric (option 2)** over the lighter, editoria
 - **Accessibility:** The full-size photo remains legible and unfiltered; alt text describes what is actually depicted, and a separate editorial caption may carry dry Stammtisch humour.
 - **Authenticity and release:** Keep the source original privately and all approved signed public image bytes unchanged. Any genuinely altered derivative must go through the existing scoped image rights, screening, metadata removal and new exact signed publication/correction route. This preference does **not** authorize silent retroactive replacement or a new automatic generative-image service.
 
-**Practical initial website treatment:** Give eligible Cocktail Register photographs a consistent dark-forest/brass gallery frame and restrained thumbnail-only colour tuning using the existing static CSS. This changes presentation only and leaves the signed underlying JPEG, screen-reader description, recipe and original full-size lightbox unchanged. Never apply the cocktail treatment indiscriminately to members' portraits, historical documents or other photographic collections.
+**Practical implementation:** A *photographic* style cannot be delivered by making the margins green. Once the existing private screening and signed source publication are verified, create a distinct, bounded **editorial display derivative** from those exact approved pixels: actual background separation, dark forest-and-walnut studio treatment and warm drink highlights. Retain the original photograph unchanged, with an explicit **Original photograph** link in the viewer. The editorial variant is marked as a treatment; it is not evidence of a different venue or the unedited scene. The image is never substituted into the signed source record.
+
+The existing GitHub-hosted publication workflow can make the deterministic treatment for eligible future cocktail photos without an additional external AI subscription, new credentials, new app or member step. If the image cannot be isolated confidently, do not fabricate glass, garnish or people: show the approved original and hold only the optional visual derivative. A generated reference image is not proof of a genuinely photographed setting. Avoid a false green surround or CSS-only colour effects. Other photographs, including member portraits and Club History artefacts, remain documentary.
+
+Changing the algorithm or style version requires tested visible results, but **not** reconsent or re-signing of an unchanged original photograph. Publish editorial image assets only after verification of the signed source record and keep their different status plainly available. On withdrawal, remove the current display derivative alongside its original public file, subject to public Git history persistence.
 
 The intended result resembles a well-kept private club's drinks ledger: the lighting shows more ambition than the proceedings require.
 

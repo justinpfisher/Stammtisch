@@ -1,0 +1,81 @@
+name: Verify and backfill approved cocktail editorial photographs
+
+on:
+  pull_request:
+    paths:
+      - scripts/annals/cocktail-image-style.py
+      - .github/workflows/annals-photo-style.yml
+  push:
+    branches: [main]
+    paths:
+      - scripts/annals/cocktail-image-style.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: annals-approved-publication
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned local image tools
+        run: python -m pip install --disable-pip-version-check --quiet numpy==1.26.4 opencv-python-headless==4.11.0.86
+      - name: Validate public photo source and offline matte
+        run: python scripts/annals/cocktail-image-style.py --index data/annals-approved.json --verify-only --strict
+
+  backfill:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify original signed public records before processing pixels
+        env:
+          ANNALS_PUBLISH_SIGNING_KEY: ${{ secrets.ANNALS_PUBLISH_SIGNING_KEY }}
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import {buildPublishedAnnals} from './scripts/annals/ApprovedRenderer.mjs';
+          const secret=process.env.ANNALS_PUBLISH_SIGNING_KEY;
+          if(!secret || secret.length<32)throw Error('Signed publication authority unavailable');
+          const data=JSON.parse(readFileSync('data/annals-approved.json','utf8'));
+          const history=JSON.parse(readFileSync('data/club-history.json','utf8'));
+          buildPublishedAnnals(data.entries,data.approvals,secret,history);
+          console.log('Original signed Annals entries verified.');
+          NODE
+      - name: Install pinned local image tools
+        run: python -m pip install --disable-pip-version-check --quiet numpy==1.26.4 opencv-python-headless==4.11.0.86
+      - name: Create separate editorial image derivatives
+        run: python scripts/annals/cocktail-image-style.py --index data/annals-approved.json
+      - name: Commit derivatives and request established Pages build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add -A -- assets/annals
+          if git diff --cached --quiet; then
+            echo 'No new qualified images; original photos unchanged.'
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Publish separate cocktail editorial image derivatives"
+          git push origin HEAD:main
+          # Token pushes do not trigger branch-based Pages automatically.
+          gh api --method POST repos/justinpfisher/Stammtisch/pages/builds

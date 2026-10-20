@@ -78,7 +78,7 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
     retiredIds.push(event.client_payload.entryId);
     const result = buildPublishedAnnals(entries, approvals, secret, history);
     return { data: { schemaVersion: 1, entries, approvals, retiredIds }, html: result.html,
-      assetsToDelete: [{ path: `assets/annals/${event.client_payload.entryId}.jpg` }, ...Photos.photos(removed).filter(p=>!entries.some(e=>Photos.photos(e).some(x=>x.sha256===p.sha256))).flatMap(p=>[{path:`assets/annals/${p.sha256}.jpg`},{path:`assets/annals/${p.sha256}-thumb.jpg`}])], assetsToWrite: [] };
+      assetsToDelete: [{ path: `assets/annals/${event.client_payload.entryId}.jpg` }, {path:`assets/annals/${event.client_payload.entryId}-styled-v1.jpg`}, ...Photos.photos(removed).filter(p=>!entries.some(e=>Photos.photos(e).some(x=>x.sha256===p.sha256))).flatMap(p=>[{path:`assets/annals/${p.sha256}.jpg`},{path:`assets/annals/${p.sha256}-thumb.jpg`},{path:`assets/annals/${p.sha256}-styled-v1.jpg`}])], assetsToWrite: [] };
   } else {
     const keys = Object.keys(event.client_payload).sort().join(',');
     if (keys !== 'approval,entry' && keys !== 'approval,entry,imageBase64' && keys !== 'approval,entry,images' && keys !== 'approval,entry,imageBlobs') throw new Error('Invalid entry payload');
@@ -137,10 +137,10 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
       if (index < 0 || approvalIndex < 0 || Date.parse(approval.approvedAt) <= Date.parse(approvals[approvalIndex].approvedAt) || contentDigest(entries[index]) === contentDigest(entry)) {
         throw new Error('Correction must replace an existing entry with changed exact text');
       }
-      if (entries[index].photo && !entry.photo) assetsToDelete.push({ path: `assets/annals/${entry.id}.jpg` });
+      if (entries[index].photo && !entry.photo) assetsToDelete.push({ path: `assets/annals/${entry.id}.jpg` }, { path: `assets/annals/${entry.id}-styled-v1.jpg` });
       const priorPhotos=entries[index].photos || [];
       entries[index] = entry; approvals[approvalIndex] = approval;
-      for(const p of priorPhotos)if(!entries.some(e=>Photos.photos(e).some(x=>x.sha256===p.sha256)))assetsToDelete.push({path:`assets/annals/${p.sha256}.jpg`},{path:`assets/annals/${p.sha256}-thumb.jpg`});
+      for(const p of priorPhotos)if(!entries.some(e=>Photos.photos(e).some(x=>x.sha256===p.sha256)))assetsToDelete.push({path:`assets/annals/${p.sha256}.jpg`},{path:`assets/annals/${p.sha256}-thumb.jpg`},{path:`assets/annals/${p.sha256}-styled-v1.jpg`});
     }
     if (imageBytes) assetsToWrite.push({ path: `assets/annals/${entry.id}.jpg`, bytes: imageBytes });
   }
