@@ -4,6 +4,7 @@
  * Private rights and one-shot budget authority are independently required.
  */
 import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
+import {readFileSync} from 'node:fs';
 import {verifyPublicApproval} from './ApprovedRenderer.mjs';
 import {metadataFreeJpegDimensions,photoSources} from './EditorialPhotoManifest.mjs';
 
@@ -14,6 +15,17 @@ export const REVIEW_ENDPOINT='https://api.openai.com/v1/chat/completions';
 export const ART_DIRECTION='moody-atmospheric-v2';
 const SHA=/^[0-9a-f]{64}$/;
 const MAX_SOURCE=524288, MAX_EDIT=5*1024*1024, MAX_REFERENCE=300000;
+function canonicalPhotoDirection(){
+  // The brand guide is the ONE art-direction authority. Changes to its
+  // adopted photographic language affect all later provider requests.
+  const guide=readFileSync(new URL('../../docs/brand-editorial-style-guide.md',import.meta.url),'utf8');
+  const title=guide.indexOf('### Cocktail Register Photography Art-Direction Specification');
+  const start=guide.indexOf('**The collection\'s common photographic language**',title);
+  const end=guide.indexOf('**Publication and image-generation sequence**',start);
+  if(title<0||start<0||end<=start||end-start>12000)
+    throw Error('Canonical photographic art direction missing');
+  return guide.slice(start,end);
+}
 const CHECKS=[
   'recognisableOriginalDrink','sameGlassBowlAndFacets','intactRim',
   'sameGarnishCountAndPlacement','faithfulColourAndLiquid',
@@ -128,6 +140,8 @@ export function cocktailArtPrompt({entryId,sourceAlt='',withReference=false}){
     'Show a complete, physically resting glass where the composition permits. Keep the drink and garnish the unmistakable hero. Portrait or landscape framing should accommodate the actual glass.',
     'No fake green colour fields, cutout edges, halos, disappearing glass, added fruit, substituted garnish, alternate drinks, new people, logos, fake smoke, exaggerated glow or plastic liquid.',
     'Imagined bar surroundings are editorial staging, not the original venue. No text or watermark.',
+    'CANONICAL CLUB ART DIRECTION (style only, never an authority to change the original drink):',
+    canonicalPhotoDirection(),
     entryId==='annal-96b5ae266a36793c6a203033'
       ?'KINGSTON WINDFALL SOURCE DETAILS: amber-orange liquid; the original tapered, textured stemmed goblet (NOT a wide coupe); THREE slender apple slices arranged on the RIGHT rim. A complete matching slender stem and foot are required.'
       :'Keep this specific contributed cocktail distinct from all others.',
