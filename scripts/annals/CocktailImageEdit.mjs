@@ -274,13 +274,17 @@ export async function assessSunburstEdit({request,apiKey,fetchImpl=fetch}){
   return {assessment:qualifyVisualReview(assessment),usage:result.usage||null};
 }
 
-export function proposedEditorialRecord({subject,edited,review,generatedAt,reviewedAt}){
+export function proposedEditorialRecord({subject,edited,review,permitVerification,generatedAt,reviewedAt}){
   if(!subject||!edited||edited.operation!=='image-edit'||
      edited.model!==EDIT_MODEL||edited.provider!=='openai'||
      !Buffer.isBuffer(edited.bytes)||hash(edited.bytes)!==edited.editedSha256||
      edited.editedSha256===subject.sourceSha256||
+     permitVerification?.entryId!==subject.entryId||
+     permitVerification?.sourceSha256!==subject.sourceSha256||
+     !SHA.test(permitVerification?.attemptDigest||'')||
      !review?.qualified)throw Error('Unqualified editorial photograph');
   const dims=metadataFreeJpegDimensions(edited.bytes);
+  if(Math.min(dims.width,dims.height)<480)throw Error('Editorial dimensions too small');
   return {
     source:subject.sourcePath,sourceSha256:subject.sourceSha256,
     asset:subject.sourcePath.slice(0,-4)+'-editorial-v2.jpg',
