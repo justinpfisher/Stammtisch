@@ -96,3 +96,52 @@ test('age-100 point entitlements split across sentences remain fail-closed',()=>
     text,receivedAt:'2026-10-20T12:00:00.000Z'};
   assert.throws(()=>Rules.age100Retirement(source,base,'col-test-centenary'),/retains or ambiguously restates/);
 });
+
+test('grouped Diamond headings from a fictional complete replacement are source-bound',()=>{
+  // These fictional passages exercise the authoring structure without using the
+  // original private submission or publishing any member-provided wording.
+  const document=[
+    'Please consider these complete updated rules for the society.',
+    'CELEBRATION OF LIFE POOL',
+    'POINTS',
+    'If a celebrity dies at 100, the award is 10 points.',
+    'DIAMONDS',
+    'The #1 position is the Blue Diamond.',
+    'The #50 position is the Brown Diamond.',
+    'Both Diamond selections earn double points at death.',
+    'STEALS & PROTECTIONS',
+    'STEAL',
+    'A Steal can be used to take an eligible selection.',
+    'PROTECTION',
+    'Protections can’t be transferred or cancelled.',
+    'DIAMOND AWARDS',
+    'When your Blue Diamond dies, you win a Steal.',
+    'When your Brown Diamond dies, you win a Protection.',
+    'OTHER PRIVILEGES',
+    'The oldest event receives a Steal, the youngest a Protection.',
+    'BIRTHDAY BUFFET',
+    'Birthday Buffet is calculated when news reaches our group chat.',
+    'WINNING',
+    'The prize is decided at Renewal Stammtisch.',
+    'ANNUAL DRAFT',
+    'Every participant may draft five or more celebrities each year.'
+  ].join('\n');
+  const makeSource=text=>({senderAuthenticated:true,member:'jerome',freshOperativeWindow:true,
+    replayed:false,truncated:false,text,receivedAt:'2026-10-20T12:00:00.000Z'});
+  const revision=Rules.age100Retirement(makeSource(document),base,'col-fictional-grouped');
+  assert.equal(revision.state,'awaiting_implementation');
+  assert.equal(revision.changes.length,7);
+  assert.equal(revision.retrospective.requested,false);
+  assert.equal(revision.effectiveAt,null);
+  assert.equal(revision.changes[1].sourceExcerpt,'Blue Diamond dies, you win a Steal');
+  assert.equal(revision.changes[2].sourceExcerpt,'Brown Diamond dies, you win a Protection');
+  assert.match(revision.changes[0].after,/Matter for Club Deliberation/);
+  const bonus=document.replace('When your Blue Diamond dies, you win a Steal.',
+    'When your Blue Diamond dies, you win a Steal. At 100, another Steal applies.');
+  assert.throws(()=>Rules.age100Retirement(makeSource(bonus),base,'col-fictional-grouped'),
+    /retains or ambiguously restates/);
+  const missingMultiplier=document.replace('Both Diamond selections earn double points at death.',
+    'Both Diamond selections are assigned at the draft.');
+  assert.throws(()=>Rules.age100Retirement(makeSource(missingMultiplier),base,'col-fictional-grouped'),
+    /ordinary Diamond identity and multiplier/);
+});
