@@ -65,6 +65,7 @@ var AnnalsCocktailEditorial = (function () {
         input.imageConsentAtReceipt!==true ||
         input.currentOriginalImagePermission!==true ||
         input.sourceRecordComplete!==true ||
+        input.securityRecoveryVerified!==true ||
         input.signedPhotoVerified!==true ||
         input.originalRightsVerified!==true ||
         input.cocktailCategoryVerified!==true ||
@@ -104,7 +105,7 @@ var AnnalsCocktailEditorial = (function () {
         !(input.now instanceof Date) ||
         !Number.isFinite(input.now.getTime()) ||
         input.rightsEligible!==true ||
-        input.sourceStillSigned===false)
+        input.sourceStillSigned!==true)
       throw Error('Exact source-bound owner-private reservation evidence required');
     var ledger=validateLedger(input.ledger),month=period(input.now),used=0;
     ledger.reservations.forEach(function (r) {
