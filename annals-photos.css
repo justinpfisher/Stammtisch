@@ -1,4 +1,4 @@
-.annal-gallery,.photos-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:18px;margin-block:22px}.annal-gallery figure,.photos-grid figure{margin:0}.annal-gallery img,.photos-grid img{display:block;width:100%;height:auto;max-height:380px;object-fit:contain;background:#eae5d8}.annal-gallery a,.photos-grid a{display:block;min-height:44px}.annal-gallery figcaption{font-size:13px;margin-top:8px}.photo-controls{display:flex;flex-wrap:wrap;gap:14px;margin-block:24px}.photo-controls label{display:grid;gap:6px}.photo-controls input,.photo-controls select,.photo-button{font:inherit;min-height:44px;padding:10px;border:1px solid #846329;background:#f6f2e9;color:#193d32}.photo-button{cursor:pointer}.photo-viewer{border:2px solid #846329;background:#f6f2e9;color:#193d32;width:min(96vw,1050px);max-height:96vh;padding:16px}.photo-viewer::backdrop{background:#10251fe8}.photo-viewer img{display:block;max-width:100%;max-height:70vh;margin:auto;object-fit:contain}.photo-viewer-controls{display:flex;justify-content:space-between;gap:10px;margin-bottom:14px}.photo-viewer p{margin-block:12px;overflow-wrap:anywhere}.photos-card{border-top:1px solid #d4d3c4;padding-block:16px}.photos-card h2{font-size:24px}.photos-card p{font-size:13px;margin-block:10px}.photo-page{padding-block:45px}.photo-page h1{font-size:clamp(38px,7vw,68px)}.photo-page>p{max-width:700px}.photo-viewer :focus-visible,.photo-page :focus-visible,.annal-gallery :focus-visible{outline:3px solid #846329;outline-offset:4px}
+.annal-gallery,.photos-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:18px;margin-block:22px}.annal-gallery figure,.photos-grid figure{margin:0}.annal-gallery img,.photos-grid img{display:block;width:100%;height:auto;max-height:380px;object-fit:contain;background:#eae5d8}.annal-gallery a,.photos-grid a{display:block;min-height:44px}.annal-gallery figcaption{font-size:13px;margin-top:8px}.photo-controls{display:flex;flex-wrap:wrap;gap:14px;margin-block:24px}.photo-controls label{display:grid;gap:6px}.photo-controls input,.photo-controls select,.photo-button{font:inherit;min-height:44px;padding:10px;border:1px solid #846329;background:#f6f2e9;color:#193d32}.photo-button{cursor:pointer}.photo-viewer{box-sizing:border-box;border:2px solid #846329;background:#f6f2e9;color:#193d32;width:min(94vw,960px);max-height:calc(100dvh - 16px);padding:10px;overflow:auto}.photo-viewer::backdrop{background:#10251fe8}.photo-viewer img{display:block;max-width:100%;max-height:68dvh;margin:auto;object-fit:contain}.photo-viewer p{margin-block:8px;overflow-wrap:anywhere;font-size:13px;line-height:1.5}.photos-card{border-top:1px solid #d4d3c4;padding-block:16px}.photos-card h2{font-size:24px}.photos-card p{font-size:13px;margin-block:10px}.photo-page{padding-block:45px}.photo-page h1{font-size:clamp(38px,7vw,68px)}.photo-page>p{max-width:700px}.photo-viewer :focus-visible,.photo-page :focus-visible,.annal-gallery :focus-visible{outline:3px solid #846329;outline-offset:4px}
 
 /* Cocktail images have an actual photographic derivative. Never simulate the
    chosen mood by filling unused space with forest-green sidebars. The source
@@ -35,7 +35,17 @@
   line-height:1.5;
   margin-top:8px;
 }
-.photo-viewer-controls { flex-wrap:wrap; align-items:center; }
+.photo-viewer-controls {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+  align-items:stretch;margin-bottom:10px;
+}
+.photo-viewer-controls .photo-button {box-sizing:border-box;min-width:0;padding:8px 10px;text-align:center;}
+.photo-viewer-controls [data-close] {grid-column:2;}
+.photo-viewer [hidden] {display:none!important;}
+@media(min-width:650px) {
+  .photo-viewer-controls {grid-template-columns:repeat(4,minmax(0,1fr));}
+  .photo-viewer-controls [data-close] {grid-column:auto;}
+}
 .photo-viewer-controls a.photo-button {
   display:inline-flex;
   align-items:center;

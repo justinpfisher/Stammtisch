@@ -263,7 +263,7 @@ function photoMarkup(entry) {
     const responsive=entry.photos&&Math.max(p.width,p.height)>=800;
     const thumb=responsive?asset.replace(/\.jpg$/,'-thumb.jpg'):asset;
     const thumbWidth=responsive?Math.round(p.width*400/Math.max(p.width,p.height)):p.width;
-    return '<figure><a data-photo-view href="'+asset+'"><img src="'+thumb+'" '+(responsive?'srcset="'+thumb+' '+thumbWidth+'w, '+asset+' '+p.width+'w" sizes="(max-width: 560px) 90vw, (max-width: 900px) 45vw, 360px" ':'')+(p.width ? 'width="'+p.width+'" height="'+p.height+'" ' : '')+'alt="'+escapeHtml(p.alt)+'" loading="lazy" decoding="async"></a>'+(p.caption ? '<figcaption>'+editorialHtml(p.caption)+'</figcaption>' : '')+'</figure>';
+    return '<figure><a data-photo-view data-photo-sha256="'+p.sha256+'" href="'+asset+'"><img src="'+thumb+'" '+(responsive?'srcset="'+thumb+' '+thumbWidth+'w, '+asset+' '+p.width+'w" sizes="(max-width: 560px) 90vw, (max-width: 900px) 45vw, 360px" ':'')+(p.width ? 'width="'+p.width+'" height="'+p.height+'" ' : '')+'alt="'+escapeHtml(p.alt)+'" loading="lazy" decoding="async"></a>'+(p.caption ? '<figcaption>'+editorialHtml(p.caption)+'</figcaption>' : '')+'</figure>';
   }).join('') + '</div>' : '';
 }
 function approvedEntryMarkup(entry) {
