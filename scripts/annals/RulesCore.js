@@ -248,7 +248,8 @@ var AnnalsRules = (function () {
     // Any age-100 language in the Diamond or draft-benefit provisions makes
     // omission of additional entitlements uncertain and fails closed.
     if(/\b100\b/i.test(blueSection)||/\b100\b/i.test(brownSection)||
-      diamondSection!==null&&/\b100\b/i.test(diamondSection)||
+      diamondSection!==null&&/\b100\b/i.test(diamondSection)&&
+        /\b(?:Steal|Protection|Blood Diamond)s?\b/i.test(diamondSection)||
       (/\b100\b/i.test(pointSection)&&/\b(?:Steal|Protection|Blood Diamond)s?\b/i.test(pointSection)))
       throw new Error('The complete replacement retains or ambiguously restates an age-100 draft benefit');
     function sourceMatch(text,pattern,label){var match=text.match(pattern);if(!match)throw new Error('Complete replacement does not support the bounded '+label+' interpretation');return match[0];}
