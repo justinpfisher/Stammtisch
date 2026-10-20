@@ -51,15 +51,15 @@ function fixture(override={}){
 }
 test('fixed public-only source scope, no private files, user URLs or credentials',()=>{
   assert.equal(SITE_ORIGIN,'https://stammtischbrewery.com/');
-  assert.equal(SITE_FILES.length,11);
+  assert.equal(SITE_FILES.length,15);
   assert.equal(new Set(SITE_FILES).size,SITE_FILES.length);
-  for(const name of SITE_FILES)assert.match(name,/^(?:[a-z0-9.-]+\.html|data\/[a-z0-9/.-]+\.json)$/);
+  for(const name of SITE_FILES)assert.match(name,/^(?:[a-z0-9.-]+\.html|annals-photos\.(?:css|mjs)|data\/[a-z0-9/.-]+\.json|assets\/annals\/annal-[a-f0-9]{24}\.jpg)$/);
 });
-test('matching live 11-file archive yields only source-bound public hashes and times',async()=>{
+test('matching live 15-file archive yields only source-bound public hashes and times',async()=>{
   const f=fixture(),result=await f.run();
   assert.equal(result.kind,'public-site-exact-byte-observation-only');
-  assert.equal(result.files.length,11);
-  assert.equal(f.calls.length,11);
+  assert.equal(result.files.length,15);
+  assert.equal(f.calls.length,15);
   assert.equal(result.publishingActivated,false);
   assert.equal(result.privateReleaseQualified,false);
   for(const item of result.files){

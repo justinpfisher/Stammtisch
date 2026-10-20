@@ -10,6 +10,10 @@ on:
       - 'celebration.html'
       - 'history.html'
       - 'photos.html'
+      - 'annals-photos.mjs'
+      - 'annals-photos.css'
+      - 'data/annals-editorial-photos.json'
+      - 'assets/annals/annal-96b5ae266a36793c6a203033.jpg'
       - 'data/annals-approved.json'
       - 'data/club-history.json'
       - 'data/photos/index.json'
@@ -39,5 +43,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Compare 11 deployed pages and indexes to checked-out public bytes
+      - name: Compare 15 deployed pages, assets and indexes to checked-out public bytes
         run: node scripts/annals/observe-hosted-site.mjs

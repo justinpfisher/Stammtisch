@@ -37,7 +37,7 @@ test('failed v1 segmentation cannot be used or regenerated',()=>{
 test('actual public manifest admits zero unqualified Kingston derivatives',()=>{
   assert.deepEqual(manifest.images,[]);
   assert.deepEqual(verifyEditorialAssets(manifest,archive.entries),{qualified:0,sourceCount:1});
-  assert.match(read('docs/brand-editorial-style-guide.md'),/whole-scene generative editing/);
+  assert.match(read('docs/brand-editorial-style-guide.md'),/whole-scene generative editing/i);
 });
 test('a source-bound reviewed editorial JPEG can be admitted, but not by file presence alone',()=>{
   const rec=fixture();

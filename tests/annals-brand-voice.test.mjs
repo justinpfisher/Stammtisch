@@ -118,5 +118,5 @@ test('recipe titles, descriptions, ingredient quantities and preparations retain
 test('photo viewer presents a distinct editorial caption when signed and retains alt fallback', () => {
   assert.match(photoViewer, /closest\('figure'\)\?\.querySelector\('figcaption'\)/);
   assert.match(photoViewer, /\(caption\|\|img\.alt\)/);
-  assert.match(photoViewer, /dialog\.querySelector\('img'\)\.alt=img\.alt/);
+  assert.match(photoViewer, /dialog\.querySelector\('img'\)\.alt=hasStyle\?a\.dataset\.editorialAlt\|\|img\.alt:img\.alt/);
 });

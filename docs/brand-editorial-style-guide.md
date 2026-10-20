@@ -1,6 +1,6 @@
 # Stammtisch Social Club — Brand and Editorial Style Guide
 
-**Version 1.3 · 19 October 2026 · Owner-selected editorial, history, visual-description and actual cocktail-photography direction**
+**Version 1.4 · 19 October 2026 · Owner-selected editorial, history, visual-description and qualified cocktail photography direction**
 
 **Purpose:** The practical reference for AI and human contributors updating the public Stammtisch website, Annals, Club History and Celebration of Life presentation. This establishes a consistent visual identity and editorial voice; it is not a new publication-approval step or a source of club rules.
 
