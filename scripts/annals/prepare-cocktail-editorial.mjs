@@ -79,6 +79,9 @@ async function run(){
   if(process.env.ANNALS_EDITORIAL_IMAGE_ENABLED!=='true'||
      !process.env.ANNALS_EDITORIAL_IMAGE_API_KEY||
      !process.env.ANNALS_PUBLISH_SIGNING_KEY||
+     !process.env.ANNALS_EDITORIAL_PERMIT_SIGNING_KEY||
+     process.env.ANNALS_EDITORIAL_PERMIT_SIGNING_KEY===process.env.ANNALS_PUBLISH_SIGNING_KEY||
+     process.env.ANNALS_EDITORIAL_SECURITY_RECOVERY_VERIFIED!=='true'||
      process.env.ANNALS_EDITORIAL_PROJECT_HARD_LIMIT_VERIFIED!=='true')
     throw Error('Image provider, project hard cap, private signing or activation unavailable');
   if(!verifyPublicApproval(entry,approval,process.env.ANNALS_PUBLISH_SIGNING_KEY))
@@ -95,7 +98,8 @@ async function run(){
   const proof=verifyEditorialPermit(permit,{
     entryId:subject.entryId,sourceSha256:subject.sourceSha256,
     referenceSha256:referenceBytes?sourceDigest(stripJpegMetadata(referenceBytes)):'',
-    signingKey:process.env.ANNALS_PUBLISH_SIGNING_KEY});
+    signingKey:process.env.ANNALS_PUBLISH_SIGNING_KEY,
+    permitSigningKey:process.env.ANNALS_EDITORIAL_PERMIT_SIGNING_KEY});
   const privateOutput=await privateDirectory(options['private-output']);
   // Perform ALL no-spend validation before a durable one-shot reservation.
   const editRequest=makeSunburstEditRequest({subject,referenceBytes});
