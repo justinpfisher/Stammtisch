@@ -1,7 +1,7 @@
 // Public approved derivatives only. No identities, tracking or external service.
 export function installViewer(root=document){
   let dialog,previous,links=[],index=0;
-  function show(i){index=(i+links.length)%links.length;const a=links[index],img=a.querySelector('img');dialog.querySelector('img').src=a.href;dialog.querySelector('img').alt=img.alt;dialog.querySelector('p').textContent=img.alt+' — '+(index+1)+' of '+links.length;}
+  function show(i){index=(i+links.length)%links.length;const a=links[index],img=a.querySelector('img');const caption=a.closest('figure')?.querySelector('figcaption')?.textContent?.trim();dialog.querySelector('img').src=a.href;dialog.querySelector('img').alt=img.alt;dialog.querySelector('p').textContent=(caption||img.alt)+' — '+(index+1)+' of '+links.length;}
   root.addEventListener('click',event=>{
     const a=event.target.closest('a[data-photo-view]');if(!a||event.ctrlKey||event.metaKey||event.shiftKey)return;
     if(typeof HTMLDialogElement==='undefined')return;
