@@ -27,6 +27,8 @@ function args(argv){
     result[argv[i].slice(2)]=argv[++i];
   }
   if(!/^[a-z0-9][a-z0-9-]{5,63}$/.test(result.entry||''))throw Error('Invalid entry ID');
+  if(!result.execute&&(result.reference||result.permit||result['private-output']))
+    throw Error('Protected inputs require explicit --execute');
   return result;
 }
 async function privateFile(p,required=true){
