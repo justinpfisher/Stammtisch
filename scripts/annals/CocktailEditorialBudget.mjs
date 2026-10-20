@@ -53,14 +53,34 @@ export function validateBudgetLedger(data){
   return data;
 }
 export function imageSpendCents(usage){
-  const input=usage?.input_tokens_details,output=usage?.output_tokens_details;
-  if(!input||!output||
-     ![input.image_tokens,input.text_tokens,output.image_tokens].every(
-       n=>Number.isInteger(n)&&n>=0))
-    return null; // no auditable usage => no additional billable review
-  // Direct Images Edit API does NOT receive Responses API cached-image rates.
-  return Math.ceil(100*(input.image_tokens*8+
-    input.text_tokens*5+output.image_tokens*30)/1000000);
+  // The direct Images Edit API documents total token counts, but its detailed
+  // input/output breakdowns are optional. Never equate missing breakdowns
+  // with free usage or require optional fields to continue a valid paid edit.
+  // Direct Images API requests have no cached-input discount.
+  const valid=n=>Number.isInteger(n)&&n>=0;
+  if(!usage||typeof usage!=='object')return null;
+  const input=usage.input_tokens_details,output=usage.output_tokens_details;
+  const detailedInput=valid(input?.image_tokens)&&valid(input?.text_tokens)
+    ?input.image_tokens*8+input.text_tokens*5:null;
+  const totalInput=valid(usage.input_tokens)
+    ?usage.input_tokens*8:null; // all input at the dearer image rate
+  if(detailedInput===null&&totalInput===null)return null;
+  // Where both values exist, never undercount inconsistent totals. The
+  // provider's full request is charged, not just its visible image payload.
+  const billableInput=detailedInput===null?totalInput:
+    totalInput===null?detailedInput:
+    Math.max(detailedInput,
+      valid(usage.input_tokens)&&usage.input_tokens===
+        input.image_tokens+input.text_tokens?detailedInput:totalInput);
+  const detailOutput=valid(output?.image_tokens)&&valid(output?.text_tokens)
+    ?output.image_tokens+output.text_tokens:null;
+  const totalOutput=valid(usage.output_tokens)?usage.output_tokens:null;
+  if(detailOutput===null&&totalOutput===null)return null;
+  const billableOutput=detailOutput===null?totalOutput:
+    totalOutput===null?detailOutput:Math.max(detailOutput,totalOutput);
+  // The edit endpoint bills output as image output; treating any unclassified
+  // output token the same is conservative. Null usage still fails closed.
+  return Math.ceil(100*(billableInput+billableOutput*30)/1000000);
 }
 export function reviewSpendCents(usage){
   if(!Number.isInteger(usage?.prompt_tokens)||usage.prompt_tokens<0||
