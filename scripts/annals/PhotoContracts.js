@@ -41,6 +41,31 @@ var AnnalsPhotos = (function () {
       throw new Error('Invalid event period');
     return value;
   }
+  // An AI caption is editorial presentation, NOT image-safety or rights evidence.
+  // Permit a restrained, detail-specific aside only after the separate photo
+  // permission checks. Unsafe/unsupported captions silently fall back to none.
+  // Alt text remains neutral, unchanged and independently validated.
+  function editorialCaption(assessment) {
+    if (!assessment || ['drink_or_object','scenery','member_group'].indexOf(assessment.kind) < 0 ||
+        assessment.safeToPublish !== true || assessment.privateDetails !== false ||
+        assessment.thirdPartyMaterial !== false || assessment.childrenOrGuests !== false ||
+        typeof assessment.altText !== 'string' || typeof assessment.caption !== 'string') return '';
+    var raw=assessment.caption, value=raw.replace(/\s+/g,' ').trim();
+    if (!value || value.length > 200 || /[\r\n<>{}\[\]@#\\]/.test(raw) ||
+        /\d/.test(value) ||
+        /\b(?:first|last|only|oldest|youngest|historic|legendary|famous|award|winner|unanimous|agreed|voted|founded|attended|celebrated|photographed by|taken at|hosted by|prepared by|invented by|made by|all six|every member)\b/i.test(value) ||
+        /\b(?:Justin|Fish|Marc|Matt|Ken|Jamie|Jerome|guest|visitor|child|children|baby|family|attendee|speaker|address|location|headquarters|Huntsville|Kingston|Toronto|Muskoka)\b/i.test(value) ||
+        /\b(?:rum|whisky|whiskey|bourbon|vodka|gin|tequila|cider|syrup|wine|beer|bitters|liqueur)\b/i.test(value)) return '';
+    // Require at least one non-generic visual detail shared with the model's
+    // plain literal alt text. This is not visual proof; screening remains separate.
+    var generic=['image','photo','photograph','picture','submitted','member','members','group','showing','visible','object','item','scene','view','some','with','from','there','inside','outside'];
+    var details=(assessment.altText.toLowerCase().match(/[a-z]{4,}/g)||[])
+      .filter(function(term){return generic.indexOf(term)<0;});
+    if (!details.length || !details.some(function(term){
+      return new RegExp('\\b'+term+'\\b','i').test(value);
+    })) return '';
+    return value;
+  }
   function allowed(evidence, assessment, grants) {
     if (!evidence || evidence.senderAuthenticated !== true || evidence.imageConsentAtReceipt !== true ||
         !assessment || assessment.safeToPublish !== true || assessment.privateDetails !== false ||
@@ -67,6 +92,6 @@ var AnnalsPhotos = (function () {
     return refs;
   }
   return Object.freeze({photos:photos,sameAssets:sameAssets,validate:validate,period:period,allowed:allowed,MEMBERS:MEMBERS,
-    MODE:MODE,MAX_BYTES:MAX_BYTES,MAX_EDGE:MAX_EDGE,MIN_LONG_EDGE:MIN_LONG_EDGE,blobRefs:blobRefs,indexRow:indexRow,indexOrder:indexOrder});
+    MODE:MODE,MAX_BYTES:MAX_BYTES,MAX_EDGE:MAX_EDGE,MIN_LONG_EDGE:MIN_LONG_EDGE,blobRefs:blobRefs,indexRow:indexRow,indexOrder:indexOrder,editorialCaption:editorialCaption});
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=AnnalsPhotos;
