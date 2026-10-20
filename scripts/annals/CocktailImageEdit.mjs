@@ -60,7 +60,7 @@ export function verifiedCocktailSource({entry,approval,signingKey,sourcePath,sou
     sourceBytes,width,height,sourceAlt:p.alt||''});
 }
 
-export function verifyEditorialPermit(permit,{entryId,sourceSha256,referenceSha256='',signingKey,now=new Date()}){
+export function verifyEditorialPermit(permit,{entryId,sourceSha256,referenceSha256='',signingKey,permitSigningKey,now=new Date()}){
   // A separate private HMAC receipt must attest real active scoped transform
   // rights and a one-shot private budget reservation. The signed public
   // original's photoPublication Boolean alone never grants these.
@@ -80,7 +80,9 @@ export function verifyEditorialPermit(permit,{entryId,sourceSha256,referenceSha2
      permit.screened!==true||!SHA.test(sourceSha256||'')||
      !/^[0-9a-f]{32}$/.test(permit.nonce||'')||
      !/^[0-9a-f]{64}$/.test(permit.signature||'')||
-     typeof signingKey!=='string'||signingKey.length<32)
+     typeof signingKey!=='string'||signingKey.length<32||
+     typeof permitSigningKey!=='string'||permitSigningKey.length<32||
+     permitSigningKey===signingKey)
     throw Error('Current editorial rights and budget proof unavailable');
   const from=Date.parse(permit.issuedAt),until=Date.parse(permit.expiresAt),
     time=now.getTime();
@@ -89,7 +91,9 @@ export function verifyEditorialPermit(permit,{entryId,sourceSha256,referenceSha2
      time-from>2*60*60*1000)
     throw Error('Editorial authorisation expired or premature');
   const signed={...permit};delete signed.signature;
-  const expected=createHmac('sha256',signingKey)
+  // A compromised publishing key must never mint a spending permit.
+  // After security recovery use an independently provisioned image-permit key.
+  const expected=createHmac('sha256',permitSigningKey)
     .update(JSON.stringify(canonical(signed))).digest();
   if(!timingSafeEqual(expected,Buffer.from(permit.signature,'hex')))
     throw Error('Editorial authorisation signature invalid');
