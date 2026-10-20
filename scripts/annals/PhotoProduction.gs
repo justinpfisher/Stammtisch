@@ -287,8 +287,18 @@ function annalsPhotoDecision_(source,draft,id,decision,set){
   }
   if(decision.entry.category==='quotation')return decision;
   delete decision.entry.photo;
-  decision.entry.photos=eligible.map(function(p){var a=draft.imageReviews[set.indexOf(p)];return {sha256:p.sha256,width:p.width,height:p.height,
-    alt:a.kind==='member_group'?'Member-submitted group photograph':a.kind==='scenery'?'Member-submitted scenery':'Member-submitted drink or object'};});
+  decision.entry.photos=eligible.map(function(p){
+    var a=draft.imageReviews[set.indexOf(p)];
+    // Accessible alt stays plain, while an optional model-proposed *visible*
+    // caption receives independent grounding/privacy screening. Missing or
+    // uncertain captions never hold an otherwise eligible photograph.
+    var photo={sha256:p.sha256,width:p.width,height:p.height,
+      alt:a.kind==='member_group'?'Member-submitted group photograph':a.kind==='scenery'?'Member-submitted scenery':'Member-submitted drink or object'};
+    var caption=AnnalsPhotos.editorialCaption(a);
+    if(caption&&!AnnalsAuto.sensitiveText(caption)&&AnnalsAuto.protectedRoute(caption,'')==='annals')
+      photo.caption=AnnalsAuto.censor(caption);
+    return photo;
+  });
   decision.entry.submittedAt=source.source.receivedAt;decision.entry.eventPeriod='';
   decision.mode=AnnalsPhotos.MODE;return decision;
 }
