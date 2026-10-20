@@ -223,10 +223,33 @@ var AnnalsRules = (function () {
       var next=outline.sections.filter(function(item){return item.line>section.line;}).sort(function(a,b){return a.line-b.line;})[0];
       return ruleLines.slice(section.line-1,next?next.line-1:ruleLines.length).join('\n');
     }
-    var pointSection=sectionText('POINTS'),blueSection=sectionText('BLUE DIAMOND'),brownSection=sectionText('BROWN DIAMOND');
-    // The source must omit the extra entitlement in the actual complete rules,
-    // not merely in surrounding commentary or a quoted comparison.
+    var pointSection=sectionText('POINTS'),blueSection,brownSection,diamondSection=null;
+    // A complete document can group both Diamonds and their ordinary draft
+    // benefits under shared headings, rather than separate Blue/Brown sections.
+    // Bind to those actual member-authored rule sections, never to commentary.
+    if(outline.sections.some(function(item){return item.heading==='DIAMONDS';})&&
+       outline.sections.some(function(item){return item.heading==='STEALS & PROTECTIONS';})){
+      var benefitsHeading=outline.sections.find(function(item){return item.heading==='STEALS & PROTECTIONS';});
+      var buffetHeading=outline.sections.find(function(item){return item.heading==='BIRTHDAY BUFFET';});
+      if(!buffetHeading||benefitsHeading.line>=buffetHeading.line)
+        throw new Error('Complete replacement is missing the bounded draft-benefit section');
+      diamondSection=sectionText('DIAMONDS');
+      if(!/(?:#1|first)[^\n.]{0,120}\bBlue Diamond\b/i.test(diamondSection)||
+         !/(?:#50|last)[^\n.]{0,120}\bBrown Diamond\b/i.test(diamondSection)||
+         !/\bdouble points?\b/i.test(diamondSection))
+        throw new Error('Complete replacement does not establish ordinary Diamond identity and multiplier');
+      var benefitsSection=ruleLines.slice(benefitsHeading.line-1,buffetHeading.line-1).join('\n');
+      blueSection=benefitsSection;
+      brownSection=benefitsSection;
+    }else{
+      blueSection=sectionText('BLUE DIAMOND');
+      brownSection=sectionText('BROWN DIAMOND');
+    }
+    // Any age-100 language in the Diamond or draft-benefit provisions makes
+    // omission of additional entitlements uncertain and fails closed.
     if(/\b100\b/i.test(blueSection)||/\b100\b/i.test(brownSection)||
+      diamondSection!==null&&/\b100\b/i.test(diamondSection)&&
+        /\b(?:Steal|Protection|Blood Diamond)s?\b/i.test(diamondSection)||
       (/\b100\b/i.test(pointSection)&&/\b(?:Steal|Protection|Blood Diamond)s?\b/i.test(pointSection)))
       throw new Error('The complete replacement retains or ambiguously restates an age-100 draft benefit');
     function sourceMatch(text,pattern,label){var match=text.match(pattern);if(!match)throw new Error('Complete replacement does not support the bounded '+label+' interpretation');return match[0];}
@@ -237,7 +260,7 @@ var AnnalsRules = (function () {
     var renewalSource=sourceMatch(rulesText,/Renewal Stammtisch/i,'Renewal');
     var birthdaySource=sourceMatch(rulesText,/Birthday Buffet[^\n]{0,180}group chat/i,'Birthday Buffet');
     var vacancySource=sourceMatch(rulesText,/draft[^\n.]{0,160}\bfive or more\b/i,'vacancy');
-    var protectionSource=sourceMatch(rulesText,/Protections?[^\n.]{0,120}\b(?:cannot|can't|may not)\b[^\n.]{0,80}\b(?:transferred|cancelled|canceled)\b/i,'Protection lifecycle');
+    var protectionSource=sourceMatch(rulesText,/Protections?[^\n.]{0,120}\b(?:cannot|can['’]t|may not)\b[^\n.]{0,80}\b(?:transferred|cancelled|canceled)\b/i,'Protection lifecycle');
     if(normalized.indexOf('If your Blue Diamond dies at exactly 100')>=0||
        normalized.indexOf('If your Brown Diamond dies at exactly 100')>=0||
        normalized.indexOf('Brown Diamond at 100 earns two Blood Diamonds')>=0)
