@@ -281,14 +281,24 @@ function annalsPhotoDecision_(source,draft,id,decision,set){
       decision.reason==='material_uncertainty'&&draft.riskFlags.some(function(flag){return ['faces_or_reflections','date_unconfirmed','other_uncertainty','attribution_unconfirmed'].indexOf(flag)<0;})||
       !subject||subject.length>150||text.length>250||AnnalsAuto.sensitiveText(subject+'\n'+text))return decision;
     decision={eligible:true,entry:{id:'annal-'+id.slice(0,24),category:draft.category==='assembly'?'assembly':draft.category==='cocktail'?'cocktail':'club_history',
-      title:AnnalsAuto.censor(subject),summary:AnnalsAuto.censor(text)||'A photograph submitted to the Annals; event date unrecorded.',
+      title:AnnalsAuto.censor(subject),summary:AnnalsAuto.censor(text)||'A photograph has been admitted to the record. Further particulars were not supplied.',
       year:Number(source.source.receivedAt.slice(0,4)),dateLabel:'Submitted '+source.source.receivedAt.slice(0,7),sortDate:'',quoteVerbatim:'',
       recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]},credit:'anonymous'}};
   }
   if(decision.entry.category==='quotation')return decision;
   delete decision.entry.photo;
-  decision.entry.photos=eligible.map(function(p){var a=draft.imageReviews[set.indexOf(p)];return {sha256:p.sha256,width:p.width,height:p.height,
-    alt:a.kind==='member_group'?'Member-submitted group photograph':a.kind==='scenery'?'Member-submitted scenery':'Member-submitted drink or object'};});
+  decision.entry.photos=eligible.map(function(p){
+    var a=draft.imageReviews[set.indexOf(p)];
+    // Accessible alt stays plain, while an optional model-proposed *visible*
+    // caption receives independent grounding/privacy screening. Missing or
+    // uncertain captions never hold an otherwise eligible photograph.
+    var photo={sha256:p.sha256,width:p.width,height:p.height,
+      alt:a.kind==='member_group'?'Member-submitted group photograph':a.kind==='scenery'?'Member-submitted scenery':'Member-submitted drink or object'};
+    var caption=AnnalsPhotos.editorialCaption(a);
+    if(caption&&!AnnalsAuto.sensitiveText(caption)&&AnnalsAuto.protectedRoute(caption,'')==='annals')
+      photo.caption=AnnalsAuto.censor(caption);
+    return photo;
+  });
   decision.entry.submittedAt=source.source.receivedAt;decision.entry.eventPeriod='';
   decision.mode=AnnalsPhotos.MODE;return decision;
 }
