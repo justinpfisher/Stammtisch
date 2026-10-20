@@ -69,3 +69,18 @@ test('complete replacement produces only the bounded seven-provision non-operati
   assert.equal(candidateVersion.januaryGap,activeBase.januaryGap);
   assert.equal(staged.candidate.files['data/col-rules-register.json'].includes('Here are the complete updated rules'),false);
 });
+
+test('retained bonuses in differently worded rule sections cannot be hidden by surrounding prose',()=>{
+  const text=['Here are the complete updated rules for our Celebration of Life Pool.','CELEBRATION OF LIFE POOL',
+    'POINTS','If your celebrity dies at 100, you win 10 points.','BLUE DIAMOND','When your Blue Diamond dies, you win a Steal. At 100, it also grants two Steals.',
+    'BROWN DIAMOND','When your Brown Diamond dies, you win a Protection.','PRIZE','Renewal Stammtisch',
+    'BIRTHDAY BUFFET','Birthday Buffet is based on when the death is reported in our group chat',
+    'DRAFTING','Every player can draft five or more celebrities each year.',
+    'DRAFT - ORDER OF BUSINESS','Protections cannot be transferred or cancelled.','Coronation of Diamonds is the final stage.'].join('\n');
+  const source={senderAuthenticated:true,member:'jerome',freshOperativeWindow:true,replayed:false,truncated:false,
+    text,receivedAt:'2026-10-20T12:00:00.000Z'};
+  assert.throws(()=>Rules.age100Retirement(source,base,'col-test-centenary'),/retains or ambiguously restates/);
+  source.text='The member mentioned the complete updated rules and an ordinary Blue Diamond Steal in surrounding prose.\n'+
+    text.replace(' At 100, it also grants two Steals.','').replace('When your Blue Diamond dies, you win a Steal.','When your Blue Diamond dies.');
+  assert.throws(()=>Rules.age100Retirement(source,base,'col-test-centenary'),/ordinary Blue Diamond/);
+});

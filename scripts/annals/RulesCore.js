@@ -214,17 +214,31 @@ var AnnalsRules = (function () {
     if(!source||source.senderAuthenticated!==true||source.freshOperativeWindow!==true||source.replayed===true||
       source.truncated===true||MEMBERS.indexOf(source.member)<0||typeof source.text!=='string')
       throw new Error('Complete authenticated age-100 replacement required');
-    fullRewriteOutline(source,base,revisionId);
+    var outline=fullRewriteOutline(source,base,revisionId);
     var normalized=source.text.replace(/\r\n?/g,'\n');
-    function sourceMatch(pattern,label){var match=normalized.match(pattern);if(!match)throw new Error('Complete replacement does not support the bounded '+label+' interpretation');return match[0];}
-    var requestIntro=sourceMatch(/\b(?:complete|full)\s+(?:updated|revised|replacement|new)\s+(?:col\s+|celebration of life(?: pool)?\s+)?rules\b/i,'complete-rules');
-    var pointSource=sourceMatch(/\b(?:celebrity|celebrities)[^\n.]{0,120}\b100\b[^\n.]{0,120}\b10 points?\b/i,'ten-point');
-    var blueSource=sourceMatch(/Blue Diamond[^\n.]{0,120}\bSteal\b/i,'ordinary Blue Diamond');
-    var brownSource=sourceMatch(/Brown Diamond[^\n.]{0,120}\bProtection\b/i,'ordinary Brown Diamond');
-    var renewalSource=sourceMatch(/Renewal Stammtisch/i,'Renewal');
-    var birthdaySource=sourceMatch(/Birthday Buffet[^\n]{0,180}group chat/i,'Birthday Buffet');
-    var vacancySource=sourceMatch(/draft[^\n.]{0,160}\bfive or more\b/i,'vacancy');
-    var protectionSource=sourceMatch(/Protections?[^\n.]{0,120}\b(?:cannot|can't|may not)\b[^\n.]{0,80}\b(?:transferred|cancelled|canceled)\b/i,'Protection lifecycle');
+    var header=normalized.search(/^\s*CELEBRATION OF LIFE POOL\s*$/m),rulesText=normalized.slice(header),ruleLines=rulesText.split('\n');
+    function sectionText(name){
+      var section=outline.sections.find(function(item){return item.heading===name;});
+      if(!section)throw new Error('Complete replacement is missing the '+name+' provision');
+      var next=outline.sections.filter(function(item){return item.line>section.line;}).sort(function(a,b){return a.line-b.line;})[0];
+      return ruleLines.slice(section.line-1,next?next.line-1:ruleLines.length).join('\n');
+    }
+    var pointSection=sectionText('POINTS'),blueSection=sectionText('BLUE DIAMOND'),brownSection=sectionText('BROWN DIAMOND');
+    // The source must omit the extra entitlement in the actual complete rules,
+    // not merely in surrounding commentary or a quoted comparison.
+    if(/\b100\b/i.test(blueSection)||/\b100\b/i.test(brownSection)||
+      /\b100\b[^.\n]{0,140}\b(?:Steal|Protection|Blood Diamond)\b/i.test(pointSection)||
+      /\b(?:Steal|Protection|Blood Diamond)\b[^.\n]{0,140}\b100\b/i.test(pointSection))
+      throw new Error('The complete replacement retains or ambiguously restates an age-100 draft benefit');
+    function sourceMatch(text,pattern,label){var match=text.match(pattern);if(!match)throw new Error('Complete replacement does not support the bounded '+label+' interpretation');return match[0];}
+    var requestIntro=sourceMatch(normalized.slice(0,900),/\b(?:complete|full)\s+(?:updated|revised|replacement|new)\s+(?:col\s+|celebration of life(?: pool)?\s+)?rules\b/i,'complete-rules');
+    var pointSource=sourceMatch(pointSection,/\b(?:celebrity|celebrities)[^\n.]{0,120}\b100\b[^\n.]{0,120}\b10 points?\b/i,'ten-point');
+    var blueSource=sourceMatch(blueSection,/Blue Diamond[^\n.]{0,120}\bSteal\b/i,'ordinary Blue Diamond');
+    var brownSource=sourceMatch(brownSection,/Brown Diamond[^\n.]{0,120}\bProtection\b/i,'ordinary Brown Diamond');
+    var renewalSource=sourceMatch(rulesText,/Renewal Stammtisch/i,'Renewal');
+    var birthdaySource=sourceMatch(rulesText,/Birthday Buffet[^\n]{0,180}group chat/i,'Birthday Buffet');
+    var vacancySource=sourceMatch(rulesText,/draft[^\n.]{0,160}\bfive or more\b/i,'vacancy');
+    var protectionSource=sourceMatch(rulesText,/Protections?[^\n.]{0,120}\b(?:cannot|can't|may not)\b[^\n.]{0,80}\b(?:transferred|cancelled|canceled)\b/i,'Protection lifecycle');
     if(normalized.indexOf('If your Blue Diamond dies at exactly 100')>=0||
        normalized.indexOf('If your Brown Diamond dies at exactly 100')>=0||
        normalized.indexOf('Brown Diamond at 100 earns two Blood Diamonds')>=0)
