@@ -94,7 +94,7 @@ The interface should feel like a well-designed heritage journal that happens to 
 - Distinguish an actual event date from a reminder, and a genuine live count from a placeholder.
 - Reuse existing styles, components and navigation rather than building a new visual language for each addition.
 
-**Annals card exception:** Cocktail recipes and quotations must be **self-contained on the front of their compact cards**. Photo optional; no expansion required to see full ingredients, quantities, syrup steps, method, quote, verified speaker and relevant source context. Separate the recipe description from the structured Preparation section. The Club History is not a stack of individual recipe cards; it is a continuous, revisable reading page with attribution and revision history.
+**Annals card exception:** Cocktail recipes and quotations must be **self-contained on the front of their compact cards**. Photo optional; no expansion required to see the original recipe name, original description, complete ingredients, quantities, syrup steps and preparation, or the actual quote, verified speaker and relevant source context. Separate the source-provided recipe description from the structured Preparation section without changing either. The Club History is not a stack of individual recipe cards; it is a continuous, revisable reading page with attribution and revision history.
 
 Only expose category filters/navigation when real eligible content exists. CoL operative amendments appear only on the CoL page.
 
@@ -106,7 +106,7 @@ Club History is **not exempt** because it is historical. AI should convert sourc
 
 Likewise, visible AI-written image descriptions and captions must sound like the Club's narrator. Accessible image **alt text remains factual, brief and literal**, not comic; this is a deliberate distinction between narrative copy and assistive description.
 
-Aim for a small but unmistakable comic signature in *each substantive piece of narrative copy*. Do **not** force a joke into every sentence, button, recipe measurement, obituary, accessibility instruction or error message. The wit should be part of the narrator's worldview, not a performance interrupted by factual details.
+Aim for a small but unmistakable comic signature in *each substantive piece of original editorial narrative*, **not** in a member's recipe title, recipe description, ingredient list or preparation. Do **not** force a joke into every sentence, button, recipe measurement, obituary, accessibility instruction or error message. The wit should be part of the narrator's worldview, not a performance interrupted by factual details.
 
 ### Editorial formula
 
@@ -258,13 +258,17 @@ The monthly Stammtisch is the principal reason to return. Put the verified next 
 
 It may be ceremonially grander than the monthly gathering, with a recognizably absurd sense of importance. Actual travel particulars, dates, addresses cleared for public use and calendar descriptions must remain direct and precise. Do not invent an agenda, attendance, itinerary, departure time or ritual.
 
-### Cocktails and recipes
+### Cocktails and recipes — source wording takes precedence
 
-Respect the maker's craft. A playful heading or brief editorial introduction is welcome; the **ingredients, units, preparation, homemade syrups, garnish and measurements are technical source facts**. Preserve them exactly, in a dedicated structured recipe section. Do not duplicate preparation instructions in the description. Any missing step or editorial adaptation must be distinctly labelled as a suggestion, not attributed to the author. No fictional historic cocktails.
+**Do not rewrite the recipe name, recipe description, ingredient list or preparation instructions into the Stammtisch voice.** These four elements are the contributor's work and retain their submitted language and meaning, including stylistic choices. Only ordinary spelling and grammar corrections are permissible, and only when they are unambiguous and change neither substance nor attribution. There is no requirement to alter them, even for stylistic consistency. **Already signed and published recipe records remain unchanged** unless the established explicit correction and signing route is used.
+
+Maintain exact quantities, units, ratios, ingredient names, garnishes, step sequence and all homemade syrup methods. No invented amounts, substitutions, techniques or historical provenance. Do not "improve" technical directions under cover of grammar; if a step is materially unclear, hold that component for clarification rather than guess.
+
+A recipe card may have an independent *category label, section heading or photo caption* written in the Club's voice, but it must be visually and semantically distinct from the original recipe name and description. A witty photograph caption is **not** a replacement recipe description. Preserve the structured Preparation section and avoid repeating its instructions in the description. Distinct, clearly labelled suggestions for missing information remain editorial suggestions, never part of the claimed original.
 
 ### AI-generated image captions and visual descriptions
 
-**Narrative descriptions on cards, galleries, photo entries and AI-generated cocktail introductions belong to the Stammtisch voice.** Treat the photograph as an unusually formal piece of evidence, with a touch of dry humour. The joke is about the seriousness of recording the object, never a claim about what happened behind the camera. Keep captions brief, varied, warm and specific to what can be safely confirmed.
+**Separate, visible captions describing photographs on cards, galleries and photo entries belong to the Stammtisch voice; the recipe's own name and description do not.** Treat the photograph as an unusually formal piece of evidence, with a touch of dry humour. The joke is about the seriousness of recording the object, never a claim about what happened behind the camera. Keep captions brief, varied, warm and specific to what can be safely confirmed.
 
 For example, a screened image showing a drink in a coupe might permit: *"The photographic record now includes a coupe of considerable confidence."* This is an **illustration only**, not a caption for a specific approved entry.
 
@@ -272,7 +276,7 @@ No invented ingredients, recipes, dates, photographer, attendance, speaker, loca
 
 **Accessibility alt text is different:** state what is visibly present, succinctly and neutrally. No institutional humour, speculation or promotional language. Do not add names or identifiable details to alt text based on face recognition. Meaningful captions and screen-reader descriptions may coexist without duplicating entire paragraphs.
 
-**Publication distinction:** New eligible automatically generated captions must be source- and image-screened under existing private permissions and be separately signed with their entry. Do not mutate existing signed content to retrofit the style. If a proposed description cannot be grounded, omit it or use a truthful generic note rather than inventing particulars.
+**Publication distinction:** New eligible automatically generated **photo captions** must be source- and image-screened under existing private permissions and signed with their entry. They must never be applied to the recipe title, original description, ingredients or preparation. Do not mutate existing signed content to retrofit the style. If a proposed caption cannot be grounded, omit it rather than inventing particulars.
 
 ### The Register of Remarks
 
@@ -327,7 +331,8 @@ Clarity outranks comedy. A contribution's acknowledgement is not proof of public
 - **Links:** Visible descriptive action labels. Avoid "Click here".
 - **Length:** Prefer one memorable sentence over a paragraph of explanation, but provide all genuinely necessary details.
 - **AI history narration:** Make genuine history read as Stammtisch without inventing any of it; humour lives in phrasing, not the facts.
-- **AI visual descriptions:** Visible editorial captions may be wry and grounded; alt text is literal and accessible.
+- **Recipe fidelity:** Original recipe names, descriptions, ingredients and preparation are preserved; only unambiguous spelling or grammar corrections that leave meaning unchanged are allowed. No stylistic rewriting.
+- **AI visual descriptions:** Separate visible photo captions may be wry and grounded; alt text is literal and accessible. Neither may rewrite recipe content.
 
 ## 11. AI application instructions
 
@@ -336,7 +341,7 @@ For an authorized public-facing content or interface change:
 1. Read AGENTS.md and docs/current-state.md, then this guide and the specific facts/publication/CoL guidance relevant to the task. Latest explicit owner decisions supersede older stylistic examples.
 2. Establish what is documented as fact, what is approved copy, what is a proposed stylistic treatment, and what remains uncertain. Never present creative example text as historical evidence.
 3. Preserve approved art and current CSS tokens/font stacks. Use existing shared layout/navigation and responsive conventions before introducing new ones.
-4. Write concise, consistently witty **narrative** copy with a largely third-person institutional narrator. Apply this voice to AI-written Club History and visible photo captions/descriptions as well as ordinary page copy, while retaining chronology, source grounding, image rights and uncertainty. Keep alt text literal and accessible, and actions, recipes, exact quotes, sensitive material and technical status clear.
+4. Write concise, consistently witty **original editorial narrative** with a largely third-person institutional narrator. Apply this voice to AI-written Club History and *separate, visible photo captions* as well as ordinary page copy, while retaining chronology, source grounding, image rights and uncertainty. Preserve a member's recipe name, description, ingredients and preparation in their original wording, save unambiguous meaning-preserving spelling/grammar corrections; do not restyle them. Keep alt text literal and accessible, and actions, technical status and exact quotes clear.
 5. Confirm that the result is truthful, privacy-safe, readable on phones, keyboard-accessible and consistent across pages. Check relevant exact wording, quotation, attribution and recipe fields before shipping.
 6. Implement and verify the authorized change under AGENTS.md without inventing a new editorial approval gate. Distinguish source edits, merged changes, deployed public pages and independently verified live results.
 
