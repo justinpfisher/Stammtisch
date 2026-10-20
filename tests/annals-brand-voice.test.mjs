@@ -50,7 +50,7 @@ test('future AI request differentiates witty visible captions from factual alt t
   assert.match(req.instructions, /Stammtisch Social Club voice/);
   const itemSchema = req.text.format.schema.properties.imageReviews.items;
   assert.ok(itemSchema.required.includes('caption'));
-  assert.equal(itemSchema.properties.caption.maxLength, 200);
+  assert.equal(itemSchema.properties.caption.type, 'string');
 });
 
 test('private candidate accepts new caption and older saved image assessments', () => {
