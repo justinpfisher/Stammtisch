@@ -70,6 +70,7 @@ const fictionalEditorialManifest={schemaVersion:1,artDirection:'moody-atmospheri
   width:1600,height:900,
   alt:'AI-stylized fictional cocktail image for offline viewer tests.',
   generationProvider:'fictional-test-only',generationModel:'no-generation',
+  generationOperation:'image-edit',
   generatedAt:'2026-10-19T20:00:00Z',reviewedAt:'2026-10-19T20:01:00Z',
   reviewMethod:'ai-visual-assessment'}]};
 const index=photoIndex(Array.from({length:2500},(_,i)=>({...gallery,id:'offline-photo-'+String(i).padStart(6,'0'),title:'Fictional photo '+i,summary:i===2499?'needle archival caption':'Fictional archived fixture',submittedAt:(2000+i%26)+'-10-15T12:00:00Z',year:2000+i%26})));

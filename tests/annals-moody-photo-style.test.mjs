@@ -19,6 +19,7 @@ function fixture(overrides={}){
     visualQualified:true,width:1024,height:1536,
     alt:'AI-stylized editorial photograph of an amber cocktail in a stemmed glass with apple slices.',
     generationProvider:'fictional-test-provider',generationModel:'fictional-model',
+    generationOperation:'image-edit',
     generatedAt:'2026-10-19T20:00:00Z',reviewedAt:'2026-10-19T20:01:00Z',
     reviewMethod:'ai-visual-assessment',...overrides};
 }
@@ -42,7 +43,8 @@ test('actual public manifest admits zero unqualified Kingston derivatives',()=>{
 test('a source-bound reviewed editorial JPEG can be admitted, but not by file presence alone',()=>{
   const rec=fixture();
   assert.equal(qualifiedEditorialPhoto(rec,source,sourceSha),rec);
-  for(const change of [{sourceSha256:'0'.repeat(64)},{editorialSha256:sourceSha},{visualQualified:false},
+  for(const change of [{sourceSha256:'0'.repeat(64)},{editorialSha256:sourceSha},
+    {generationOperation:'text-to-image'},{generationOperation:undefined},{visualQualified:false},
     {rightsQualified:false},{safetyQualified:false},{status:'generated'},
     {asset:source.slice(0,-4)+'-styled-v1.jpg'},
     {alt:'A beautiful cocktail.'},{width:1}]){
@@ -55,6 +57,7 @@ test('manifest validation and withdrawal fail closed without changing original',
   const rec=fixture(),good={...manifest,images:[rec]};
   assert.equal(validateEditorialManifest(good,archive.entries),good);
   assert.throws(()=>validateEditorialManifest({...manifest,images:[fixture({visualQualified:false})]},archive.entries));
+  assert.throws(()=>validateEditorialManifest({...manifest,images:[fixture({generationOperation:'text-to-image'})]},archive.entries));
   assert.throws(()=>validateEditorialManifest({...manifest,images:[fixture({editorialSha256:sourceSha})]},archive.entries));
   assert.throws(()=>validateEditorialManifest({...manifest,images:[rec,rec]},archive.entries));
   const pruned=pruneEditorialManifest(good,[]);

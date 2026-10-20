@@ -34,7 +34,7 @@ export function validateEditorialManifest(manifest,entries){
   for(const row of manifest.images){
     if(!row||typeof row!=='object'||Array.isArray(row)||
        Object.keys(row).sort().join(',')!==
-       'alt,artDirection,asset,editorialSha256,generatedAt,generationModel,generationProvider,height,reviewMethod,reviewedAt,rightsQualified,safetyQualified,source,sourceSha256,status,visualQualified,width')
+       'alt,artDirection,asset,editorialSha256,generatedAt,generationModel,generationOperation,generationProvider,height,reviewMethod,reviewedAt,rightsQualified,safetyQualified,source,sourceSha256,status,visualQualified,width')
        throw Error('Unqualified editorial manifest fields');
     if(!sourcePattern.test(row.source||'')||source.get(row.source)!==row.sourceSha256||
        !sha.test(row.sourceSha256)||!sha.test(row.editorialSha256)||
@@ -48,6 +48,7 @@ export function validateEditorialManifest(manifest,entries){
        !row.alt.includes('AI-stylized')||/[<>]/.test(row.alt)||
        !/^[a-z][a-z0-9-]{2,63}$/.test(row.generationProvider||'')||
        typeof row.generationModel!=='string'||row.generationModel.length<3||row.generationModel.length>100||
+       row.generationOperation!=='image-edit'||
        !['ai-visual-assessment','owner-visual-assessment'].includes(row.reviewMethod)||
        ![row.generatedAt,row.reviewedAt].every(d=>typeof d==='string'&&
          /^\d{4}-\d{2}-\d{2}T/.test(d)&&Number.isFinite(Date.parse(d)))||
