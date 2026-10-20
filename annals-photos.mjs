@@ -10,7 +10,10 @@ export function installViewer(root=document){
     const hasStyle=!!a.dataset.editorialSrc,original=dialog.querySelector('[data-original]');
     dialog.querySelector('img').src=hasStyle?a.dataset.editorialSrc:a.href;
     dialog.querySelector('img').alt=hasStyle?a.dataset.editorialAlt||img.alt:img.alt;
-    dialog.querySelector('p').textContent=(caption||img.alt)+(hasStyle?' · AI-stylized editorial photograph; setting illustrative.':'')+
+    const description=(caption||img.alt);
+    dialog.querySelector('p').textContent=description+
+      (hasStyle&&!description.includes('AI-stylized editorial photograph; setting illustrative.')
+        ?' · AI-stylized editorial photograph; setting illustrative.':'')+
       ' — '+(index+1)+' of '+links.length;
     original.href=a.href;original.hidden=!hasStyle;
   }

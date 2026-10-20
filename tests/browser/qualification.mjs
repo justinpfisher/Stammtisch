@@ -204,7 +204,7 @@ try{
         await page.waitForLoadState('networkidle');
         const opener=card.locator('a[data-photo-view]');
         assert.equal(await opener.getAttribute('data-editorial-src'),null);
-        assert.equal(await card.locator('img').getAttribute('src'),largeAsset.path);
+        assert.equal(await card.locator('img').getAttribute('src'),thumbAsset.path);
         await opener.click();
         const dialog=page.getByRole('dialog',{name:'Photograph viewer'});
         await dialog.waitFor({state:'visible'});
