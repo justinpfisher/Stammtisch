@@ -76,6 +76,6 @@ test('website-wide instructions favour simple releases and a short Club-voice Ma
   assert.match(agents,/the Club's publicly adopted words can be updated immediately/);
   assert.match(editorial,/one or two graceful sentences/);
   assert.match(editorial,/An established interpretation is not an unresolved debate/);
-  assert.match(editorial,/older signed editions in the existing revision history/);
+  assert.match(editorial,/Retain earlier signed editions in the existing revision history/);
   assert.doesNotMatch(rulebook,/new rule.*needs.*second vote/i);
 });
