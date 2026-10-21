@@ -5,11 +5,8 @@ import {photoThumbnail} from './PhotoThumbnail.mjs';
 import {EDITORIAL_MANIFEST_PATH,validateEditorialManifest,pruneEditorialManifest} from './EditorialPhotoManifest.mjs';
 
 // Trusted deployment configuration only. An email/payload cannot arm this lane.
-export function photoReleaseAllowed({entryId,photosEnabled,guardedJpegEnabled=false,securityVerified,acceptanceEntryId,acceptanceUntil,now=new Date()}){
-  if(securityVerified!==true)return false;
-  if(photosEnabled===true||guardedJpegEnabled===true)return true;
-  const until=Date.parse(acceptanceUntil),time=now.getTime();
-  return /^annal-[a-f0-9]{24}$/.test(entryId||'')&&entryId===acceptanceEntryId&&until>time&&until<=time+86400000;
+export function photoReleaseAllowed({photosEnabled,guardedJpegEnabled=false,securityVerified}){
+  return securityVerified===true && (photosEnabled===true || guardedJpegEnabled===true);
 }
 import {writePhotoIndex} from './PhotoIndex.mjs';
 import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
@@ -155,9 +152,11 @@ async function main() {
   const dataPath = 'data/annals-approved.json';
   const data = JSON.parse(await readFile(dataPath, 'utf8'));
   const history = JSON.parse(await readFile('data/club-history.json', 'utf8'));
-  const now=new Date(),photosEnabled=photoReleaseAllowed({entryId:event.client_payload?.entry?.id,
-    photosEnabled:process.env.ANNALS_PHOTOS_V2_RELEASE_ENABLED==='true',guardedJpegEnabled:process.env.ANNALS_PHOTOS_GUARDED_JPEG_ENABLED==='true',securityVerified:process.env.ANNALS_SIGNING_REMEDIATION_VERIFIED==='true',
-    acceptanceEntryId:process.env.ANNALS_PHOTOS_ACCEPTANCE_ENTRY_ID,acceptanceUntil:process.env.ANNALS_PHOTOS_ACCEPTANCE_UNTIL,now});
+  const now=new Date(),photosEnabled=photoReleaseAllowed({
+    photosEnabled:process.env.ANNALS_PHOTOS_V2_RELEASE_ENABLED==='true',
+    guardedJpegEnabled:process.env.ANNALS_PHOTOS_GUARDED_JPEG_ENABLED==='true',
+    securityVerified:process.env.ANNALS_SIGNING_REMEDIATION_VERIFIED==='true'
+  });
   if(Buffer.byteLength(JSON.stringify({event_type:event.action,client_payload:event.client_payload}))>60000)throw Error('Dispatch envelope exceeds bound');
   const result = await applyApprovedEntry({ event, data, secret: process.env.ANNALS_PUBLISH_SIGNING_KEY, history, now, photosEnabled,
     blobTransportEnabled:process.env.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED==='true' });
