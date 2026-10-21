@@ -51,8 +51,9 @@ class GitHubAuthorityTests(unittest.TestCase):
     def test_repeat_sheet_import_cannot_reverse_git_authorised_award(self):
         previous = awarded()
         sheet = copy.deepcopy(previous)
-        original = sync.importer.import_data
+        original, original_cells = sync.importer.import_data, sync.sheets_api_cells
         try:
+            sync.sheets_api_cells = lambda _: {"LEADERBOARD":{"A1":{"value":2026}}}
             sync.importer.import_data = lambda *args, **kwargs: copy.deepcopy(sheet)
             status, result, confirmed = sync.prepare(
                 {},previous,[],"2026-10-21T22:00:00Z",
@@ -69,13 +70,14 @@ class GitHubAuthorityTests(unittest.TestCase):
             self.assertIsNone(result2)
             self.assertIsNone(confirmed2)
         finally:
-            sync.importer.import_data = original
+            sync.importer.import_data, sync.sheets_api_cells = original, original_cells
 
     def test_january_source_hold_does_not_reject_a_github_only_award_correction(self):
         previous, sheet = awarded(), awarded()
         sheet["asOf"]="2027-01-16"
-        original = sync.importer.import_data
+        original, original_cells = sync.importer.import_data, sync.sheets_api_cells
         try:
+            sync.sheets_api_cells = lambda _: {"LEADERBOARD":{"A1":{"value":2026}}}
             sync.importer.import_data = lambda *args, **kwargs: copy.deepcopy(sheet)
             status, published, _ = sync.prepare({},previous,[],"2027-01-16T22:00:00Z",
                                                 allow_research=False,corrections=ledger())
@@ -86,7 +88,7 @@ class GitHubAuthorityTests(unittest.TestCase):
                 sync.prepare({},previous,[],"2027-01-16T22:00:00Z",
                              allow_research=False,corrections=ledger())
         finally:
-            sync.importer.import_data = original
+            sync.importer.import_data, sync.sheets_api_cells = original, original_cells
 
     def test_newly_reported_passing_cannot_be_created_by_score_only_correction(self):
         source = awarded()
