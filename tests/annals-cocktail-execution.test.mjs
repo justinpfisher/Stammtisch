@@ -49,6 +49,45 @@ test('no caller-selected source URL or environment key is supported by the CLI',
   }
 });
 
+test('private handoff check is non-spending and refuses absent private authority without writes',async()=>{
+ const out=await mkdtemp(path.join(tmpdir(),'stammtisch-handoff-no-spend-'));
+ try{
+   const run=cli(['--entry',entry,'--check-handoff','--private-output',out],{
+     ANNALS_EDITORIAL_IMAGE_ENABLED:'false',
+     ANNALS_EDITORIAL_IMAGE_API_KEY:'should-not-use-this-key'
+   });
+   assert.notEqual(run.status,0);
+   assert.equal((await readdir(out)).length,0);
+   assert.doesNotMatch(run.stdout+run.stderr,/should-not-use-this-key|Bearer |source email|private token/i);
+ }finally{await rm(out,{recursive:true,force:true})}
+});
+test('check-handoff is exclusively no-spend and cannot be combined with paid mode',()=>{
+ for(const args of [
+   ['--entry',entry,'--execute','--check-handoff'],
+   ['--entry',entry,'--check-handoff','--execute'],
+   ['--entry',entry,'--check-handoff','--check-handoff'],
+   ['--entry',entry,'--execute','--execute']
+ ]){
+   const r=cli(args);
+   assert.notEqual(r.status,0);
+ }
+});
+test('handoff validation occurs before paid activation, and succeeds before any private write',async()=>{
+ const source=await readFile(script,'utf8');
+ const receipt=source.indexOf('extractUnspentEditorialPermit(JSON.parse(');
+ const proof=source.indexOf('const proof=verifyEditorialPermit(');
+ const budget=source.indexOf('const reservation=verifyIssuedCocktailBudget(');
+ const earlierAttempt=source.indexOf("if(saved?.sourceSha256===subject.sourceSha256)");
+ const dry=source.indexOf("if(options.checkHandoff){");
+ const paid=source.indexOf("if(process.env.ANNALS_EDITORIAL_IMAGE_ENABLED!=='true'",dry);
+ const mark=source.indexOf("await writeFile(marker,JSON.stringify(attempt",dry);
+ const edit=source.indexOf("const edited=await requestSunburstEdit(",dry);
+ assert.ok(receipt>=0&&receipt<proof&&proof<budget&&budget<earlierAttempt&&
+   earlierAttempt<dry&&dry<paid&&paid<mark&&mark<edit);
+ assert.match(source,/state:'private-handoff-verified-offline'/);
+ assert.match(source,/providerCalled:false,paidRequestMade:false,markerCreated:false/);
+ assert.doesNotMatch(source,/reserveCocktailBudget\s*\(/);
+});
 test('every successful paid edit is retained owner-privately before another paid visual review',async()=>{
   const source=await readFile(script,'utf8');
   const edit=source.indexOf('const edited=await requestSunburstEdit(');

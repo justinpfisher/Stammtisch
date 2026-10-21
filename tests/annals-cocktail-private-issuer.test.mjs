@@ -7,7 +7,7 @@ import {readFileSync} from 'node:fs';
 import {createHash,createHmac} from 'node:crypto';
 import vm from 'node:vm';
 import Policy from '../scripts/annals/CocktailEditorialCore.js';
-import {verifyEditorialPermit} from '../scripts/annals/CocktailImageEdit.mjs';
+import {verifyEditorialPermit,extractUnspentEditorialPermit} from '../scripts/annals/CocktailImageEdit.mjs';
 
 const moduleSource=readFileSync(new URL('../scripts/annals/CocktailEditorialProduction.gs',import.meta.url),'utf8');
 const referenceBuffer=Buffer.alloc(5000,17),referenceId='fictional-owner-approved-reference-id';
@@ -136,6 +136,33 @@ test('owner-private issuer writes a durable budget reservation and distinct sign
  assert.equal(verified.budgetReserved,true);
  assert.equal(f.log.length,0);
  assert.throws(()=>f.context.annalsCocktailEditorialReserveInEditor(itemId,0),/reserved/);
+});
+test('exact private immutable issuer journal is consumed as a receipt, not a forged bare permit',()=>{
+ const f=fixture();
+ f.context.annalsCocktailEditorialReserveInEditor(itemId,0);
+ const record=f.folder.files.get('cocktail-editorial-permit-'+sourceSha+'-private.json');
+ const permit=extractUnspentEditorialPermit(record);
+ assert.equal(permit.entryId,entryId);
+ assert.equal(permit.sourceSha256,sourceSha);
+ assert.equal(verifyEditorialPermit(permit,{
+   entryId,sourceSha256:sourceSha,referenceSha256:sha(referenceBuffer),
+   signingKey:publicKey,permitSigningKey:issuerKey,
+   now:new Date(permit.issuedAt)
+ }).budgetReserved,true);
+ for(const invalid of [
+   permit, // bare copied permit is not evidence of the issuer's one-shot journal
+   {...record,state:'spent'},
+   {...record,state:'held_no_retry'},
+   {...record,providerCalled:true},
+   {...record,generatedImageQualified:true},
+   {...record,publicRelease:true},
+   {...record,at:'invalid'},
+   {...record,extra:'untrusted'}
+ ]){
+   assert.throws(()=>extractUnspentEditorialPermit(invalid),/receipt unavailable or previously used/);
+ }
+ assert.equal(f.root.files.get('cocktail-editorial-budget-private.json').reservations.length,1);
+ assert.deepEqual(f.log,[]);
 });
 test('issuer refuses until separate incident recovery, even when project hard limit exists',()=>{
  const f=fixture({recovered:false});

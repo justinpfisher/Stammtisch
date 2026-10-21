@@ -11,7 +11,7 @@ import {fileURLToPath} from 'node:url';
 import {verifyPublicApproval} from './ApprovedRenderer.mjs';
 import {verifyIssuedCocktailBudget,imageSpendCents,reviewSpendCents,enforceTotalSpend} from './CocktailEditorialBudget.mjs';
 import {
-  verifiedCocktailSource,verifyEditorialPermit,stripJpegMetadata,makeSunburstEditRequest,
+  verifiedCocktailSource,verifyEditorialPermit,extractUnspentEditorialPermit,stripJpegMetadata,makeSunburstEditRequest,
   requestSunburstEdit,makeVisualReviewRequest,assessSunburstEdit,
   proposedEditorialRecord
 } from './CocktailImageEdit.mjs';
@@ -19,16 +19,19 @@ import {
 const repo=path.resolve(fileURLToPath(new URL('../../',import.meta.url)));
 const sourceDigest=bytes=>createHash('sha256').update(bytes).digest('hex');
 function args(argv){
-  const result={execute:false};
+  const result={execute:false,checkHandoff:false};
   for(let i=0;i<argv.length;i++){
-    if(argv[i]==='--execute'){result.execute=true;continue}
+    if(argv[i]==='--execute'){if(result.execute)throw Error('Duplicate execution mode');result.execute=true;continue}
+    if(argv[i]==='--check-handoff'){if(result.checkHandoff)throw Error('Duplicate handoff mode');result.checkHandoff=true;continue}
     if(!['--entry','--reference','--permit','--budget-ledger','--private-output'].includes(argv[i])||
        i+1>=argv.length||argv[i+1].startsWith('--')||result[argv[i].slice(2)])
       throw Error('Unsupported image-edit argument');
     result[argv[i].slice(2)]=argv[++i];
   }
   if(!/^[a-z0-9][a-z0-9-]{5,63}$/.test(result.entry||''))throw Error('Invalid entry ID');
-  if(!result.execute&&(result.reference||result.permit||result['budget-ledger']||result['private-output']))
+  if(result.execute&&result.checkHandoff)throw Error('Choose exactly one protected execution mode');
+  if(!result.execute&&!result.checkHandoff&&
+     (result.reference||result.permit||result['budget-ledger']||result['private-output']))
     throw Error('Protected inputs require explicit --execute');
   return result;
 }
@@ -68,7 +71,7 @@ async function run(){
   const sourceBytes=await readFile(path.join(repo,sourcePath));
   if(sourceDigest(sourceBytes)!==photo.sha256)
     throw Error('Public source image digest mismatch');
-  if(!options.execute){
+  if(!options.execute&&!options.checkHandoff){
     // Offline source-only check; does NOT certify the private signature, grant,
     // budget reservation, generation or published image.
     console.log(JSON.stringify({state:'preflight-source-digest-only',
@@ -76,14 +79,13 @@ async function run(){
       generationEnabled:false}));
     return;
   }
-  if(process.env.ANNALS_EDITORIAL_IMAGE_ENABLED!=='true'||
-     !process.env.ANNALS_EDITORIAL_IMAGE_API_KEY||
-     !process.env.ANNALS_PUBLISH_SIGNING_KEY||
+  // The dry handoff path deliberately does not require provider credentials,
+  // paid-feature activation or budget-limit assertion. It never calls APIs.
+  if(!process.env.ANNALS_PUBLISH_SIGNING_KEY||
      !process.env.ANNALS_EDITORIAL_PERMIT_SIGNING_KEY||
      process.env.ANNALS_EDITORIAL_PERMIT_SIGNING_KEY===process.env.ANNALS_PUBLISH_SIGNING_KEY||
-     process.env.ANNALS_EDITORIAL_SECURITY_RECOVERY_VERIFIED!=='true'||
-     process.env.ANNALS_EDITORIAL_PROJECT_HARD_LIMIT_VERIFIED!=='true')
-    throw Error('Image provider, project hard cap, private signing or activation unavailable');
+     process.env.ANNALS_EDITORIAL_SECURITY_RECOVERY_VERIFIED!=='true')
+    throw Error('Protected publisher, independent permit signer or recovery unavailable');
   if(!verifyPublicApproval(entry,approval,process.env.ANNALS_PUBLISH_SIGNING_KEY))
     throw Error('Signed source publication invalid');
   const subject=verifiedCocktailSource({entry,approval,
@@ -93,8 +95,8 @@ async function run(){
     options.entry==='annal-96b5ae266a36793c6a203033');
   const permitBytes=await privateFile(options.permit);
   let permit;
-  try{permit=JSON.parse(permitBytes.toString('utf8'))}
-  catch{throw Error('Private editorial rights receipt invalid')}
+  try{permit=extractUnspentEditorialPermit(JSON.parse(permitBytes.toString('utf8')))}
+  catch{throw Error('Owner-issued private editorial receipt invalid or previously used')}
   const proof=verifyEditorialPermit(permit,{
     entryId:subject.entryId,sourceSha256:subject.sourceSha256,
     // Apps Script signs the ORIGINAL private reference bytes, before
@@ -128,6 +130,25 @@ async function run(){
   }
   // Stable exact-source marker, not a permit-nonce marker. A newly signed
   // permit cannot evade the local one-shot ban for the same photograph.
+  if(options.checkHandoff){
+    // Privately qualify exact signed source, issuer record, reference, ledger
+    // and one-shot marker state. NO API key, provider call, budget mutation,
+    // provider usage or private file is written or returned.
+    console.log(JSON.stringify({
+      state:'private-handoff-verified-offline',publisherVerified:true,
+      issuerPermitVerified:true,sourceReferenceBound:true,
+      ownerLedgerReservationMatched:true,priorSourceAttemptAbsent:true,
+      providerCalled:false,paidRequestMade:false,markerCreated:false,
+      budgetReservationMade:false,published:false
+    }));
+    return;
+  }
+  // Enabling the paid path is deliberately AFTER all reversible, non-spending
+  // handoff validation. No provider probe or paid call happens on a hold.
+  if(process.env.ANNALS_EDITORIAL_IMAGE_ENABLED!=='true'||
+     !process.env.ANNALS_EDITORIAL_IMAGE_API_KEY||
+     process.env.ANNALS_EDITORIAL_PROJECT_HARD_LIMIT_VERIFIED!=='true')
+    throw Error('Image provider, project hard cap or paid activation unavailable');
   const marker=path.join(privateOutput,
     'cocktail-'+subject.sourceSha256+'-attempt-private.json');
   const attempt={state:'reserved-no-retry',entryId:subject.entryId,

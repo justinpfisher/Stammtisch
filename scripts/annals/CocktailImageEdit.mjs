@@ -104,6 +104,25 @@ export function verifyEditorialPermit(permit,{entryId,sourceSha256,referenceSha2
     attemptDigest:hash(Buffer.from(permit.signature,'hex'))});
 }
 
+/* The owner-only issuer writes a whole immutable private receipt, NOT a
+ * standalone signed permit. Consume that exact record, fail closed for any
+ * spent/held/ambiguous state, and verify the nested HMAC separately below.
+ * Receipt file and full ledger MUST remain in owner-private storage.
+ */
+export function extractUnspentEditorialPermit(receipt){
+  if(!receipt||typeof receipt!=='object'||Array.isArray(receipt)||
+     Object.keys(receipt).sort().join(',')!==
+       'at,generatedImageQualified,permit,providerCalled,publicRelease,state'||
+     receipt.state!=='reserved_unspent'||
+     receipt.providerCalled!==false||receipt.generatedImageQualified!==false||
+     receipt.publicRelease!==false||
+     typeof receipt.at!=='string'||!Number.isFinite(Date.parse(receipt.at))||
+     !receipt.permit||typeof receipt.permit!=='object'||
+     Array.isArray(receipt.permit))
+    throw Error('Owner-issued editorial receipt unavailable or previously used');
+  return receipt.permit;
+}
+
 export function stripJpegMetadata(bytes){
   // Remove only APP/COM segments; never segment or recompose the drink.
   // Reject malformed, progressive, multi-image or hidden-payload encodings.
