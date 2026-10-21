@@ -169,7 +169,7 @@ test('signed automatic proof binds exact text, policy mode and no public sender 
   const event={action:'annals-auto-entry',client_payload:{entry,approval}};
   const result=await applyApprovedEntry({event,data:original,secret});
   assert.equal(result.data.entries.length,1);
-  assert.match(result.html,/The Editorial Committee obscures/);
+  assert.match(result.html,/The Editorial Committee reserves the right/);
   assert.match(result.html,/The Cocktail Register/);
   assert.doesNotMatch(JSON.stringify(result.data),/sender|reviewer|example\.test|source-private/);
   await assert.rejects(applyApprovedEntry({event,data:result.data,secret}),/already exists/);
@@ -186,10 +186,10 @@ test('an automatic signed proof cannot attach photographs, forge quotation right
 });
 test('empty public archive retains permanent censorship notice without any category',()=>{
   const html=buildPublishedAnnals([],[],secret).html;
-  assert.match(html,/The Editorial Committee obscures/);
+  assert.match(html,/The Editorial Committee reserves the right/);
   assert.doesNotMatch(html,/class="annal-collection"|class="annal-collections"/);
   const staticHtml=readFileSync(new URL('../annals.html',import.meta.url),'utf8');
-  assert.match(staticHtml,/The Editorial Committee obscures/);
+  assert.match(staticHtml,/The Editorial Committee reserves the right/);
   assert.ok(staticHtml.indexOf('annal-editorial-notice')>0);
 });
 test('existing provider spending guard is unchanged and the auto workflow is isolated from CoL',()=>{
