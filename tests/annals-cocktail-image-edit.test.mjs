@@ -22,6 +22,7 @@ const sourcePath='assets/annals/'+kingston.id+'.jpg';
 const original=readFileSync(new URL('../'+sourcePath,import.meta.url));
 const sha=v=>createHash('sha256').update(v).digest('hex');
 const key='fictional-approval-key-for-offline-edit-qualification';
+const permitKey='fictional-distinct-cocktail-permit-signing-key';
 const canonical=x=>Array.isArray(x)?x.map(canonical):
   x&&typeof x==='object'?Object.fromEntries(
     Object.keys(x).sort().map(k=>[k,canonical(x[k])])):x;
@@ -47,12 +48,12 @@ const permit=()=>{
     budgetReserved:true,nonce:'a'.repeat(32),
     issuedAt:'2026-10-20T09:00:00Z',expiresAt:'2026-10-20T10:00:00Z'
   };
-  return {...unsigned,signature:createHmac('sha256',key)
+  return {...unsigned,signature:createHmac('sha256',permitKey)
     .update(JSON.stringify(canonical(unsigned))).digest('hex')};
 };
 const now=new Date('2026-10-20T09:20:00Z');
 const grant=()=>verifyEditorialPermit(permit(),{
-  entryId:kingston.id,sourceSha256:sha(original),referenceSha256:sha(original),signingKey:key,now
+  entryId:kingston.id,sourceSha256:sha(original),referenceSha256:sha(original),signingKey:key,permitSigningKey:permitKey,now
 });
 function actualEditedFixture(){
   const altered=Buffer.from(original);
@@ -94,6 +95,14 @@ test('rights must be separate HMAC attestation; existing public photo consent al
   const grantProof=grant();
   assert.equal(grantProof.entryId,kingston.id);
   assert.equal(grantProof.sourceSha256,sha(original));
+  assert.throws(()=>verifyEditorialPermit(permit(),{
+    entryId:kingston.id,sourceSha256:sha(original),referenceSha256:sha(original),
+    signingKey:key,permitSigningKey:key,now
+  }),/unavailable/);
+  assert.throws(()=>verifyEditorialPermit(permit(),{
+    entryId:kingston.id,sourceSha256:sha(original),referenceSha256:sha(original),
+    signingKey:key,now
+  }),/unavailable/);
   for(const patch of [
     {rightsActive:false},{screened:false},{budgetReserved:false},
     {sourceSha256:'0'.repeat(64)},{referenceSha256:'0'.repeat(64)},
@@ -102,9 +111,10 @@ test('rights must be separate HMAC attestation; existing public photo consent al
     {scope:'ordinary-photo-publication'}, {expiresAt:'2026-10-20T09:10:00Z'},
     {nonce:'b'.repeat(32)}
   ])assert.throws(()=>verifyEditorialPermit({...permit(),...patch},{
-    entryId:kingston.id,sourceSha256:sha(original),signingKey:key,now}));
+    entryId:kingston.id,sourceSha256:sha(original),signingKey:key,permitSigningKey:permitKey,now}));
   assert.throws(()=>verifyEditorialPermit(permit(),{
-    entryId:kingston.id,sourceSha256:sha(original),referenceSha256:sha(original),signingKey:key,
+    entryId:kingston.id,sourceSha256:sha(original),referenceSha256:sha(original),
+    signingKey:key,permitSigningKey:permitKey,
     now:new Date('2026-10-21T09:20:00Z')}),/expired/);
 });
 test('Kingston edit prompt preserves its tapered glass, three apples, stem and whole-scene art direction',()=>{
