@@ -67,7 +67,7 @@ function annalsCocktailEditorialPreflightInEditor(itemId,photoIndex){
     var r={kind:'cocktail-editorial-private-preflight-v1',
       checkedAt:new Date().toISOString(),eligible:false,
       recoveryRequired:true,referenceReady:false,
-      independentBudgetReady:false,sourceAuthenticated:false,
+      providerLimitVerified:false,sourceAuthenticated:false,
       providerCalled:false,published:false};
     try{
       var p=annalsProps_();
@@ -79,11 +79,10 @@ function annalsCocktailEditorialPreflightInEditor(itemId,photoIndex){
       r.independentSigningKeyReady=key.length>=32&&key!==publisher;
       r.imageKeyConfigured=!!p.getProperty('ANNALS_EDITORIAL_IMAGE_API_KEY');
       var ref=annalsCocktailEditorialReference_();r.referenceReady=!!ref.sha256;
-      var ledger=annalsRead_(annalsRoot_(),'cocktail-editorial-budget-private.json');
-      r.independentBudgetReady=!!AnnalsCocktailEditorial.validateLedger(ledger);
+      r.providerLimitVerified=p.getProperty('ANNALS_EDITORIAL_PROJECT_HARD_LIMIT_VERIFIED')==='true';
       var context=annalsCocktailEditorialContext_(itemId,photoIndex);
       r.sourceAuthenticated=!!context.sourceSha256;
-      r.eligible=!r.recoveryRequired&&r.independentBudgetReady&&
+      r.eligible=!r.recoveryRequired&&r.providerLimitVerified&&
         r.independentSigningKeyReady&&r.imageKeyConfigured&&r.referenceReady;
     }catch(ignored){r.eligible=false}
     return r;
@@ -139,55 +138,52 @@ function annalsCocktailEditorialCredentialPreflightInEditor(){
   return result;
 }
 
-/** Owner-only private reservation; does NOT call OpenAI or publish a photo.
- * Install only AFTER independent post-exposure secret/signing recovery.
- * One lock covers read/plan/save of the separate private spending ledger.
+/** Owner-only source-specific editorial permission for the already screened
+ * cocktail. The provider-enforced US$5 monthly project cap replaces the
+ * retired per-photo reservation ledger. Never makes a paid request.
+ * Keep the same source-specific private filename so older issuances cannot
+ * silently be replayed after this source upgrade.
  */
-function annalsCocktailEditorialReserveInEditor(itemId,photoIndex){
+function annalsCocktailEditorialPermitInEditor(itemId,photoIndex){
   annalsOwner_();
   return annalsLocked_(function(){
     var p=annalsProps_();
     if(p.getProperty('ANNALS_EDITORIAL_SECURITY_RECOVERY_VERIFIED')!=='true'||
        p.getProperty('ANNALS_EDITORIAL_IMAGE_ENABLED')!=='true'||
        p.getProperty('ANNALS_EDITORIAL_PROJECT_HARD_LIMIT_VERIFIED')!=='true')
-      throw Error('Protected editorial service remains disabled');
+      throw Error('Protected editorial service or provider cap unavailable');
     var key=p.getProperty('ANNALS_EDITORIAL_PERMIT_SIGNING_KEY')||'',
       publisher=p.getProperty('ANNALS_PUBLISH_SIGNING_KEY')||'',
       approval=p.getProperty('ANNALS_APPROVAL_KEY')||'';
     if(key.length<32||key===publisher||key===approval||
        !p.getProperty('ANNALS_EDITORIAL_IMAGE_API_KEY'))
-      throw Error('Separate recovered editorial credential is unavailable');
+      throw Error('Independent editorial signer or provider access unavailable');
     var context=annalsCocktailEditorialContext_(itemId,photoIndex),
-      reference=annalsCocktailEditorialReference_(),root=annalsRoot_(),
-      budgetFile='cocktail-editorial-budget-private.json',
-      history=annalsRead_(root,budgetFile);
-    // No automatic ledger creation or deletion: an absent/corrupt file may
-    // conceal a consumed/uncertain paid operation from earlier attempts.
-    var proposed=AnnalsCocktailEditorial.planReservation({
-      ledger:history,entryId:context.entryId,
-      sourceSha256:context.sourceSha256,referenceSha256:reference.sha256,
-      rightsEligible:true,sourceStillSigned:true,now:new Date()
-    });
-    var recordName='cocktail-editorial-permit-'+context.sourceSha256+'-private.json';
+      reference=annalsCocktailEditorialReference_(),
+      recordName='cocktail-editorial-permit-'+context.sourceSha256+'-private.json';
     if(annalsFile_(context.folder,recordName))
-      throw Error('Prior editorial permit exists; no automatic retry');
-    // Fail closed if the Drive save is uncertain: no provider request is made
-    // in this function, so the owner can reconcile the ledger and journal.
-    annalsSavePrivate_(root,budgetFile,proposed.ledger);
+      throw Error('Previous editorial source issuance exists; no automatic retry');
+    // Only read historical budget reservations for replay compatibility.
+    // No new ledger, reservation, balance or monetary approval is created.
+    var historical=annalsRead_(annalsRoot_(),'cocktail-editorial-budget-private.json');
+    if(historical && (!Array.isArray(historical.reservations) ||
+        historical.reservations.some(function(r){
+          return !r || typeof r.sourceSha256!=='string' ||
+            r.sourceSha256===context.sourceSha256;
+        }))) throw Error('Historical source attempt needs reconciliation');
     var unsigned=AnnalsCocktailEditorial.unsignedPermit({
-      ledger:proposed.ledger,entryId:context.entryId,
-      sourceSha256:context.sourceSha256,referenceSha256:reference.sha256,
-      rightsEligible:true,nonce:Utilities.getUuid().replace(/-/g,'').toLowerCase(),
-      now:new Date(proposed.reservation.reservedAt)
+      entryId:context.entryId,sourceSha256:context.sourceSha256,
+      referenceSha256:reference.sha256,rightsEligible:true,
+      sourceStillSigned:true,
+      nonce:Utilities.getUuid().replace(/-/g,'').toLowerCase(),now:new Date()
     });
     var signature=annalsHex_(Utilities.computeHmacSha256Signature(
       AnnalsCocktailEditorial.serial(unsigned),key,Utilities.Charset.UTF_8));
-    // Permit never appears in public GitHub or Apps Script execution logs.
-    annalsWriteOnce_(context.folder,recordName,{permit:Object.assign({},unsigned,{signature:signature}),
-      state:'reserved_unspent',at:new Date().toISOString(),providerCalled:false,
-      generatedImageQualified:false,publicRelease:false});
-    return {reserved:true,requestMade:false,published:false,
-      reservationCents:proposed.reservation.reservationCents,
-      period:proposed.reservation.period};
+    annalsWriteOnce_(context.folder,recordName,{
+      permit:Object.assign({},unsigned,{signature:signature}),
+      state:'issued_unspent',at:new Date().toISOString(),
+      providerCalled:false,generatedImageQualified:false,publicRelease:false
+    });
+    return {issued:true,providerCalled:false,published:false};
   });
 }
