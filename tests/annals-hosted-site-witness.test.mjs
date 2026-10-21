@@ -120,7 +120,7 @@ test('every separately qualified editorial and its signed original are independe
   const f=fixture({withEditorial:true}),result=await f.run();
   assert.equal(result.files.length,19);
   assert.equal(f.calls.length,19);
-  assert.equal(result.signedCocktailSources,1;
+  assert.equal(result.signedCocktailSources,1);
   assert.equal(result.qualifiedEditorialAssets,1);
   assert.deepEqual(result.files.slice(-2).map(x=>x.path),[fictionalOriginal,fictionalEditorial]);
   assert.equal(result.files.at(-2).sha256,checksum(fictionalOriginalBytes));
