@@ -1,101 +1,80 @@
-"""GitHub-authoritative, attributable adjustments to already awarded CoL points.
+"""Reconcile GitHub Club-state awarded-point decisions against Sheet inputs.
 
-The Sheet remains an *input*, never the last writer of a member-authorised
-score correction. This narrowly scoped overlay does not alter death evidence,
-historic signed releases, selections or the spreadsheet itself. Commit history
-holds the ordered decision trail; no private mail or consent proof belongs here.
+One public source of truth: data/col-club-state.json. This adapter reads the
+same pointsCorrections records as the browser and makes the already validated
+GitHub result the *published* site data, even after future spreadsheet imports.
+No extra ledger, credential, notification or database is created.
 """
 import copy
 import datetime as dt
 import re
+import unicodedata
 
 MEMBERS = frozenset(("fish", "marc", "matt", "ken", "jamie", "jerome"))
-CORRECTION_ID = re.compile(r"^[a-z0-9][a-z0-9-]{7,95}$")
 PICK_ID = re.compile(r"^(fish|marc|matt|ken|jamie|jerome)-(?:[3-9]|[1-9][0-9]{1,3})$")
-STAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
-def validated_corrections(raw):
-    """Fail closed on malformed or conflicting public decision records."""
-    if not isinstance(raw, dict) or set(raw) != {"schemaVersion", "corrections"} or raw["schemaVersion"] != 1:
-        raise ValueError("Invalid GitHub score correction register")
-    entries = raw["corrections"]
-    if not isinstance(entries, list) or len(entries) > 500:
+def _key(name, born):
+    normalized = unicodedata.normalize("NFD", name)
+    return ("".join(c for c in normalized if not unicodedata.combining(c)).lower().strip(), born)
+
+def validated_corrections(club):
+    """Validate only the correction field of an otherwise qualified Club file."""
+    if not isinstance(club,dict) or club.get("schemaVersion") != 1:
+        raise ValueError("Invalid GitHub Club register")
+    entries = club.get("pointsCorrections", [])
+    if not isinstance(entries,list) or len(entries)>200:
         raise ValueError("Invalid GitHub score correction list")
-    seen, latest = set(), {}
-    for entry in entries:
-        if not isinstance(entry, dict) or set(entry) != {
-            "id", "seasonYear", "memberId", "pickId", "sourceName", "sourceBorn",
-            "points", "decidedBy", "decidedAt", "reason"
+    seen = set()
+    for c in entries:
+        if not isinstance(c,dict) or set(c) != {
+            "seasonYear","memberId","pickId","name","born","points"
         }:
             raise ValueError("Invalid GitHub score correction entry")
-        if not isinstance(entry["id"], str) or not CORRECTION_ID.fullmatch(entry["id"]) or entry["id"] in seen:
-            raise ValueError("Duplicate or invalid GitHub correction ID")
-        seen.add(entry["id"])
-        if (type(entry["seasonYear"]) is not int or not 2026 <= entry["seasonYear"] <= 9999
-            or entry["memberId"] not in MEMBERS or entry["decidedBy"] not in MEMBERS
-            or not isinstance(entry["pickId"], str) or not PICK_ID.fullmatch(entry["pickId"])
-            or not entry["pickId"].startswith(entry["memberId"] + "-")):
-            raise ValueError("Invalid GitHub correction identity")
-        if (not isinstance(entry["sourceName"], str) or not 1 <= len(entry["sourceName"].strip()) <= 160
-            or entry["sourceName"] != entry["sourceName"].strip()
-            or not isinstance(entry["sourceBorn"], str)
-            or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", entry["sourceBorn"])):
-            raise ValueError("Invalid GitHub correction source")
+        if (type(c["seasonYear"]) is not int or c["seasonYear"]<2026
+            or c["memberId"] not in MEMBERS or not isinstance(c["pickId"],str)
+            or not PICK_ID.fullmatch(c["pickId"])
+            or not c["pickId"].startswith(c["memberId"]+"-")
+            or not isinstance(c["name"],str) or not 1<=len(c["name"].strip())<=160
+            or not isinstance(c["born"],str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}",c["born"])
+            or type(c["points"]) is not int or not 0<=c["points"]<=1000):
+            raise ValueError("Invalid GitHub score correction identity")
         try:
-            dt.date.fromisoformat(entry["sourceBorn"])
+            dt.date.fromisoformat(c["born"])
         except ValueError as exc:
-            raise ValueError("Invalid GitHub correction birth date") from exc
-        if type(entry["points"]) is not int or not -500 <= entry["points"] <= 500:
-            raise ValueError("Invalid GitHub corrected points")
-        if not isinstance(entry["reason"], str) or not 3 <= len(entry["reason"].strip()) <= 180:
-            raise ValueError("Invalid GitHub correction rationale")
-        stamp = entry["decidedAt"]
-        if not isinstance(stamp, str) or not STAMP.fullmatch(stamp):
-            raise ValueError("Invalid GitHub correction time")
-        try:
-            instant = dt.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
-        except ValueError as exc:
-            raise ValueError("Invalid GitHub correction time") from exc
-        key = (entry["seasonYear"], entry["memberId"], entry["pickId"])
-        if key in latest and instant <= latest[key]:
-            raise ValueError("GitHub corrections must be ordered without replay")
-        latest[key] = instant
+            raise ValueError("Invalid GitHub score correction birth date") from exc
+        k = (c["seasonYear"],c["pickId"])
+        if k in seen:
+            raise ValueError("Duplicate GitHub score correction")
+        seen.add(k)
     return entries
 
-def overridden_pick(corrections, season_year, member_id, pick):
-    return any(e["seasonYear"] == season_year and e["memberId"] == member_id
-        and e["pickId"] == pick["id"] and e["sourceName"] == pick["name"]
-        and e["sourceBorn"] == pick["born"] for e in corrections)
+def overridden_pick(entries,year,member_id,pick):
+    return any(c["seasonYear"]==year and c["memberId"]==member_id
+        and c["pickId"]==pick["id"] and _key(c["name"],c["born"])==_key(pick["name"],pick["born"])
+        for c in entries)
 
-def apply_awarded_points(data, raw):
-    """Apply only a matching, already-counted member decision to site data.
-
-    Source identity and original Sheet validation remain separate; no claimed
-    member attribution in a JSON file itself authenticates a decision. The
-    authorised writer must authenticate the decision before committing it.
-    """
-    entries = validated_corrections(raw)
-    result = copy.deepcopy(data)
-    season = result["year"]
-    members = {m["id"]:m for m in result["members"]}
-    touched = set()
-    for entry in entries:
-        if entry["seasonYear"] != season:
+def apply_awarded_points(data,club):
+    """GitHub overrides points only; original confirmed death evidence is untouched."""
+    entries=validated_corrections(club)
+    out=copy.deepcopy(data)
+    year=out["year"]
+    touched=set()
+    members={m["id"]:m for m in out["members"]}
+    for c in entries:
+        if c["seasonYear"]!=year:
             continue
-        member = members.get(entry["memberId"])
+        member=members.get(c["memberId"])
         if member is None:
             raise ValueError("GitHub correction member not in published season")
-        matches = [p for p in member["picks"] if p["id"] == entry["pickId"]]
-        if len(matches) != 1:
+        matches=[p for p in member["picks"] if p["id"]==c["pickId"]]
+        if len(matches)!=1:
             raise ValueError("GitHub correction selection not in published season")
-        pick = matches[0]
-        if (pick["name"] != entry["sourceName"] or pick["born"] != entry["sourceBorn"]):
-            raise ValueError("GitHub correction source identity changed")
-        if pick.get("counted") is not True:
-            raise ValueError("GitHub score correction requires an existing awarded selection")
-        pick["points"] = entry["points"]
-        touched.add(member["id"])
-    for member in result["members"]:
+        pick=matches[0]
+        if not pick.get("counted") or _key(pick["name"],pick["born"])!=_key(c["name"],c["born"]):
+            raise ValueError("GitHub correction source identity changed or award unrecorded")
+        pick["points"]=c["points"]
+        touched.add(c["memberId"])
+    for member in out["members"]:
         if member["id"] in touched:
-            member["score"] = sum(p["points"] for p in member["picks"] if p["counted"])
-    return result
+            member["score"]=sum(p["points"] for p in member["picks"] if p["counted"])
+    return out
