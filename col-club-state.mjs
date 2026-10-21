@@ -38,11 +38,12 @@ export function competitionYearAt(value) {
   return instant.getTime() < Date.parse(januaryHandover(localYear).utc) ? localYear - 1 : localYear;
 }
 
-// Dates alone are sufficient except on the changeover Friday itself.
-// A verified exact death instant is required to place a changeover-day death
-// before or after 8 p.m.; neither a newspaper publication time nor the Sheet's
-// first-report date substitutes for that instant. The adopted 2026 record is
-// kept in its established year without retroactive reassignment.
+// Dates normally establish the season. On changeover Friday, a genuinely
+// verified death instant controls the 8 p.m. boundary. If the actual time is
+// unknown, the Club assigns the death to the previous competition year by
+// default; an authenticated member may correct it in the GitHub record.
+// News publication times and Sheet first-report dates are not death times.
+// Preserve already recorded pre-2027 historical allocations.
 export function competitionYearForDeathDate(date, verifiedInstant = null) {
   if (!validDate(date)) return null;
   const year=Number(date.slice(0,4));
@@ -50,7 +51,7 @@ export function competitionYearForDeathDate(date, verifiedInstant = null) {
   const cutoff=januaryHandover(year).date;
   if (date < cutoff) return year-1;
   if (date > cutoff) return year;
-  if (!Number.isFinite(verifiedInstant)) return null;
+  if (!Number.isFinite(verifiedInstant)) return year-1;
   return verifiedInstant < Date.parse(januaryHandover(year).utc) ? year-1 : year;
 }
 

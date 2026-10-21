@@ -111,13 +111,14 @@ test('a source death date belongs to the old year until the 8 p.m. January hando
   assert.equal(competitionYearForDeathDate('2026-12-31'),2026);
   assert.equal(competitionYearForDeathDate('2027-01-01'),2026);
   assert.equal(competitionYearForDeathDate('2027-01-14'),2026);
-  assert.equal(competitionYearForDeathDate('2027-01-15'),null,
-    'the actual changeover date needs verified death time');
+  assert.equal(competitionYearForDeathDate('2027-01-15'),2026,
+    'unknown time on the changeover Friday defaults to the previous season');
   assert.equal(competitionYearForDeathDate('2027-01-15',Date.parse('2027-01-15T19:59:59-05:00')),2026);
   assert.equal(competitionYearForDeathDate('2027-01-15',Date.parse('2027-01-15T20:00:00-05:00')),2027);
   assert.equal(competitionYearForDeathDate('2027-01-16'),2027);
   assert.equal(competitionYearForDeathDate('2028-01-20'),2027);
-  assert.equal(competitionYearForDeathDate('2028-01-21'),null);
+  assert.equal(competitionYearForDeathDate('2028-01-21'),2027);
+  assert.equal(competitionYearForDeathDate('2028-01-21',Date.parse('2028-01-21T20:00:00-05:00')),2028);
   assert.equal(competitionYearForDeathDate('2028-01-22'),2028);
   assert.equal(competitionYearForDeathDate('2027-02-30'),null);
 });

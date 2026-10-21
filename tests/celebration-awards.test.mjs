@@ -339,7 +339,7 @@ test('Metric Calendar birthday labels match the official ordinal method and reta
 });
 
 
-test('January 2027 death dates belong to 2026 until the 8 p.m. handover; its date-only boundary stays held',()=>{
+test('January 2027 changeover deaths with unknown times default to 2026, while verified times control the boundary',()=>{
   const death=(name,when,instant)=>pick(name,{
     born:'1950-01-01',actualDeathDate:when,discoveryDate:when,
     ...(instant?{actualDeathAt:instant}:{})
@@ -354,9 +354,9 @@ test('January 2027 death dates belong to 2026 until the 8 p.m. handover; its dat
   ]};
   const original=JSON.stringify(data);
   const result=calculateAwards(data);
-  assert.deepEqual(result.events.map(x=>x.name),['Before Friday','Before 8 p.m.']);
+  assert.deepEqual(result.events.map(x=>x.name),['Before Friday','Exact Friday without time','Before 8 p.m.']);
   assert.equal(result.final,false);
-  assert.equal(result.draft[0].vacancies,2);
+  assert.equal(result.draft[0].vacancies,3);
   assert.equal(JSON.stringify(data),original);
 });
 

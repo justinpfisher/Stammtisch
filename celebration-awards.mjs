@@ -1,5 +1,5 @@
 import { ageAt, basePoints, cavalcadeRule, copycatRule } from './celebration-rules.mjs';
-import {firstReportDate, isProtectedPick, competitionYearForDeathDate, isJettisonEligible} from './col-club-state.mjs';
+import {firstReportDate, isProtectedPick, competitionYearForDeathDate, isJettisonEligible} from './col-club-state.mjs?v=col-default-20261021';
 
 const birthdays = { marc: '03-26', jerome: '05-09', matt: '06-25', fish: '07-06', ken: '07-20', jamie: '09-19' };
 const birthdayNames = { marc:'Marc', jerome:'Jerome', matt:'Matt', fish:'Justin', ken:'Ken', jamie:'Jamie' };
