@@ -201,6 +201,8 @@ test('missing image key does not call provider; separate signer mismatches are r
    f.props.ANNALS_EDITORIAL_PERMIT_SIGNING_KEY=f.props[signer];
    const report=f.context.annalsCocktailEditorialCredentialPreflightInEditor();
    assert.equal(report.permitSignerPresentAndDistinct,false);
+   assert.equal(report.modelLookupAccepted,false);
+   assert.equal(f.events.modelRequests||0,0);
    assert.deepEqual(f.log,[]);
  }
 });
@@ -214,7 +216,22 @@ test('provider rejects/unavailable and unset owner flags remain non-spending fal
    assert.equal(report.recoveryFlagSet,false);
    assert.equal(report.projectHardLimitFlagSet,false);
    assert.equal(report.modelLookupAccepted,false);
+   assert.equal(f.events.modelRequests||0,0);
    assert.equal(report.paidRequestMade,false);
+   assert.equal(f.root.files.size,1);
+   assert.equal(f.folder.files.size,2);
+   assert.deepEqual(f.log,[]);
+ }
+});
+test('after recorded recovery, provider 401 and transport failures remain non-billed false',()=>{
+ for(const networkFail of [false,true]){
+   const f=fixture({recovered:true});
+   f.events.modelResponseCode=401;
+   f.events.rejectModelRequest=networkFail;
+   const report=f.context.annalsCocktailEditorialCredentialPreflightInEditor();
+   assert.equal(report.modelLookupAccepted,false);
+   assert.equal(report.paidRequestMade,false);
+   assert.equal(f.events.modelRequests,1);
    assert.equal(f.root.files.size,1);
    assert.equal(f.folder.files.size,2);
    assert.deepEqual(f.log,[]);
