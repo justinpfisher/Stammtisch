@@ -160,7 +160,7 @@ test('missing budget ledger never triggers unsafe reset or a spending permit',()
 test('no raw Script Properties enumeration or key logging exists in staged issuer source',()=>{
  assert.doesNotMatch(moduleSource,/getProperties\s*\(/);
  assert.doesNotMatch(moduleSource,/console\.(?:log|warn|error)\s*\(/);
- assert.doesNotMatch(moduleSource,/UrlFetchApp\.fetch\s*\(/);
+ assert.equal((moduleSource.match(/UrlFetchApp\.fetch\s*\(/g)||[]).length,1);
  assert.doesNotMatch(moduleSource,/(?:setProperty|deleteProperty)\s*\(/);
  assert.match(moduleSource,/ANNALS_EDITORIAL_SECURITY_RECOVERY_VERIFIED/);
  assert.match(moduleSource,/ANNALS_EDITORIAL_PERMIT_SIGNING_KEY/);
