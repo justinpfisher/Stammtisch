@@ -45,22 +45,41 @@ test('new photo and rule gates are closed with missing acceptance or remediation
   values={ANNALS_AUTO_MEDIA_ENABLED:'true',ANNALS_PHOTOS_V2_ENABLED:'true',ANNALS_RULES_V2_ENABLED:'true',ANNALS_RULES_ACCEPT_FROM:at};
   assert.equal(c.annalsPhotosReady_(),false);assert.equal(c.annalsRulesReady_(),false);assert.equal(writes,0);
 });
-test('private controlled acceptance requires security evidence, exact source and short expiry while broad gates stay off',()=>{
-  const id='a'.repeat(64),values={ANNALS_PHOTOS_ACCEPTANCE_SOURCE_ID:id,ANNALS_PHOTOS_ACCEPTANCE_UNTIL:'2026-10-15T22:00:00Z'};
-  const c=vm.createContext({Date:class extends Date{static now(){return Date.parse(at);}},annalsProps_:()=>({getProperty:k=>values[k]||null})});vm.runInContext(photoSource,c);
-  assert.equal(c.annalsPhotosReady_(id),false);values.ANNALS_SIGNING_REMEDIATED_AT=at;
-  assert.equal(c.annalsPhotosReady_(id),true);assert.equal(c.annalsPhotosReady_('b'.repeat(64)),false);assert.equal(c.annalsPhotosReady_(),false);
-  for(const until of [at,'2026-10-17T21:00:00Z','invalid']){values.ANNALS_PHOTOS_ACCEPTANCE_UNTIL=until;assert.equal(c.annalsPhotosReady_(id),false);}
+test('obsolete single-source photo acceptance never opens publication',()=>{
+  const values={ANNALS_PHOTOS_ACCEPTANCE_SOURCE_ID:'a'.repeat(64),
+    ANNALS_PHOTOS_ACCEPTANCE_UNTIL:'2026-10-15T22:00:00Z',
+    ANNALS_SIGNING_REMEDIATED_AT:at};
+  const c=vm.createContext({Date:class extends Date{static now(){return Date.parse(at);}},
+    annalsProps_:()=>({getProperty:k=>values[k]||null})});
+  vm.runInContext(photoSource,c);
+  assert.equal(c.annalsPhotosReady_(values.ANNALS_PHOTOS_ACCEPTANCE_SOURCE_ID),false);
+  assert.equal(photoReleaseAllowed({
+    entryId:'annal-'+'a'.repeat(24),
+    photosEnabled:false,securityVerified:true,
+    acceptanceEntryId:'annal-'+'a'.repeat(24),acceptanceUntil:'2026-10-15T22:00:00Z',
+    now:new Date(at)
+  }),false);
 });
-test('hosted controlled photo acceptance cannot widen to other entries or bypass final security',()=>{
-  const entryId='annal-'+'a'.repeat(24),args={entryId,photosEnabled:false,securityVerified:true,acceptanceEntryId:entryId,acceptanceUntil:'2026-10-15T22:00:00Z',now:new Date(at)};
-  assert.equal(photoReleaseAllowed(args),true);
-  for(const change of [{entryId:'annal-'+'b'.repeat(24)},{securityVerified:false},{acceptanceUntil:at},{acceptanceUntil:'2026-10-17T21:00:00Z'},{acceptanceEntryId:'*'}])assert.equal(photoReleaseAllowed({...args,...change}),false);
-  assert.equal(photoReleaseAllowed({...args,photosEnabled:true,securityVerified:false}),false);
+test('qualified normal and guarded photograph paths still require signing evidence',()=>{
+  const id='a'.repeat(64),
+    values={ANNALS_SIGNING_REMEDIATED_AT:at,
+      ANNALS_AUTO_MEDIA_ENABLED:'true',ANNALS_PHOTOS_V2_ENABLED:'true'};
+  const c=vm.createContext({annalsProps_:()=>({getProperty:k=>values[k]||null})});
+  vm.runInContext(photoSource,c);
+  assert.equal(c.annalsPhotosReady_(id),false);
+  values.ANNALS_PHOTOS_HOSTED_ACCEPTED='true';
+  assert.equal(c.annalsPhotosReady_(id),true);
+  delete values.ANNALS_SIGNING_REMEDIATED_AT;
+  assert.equal(c.annalsPhotosReady_(id),false);
+  assert.equal(photoReleaseAllowed({photosEnabled:true,securityVerified:false}),false);
+  assert.equal(photoReleaseAllowed({guardedJpegEnabled:true,securityVerified:false}),false);
+  assert.equal(photoReleaseAllowed({photosEnabled:true,securityVerified:true}),true);
+  assert.equal(photoReleaseAllowed({guardedJpegEnabled:true,securityVerified:true}),true);
+  assert.equal(photoReleaseAllowed({photosEnabled:false,guardedJpegEnabled:false,securityVerified:true}),false);
 });
 test('private gate inspection exposes booleans only and does not inspect any signing value or write state',()=>{
   const read=[],c=vm.createContext({annalsUiCall_:(n,fn)=>{assert.equal(n,'owner');return fn();},annalsProps_:()=>({getProperty:k=>{assert.doesNotMatch(k,/KEY|TOKEN|REMEDIAT/);read.push(k);return null;},setProperty:()=>assert.fail('Read-only gate inspection wrote state')})});
-  vm.runInContext(photoSource,c);const result=c.annalsReadPhotoPublicationGates('owner');assert.ok(Object.values(result).every(v=>v===false));assert.equal(read.length,7);
+  vm.runInContext(photoSource,c);const result=c.annalsReadPhotoPublicationGates('owner');assert.ok(Object.values(result).every(v=>v===false));assert.equal(read.length,6);
 });
 test('private runtime fixture stores only geometry/timing, never invokes services or repeats a reserved attempt',()=>{
   const files=new Map(),root={},encoded=[1,2,3],c=vm.createContext({
@@ -80,7 +99,7 @@ test('private runtime fixture stores only geometry/timing, never invokes service
 });
 test('editor-only fixture and flag helpers retain owner authentication and expose no remote private helper or signing state',()=>{
   const reads=[],c=vm.createContext({console:{log:()=>{}},annalsOwner_:()=>{},annalsProps_:()=>({getProperty:k=>{assert.doesNotMatch(k,/KEY|TOKEN|REMEDIAT/);reads.push(k);return null;}})});
-  vm.runInContext(photoSource,c);const result=c.annalsReadPhotoGatesInEditor_();assert.ok(Object.values(result).every(v=>v===false));assert.equal(reads.length,12);
+  vm.runInContext(photoSource,c);const result=c.annalsReadPhotoGatesInEditor_();assert.ok(Object.values(result).every(v=>v===false));assert.equal(reads.length,11);
   c.annalsOwner_=()=>{throw Error('Wrong owner');};assert.throws(()=>c.annalsReadPhotoGatesInEditor_(),/owner/);assert.throws(()=>c.annalsQualifyPhotoCodecInEditor_(),/owner/);
   assert.equal(typeof c.annalsQualifyPhotoCodecInEditor,'undefined');assert.equal(typeof c.annalsReadPhotoGatesInEditor,'undefined');
 });
