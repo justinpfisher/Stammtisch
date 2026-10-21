@@ -65,6 +65,31 @@ export function correctedCompetitionYear(event, clubState) {
   return correction?.competitionYear ?? null;
 }
 
+// Apply explicitly GitHub-recorded historical points corrections at display
+// time, after a Sheet input import. Never edit the signed imported source or
+// create a death event; attribution and earlier values remain in Git history.
+export function applyPointsCorrections(data, clubState) {
+  const changes=clubState?.pointsCorrections?.filter(c=>c.seasonYear===data.year) ?? [];
+  if (!changes.length) return data;
+  const result=structuredClone(data),affected=new Set();
+  for (const change of changes) {
+    const member=result.members.find(m=>m.id===change.memberId);
+    const pick=member?.picks.find(p=>p.id===change.pickId);
+    if (!pick || !pick.counted ||
+        celebrityKey(pick.name,pick.born)!==celebrityKey(change.name,change.born))
+      throw new Error('GitHub points correction does not match recorded selection');
+    pick.points=change.points;
+    affected.add(member.id);
+  }
+  for (const member of result.members) if (affected.has(member.id)) {
+    const scored=member.picks.filter(p=>p.counted);
+    if (scored.some(p=>!Number.isFinite(p.points)))
+      throw new Error('Corrected standing contains invalid points');
+    member.score=scored.reduce((total,p)=>total+p.points,0);
+  }
+  return result;
+}
+
 export function isJettisonEligible(pick, memberId, asOf, clubState = null) {
   if (!isRecord(pick) || !Number.isInteger(pick.pick) ||
       pick.pick < 1 || pick.pick > 50 || !validDate(pick.born) ||
@@ -80,7 +105,7 @@ export function isJettisonEligible(pick, memberId, asOf, clubState = null) {
 }
 
 export function readClubState(raw) {
-  if (!sameKeys(raw, ['schemaVersion','yearHandover','birthdayBuffet','seasonCorrections','protectionPlacements','draftActions']) ||
+  if (!sameKeys(raw, ['schemaVersion','yearHandover','birthdayBuffet','seasonCorrections','pointsCorrections','protectionPlacements','draftActions']) ||
       raw.schemaVersion !== 1) throw new Error('Unsupported Club register');
   const h=raw.yearHandover, b=raw.birthdayBuffet;
   if (!sameKeys(h,['month','week','weekday','localTime','timeZone']) ||
@@ -88,8 +113,8 @@ export function readClubState(raw) {
       h.timeZone!=='America/Toronto') throw new Error('Club handover rule mismatch');
   if (!sameKeys(b,['dateSource','corrections']) ||
       b.dateSource!=='shared-spreadsheet-unless-corrected' || !Array.isArray(b.corrections) ||
-      !Array.isArray(raw.seasonCorrections) || !Array.isArray(raw.protectionPlacements) || !Array.isArray(raw.draftActions) ||
-      b.corrections.length>200 || raw.seasonCorrections.length>200 || raw.protectionPlacements.length>300 || raw.draftActions.length>500)
+      !Array.isArray(raw.seasonCorrections) || !Array.isArray(raw.pointsCorrections) || !Array.isArray(raw.protectionPlacements) || !Array.isArray(raw.draftActions) ||
+      b.corrections.length>200 || raw.seasonCorrections.length>200 || raw.pointsCorrections.length>200 || raw.protectionPlacements.length>300 || raw.draftActions.length>500)
     throw new Error('Invalid Club register lists');
   const corrected = new Set(), placed = new Set();
   for (const c of b.corrections) {
@@ -99,6 +124,68 @@ export function readClubState(raw) {
     const id=celebrityKey(c.name,c.born);
     if (corrected.has(id)) throw new Error('Duplicate Birthday Buffet correction');
     corrected.add(id);
+  }
+  const pointIds=new Set();
+  for(const correction of raw.pointsCorrections) {
+    if (!sameKeys(correction,['seasonYear','memberId','pickId','name','born','points']) ||
+        !Number.isInteger(correction.seasonYear) || correction.seasonYear<2026 ||
+        !members.has(correction.memberId) || !validName(correction.name) ||
+        !validDate(correction.born) ||
+        typeof correction.pickId!=='string' ||
+        !new RegExp('^'+correction.memberId+'-([3-9]|[1-9][0-9])
+  for (const c of raw.seasonCorrections) {
+    if (!sameKeys(c,['name','born','diedOn','competitionYear']) ||
+        !validName(c.name) || !validDate(c.born) || !validDate(c.diedOn) ||
+        c.born > c.diedOn || !Number.isInteger(c.competitionYear))
+      throw new Error('Invalid season correction');
+    const dateYear=Number(c.diedOn.slice(0,4));
+    // A narrowly scoped override of the Club's previous-year default.
+    // Other historical/score corrections follow the authenticated source route.
+    if (dateYear<2027 || c.diedOn!==januaryHandover(dateYear).date ||
+        ![dateYear-1,dateYear].includes(c.competitionYear))
+      throw new Error('Season correction must identify the January handover');
+    const id=celebrityKey(c.name,c.born)+':'+c.diedOn;
+    if (seasons.has(id)) throw new Error('Duplicate season correction');
+    seasons.add(id);
+  }
+  for (const p of raw.protectionPlacements) {
+    if (!sameKeys(p,['memberId','name','born','placedOn']) || !members.has(p.memberId) ||
+        !validName(p.name) || !validDate(p.born) || !validDate(p.placedOn))
+      throw new Error('Invalid Protection placement');
+    const id=p.memberId+':'+celebrityKey(p.name,p.born);
+    if (placed.has(id)) throw new Error('Duplicate lifelong Protection');
+    placed.add(id);
+  }
+  for (const action of raw.draftActions) {
+    if (!sameKeys(action,['seasonYear','stage','summary','recordedAt']) ||
+        !Number.isInteger(action.seasonYear) || action.seasonYear<2026 ||
+        !Number.isInteger(action.stage) || action.stage<1 || action.stage>7 ||
+        !validName(action.summary) || !validTimestamp(action.recordedAt))
+      throw new Error('Invalid draft record');
+  }
+  return raw;
+}
+
+export function firstReportDate(event, clubState) {
+  const correction=clubState?.birthdayBuffet?.corrections?.find(x =>
+    celebrityKey(x.name,x.born) === celebrityKey(event.name,event.born));
+  return correction?.reportedOn ?? event.discoveredOn ?? null;
+}
+
+export function isProtectedPick(pick, memberId, clubState, deathDate = null) {
+  // The designated Blue/Brown Diamond slots are protected without an extra
+  // register entry. A previously confirmed Blood Diamond also remains protected.
+  if (pick.pick===1 || pick.pick===50 || pick.bloodDiamond===true) return true;
+  return Boolean(clubState?.protectionPlacements?.some(p =>
+    p.memberId===memberId && celebrityKey(p.name,p.born)===celebrityKey(pick.name,pick.born) &&
+    (!deathDate || p.placedOn<=deathDate)));
+}
+).test(correction.pickId) ||
+        !Number.isInteger(correction.points) || correction.points<0 || correction.points>1000)
+      throw new Error('Invalid GitHub points correction');
+    const id=correction.seasonYear+':'+correction.pickId;
+    if(pointIds.has(id))throw new Error('Duplicate GitHub points correction');
+    pointIds.add(id);
   }
   const seasons = new Set();
   for (const c of raw.seasonCorrections) {
