@@ -25,20 +25,16 @@ def awarded():
             "distinctions":[]}
 
 def ledger(points=7):
-    return {"schemaVersion":1,"corrections":[{
-        "id":"fictional-score-correction-20261021",
+    return {"schemaVersion":1,"pointsCorrections":[{
         "seasonYear":2026,"memberId":"matt","pickId":"matt-3",
-        "sourceName":"Sample Person","sourceBorn":"1928-10-05",
-        "points":points,"decidedBy":"fish","decidedAt":"2026-10-21T22:00:00Z",
-        "reason":"Fictional authorised historical score correction"
+        "name":"Sample Person","born":"1928-10-05","points":points
     }]}
 
 class GitHubAuthorityTests(unittest.TestCase):
     def test_initial_register_empty_and_strict(self):
-        self.assertEqual(authority.validated_corrections({"schemaVersion":1,"corrections":[]}),[])
-        with self.assertRaisesRegex(ValueError, "register"):
-            authority.validated_corrections({"schemaVersion":1,"corrections":[],"injection":True})
-
+        self.assertEqual(authority.validated_corrections({"schemaVersion":1,"pointsCorrections":[]}),[])
+        with self.assertRaisesRegex(ValueError,"register"):
+            authority.validated_corrections({"schemaVersion":2,"pointsCorrections":[]})
     def test_correction_overrides_imported_points_and_recalculates_standings(self):
         source = awarded()
         corrected = authority.apply_awarded_points(source,ledger())
@@ -103,8 +99,8 @@ class GitHubAuthorityTests(unittest.TestCase):
         self.assertEqual(changed["members"][0]["picks"][0]["actualDeathDate"],"2026-10-05")
 
     def test_wrong_source_identity_and_unauthorised_picks_fail_closed(self):
-        for field,value in [("sourceName","Different celebrity"),
-                            ("sourceBorn","1940-01-01"),
+        for field,value in [("name","Different celebrity"),
+                            ("born","1940-01-01"),
                             ("pickId","matt-10")]:
             broken=ledger()
             broken["corrections"][0][field]=value
@@ -113,28 +109,29 @@ class GitHubAuthorityTests(unittest.TestCase):
                     authority.apply_awarded_points(awarded(),broken)
         unawarded=awarded()
         unawarded["members"][0]["picks"][0]["counted"]=False
-        with self.assertRaisesRegex(ValueError,"existing awarded"):
+        with self.assertRaisesRegex(ValueError,"award unrecorded"):
             authority.apply_awarded_points(unawarded,ledger())
 
-    def test_correction_attribution_schema_and_order_guard(self):
+    def test_correction_validation_and_unique_selection_guard(self):
         template=ledger()
-        for field,value in [("decidedBy","seventh-member"),("points",True),
-                            ("points",10000),("decidedAt","2026-10-21"),
-                            ("sourceBorn","2026-02-31"),("seasonYear",True)]:
+        for field,value in [("memberId","seventh-member"),("points",True),
+                            ("points",-1),("points",1001),
+                            ("born","2026-02-31"),("seasonYear",True)]:
             bad=copy.deepcopy(template)
-            bad["corrections"][0][field]=value
+            bad["pointsCorrections"][0][field]=value
             with self.subTest(field=field):
                 with self.assertRaises(ValueError): authority.validated_corrections(bad)
         bad=copy.deepcopy(template)
-        duplicate=copy.deepcopy(bad["corrections"][0])
-        duplicate["id"]="another-score-correction-20261021"
-        bad["corrections"].append(duplicate)
-        with self.assertRaisesRegex(ValueError,"ordered"):
+        duplicate=copy.deepcopy(bad["pointsCorrections"][0])
+        bad["pointsCorrections"].append(duplicate)
+        with self.assertRaisesRegex(ValueError,"Duplicate"):
             authority.validated_corrections(bad)
-        duplicate["decidedAt"]="2026-10-21T23:00:00Z"
-        duplicate["points"]=8
-        updated=authority.apply_awarded_points(awarded(),bad)
-        self.assertEqual(updated["members"][0]["score"],8)
+        bad["pointsCorrections"][1]["pickId"]="matt-10"
+        bad["pointsCorrections"][1]["points"]=8
+        self.assertEqual(len(authority.validated_corrections(bad)),2)
+        bad["pointsCorrections"][1]["privateNotes"]="Never add private text"
+        with self.assertRaisesRegex(ValueError,"Invalid"):
+            authority.validated_corrections(bad)
 
     def test_other_season_entries_do_not_leak_into_new_picks(self):
         new=awarded()
