@@ -13,6 +13,8 @@ export const SITE_FILES=Object.freeze([
   'celebration.html',
   'celebration.mjs',
   'celebration-awards.mjs',
+  'col-club-state.mjs',
+  'data/col-club-state.json',
   'history.html',
   'photos.html',
   'annals-photos.mjs',
