@@ -1,5 +1,5 @@
 /* Public CoL state: the GitHub register records draft actions, individual
- * Protection placements and member-corrected Birthday Buffet report dates.
+ * Protection placements, corrected seasons and Birthday Buffet report dates.
  * The shared Sheet continues to supply existing awarded scores and pick lists.
  * This module does not award points, confirm deaths or activate a CoL rule version.
  */
@@ -55,6 +55,16 @@ export function competitionYearForDeathDate(date, verifiedInstant = null) {
   return verifiedInstant < Date.parse(januaryHandover(year).utc) ? year-1 : year;
 }
 
+// A clear member correction is recorded by an authenticated, attributable Git
+// commit. Keep only the current corrected assignment here; Git history retains
+// preceding values without duplicating an audit database or score ledger.
+export function correctedCompetitionYear(event, clubState) {
+  const correction=clubState?.seasonCorrections?.find(c =>
+    celebrityKey(c.name,c.born)===celebrityKey(event.name,event.born) &&
+    c.diedOn===event.diedOn);
+  return correction?.competitionYear ?? null;
+}
+
 export function isJettisonEligible(pick, memberId, asOf, clubState = null) {
   if (!isRecord(pick) || !Number.isInteger(pick.pick) ||
       pick.pick < 1 || pick.pick > 50 || !validDate(pick.born) ||
@@ -70,7 +80,7 @@ export function isJettisonEligible(pick, memberId, asOf, clubState = null) {
 }
 
 export function readClubState(raw) {
-  if (!sameKeys(raw, ['schemaVersion','yearHandover','birthdayBuffet','protectionPlacements','draftActions']) ||
+  if (!sameKeys(raw, ['schemaVersion','yearHandover','birthdayBuffet','seasonCorrections','protectionPlacements','draftActions']) ||
       raw.schemaVersion !== 1) throw new Error('Unsupported Club register');
   const h=raw.yearHandover, b=raw.birthdayBuffet;
   if (!sameKeys(h,['month','week','weekday','localTime','timeZone']) ||
@@ -78,8 +88,8 @@ export function readClubState(raw) {
       h.timeZone!=='America/Toronto') throw new Error('Club handover rule mismatch');
   if (!sameKeys(b,['dateSource','corrections']) ||
       b.dateSource!=='shared-spreadsheet-unless-corrected' || !Array.isArray(b.corrections) ||
-      !Array.isArray(raw.protectionPlacements) || !Array.isArray(raw.draftActions) ||
-      b.corrections.length>200 || raw.protectionPlacements.length>300 || raw.draftActions.length>500)
+      !Array.isArray(raw.seasonCorrections) || !Array.isArray(raw.protectionPlacements) || !Array.isArray(raw.draftActions) ||
+      b.corrections.length>200 || raw.seasonCorrections.length>200 || raw.protectionPlacements.length>300 || raw.draftActions.length>500)
     throw new Error('Invalid Club register lists');
   const corrected = new Set(), placed = new Set();
   for (const c of b.corrections) {
@@ -89,6 +99,22 @@ export function readClubState(raw) {
     const id=celebrityKey(c.name,c.born);
     if (corrected.has(id)) throw new Error('Duplicate Birthday Buffet correction');
     corrected.add(id);
+  }
+  const seasons = new Set();
+  for (const c of raw.seasonCorrections) {
+    if (!sameKeys(c,['name','born','diedOn','competitionYear']) ||
+        !validName(c.name) || !validDate(c.born) || !validDate(c.diedOn) ||
+        c.born > c.diedOn || !Number.isInteger(c.competitionYear))
+      throw new Error('Invalid season correction');
+    const dateYear=Number(c.diedOn.slice(0,4));
+    // A narrowly scoped override of the Club's previous-year default.
+    // Other historical/score corrections follow the authenticated source route.
+    if (dateYear<2027 || c.diedOn!==januaryHandover(dateYear).date ||
+        ![dateYear-1,dateYear].includes(c.competitionYear))
+      throw new Error('Season correction must identify the January handover');
+    const id=celebrityKey(c.name,c.born)+':'+c.diedOn;
+    if (seasons.has(id)) throw new Error('Duplicate season correction');
+    seasons.add(id);
   }
   for (const p of raw.protectionPlacements) {
     if (!sameKeys(p,['memberId','name','born','placedOn']) || !members.has(p.memberId) ||
