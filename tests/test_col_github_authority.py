@@ -103,7 +103,7 @@ class GitHubAuthorityTests(unittest.TestCase):
                             ("born","1940-01-01"),
                             ("pickId","matt-10")]:
             broken=ledger()
-            broken["corrections"][0][field]=value
+            broken["pointsCorrections"][0][field]=value
             with self.subTest(field=field):
                 with self.assertRaisesRegex(ValueError,"identity changed|not in published season"):
                     authority.apply_awarded_points(awarded(),broken)
