@@ -81,15 +81,15 @@ function fixture(override={}){
 }
 test('fixed public-only source scope, no private files, user URLs or credentials',()=>{
   assert.equal(SITE_ORIGIN,'https://stammtischbrewery.com/');
-  assert.equal(SITE_FILES.length,15);
+  assert.equal(SITE_FILES.length,17);
   assert.equal(new Set(SITE_FILES).size,SITE_FILES.length);
-  for(const name of SITE_FILES)assert.match(name,/^(?:[a-z0-9.-]+\.html|annals-photos\.(?:css|mjs)|data\/[a-z0-9/.-]+\.json|assets\/annals\/annal-[a-f0-9]{24}\.jpg)$/);
+  for(const name of SITE_FILES)assert.match(name,/^(?:[a-z0-9.-]+\.html|annals-photos\.(?:css|mjs)|celebration(?:-awards)?\.mjs|data\/[a-z0-9/.-]+\.json|assets\/annals\/annal-[a-f0-9]{24}\.jpg)$/);
 });
-test('matching live 15-file archive yields only source-bound public hashes and times',async()=>{
+test('matching live 17-file archive yields only source-bound public hashes and times',async()=>{
   const f=fixture(),result=await f.run();
   assert.equal(result.kind,'public-site-exact-byte-observation-only');
-  assert.equal(result.files.length,15);
-  assert.equal(f.calls.length,15);
+  assert.equal(result.files.length,17);
+  assert.equal(f.calls.length,17);
   assert.equal(result.signedCocktailSources,0);
   assert.equal(result.qualifiedEditorialAssets,0);
   assert.equal(result.publishingActivated,false);
@@ -102,6 +102,7 @@ test('matching live 15-file archive yields only source-bound public hashes and t
 });
 for(const [label,change] of [
   ['wrong hosted bytes',{changed:SITE_FILES[2]}],
+  ['wrong hosted CoL script',{changed:'celebration-awards.mjs'}],
   ['HTTP denial',{http:SITE_FILES[0]}],
   ['redirect',{redirect:SITE_FILES[0]}],
   ['oversize declaration',{oversized:SITE_FILES[0]}],
@@ -117,8 +118,8 @@ for(const [label,change] of [
 
 test('every separately qualified editorial and its signed original are independently witnessed live',async()=>{
   const f=fixture({withEditorial:true}),result=await f.run();
-  assert.equal(result.files.length,17);
-  assert.equal(f.calls.length,17);
+  assert.equal(result.files.length,19);
+  assert.equal(f.calls.length,19);
   assert.equal(result.signedCocktailSources,1);
   assert.equal(result.qualifiedEditorialAssets,1);
   assert.deepEqual(result.files.slice(-2).map(x=>x.path),[fictionalOriginal,fictionalEditorial]);

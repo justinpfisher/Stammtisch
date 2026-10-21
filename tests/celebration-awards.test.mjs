@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { awardEvents, calculateAwards, awardsMarkup, draftMarkup } from '../celebration-awards.mjs';
+import { awardEvents, calculateAwards, awardsMarkup, draftMarkup, metricBirthdayLabel, birthdayCalendar } from '../celebration-awards.mjs';
 import { distinctionReason } from '../celebration-rules.mjs';
 
 const source = JSON.parse(readFileSync(new URL('../data/celebration.json', import.meta.url), 'utf8'));
@@ -305,4 +305,33 @@ test('conflicting age claims cannot finalize an oldest-death Steal',()=>{
   assert.notEqual(card(result,'oldest').status,'Eligible at the next draft');
   assert.equal(result.draft.flatMap(x=>x.benefits).some(x=>x.reason==='Oldest celebrity death of the year'&&x.confirmed),false);
   assert.equal(JSON.stringify(data),before);
+});
+
+test('Metric Calendar birthday labels match the official ordinal method and retain Gregorian eligibility', () => {
+  const common=birthdayCalendar(2026);
+  assert.deepEqual(common.map(b=>`${b.member}: ${b.metric} (${b.gregorian})`),[
+    'Marc: Bloom 12 (March 26)',
+    'Jerome: Thrive 20 (May 9)',
+    'Matt: Radiate 30 (June 25)',
+    'Justin: Sustain 5 (July 6)',
+    'Ken: Sustain 19 (July 20)',
+    'Jamie: Reflect 7 (September 19)'
+  ]);
+  assert.equal(metricBirthdayLabel(2027,'03-26'),'Bloom 12');
+  assert.equal(metricBirthdayLabel(2028,'03-26'),'Bloom 13');
+  assert.equal(metricBirthdayLabel(2028,'09-19'),'Reflect 8');
+  assert.equal(metricBirthdayLabel(2028,'02-29'),'Awaken 24');
+  // Metric Leap Day is final day of month 10, not Gregorian February 29.
+  assert.equal(metricBirthdayLabel(2028,'12-30'),'Restore 37');
+  assert.equal(metricBirthdayLabel(2028,'12-31'),'Restore 38');
+  assert.equal(metricBirthdayLabel(2026,'12-31'),'Restore 37');
+  assert.equal(metricBirthdayLabel(2027,'12-31'),'Restore 37');
+  assert.equal(metricBirthdayLabel(2100,'12-31'),'Restore 37');
+  assert.equal(metricBirthdayLabel(2000,'12-31'),'Restore 38');
+  assert.equal(metricBirthdayLabel(2026,'02-29'),null);
+  assert.equal(metricBirthdayLabel(2026,'not-a-date'),null);
+  const saved=JSON.stringify(source);
+  const model=calculateAwards(source);
+  assert.match(card(model,'birthday-buffet').details.at(-1),/Birthday register \(2026, Metric first\): Marc: Bloom 12 \(March 26\)/);
+  assert.equal(JSON.stringify(source),saved,'metric labels must never mutate awarded data');
 });

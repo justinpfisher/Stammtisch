@@ -11,6 +11,8 @@ export const SITE_FILES=Object.freeze([
   'index.html',
   'annals.html',
   'celebration.html',
+  'celebration.mjs',
+  'celebration-awards.mjs',
   'history.html',
   'photos.html',
   'annals-photos.mjs',
