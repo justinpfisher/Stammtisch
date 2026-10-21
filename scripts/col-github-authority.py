@@ -11,7 +11,7 @@ import re
 
 MEMBERS = frozenset(("fish", "marc", "matt", "ken", "jamie", "jerome"))
 CORRECTION_ID = re.compile(r"^[a-z0-9][a-z0-9-]{7,95}$")
-PICK_ID = re.compile(r"^(fish|marc|matt|ken|jamie|jerome)-[3-9][0-9]{0,3}$")
+PICK_ID = re.compile(r"^(fish|marc|matt|ken|jamie|jerome)-(?:[3-9]|[1-9][0-9]{1,3})$")
 STAMP = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 def validated_corrections(raw):
