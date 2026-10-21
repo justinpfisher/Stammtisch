@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {januaryHandover, competitionYearAt, competitionYearForDeathDate, correctedCompetitionYear,
-  isJettisonEligible, readClubState, firstReportDate,
+  isJettisonEligible, readClubState, applyPointsCorrections, firstReportDate,
   isProtectedPick} from '../col-club-state.mjs';
 import {awardEvents,calculateAwards} from '../celebration-awards.mjs';
 
@@ -41,6 +41,7 @@ test('GitHub draft/protection source is empty of unreported actions, never an in
   assert.equal(readClubState(source),source);
   assert.deepEqual(source.protectionPlacements,[]);
   assert.deepEqual(source.seasonCorrections,[]);
+  assert.deepEqual(source.pointsCorrections,[]);
   assert.deepEqual(source.draftActions,[]);
   assert.deepEqual(source.birthdayBuffet.corrections,[]);
   assert.equal(JSON.stringify(source),before);
@@ -102,6 +103,42 @@ test('season overrides require an actual handover date, allowable year and uniqu
   }
   const repeated=copy();repeated.seasonCorrections=[valid,{...valid,name:'FICTIONAL',competitionYear:2026}];
   assert.throws(()=>readClubState(repeated),/Duplicate season correction/);
+});
+
+test('a GitHub points correction overrides a stale Sheet score without editing the imported ledger',()=>{
+  const data=season([member('fish',[
+    {...pick('Fictional'),id:'fish-3',points:50}])]);
+  data.members[0].score=50;
+  const before=JSON.stringify(data);
+  const state=copy();state.pointsCorrections=[{
+    seasonYear:2026,memberId:'fish',pickId:'fish-3',name:'Fictional',born:'1950-01-01',points:37}];
+  readClubState(state);
+  const corrected=applyPointsCorrections(data,state);
+  assert.equal(corrected.members[0].picks[0].points,37);
+  assert.equal(corrected.members[0].score,37);
+  assert.equal(data.members[0].score,50);
+  assert.equal(JSON.stringify(data),before,'imported, signed historical scores remain intact');
+  const newerSheet=structuredClone(data);newerSheet.asOf='2026-10-22';
+  assert.equal(applyPointsCorrections(newerSheet,state).members[0].score,37,
+    'a later spreadsheet import cannot reverse a GitHub correction');
+  assert.equal(corrected.members[0].picks[0].actualDeathDate,'2026-03-25');
+});
+
+test('GitHub score overrides reject mismatched identity, unawarded picks and malformed corrections',()=>{
+  const data=season([member('fish',[{...pick('Fictional'),id:'fish-3'}])]);
+  const c={seasonYear:2026,memberId:'fish',pickId:'fish-3',name:'Fictional',born:'1950-01-01',points:37};
+  for(const bad of [{...c,points:-1},{...c,points:2.5},{...c,memberId:'outsider'},
+    {...c,pickId:'marc-3'},{...c,seasonYear:2025},{...c,note:'unverified private detail'}]){
+    const state=copy();state.pointsCorrections=[bad];
+    assert.throws(()=>readClubState(state),/Invalid GitHub points correction/);
+  }
+  const dup=copy();dup.pointsCorrections=[c,{...c,points:40}];
+  assert.throws(()=>readClubState(dup),/Duplicate GitHub points correction/);
+  const incorrect=copy();incorrect.pointsCorrections=[{...c,name:'Not the same person'}];
+  assert.throws(()=>applyPointsCorrections(data,readClubState(incorrect)),/does not match/);
+  const unscored=structuredClone(data);unscored.members[0].picks[0].counted=false;
+  const valid=copy();valid.pointsCorrections=[c];
+  assert.throws(()=>applyPointsCorrections(unscored,readClubState(valid)),/does not match/);
 });
 
 test('Blue and Brown Diamonds are protected; earned placements are lasting and member-specific',()=>{
