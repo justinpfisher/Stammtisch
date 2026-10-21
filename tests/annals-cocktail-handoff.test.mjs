@@ -11,7 +11,6 @@ import {spawnSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {torontoPeriod} from '../scripts/annals/CocktailEditorialBudget.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const entryId='annal-96b5ae266a36793c6a203033';
@@ -51,46 +50,40 @@ async function fixture(){
   await copyFile(path.join(mock,photo),reference);
   const sourceSha=digest(await readFile(reference));
   assert.equal(sourceSha,entry.photo.sha256);
-  const now=Date.now(),issuedAt=new Date(now-30000).toISOString(),period=torontoPeriod(new Date(now));
+  const now=Date.now(),issuedAt=new Date(now-30000).toISOString();
   const unsignedPermit={
-    scope:'cocktail-editorial-transform-v1',entryId,
+    scope:'cocktail-editorial-transform-v2',entryId,
     sourceSha256:sourceSha,referenceSha256:sourceSha,
-    rightsActive:true,screened:true,budgetReserved:true,
-    budgetPeriod:period,monthlyCeilingCents:500,perPhotoCeilingCents:200,
-    reservedCents:200,nonce:'b'.repeat(32),issuedAt,
+    rightsActive:true,screened:true,
+    nonce:'b'.repeat(32),issuedAt,
     expiresAt:new Date(now+3600000).toISOString()
   };
   const permit={...unsignedPermit,signature:hmac(permitKey,unsignedPermit)};
-  const issuedRecord={permit,state:'reserved_unspent',at:new Date(now).toISOString(),
+  const issuedRecord={permit,state:'issued_unspent',at:new Date(now).toISOString(),
     providerCalled:false,generatedImageQualified:false,publicRelease:false};
   const receipt=path.join(priv,'issuer-receipt.json');
   await writeFile(receipt,JSON.stringify(issuedRecord));
-  const ledger=path.join(priv,'owner-budget-snapshot.json');
-  await writeFile(ledger,JSON.stringify({
-    schemaVersion:1,monthlyCeilingCents:500,perPhotoCeilingCents:200,
-    reservations:[{entryId,sourceSha256:sourceSha,period,reservationCents:200,reservedAt:issuedAt}]
-  }));
   const invoke=()=>spawnSync(process.execPath,[
     path.join(mock,'scripts','annals','prepare-cocktail-editorial.mjs'),
     '--entry',entryId,'--check-handoff',
     '--reference',reference,'--permit',receipt,
-    '--budget-ledger',ledger,'--private-output',output
+    '--private-output',output
   ],{
     cwd:mock,encoding:'utf8',timeout:15000,
     env:{...process.env,
       ANNALS_PUBLISH_SIGNING_KEY:publisherKey,
       ANNALS_EDITORIAL_PERMIT_SIGNING_KEY:permitKey,
       ANNALS_EDITORIAL_SECURITY_RECOVERY_VERIFIED:'true',
-      ANNALS_EDITORIAL_BUDGET_DIR:output,
+      ANNALS_EDITORIAL_PRIVATE_DIR:output,
       ANNALS_EDITORIAL_IMAGE_ENABLED:'false',
       ANNALS_EDITORIAL_IMAGE_API_KEY:'',
       ANNALS_EDITORIAL_PROJECT_HARD_LIMIT_VERIFIED:'false'
     }
   });
-  return {temp,output,receipt,ledger,sourceSha,invoke};
+  return {temp,output,receipt,sourceSha,invoke};
 }
 
-test('signed owner-issued journal and ledger pass entire offline CLI without an API key, marker, reservation or publication',async()=>{
+test('signed owner-issued source permit passes offline CLI without a budget ledger or provider key',async()=>{
  const f=await fixture();
  try{
    const before=await readdir(f.output);
@@ -101,16 +94,16 @@ test('signed owner-issued journal and ledger pass entire offline CLI without an 
    assert.deepEqual(state,{
      state:'private-handoff-verified-offline',publisherVerified:true,
      issuerPermitVerified:true,sourceReferenceBound:true,
-     ownerLedgerReservationMatched:true,priorSourceAttemptAbsent:true,
+     priorSourceAttemptAbsent:true,
      providerCalled:false,paidRequestMade:false,markerCreated:false,
-     budgetReservationMade:false,published:false
+     published:false
    });
    assert.deepEqual(await readdir(f.output),[]);
    assert.doesNotMatch(result.stdout+result.stderr,/Bearer |fictional-publisher|fictional-independent|reference\.jpg|issuer-receipt/i);
  }finally{await rm(f.temp,{recursive:true,force:true})}
 });
 
-test('modified issuer state, counterfeit ledger or consumed source marker fail before provider access and preserve evidence',async()=>{
+test('modified issuer receipt, counterfeit signature and consumed source marker fail without a paid call',async()=>{
  const f=await fixture();
  try{
    let record=JSON.parse(await readFile(f.receipt,'utf8'));
@@ -119,12 +112,12 @@ test('modified issuer state, counterfeit ledger or consumed source marker fail b
    assert.notEqual(result.status,0);
    assert.deepEqual(await readdir(f.output),[]);
    await writeFile(f.receipt,JSON.stringify(record));
-   const originalLedger=await readFile(f.ledger,'utf8');
-   const changed=JSON.parse(originalLedger);changed.reservations=[];
-   await writeFile(f.ledger,JSON.stringify(changed));
+   // Changed signatures cannot turn an owner-private receipt into authority.
+   await writeFile(f.receipt,JSON.stringify({...record,
+     permit:{...record.permit,signature:'0'.repeat(64)}}));
    result=f.invoke();assert.notEqual(result.status,0);
    assert.deepEqual(await readdir(f.output),[]);
-   await writeFile(f.ledger,originalLedger);
+   await writeFile(f.receipt,JSON.stringify(record));
    const marker='cocktail-'+f.sourceSha+'-attempt-private.json';
    await writeFile(path.join(f.output,marker),JSON.stringify({sourceSha256:f.sourceSha}));
    result=f.invoke();assert.notEqual(result.status,0);
