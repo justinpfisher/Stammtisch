@@ -173,6 +173,7 @@ test('credential status uses owner-only GET and returns Booleans, never keys or 
  assert.equal(result.imageCredentialPresent,true);
  assert.equal(result.permitSignerPresentAndDistinct,true);
  assert.equal(result.modelLookupAccepted,true);
+ assert.equal(result.modelLookupStatus,'model_metadata_visible');
  assert.equal(result.recoveryFlagSet,true);
  assert.equal(result.projectHardLimitFlagSet,true);
  assert.equal(result.paidRequestMade,false);
@@ -194,6 +195,7 @@ test('missing image key does not call provider; separate signer mismatches are r
    const report=f.context.annalsCocktailEditorialCredentialPreflightInEditor();
    assert.equal(report.imageCredentialPresent,false);
    assert.equal(report.modelLookupAccepted,false);
+   assert.equal(report.modelLookupStatus,'not_attempted');
    assert.equal(f.events.modelRequests||0,0);
  }
  for(const signer of ['ANNALS_PUBLISH_SIGNING_KEY','ANNALS_APPROVAL_KEY']){
@@ -202,6 +204,8 @@ test('missing image key does not call provider; separate signer mismatches are r
    const report=f.context.annalsCocktailEditorialCredentialPreflightInEditor();
    assert.equal(report.permitSignerPresentAndDistinct,false);
    assert.equal(report.modelLookupAccepted,false);
+   assert.equal(report.modelLookupStatus,'not_attempted');
+   assert.equal(report.modelLookupStatus,'not_attempted');
    assert.equal(f.events.modelRequests||0,0);
    assert.deepEqual(f.log,[]);
  }
@@ -216,6 +220,8 @@ test('provider rejects/unavailable and unset owner flags remain non-spending fal
    assert.equal(report.recoveryFlagSet,false);
    assert.equal(report.projectHardLimitFlagSet,false);
    assert.equal(report.modelLookupAccepted,false);
+   assert.equal(report.modelLookupStatus,'not_attempted');
+   assert.equal(report.modelLookupStatus,'not_attempted');
    assert.equal(f.events.modelRequests||0,0);
    assert.equal(report.paidRequestMade,false);
    assert.equal(f.root.files.size,1);
@@ -230,11 +236,37 @@ test('after recorded recovery, provider 401 and transport failures remain non-bi
    f.events.rejectModelRequest=networkFail;
    const report=f.context.annalsCocktailEditorialCredentialPreflightInEditor();
    assert.equal(report.modelLookupAccepted,false);
+   assert.equal(report.modelLookupStatus,networkFail?'transport_failure':'authentication_or_models_read_denied');
    assert.equal(report.paidRequestMade,false);
    assert.equal(f.events.modelRequests,1);
    assert.equal(f.root.files.size,1);
    assert.equal(f.folder.files.size,2);
    assert.deepEqual(f.log,[]);
+ }
+});
+test('bounded model metadata statuses distinguish failures without exposing provider bodies',()=>{
+ const outcomes=[
+   [200,'model_metadata_visible',true],
+   [400,'other_http_failure',false],
+   [401,'authentication_or_models_read_denied',false],
+   [403,'access_forbidden',false],
+   [404,'model_not_found_or_inaccessible',false],
+   [429,'rate_or_quota_limited',false],
+   [500,'provider_unavailable',false],
+   [503,'provider_unavailable',false]
+ ];
+ for(const [http,status,visible] of outcomes){
+   const f=fixture();
+   f.events.modelResponseCode=http;
+   const report=f.context.annalsCocktailEditorialCredentialPreflightInEditor();
+   assert.equal(report.modelLookupStatus,status);
+   assert.equal(report.modelLookupAccepted,visible);
+   assert.equal(report.paidRequestMade,false);
+   assert.equal(f.events.modelRequests,1);
+   assert.equal(f.root.files.size,1);
+   assert.equal(f.folder.files.size,2);
+   assert.deepEqual(f.log,[]);
+   assert.doesNotMatch(JSON.stringify(report),/Bearer|fictional-model-key|permit-key|publisher-key|example.invalid/i);
  }
 });
 test('model credential probe contains no source records, mutation or paid endpoints',()=>{
