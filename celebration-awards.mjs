@@ -1,4 +1,5 @@
 import { ageAt, basePoints, cavalcadeRule, copycatRule } from './celebration-rules.mjs';
+import {firstReportDate, isProtectedPick} from './col-club-state.mjs';
 
 const birthdays = { marc: '03-26', jerome: '05-09', matt: '06-25', fish: '07-06', ken: '07-20', jamie: '09-19' };
 const birthdayNames = { marc:'Marc', jerome:'Jerome', matt:'Matt', fish:'Justin', ken:'Ken', jamie:'Jamie' };
@@ -52,7 +53,7 @@ export function birthdayCalendar(year) {
 
 // The legacy dateOfPassing field is a group discovery date, except where
 // dateSource supplies an independently sourced actual death date.
-export function awardEvents(data) {
+export function awardEvents(data, clubState = null) {
   const grouped = new Map();
   for (const member of data.members) for (const pick of member.picks) {
     if (!pick.counted && !pick.dateOfPassing && !pick.actualDeathDate && !pick.discoveryDate) continue;
@@ -73,23 +74,23 @@ export function awardEvents(data) {
     const age = explicitAges.length > 1 || deaths.length > 1 ? null : confirmedAge ?? ageAt(event.born, discoveredOn);
     const at = diedOn || discoveredOn;
     const inSeason = Boolean(at && at.slice(0,4) === String(data.year) && at <= data.asOf);
-    return { ...event, discoveredOn, diedOn, diedAt, at, age, ageConfirmed:confirmedAge !== null,
+    return { ...event, discoveredOn, reportedOn:firstReportDate({...event, discoveredOn},clubState), diedOn, diedAt, at, age, ageConfirmed:confirmedAge !== null,
       ageInDays:validDate(event.born) && diedOn && diedOn >= event.born ? daysBetween(event.born,diedOn) : null,
       allocationDecision:event.entries.find(p => p.allocationDecision)?.allocationDecision ?? null,
       inSeason, dateConflict:discoveries.length > 1 || deaths.length > 1,
       owners:event.entries.filter(isPick),
-      diamond:event.entries.some(p => p.pick === 1 || p.pick === 50 || p.bloodDiamond === true),
+      diamond:event.entries.some(p => isProtectedPick(p,p.memberId,clubState,diedOn)),
       allocations:event.entries.filter(p => p.counted).map(p => ({id:p.memberId, name:p.memberName, points:p.points})) };
   });
 }
 
-export function calculateAwards(data, settings = data.awardSettings ?? {}, policy = {}) {
+export function calculateAwards(data, settings = data.awardSettings ?? {}, policy = {}, clubState = null) {
   const members = data.members;
-  const allEvents = awardEvents(data);
+  const allEvents = awardEvents(data, clubState);
   const events = allEvents.filter(x => x.inSeason && !x.dateConflict);
   const undated = allEvents.filter(x => !x.at || x.dateConflict).length;
   // The Club's competition ends at the recorded first-gathering handover, not
-  // December 31. Until the Renewal-to-Renewal score source and January gap are
+  // December 31. Until the 8 p.m. January handover and the Sheet's January gap are
   // reconciled, this public draft preview must not certify a final winner.
   const final = false;
   const leader = members.filter(m => m.score === Math.max(...members.map(m => m.score)));
@@ -116,7 +117,7 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}, polic
   const oldestFinal = final && !oldestIncomplete && !oldestTieUnresolved;
   const cards = [{ id:'pool-prize', title:'The $100 prize', status:leader.length > 1 ? (final ? 'Shared winners' : 'Tied on points') : final ? 'Winner' : 'Leading',
     value:names(leader), description:`${leader[0]?.score ?? 0} points · ${final ? 'Final register' : 'Recorded so far'}`,
-    details:leader.length > 1 ? ['Tied winners share the $100 prize.'] : ['The winner is determined at the first Stammtisch of the following year, at the handover time agreed and recorded by the Club. Current points remain provisional until then.'] },
+    details:leader.length > 1 ? ['Tied winners share the $100 prize.'] : ['The year changes at 8 p.m. Toronto time on the third Friday of January. Current points remain provisional until that handover is reconciled with the register.'] },
   { id:'youngest', title:'Youngest celebrity', status:youngest.length ? 'Provisional contenders' : 'No dated records',
     value:youngest.length ? names(members.filter(m => youngestOwners.includes(m.id))) : 'No contender yet',
     description:minAge === null ? 'One Blood Diamond at the next draft.' : `Youngest recorded age: ${minAge} · One Blood Diamond at the next draft`,
@@ -152,7 +153,7 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}, polic
     for (const event of owned) {
       const slots = event.owners.filter(p => p.memberId === member.id);
       const blue = slots.some(p => p.pick === 1), brown = slots.some(p => p.pick === 50);
-      const birthday = !event.diamond && Object.values(birthdays).includes(event.discoveredOn?.slice(5));
+      const birthday = !event.diamond && Object.values(birthdays).includes(event.reportedOn?.slice(5));
       if (blue) benefits.push({ kind:'Steal', event:event.name, at:event.diedOn, confirmed:Boolean(event.diedOn), reason:'Blue Diamond' });
       if (brown) benefits.push({ kind:'Blood Diamond', event:event.name, at:event.diedOn, confirmed:Boolean(event.diedOn), reason:'Brown Diamond' });
       if (event.age === 100 && !birthday) {
@@ -230,14 +231,14 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}, polic
   cards.push({id:'providence', title:'Hand of Providence', status:'By nomination', value:'Chosen by the group', description:'A passing that narrowly avoids a loss or reduction in points.', details:['A date close to a birthday does not establish this award. The group nominates the recipient.']},
     {id:'summit', title:'Summit in Purgatory', status:'Event confirmation needed', value:'Chosen by the group', description:'Multiple CoL deaths in a mass casualty event.', details:['Matching dates alone do not establish a shared event.']});
   const birthdayDisplay = birthdayCalendar(data.year).map(b => `${b.member}: ${b.metric} (${b.gregorian})`).join(' · ');
-  const buffet = events.filter(x => !x.diamond && x.discoveredOn && Object.values(birthdays).includes(x.discoveredOn.slice(5))).map(event => {
-    const recipient = members.find(m => birthdays[m.id] === event.discoveredOn.slice(5));
+  const buffet = events.filter(x => !x.diamond && x.reportedOn && Object.values(birthdays).includes(x.reportedOn.slice(5))).map(event => {
+    const recipient = members.find(m => birthdays[m.id] === event.reportedOn.slice(5));
     const expected = event.ageConfirmed ? basePoints(event.age) : null;
-    return { name:event.name, recipient:recipient?.name, date:event.discoveredOn, expected, allocations:event.allocations, decision:event.allocationDecision };
+    return { name:event.name, recipient:recipient?.name, date:event.reportedOn, expected, allocations:event.allocations, decision:event.allocationDecision };
   });
-  cards.push({id:'birthday-buffet', title:'Birthday Buffet', status:buffet.length ? 'Dates worth checking' : 'No birthday dates noted',
-    value:buffet.length ? names(buffet.map(x => ({name:x.recipient}))) : 'No match noted', description:'The first report in the Club’s WhatsApp group decides a Birthday Buffet. A discovery date alone is not an award.',
-    details:buffet.map(x => `${x.name} · ${dateText(x.date)} · Possible birthday member: ${x.recipient}. Recorded allocation: ${x.allocations.map(a => `${a.name} ${a.points}`).join(', ') || 'none'}${x.decision ? `. ${x.decision}` : x.expected === null ? '. Age at death needs confirmation.' : `. The age-based value would be ${x.expected} points if the Club confirms eligibility.`}`).concat(['The register does not establish first WhatsApp reports or placed Protections. Previous Club awards remain as recorded; no new Birthday Buffet award is assumed.'], [`Birthday register (${data.year}, Metric first): ${birthdayDisplay}.`])});
+  cards.push({id:'birthday-buffet', title:'Birthday Buffet', status:buffet.length ? 'Recorded birthday dates' : 'No birthday dates noted',
+    value:buffet.length ? names(buffet.map(x => ({name:x.recipient}))) : 'No match noted', description:'The Club uses the date recorded in its shared spreadsheet as the first WhatsApp report date, unless corrected.',
+    details:buffet.map(x => `${x.name} · ${dateText(x.date)} · Possible birthday member: ${x.recipient}. Recorded allocation: ${x.allocations.map(a => `${a.name} ${a.points}`).join(', ') || 'none'}${x.decision ? `. ${x.decision}` : x.expected === null ? '. Age at death needs confirmation.' : `. The age-based value would be ${x.expected} points if the Club confirms eligibility.`}`).concat(['The spreadsheet date is accepted by default unless a member corrects it. Previous Club awards remain as recorded; this preview does not independently award points.'], [`Birthday register (${data.year}, Metric first): ${birthdayDisplay}.`])});
   return { year:data.year, asOf:data.asOf, final, cards, draft, events, undated,
     officialAwardCards:policy.oldestDeathSteal === true ? 4 : 3 };
 }
