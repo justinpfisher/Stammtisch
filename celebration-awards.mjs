@@ -28,8 +28,12 @@ export function metricBirthdayLabel(year, monthDay) {
   const gregorian = `${year}-${monthDay}`;
   if (!validDate(gregorian)) return null;
   let ordinal = 1 + Math.floor((Date.parse(gregorian+'T00:00:00Z')-Date.UTC(year,0,1))/86400000);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
   for (let index=0; index<metricMonths.length; index++) {
-    const length = index % 2 ? 37 : 36;
+    // Metric month 10 has a final day 38 in Gregorian leap years.
+    // Gregorian February 29 remains an ordinary metric date; Metric Leap Day
+    // is December 31 of that leap year, not February 29.
+    const length = index === 9 && leapYear ? 38 : index % 2 ? 37 : 36;
     if (ordinal <= length) return `${metricMonths[index]} ${ordinal}`;
     ordinal -= length;
   }
