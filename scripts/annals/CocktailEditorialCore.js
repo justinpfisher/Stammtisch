@@ -1,5 +1,5 @@
-/* Pure, secret-free contractual policy for the owner-only Cocktail Register
- * editorial permit issuer. Compatible with Apps Script V8 and Node.
+/* Pure, secret-free photographic rights and source-bound signing policy.
+ * Compatible with Apps Script V8 and Node.
  *
  * No Drive reads, property inspection, signing, HTTP, publication or mutation
  * happens here. Source/receipt authentication MUST be done independently by
@@ -10,12 +10,10 @@ var AnnalsCocktailEditorial = (function () {
   'use strict';
   var OWNER_SCOPE = 'eligible_cocktail_photographs_ai_editorial_transformation';
   var MEMBER_SCOPE = 'cocktail_photo_ai_editorial_transformation';
-  var PERMIT_SCOPE = 'cocktail-editorial-transform-v1';
+  var PERMIT_SCOPE = 'cocktail-editorial-transform-v2';
   var ORIGINAL_SCOPE = 'future_source_grounded_text_and_screened_image_publication';
   var SHA = /^[0-9a-f]{64}$/;
   var ID = /^annal-[0-9a-f]{24}$/;
-  var PER_PHOTO = 200, MONTHLY = 500;
-  var EXPECTED_RESERVATION = 'entryId,period,reservationCents,reservedAt,sourceSha256';
   function canonical(v) {
     if (Array.isArray(v)) return v.map(canonical);
     if (v && typeof v === 'object') {
@@ -74,77 +72,25 @@ var AnnalsCocktailEditorial = (function () {
       return fail('specific_photo_evidence_not_verified');
     return {eligible:true,reason:'qualified_private_evidence_only'};
   }
-  function validateLedger(ledger) {
-    if (!ledger || typeof ledger!=='object'||Array.isArray(ledger)||
-        Object.keys(ledger).sort().join(',')!=='monthlyCeilingCents,perPhotoCeilingCents,reservations,schemaVersion'||
-        ledger.schemaVersion!==1 || ledger.monthlyCeilingCents!==MONTHLY ||
-        ledger.perPhotoCeilingCents!==PER_PHOTO ||
-        !Array.isArray(ledger.reservations) || ledger.reservations.length>2500)
-      throw Error('Separate private editorial budget ledger invalid');
-    var seen={},totals={};
-    ledger.reservations.forEach(function (r) {
-      if (!r || typeof r!=='object'||Array.isArray(r) ||
-          Object.keys(r).sort().join(',')!==EXPECTED_RESERVATION ||
-          !ID.test(r.entryId||'') || !SHA.test(r.sourceSha256||'') ||
-          !/^\d{4}-(0[1-9]|1[0-2])$/.test(r.period||'') ||
-          r.reservationCents!==PER_PHOTO ||
-          !Number.isFinite(Date.parse(r.reservedAt)) ||
-          period(new Date(r.reservedAt))!==r.period ||
-          seen[r.sourceSha256])
-        throw Error('Separate private editorial budget history invalid');
-      seen[r.sourceSha256]=true;
-      totals[r.period]=(totals[r.period]||0)+r.reservationCents;
-      if(totals[r.period]>MONTHLY)throw Error('Monthly editorial budget oversubscribed');
-    });
-    return ledger;
-  }
-  function planReservation(input) {
-    if (!input || !ID.test(input.entryId||'') ||
-        !SHA.test(input.sourceSha256||'') ||
-        !SHA.test(input.referenceSha256||'') ||
-        !(input.now instanceof Date) ||
-        !Number.isFinite(input.now.getTime()) ||
-        input.rightsEligible!==true ||
-        input.sourceStillSigned!==true)
-      throw Error('Exact source-bound owner-private reservation evidence required');
-    var ledger=validateLedger(input.ledger),month=period(input.now),used=0;
-    ledger.reservations.forEach(function (r) {
-      if(r.sourceSha256===input.sourceSha256)throw Error('One-shot editorial source already reserved');
-      if(r.period===month)used+=r.reservationCents;
-    });
-    if(used+PER_PHOTO>MONTHLY)throw Error('Separate monthly editorial allowance exhausted');
-    var reservation={entryId:input.entryId,sourceSha256:input.sourceSha256,
-      period:month,reservationCents:PER_PHOTO,reservedAt:input.now.toISOString()};
-    return {reservation:reservation,ledger:{schemaVersion:1,
-      monthlyCeilingCents:MONTHLY,perPhotoCeilingCents:PER_PHOTO,
-      reservations:ledger.reservations.concat([reservation])}};
-  }
+  // The provider's existing US$5 monthly hard cap is the sole money control.
+  // This short-lived signature proves separate transformation rights; one
+  // immutable issuer receipt and a durable source attempt marker prevent replays.
   function unsignedPermit(input) {
-    // Call ONLY after the private reservation has been durably saved and a
-    // currently authenticated owner has rechecked all scoped grants.
-    if(!input||input.rightsEligible!==true ||
+    if(!input || !ID.test(input.entryId||'') ||
+       !SHA.test(input.sourceSha256||'') ||
        !SHA.test(input.referenceSha256||'') ||
+       input.rightsEligible!==true || input.sourceStillSigned!==true ||
        !/^[0-9a-f]{32}$/.test(input.nonce||'') ||
-       !(input.now instanceof Date) ||
-       !Number.isFinite(input.now.getTime()))throw Error('Editorial permit evidence missing');
-    var ledger=validateLedger(input.ledger);
-    var matching=ledger.reservations.filter(function (r) {
-      return r.entryId===input.entryId &&
-        r.sourceSha256===input.sourceSha256 &&
-        r.period===period(input.now);
-    });
-    if(matching.length!==1)throw Error('No matching durable image budget reservation');
+       !(input.now instanceof Date) || !Number.isFinite(input.now.getTime()))
+      throw Error('Exact source and editorial rights evidence required');
     return {scope:PERMIT_SCOPE,entryId:input.entryId,
       sourceSha256:input.sourceSha256,referenceSha256:input.referenceSha256,
-      rightsActive:true,screened:true,budgetReserved:true,
-      monthlyCeilingCents:MONTHLY,perPhotoCeilingCents:PER_PHOTO,
-      reservedCents:PER_PHOTO,budgetPeriod:period(input.now),
+      rightsActive:true,screened:true,
       nonce:input.nonce,issuedAt:input.now.toISOString(),
       expiresAt:new Date(input.now.getTime()+120*60*1000).toISOString()};
   }
-  return Object.freeze({evaluate:evaluate,validateLedger:validateLedger,
-    planReservation:planReservation,unsignedPermit:unsignedPermit,
-    canonical:canonical,serial:serial,period:period,PER_PHOTO:PER_PHOTO,
-    MONTHLY:MONTHLY,PERMIT_SCOPE:PERMIT_SCOPE,MEMBER_SCOPE:MEMBER_SCOPE});
+  return Object.freeze({evaluate:evaluate,unsignedPermit:unsignedPermit,
+    canonical:canonical,serial:serial,PERMIT_SCOPE:PERMIT_SCOPE,
+    MEMBER_SCOPE:MEMBER_SCOPE});
 })();
 if (typeof module!=='undefined' && module.exports) module.exports=AnnalsCocktailEditorial;
