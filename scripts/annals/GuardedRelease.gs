@@ -147,3 +147,31 @@ function annalsGuardedEnableJpegInEditor(){
     return annalsGuardedLaunchReadbackCore_();
   });
 }
+
+/** One-time owner-only change of the EXISTING intake cadence, never a second
+ * permanent trigger, new script, activation or a reset of private state.
+ * Scheduled runs already acquire the existing intake lock. The only temporary
+ * overlap is while replacing the one trigger; failed deletion rolls back.
+ * This function does not change the restricted /exec deployment version.
+ */
+function annalsUseFiveMinuteIntakeInEditor(){
+  annalsOwner_();
+  var before=ScriptApp.getProjectTriggers();
+  if(before.length!==1||before[0].getHandlerFunction()!=='runAnnalsProductionIntake')
+    throw Error('Existing single intake trigger not verified');
+  var previous=before[0],replacement=ScriptApp.newTrigger('runAnnalsProductionIntake')
+    .timeBased().everyMinutes(5).create();
+  try{
+    ScriptApp.deleteTrigger(previous);
+  }catch(error){
+    try{ScriptApp.deleteTrigger(replacement);}catch(ignored){}
+    throw Error('Trigger replacement incomplete; inspect existing owner triggers');
+  }
+  var after=ScriptApp.getProjectTriggers();
+  if(after.length!==1||after[0].getHandlerFunction()!=='runAnnalsProductionIntake'||
+     (typeof replacement.getUniqueId==='function' &&
+      after[0].getUniqueId()!==replacement.getUniqueId()))
+    throw Error('Expected one five-minute intake trigger; owner readback required');
+  return {singleTrigger:true,cadenceMinutes:5,privateStateChanged:false,
+    sourceDeploymentChanged:false,periodicIntakeOnly:true};
+}
