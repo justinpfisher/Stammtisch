@@ -49,7 +49,7 @@ test('youngest uses day-level ages when actual dates are available, preserving u
   assert.match(card(calculateAwards(data),'youngest').details.join(' '),/Actual death dates are needed/);
 });
 
-test('score ties share ranks, and an old snapshot never becomes a final winner on its own', () => {
+test('score ties share ranks; December 31 cannot finalize a Renewal-to-Renewal preview', () => {
   const data = season([member('a',10),member('b',10),member('c',0),member('d',0)]);
   let model = calculateAwards(data,{finalizedYear:2026});
   assert.equal(model.final,false);
@@ -61,11 +61,13 @@ test('score ties share ranks, and an old snapshot never becomes a final winner o
   assert.equal(model.draft.filter(m=>m.devil).length,2);
   assert.match(draftMarkup(model),/Rock, paper, scissors/);
   data.asOf='2026-12-31';
-  assert.equal(card(calculateAwards(data,{finalizedYear:2026}),'pool-prize').status,'Shared winners');
-  assert.equal(card(calculateAwards(data,{finalizedYear:2026}),'devils-share').status,'Eligible');
+  assert.equal(calculateAwards(data,{finalizedYear:2026}).final,false);
+  assert.equal(card(calculateAwards(data,{finalizedYear:2026}),'pool-prize').status,'Tied on points');
+  assert.equal(card(calculateAwards(data,{finalizedYear:2026}),'devils-share').status,'Tied on points');
+  data.asOf='2027-01-21'; // A later snapshot does not establish the Club's actual handover.
   data.members[0].score=11;
   assert.equal(card(calculateAwards(data),'pool-prize').status,'Leading');
-  assert.equal(card(calculateAwards(data,{finalizedYear:2026}),'pool-prize').status,'Winner');
+  assert.equal(card(calculateAwards(data,{finalizedYear:2026}),'pool-prize').status,'Leading');
 });
 
 test('group discoveries, actual deaths, missing dates and duplicate BB allocations stay distinct', () => {
@@ -288,8 +290,8 @@ test('missing death evidence prevents a final oldest-death award without alterin
   data.members[1].picks[0].actualDeathDate='2026-02-01';
   result=calculateAwards(data,{finalizedYear:2026},{oldestDeathSteal:true});
   assert.equal(card(result,'oldest').value,'b');
-  assert.equal(card(result,'oldest').status,'Eligible at the next draft');
-  assert.equal(result.draft.find(m=>m.id==='b').benefits.filter(x=>x.reason==='Oldest celebrity death of the year')[0].confirmed,true);
+  assert.equal(card(result,'oldest').status,'Provisional contenders');
+  assert.equal(result.draft.find(m=>m.id==='b').benefits.filter(x=>x.reason==='Oldest celebrity death of the year')[0].confirmed,false);
   assert.equal(JSON.parse(before).members[0].score,data.members[0].score);
 });
 
