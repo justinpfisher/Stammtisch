@@ -128,8 +128,10 @@ test('only living, eligible, unprotected numbered picks may be jettisoned',()=>{
   assert.equal(isJettisonEligible(living,'fish',asOf,state),true);
   assert.equal(isJettisonEligible({...living,pick:1},'fish',asOf,state),false);
   assert.equal(isJettisonEligible({...living,pick:50},'fish',asOf,state),false);
-  assert.equal(isJettisonEligible({...living,born:'1926-01-15'},'fish','2026-01-15',state),true);
-  assert.equal(isJettisonEligible({...living,born:'1925-01-14'},'fish','2026-01-15',state),false);
+  assert.equal(isJettisonEligible({...living,born:'1927-01-15'},'fish','2027-01-15',state),true,
+    'a celebrity aged exactly 100 remains jettisonable');
+  assert.equal(isJettisonEligible({...living,born:'1926-01-14'},'fish','2027-01-15',state),false,
+    'a celebrity over 100 cannot be jettisoned');
   assert.equal(isJettisonEligible({...living,bloodDiamond:true},'fish',asOf,state),false);
   assert.equal(isJettisonEligible({...living,dateOfPassing:'2026-11-01'},'fish',asOf,state),false);
   assert.equal(isJettisonEligible({...living,actualDeathDate:'2026-11-01'},'fish',asOf,state),false);
