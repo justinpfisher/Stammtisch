@@ -481,7 +481,17 @@ el('refreshConsent').onclick=()=>act(async()=>{const members=await call('annalsR
 async function initReviewDesk(){
   try{
     nonce=(await call('annalsReviewSession')).nonce;
-    const item=new URLSearchParams(location.search).get('item');
+    // Apps Script serves this page inside a sandboxed iframe. Read the
+    // outer /exec parameters through its supported URL API so existing
+    // owner-notice item links still open the exact private item.
+    const item=await new Promise(resolve=>{
+      const api=typeof google!=='undefined'&&google.script&&google.script.url;
+      if(api&&typeof api.getLocation==='function'){
+        api.getLocation(location=>resolve(String(location?.parameter?.item||'')));
+      }else{
+        resolve(new URLSearchParams(window.location.search).get('item')||'');
+      }
+    });
     if(/^[a-f0-9]{64}$/.test(item||'')){
       say('Opening the requested private contribution…');
       await open(item); // A direct notice link must not scan the entire inbox first.
