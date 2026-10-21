@@ -127,12 +127,23 @@ export function readClubState(raw) {
   }
   const pointIds=new Set();
   for(const correction of raw.pointsCorrections) {
+    const prefix=String(correction.memberId)+'-';
+    const row=Number(String(correction.pickId).slice(prefix.length));
     if (!sameKeys(correction,['seasonYear','memberId','pickId','name','born','points']) ||
         !Number.isInteger(correction.seasonYear) || correction.seasonYear<2026 ||
         !members.has(correction.memberId) || !validName(correction.name) ||
         !validDate(correction.born) ||
         typeof correction.pickId!=='string' ||
-        !new RegExp('^'+correction.memberId+'-([3-9]|[1-9][0-9])
+        !correction.pickId.startsWith(prefix) ||
+        !Number.isInteger(row) || row<3 || row>99 ||
+        correction.pickId!==prefix+String(row) ||
+        !Number.isInteger(correction.points) || correction.points<0 || correction.points>1000)
+      throw new Error('Invalid GitHub points correction');
+    const id=correction.seasonYear+':'+correction.pickId;
+    if(pointIds.has(id))throw new Error('Duplicate GitHub points correction');
+    pointIds.add(id);
+  }
+  const seasons = new Set();
   for (const c of raw.seasonCorrections) {
     if (!sameKeys(c,['name','born','diedOn','competitionYear']) ||
         !validName(c.name) || !validDate(c.born) || !validDate(c.diedOn) ||
