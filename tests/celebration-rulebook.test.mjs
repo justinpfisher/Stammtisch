@@ -29,7 +29,7 @@ test('year, dates, birthday entitlement and protections display the actual 21 Oc
   assert.match(rulebook,/Friday, January 15, 2027, at 8 p.m./);
   assert.match(rulebook,/From January 1 until that hour, qualifying deaths still count for the previous competition year/);
   assert.match(rulebook,/first reported in the Club's WhatsApp group/);
-  assert.match(rulebook,/private discovery or a news alert/);
+  assert.match(rulebook,/private discovery or news alert/);
   assert.match(rulebook,/Blue Diamonds, Brown Diamonds and celebrities bearing a placed Protection are excluded/);
   assert.match(rulebook,/honour-bound to report promptly/);
   assert.match(rulebook,/shared CoL spreadsheet is the Club's <strong>default first-report date<\/strong> unless a member supplies a correction/);
@@ -66,7 +66,7 @@ test('unchanged prior scores and sealed rules remain visibly distinguished from 
   assert.doesNotMatch(rulebook,/Matter for Club Deliberation \(non-operative\)|implementation class|Viewer|release gate|snapshot digest|qualified implementation/);
   const matters=(rulebook.match(/Matter for Club Deliberation/g)||[]).length;
   assert.equal(matters,0,'The Club has already fixed the January handover hour');
-  assert.match(rulebook,/Club's GitHub repository, alongside the website/);
+  assert.match(rulebook,/Club's permanent register records Protection placements and draft actions/);
   assert.doesNotMatch(rulebook,/seven-stage order, but its annual boundary.*unresolved/);
   assert.doesNotMatch(rulebook,/Protections last until death.*verified register representation/);
   const ids=new Set(ledger.operations.map(o=>o.revisionId));
