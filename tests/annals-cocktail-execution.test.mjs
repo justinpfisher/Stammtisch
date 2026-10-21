@@ -72,21 +72,20 @@ test('check-handoff is exclusively no-spend and cannot be combined with paid mod
    assert.notEqual(r.status,0);
  }
 });
-test('handoff validation occurs before paid activation, and succeeds before any private write',async()=>{
+test('source receipt and replay checks run before provider activation or private writes',async()=>{
  const source=await readFile(script,'utf8');
  const receipt=source.indexOf('extractUnspentEditorialPermit(JSON.parse(');
  const proof=source.indexOf('const proof=verifyEditorialPermit(');
- const budget=source.indexOf('const reservation=verifyIssuedCocktailBudget(');
- const earlierAttempt=source.indexOf("if(saved?.sourceSha256===subject.sourceSha256)");
+ const previous=source.indexOf("if(saved?.sourceSha256===subject.sourceSha256)");
  const dry=source.indexOf("if(options.checkHandoff){");
  const paid=source.indexOf("if(process.env.ANNALS_EDITORIAL_IMAGE_ENABLED!=='true'",dry);
  const mark=source.indexOf("await writeFile(marker,JSON.stringify(attempt",dry);
  const edit=source.indexOf("const edited=await requestSunburstEdit(",dry);
- assert.ok(receipt>=0&&receipt<proof&&proof<budget&&budget<earlierAttempt&&
-   earlierAttempt<dry&&dry<paid&&paid<mark&&mark<edit);
+ assert.ok(receipt>=0&&receipt<proof&&proof<previous&&previous<dry&&
+    dry<paid&&paid<mark&&mark<edit);
  assert.match(source,/state:'private-handoff-verified-offline'/);
  assert.match(source,/providerCalled:false,paidRequestMade:false,markerCreated:false/);
- assert.doesNotMatch(source,/reserveCocktailBudget\s*\(/);
+ assert.doesNotMatch(source,/verifyIssuedCocktailBudget\s*\(|enforceTotalSpend\s*\(/);
 });
 test('every successful paid edit is retained owner-privately before another paid visual review',async()=>{
   const source=await readFile(script,'utf8');
@@ -100,14 +99,12 @@ test('every successful paid edit is retained owner-privately before another paid
   assert.match(source,/reserved-no-retry/);
 });
 
-test('one-shot CLI consumes the owner-issued ledger without a second reservation writer',async()=>{
+test('one source attempt marker prevents duplicate billing without a private money ledger',async()=>{
   const source=await readFile(script,'utf8');
-  assert.match(source,/verifyIssuedCocktailBudget\s*\(/);
-  assert.match(source,/privateFile\(options\['budget-ledger'\]\)/);
-  assert.doesNotMatch(source,/reserveCocktailBudget\s*\(/);
-  assert.match(source,/Conflicting local image spending ledger/);
+  assert.doesNotMatch(source,/privateFile\(options\['budget-ledger'\]\)/);
+  assert.doesNotMatch(source,/enforceTotalSpend|PHOTO_CENTS|MONTHLY_CENTS/);
   assert.match(source,/Previously attempted editorial source/);
-  assert.match(source,/cocktail-'\+subject\.sourceSha256\+'-attempt-private\.json'/);
+  assert.match(source,/cocktail-'+subject\.sourceSha256+'-attempt-private\.json'/);
   assert.match(source,/writeFile\(marker,[\s\S]*flag:'wx',mode:0o600/);
 });
 test('reference signature binds the exact original approved private bytes',async()=>{
@@ -117,10 +114,12 @@ test('reference signature binds the exact original approved private bytes',async
   // This does not relax actual JPEG decoding before a billable request.
   assert.match(source,/makeSunburstEditRequest\(\{subject,referenceBytes\}\)/);
 });
-test('a costly generated image does not automatically trigger a second billed assessment',async()=>{
-  const source=await readFile(script,'utf8');
-  const edit=source.indexOf('const edited=await requestSunburstEdit(');
-  const hold=source.indexOf('enforceTotalSpend({editCents:generationCents,reviewCents:50})');
-  const review=source.indexOf('const judgement=await assessSunburstEdit(');
-  assert.ok(edit>=0&&hold>edit&&review>hold);
+test('provider-enforced monthly cap replaces obsolete per-photo local spending estimates',async()=>{
+ const source=await readFile(script,'utf8');
+ const edit=source.indexOf('const edited=await requestSunburstEdit(');
+ const saved=source.indexOf('-generated-private.jpg',edit);
+ const review=source.indexOf('const judgement=await assessSunburstEdit(',edit);
+ assert.ok(edit>=0&&saved>edit&&review>saved);
+ assert.match(source,/ANNALS_EDITORIAL_PROJECT_HARD_LIMIT_VERIFIED/);
+ assert.doesNotMatch(source,/imageSpendCents|reviewSpendCents|enforceTotalSpend/);
 });
