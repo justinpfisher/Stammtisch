@@ -38,6 +38,36 @@ export function competitionYearAt(value) {
   return instant.getTime() < Date.parse(januaryHandover(localYear).utc) ? localYear - 1 : localYear;
 }
 
+// Dates alone are sufficient except on the changeover Friday itself.
+// A verified exact death instant is required to place a changeover-day death
+// before or after 8 p.m.; neither a newspaper publication time nor the Sheet's
+// first-report date substitutes for that instant. The adopted 2026 record is
+// kept in its established year without retroactive reassignment.
+export function competitionYearForDeathDate(date, verifiedInstant = null) {
+  if (!validDate(date)) return null;
+  const year=Number(date.slice(0,4));
+  if (year < 2027) return year;
+  const cutoff=januaryHandover(year).date;
+  if (date < cutoff) return year-1;
+  if (date > cutoff) return year;
+  if (!Number.isFinite(verifiedInstant)) return null;
+  return competitionYearAt(new Date(verifiedInstant).toISOString());
+}
+
+export function isJettisonEligible(pick, memberId, asOf, clubState = null) {
+  if (!isRecord(pick) || !Number.isInteger(pick.pick) ||
+      pick.pick < 1 || pick.pick > 50 || !validDate(pick.born) ||
+      !validDate(asOf) || pick.born > asOf || pick.counted ||
+      pick.dateOfPassing || pick.actualDeathDate || pick.needsReview ||
+      isProtectedPick(pick,memberId,clubState)) return false;
+  const [by,bm,bd]=pick.born.split('-').map(Number);
+  const [ay,am,ad]=asOf.split('-').map(Number);
+  const age=ay-by-Number(am<bm || (am===bm && ad<bd));
+  // An exactly-100-year-old is eligible; older celebrities cannot be
+  // jettisoned. Any eventual special penalty still requires an actual action.
+  return age <= 100;
+}
+
 export function readClubState(raw) {
   if (!sameKeys(raw, ['schemaVersion','yearHandover','birthdayBuffet','protectionPlacements','draftActions']) ||
       raw.schemaVersion !== 1) throw new Error('Unsupported Club register');
