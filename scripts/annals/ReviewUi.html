@@ -256,7 +256,60 @@ async function act(fn){document.querySelectorAll('button').forEach(b=>b.disabled
   el('continueHeldCentenaryRule').disabled=!current.heldCentenaryContinuationReady||!!current.ruleRequest||!!current.quarantined;
   updateRuleAcceptanceControls();
 }updateLiteralStageControl();}}
-async function list(reset){if(reset){el('items').replaceChildren();continuation=null;}const page=await call('annalsReviewList',nonce,continuation);page.items.forEach(item=>{const li=document.createElement('li'),b=document.createElement('button');b.dataset.itemId=item.id;b.textContent=item.subject+' — '+item.state;b.onclick=()=>act(()=>open(item.id));li.append(b);el('items').append(li)});continuation=page.continuation;el('more').hidden=!continuation;say('Private review is ready.');}
+// A completed Apps Script execution does not prove its HTML-service callback
+// reached the iframe. A lost callback must not leave the desk saying Loading
+// forever, empty a previously displayed queue or silently repeat any read.
+const QUEUE_DELIVERY_TIMEOUT_MS=45000;
+let queueReadPending=false;
+function boundedQueuePage(token){
+  return new Promise((resolve,reject)=>{
+    let settled=false;
+    const timer=setTimeout(()=>{
+      if(settled)return;
+      settled=true;
+      reject(new Error('The private contribution list did not reach this page. The server may have finished; nothing was retried. Use the existing private item link, or Refresh contributions when appropriate.'));
+    },QUEUE_DELIVERY_TIMEOUT_MS);
+    call('annalsReviewList',nonce,token).then(
+      page=>{if(settled)return;settled=true;clearTimeout(timer);resolve(page)},
+      error=>{if(settled)return;settled=true;clearTimeout(timer);reject(error)}
+    );
+  });
+}
+async function list(reset){
+  if(queueReadPending){
+    say('A private contribution-list read is already pending. No additional request was sent.');
+    return;
+  }
+  queueReadPending=true;
+  el('refreshList').disabled=true;
+  el('more').disabled=true;
+  try{
+    const page=await boundedQueuePage(reset?null:continuation);
+    if(!page||!Array.isArray(page.items)||page.items.length>3||
+       !(page.continuation===null||typeof page.continuation==='string')||
+       page.items.some(item=>!item||!/^[a-f0-9]{64}$/.test(item.id||'')||
+         typeof item.subject!=='string'||typeof item.state!=='string'||
+         item.subject.length>200||item.state.length>180))
+      throw new Error('The private list response was not a valid bounded page. No result was applied.');
+    const rows=page.items.map(item=>{
+      const li=document.createElement('li'),b=document.createElement('button');
+      b.dataset.itemId=item.id;b.textContent=item.subject+' — '+item.state;
+      b.onclick=()=>act(()=>open(item.id));li.append(b);
+      return li;
+    });
+    // Apply only a complete valid page. A timeout/failure preserves an
+    // existing queue and cursor instead of losing or duplicating its items.
+    if(reset)el('items').replaceChildren();
+    rows.forEach(li=>el('items').append(li));
+    continuation=page.continuation;
+    el('more').hidden=!continuation;
+    say('Private review is ready.');
+  }finally{
+    queueReadPending=false;
+    el('refreshList').disabled=false;
+    el('more').disabled=false;
+  }
+}
 async function open(id){current=await call('annalsReviewItem',nonce,id);updateQueuedItem();review=null;pendingPhotoBase64=null;el('queue').hidden=true;el('detail').hidden=false;el('recipeRecoveryReadback').textContent='';el('subject').textContent=current.subject;el('itemStatus').textContent=current.status+(current.holdReason?' — '+current.holdReason:'');el('quoteRecovery').hidden=!current.reassessmentAvailable;el('quoteRecoveryConfirmed').checked=false;el('recipeRecovery').hidden=current.holdReason!=='recipe_measure_or_step_uncertain'||!current.draft||!!current.approved||!!current.quarantined;el('recipeRecoveryConfirmed').checked=false;el('source').value=('EMAIL SUBJECT (original field):\n'+current.subject+'\n\nEMAIL BODY (original field):\n'+current.text).slice(0,12000);el('original').href=current.folderUrl;el('ruleProposalBox').hidden=current.protectiveRoute!=='col_proposal'||!!current.ruleRequest;el('ruleRequestBox').hidden=!current.ruleRequest;el('ruleRequestPacket').textContent=current.ruleRequest?JSON.stringify(current.ruleRequest,null,2):'';el('recordPendingRule').disabled=!current.rulesReady||!current.ruleRequest;el('releaseRuleImplementation').disabled=!current.rulesReady||!current.ruleRequest||current.ruleRequest.state!=='awaiting_implementation';el('ruleImplementationEvidence').value='';el('historyBox').hidden=current.protectiveRoute==='col_proposal'||current.quarantined;el('rulePacket').textContent=current.ruleProposal?JSON.stringify(current.ruleProposal,null,2):'';historyReview=null;el('historyPreview').textContent=current.historyReview?JSON.stringify(current.historyReview.chapters,null,2):'';el('approveHistoryRevision').disabled=true;el('historyConfirmed').checked=false;el('attachments').replaceChildren();current.attachments.forEach(a=>{const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.value=a.name;check.className='media';check.disabled=!['image/jpeg','image/png'].includes(a.mime)||a.size>4194304;label.append(check,document.createTextNode(a.name));el('attachments').append(label)});
 ruleAcceptancePrepared=null;ruleAcceptanceState=null;literalStageQualified=false;el('ruleAcceptanceSecurityConfirmed').checked=false;el('signingReconciliationConfirmed').checked=false;el('ruleAcceptancePreparation').textContent='';el('ruleAcceptanceStatus').textContent='';el('signingQualificationResult').textContent='';el('signingDiagnosticResult').textContent='';el('ruleAcceptanceBox').hidden=current.protectiveRoute!=='col_proposal';
 ['aiConsent','publication','recipeVerified','quotePublication','namedAttribution','photoPublication','reviewed','correctionPhotoPublication'].forEach(id=>el(id).checked=false);el('evidence').value='';el('photoFile').value='';el('includePhoto').checked=false;el('photoAlt').value='';
