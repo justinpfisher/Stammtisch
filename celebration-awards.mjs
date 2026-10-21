@@ -231,7 +231,7 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}, polic
   });
   cards.push({id:'birthday-buffet', title:'Birthday Buffet', status:buffet.length ? 'Recorded birthday matches' : 'No dated matches',
     value:buffet.length ? names(buffet.map(x => ({name:x.recipient}))) : 'No match yet', description:'Uses the group’s discovery date. Diamonds are excluded.',
-    details:[`Birthday register (${data.year}, Metric first): ${birthdayDisplay}.`].concat(buffet.map(x => `${x.name} · ${dateText(x.date)} · Birthday: ${x.recipient}. Recorded allocation: ${x.allocations.map(a => `${a.name} ${a.points}`).join(', ') || 'none'}${x.decision ? `. ${x.decision}` : x.expected === null ? '. Age at death needs confirmation.' : `. Rule value: ${x.expected} points.`}`),buffet.some(x => !x.decision) ? ['Undecided birthday matches are flagged for review; recorded scores are not reassigned automatically.'] : [])});
+    details:buffet.map(x => `${x.name} · ${dateText(x.date)} · Birthday: ${x.recipient}. Recorded allocation: ${x.allocations.map(a => `${a.name} ${a.points}`).join(', ') || 'none'}${x.decision ? `. ${x.decision}` : x.expected === null ? '. Age at death needs confirmation.' : `. Rule value: ${x.expected} points.`}`),buffet.some(x => !x.decision) ? ['Undecided birthday matches are flagged for review; recorded scores are not reassigned automatically.'] : [], [`Birthday register (${data.year}, Metric first): ${birthdayDisplay}.`])});
   return { year:data.year, asOf:data.asOf, final, cards, draft, events, undated,
     officialAwardCards:policy.oldestDeathSteal === true ? 4 : 3 };
 }
