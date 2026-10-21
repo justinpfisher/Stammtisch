@@ -116,7 +116,7 @@ and [Jason Collins NBA profile](https://www.nba.com/stats/player/2215).
 If the actual age is unknown, the age on the discovery date is an estimate and
 the youngest-death result remains provisional. Duplicate celebrity/BB records
 are grouped into one event; missing or conflicting dates do not earn benefits.
-Prior-year and future-dated events are excluded from the season calculation.
+The browser's provisional award model now keeps independently dated January passings in the preceding competition year until the Club's 8 p.m. Toronto third-Friday handover. A death *on* handover Friday needs a verified actual death time to establish which side of that hour it belongs to. The 2026 recorded totals are not retrospectively reassigned, and the new public preview is not itself a signed scoring release. A pick already marked dead by its independently verified source is not available for a speculative Jettison. Draft benefits display placed Protections before Steals, with Steals ordered by their actual death dates; a same-date tie without enough evidence stays visibly unsettled.
 
 The year now changes at **8 p.m. America/Toronto on the third Friday of January** (15 January 2027 for the upcoming handover). A bare death date or December 31 does not prove that an award is final. The legacy `awardSettings.finalizedYear` flag is deliberately ignored by the public preview after PR #229. The source-bound January transition, final points, awards and historic protections must first be reconciled under the existing safeguards; the approved website wording does not itself recalculate these outcomes. The importer does not carry a finalized-year flag into a fresh snapshot.
 
