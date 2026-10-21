@@ -166,7 +166,10 @@ async function run(){
     const generationCents=imageSpendCents(edited.usage);
     // Provider usage missing or over-limit: no SECOND billable review.
     attempt.generationEstimatedCents=generationCents;
-    enforceTotalSpend({editCents:generationCents});
+    // Hold rather than buy a second assessment with effectively no headroom.
+    // Reserve a conservative USD 0.50 of the already authorised USD 2 for
+    // high-detail multi-image review; still verify actual total usage after it.
+    enforceTotalSpend({editCents:generationCents,reviewCents:50});
     const reviewRequest=makeVisualReviewRequest({
       subject,editedBytes:edited.bytes,referenceBytes});
     const judgement=await assessSunburstEdit({request:reviewRequest,
