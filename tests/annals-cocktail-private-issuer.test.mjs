@@ -60,6 +60,8 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
  ])};
  const log=[],events={};
  const context={
+  // Keep dates in one realm for the pure Node/App Script policy fixture.
+  Date:Date,Intl:Intl,
   AnnalsCocktailEditorial:Policy,
   annalsOwner_:()=>{events.ownerChecks=(events.ownerChecks||0)+1},
   annalsLocked_:(fn)=>fn(),
