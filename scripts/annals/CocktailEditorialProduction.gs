@@ -1,7 +1,7 @@
-/* SOURCE ONLY — NOT INSTALLED OR ENABLED IN THE OWNER-ONLY PROJECT.
- * The public repository never receives private consent, photo originals,
- * token values, signing material, budgets or issued permits. Do not install
- * before the separate exposure-recovery procedure has completed.
+/* OPTIONAL OWNER-ONLY EDITORIAL MODULE — SOURCE MIRROR.
+ * The private owner-authenticated editor has separately installed this
+ * module; its presence does not activate photography or authorise spending.
+ * Public GitHub never receives consent, originals, keys, budgets or permits.
  *
  * Depends on the pre-existing private Production.gs, PhotoProduction.gs,
  * AnnalsProduction/AnnalsCocktailEditorial modules and the private owner-only
@@ -108,7 +108,8 @@ function annalsCocktailEditorialCredentialPreflightInEditor(){
         permitKey.length>=32&&permitKey!==publisherKey&&permitKey!==approvalKey,
       recoveryFlagSet:properties.getProperty('ANNALS_EDITORIAL_SECURITY_RECOVERY_VERIFIED')==='true',
       projectHardLimitFlagSet:properties.getProperty('ANNALS_EDITORIAL_PROJECT_HARD_LIMIT_VERIFIED')==='true',
-      modelLookupAccepted:false,paidRequestMade:false,propertiesChanged:false};
+      modelLookupAccepted:false,modelLookupStatus:'not_attempted',
+      paidRequestMade:false,propertiesChanged:false};
   // Do not even query model metadata with a possibly exposed credential
   // until the owner has separately recorded protected recovery and the
   // independent permit signer is present and distinct.
@@ -120,9 +121,20 @@ function annalsCocktailEditorialCredentialPreflightInEditor(){
     var response=UrlFetchApp.fetch('https://api.openai.com/v1/models/gpt-image-2.5-sunburst',{
       method:'get',headers:{Authorization:'Bearer '+imageKey},
       followRedirects:false,muteHttpExceptions:true});
-    result.modelLookupAccepted=response.getResponseCode()===200;
+    var status=response.getResponseCode();
+    result.modelLookupAccepted=status===200;
+    // Endpoint access is independently permissioned: a restricted key may
+    // allow /v1/images requests yet deny /v1/models metadata reads.
+    // Keep this bounded enum only; never read the provider body or headers.
+    result.modelLookupStatus=status===200?'model_metadata_visible':
+      status===401?'authentication_or_models_read_denied':
+      status===403?'access_forbidden':
+      status===404?'model_not_found_or_inaccessible':
+      status===429?'rate_or_quota_limited':
+      status>=500&&status<=599?'provider_unavailable':
+      'other_http_failure';
   }catch(ignored){
-    result.modelLookupAccepted=false;
+    result.modelLookupStatus='transport_failure';
   }
   return result;
 }
