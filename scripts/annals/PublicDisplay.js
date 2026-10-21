@@ -5,7 +5,7 @@ function escapeHtml(value) { return String(value == null ? '' : value).replace(/
 /* Display-only transformations. Never change signed records or private evidence. */
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-var EDITORIAL_NOTICE = 'The Editorial Committee obscures particularly spirited language with black redaction bars, or [expletive] where the institutional stationery fails. The occasional [POOP] remains on the record. Historical accuracy is otherwise maintained. The Editorial Committee is actually just AI we tried to train.';
+var EDITORIAL_NOTICE = 'The Editorial Committee reserves the right to replace particularly spirited language with conspicuous euphemisms. Historical accuracy is otherwise maintained. The Editorial Committee is actually just AI we tried to train.';
 
 function displayDate(label) {
   const match = /^Submitted (\d{4})-(0[1-9]|1[0-2])$/.exec(label);
@@ -13,12 +13,10 @@ function displayDate(label) {
 }
 
 function editorialHtml(value) {
-  // Escape first. Nothing from a source can become an element or attribute.
-  return escapeHtml(value).replace(/\[expletive\]/gi,
-    '<span class="annal-redaction">[expletive]</span>');
+  // Approved conspicuous euphemisms stay visible and screen-reader readable.
+  // Escape first; signed quotations and source evidence remain unchanged.
+  return escapeHtml(value).replace(/\[expletive\]/gi,'[EXPLETIVE]');
 }
-
-var REDACTION_CSS = `.annal-redaction{display:inline-block;vertical-align:-.1em;background:#000;color:transparent!important;text-shadow:none;width:3em;height:1em;line-height:1;overflow:hidden;white-space:nowrap;border-radius:1px;user-select:text}@media(forced-colors:active){.annal-redaction{background:Canvas;color:CanvasText!important;height:auto;width:auto;overflow:visible}}`;
 
 // Retain complete source sentences/clauses only. Never manufacture an intro
 // by deleting ingredient phrases from the middle of a source sentence.
@@ -101,10 +99,10 @@ function siteFooter(section) {
 }
 
 function historyPage(document) {
-  return `<!doctype html><html lang="en-CA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#193d32"><title>Club History | Stammtisch Social Club</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="history.css"><style>${REDACTION_CSS}</style></head><body><a class="skip-link" href="#main">Skip to content</a>${siteHeader('annals-sub')}<main id="main" class="shell history-reading" data-history-revision="${document.revision}"><a class="history-back" href="annals.html">← The Annals</a><header class="history-masthead"><p class="eyebrow">The living record</p><h1>Club History</h1><p class="history-lead">A record assembled from what the Club can substantiate. Its past is considered important enough to preserve, but not to improve by invention.</p>${document.updatedAt?'<p class="history-meta">'+escapeHtml(displayDate('Submitted '+document.updatedAt.slice(0,7)).replace('Submitted','Updated'))+'</p>':''}<p class="history-meta history-revisions">Revision ${document.revision} · <a href="https://github.com/justinpfisher/Stammtisch/commits/main/history.html">Public revision history ↗</a></p></header>${document.chapters.length?document.chapters.map(c=>'<section class="history-chapter" id="chapter-'+escapeHtml(c.id)+'"><h2>'+escapeHtml(c.heading)+'</h2>'+c.paragraphs.map(p=>'<p>'+editorialHtml(p)+'</p>').join('')+'</section>').join(''):'<p class="history-pending">The Club has a history. The formal account is, for the moment, less forthcoming.</p>'}<footer>${escapeHtml(EDITORIAL_NOTICE)}<p><a href="mailto:annals@stammtischbrewery.com">Members: contribute a recollection or correction</a></p></footer></main>${siteFooter('annals-sub')}</body></html>`;
+  return `<!doctype html><html lang="en-CA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#193d32"><title>Club History | Stammtisch Social Club</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="history.css"></head><body><a class="skip-link" href="#main">Skip to content</a>${siteHeader('annals-sub')}<main id="main" class="shell history-reading" data-history-revision="${document.revision}"><a class="history-back" href="annals.html">← The Annals</a><header class="history-masthead"><p class="eyebrow">The living record</p><h1>Club History</h1><p class="history-lead">A record assembled from what the Club can substantiate. Its past is considered important enough to preserve, but not to improve by invention.</p>${document.updatedAt?'<p class="history-meta">'+escapeHtml(displayDate('Submitted '+document.updatedAt.slice(0,7)).replace('Submitted','Updated'))+'</p>':''}<p class="history-meta history-revisions">Revision ${document.revision} · <a href="https://github.com/justinpfisher/Stammtisch/commits/main/history.html">Public revision history ↗</a></p></header>${document.chapters.length?document.chapters.map(c=>'<section class="history-chapter" id="chapter-'+escapeHtml(c.id)+'"><h2>'+escapeHtml(c.heading)+'</h2>'+c.paragraphs.map(p=>'<p>'+editorialHtml(p)+'</p>').join('')+'</section>').join(''):'<p class="history-pending">The Club has a history. The formal account is, for the moment, less forthcoming.</p>'}<footer>${escapeHtml(EDITORIAL_NOTICE)}<p><a href="mailto:annals@stammtischbrewery.com">Members: contribute a recollection or correction</a></p></footer></main>${siteFooter('annals-sub')}</body></html>`;
 }
 return Object.freeze({displayDate:displayDate,editorialHtml:editorialHtml,recipeIntroduction:recipeIntroduction,
-  REDACTION_CSS:REDACTION_CSS,EDITORIAL_NOTICE:EDITORIAL_NOTICE,historyPage:historyPage,
+  EDITORIAL_NOTICE:EDITORIAL_NOTICE,historyPage:historyPage,
   siteHeader:siteHeader,siteFooter:siteFooter});
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=AnnalsPublicDisplay;

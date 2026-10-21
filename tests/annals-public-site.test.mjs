@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { buildPublishedAnnals, contentDigest, validatePublicTextEntry } from '../scripts/annals/ApprovedRenderer.mjs';
-import { recipeIntroduction } from '../scripts/annals/EditorialDisplay.mjs';
+import { recipeIntroduction, editorialHtml, EDITORIAL_NOTICE } from '../scripts/annals/EditorialDisplay.mjs';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
@@ -52,7 +52,7 @@ test('an empty approved archive retains the empty state without invented collect
   assert.match(html, /The record awaits an approved contribution/);
   assert.doesNotMatch(html, /class="annal-collections"|class="annal-collection"|class="annal-entry/);
   assert.doesNotMatch(html, /<h2[^>]*>(?:The Cocktail Register|The Register of Remarks|Monthly Proceedings|Annual Assemblies|Club History|Club Artefacts)<\/h2>/);
-  assert.match(html, /The Editorial Committee obscures/);
+  assert.match(html, /The Editorial Committee reserves the right/);
 });
 
 
@@ -73,4 +73,16 @@ test('published cocktails show their description once while each recorded ingred
     assert.doesNotMatch(section.split('<div class="annal-recipe">')[0],/Instructions\s*[-:]|<li>.*(?:Shake|Strain|Garnish)/);
     assert.equal(data.approvals.find(a=>a.entryId===entry.id)?.contentSha256,contentDigest(entry),'Presentation does not mutate signed material');
   }
+});
+
+test('signed-source-safe editorial language uses approved visible euphemisms without hidden redaction bars',()=>{
+ const example=editorialHtml('The [expletive] <account> and [POOP].');
+ assert.equal(example,'The [EXPLETIVE] &lt;account&gt; and [POOP].');
+ assert.doesNotMatch(example,/annal-redaction|<span/i);
+ const annals=read('../annals.html'),history=read('../history.html');
+ assert.ok(annals.includes(EDITORIAL_NOTICE),'archive notice must match shared renderer');
+ assert.doesNotMatch(annals+history,/annal-redaction|black redaction bars/i);
+ const page=buildPublishedAnnals([],[],'',undefined).html;
+ assert.ok(page.includes(EDITORIAL_NOTICE),'republication retains approved notice');
+ assert.doesNotMatch(page,/annal-redaction/,'no hidden redaction scaffolding reintroduced');
 });

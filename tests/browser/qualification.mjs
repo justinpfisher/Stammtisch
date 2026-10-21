@@ -353,25 +353,25 @@ try{
         await page.goto(origin+'/history.html');assert.equal(await page.locator('.history-meta').first().innerText(),'Updated January 2027');
         assert.match(await page.locator('main').innerText(),/Historical uncertainty: an approximate period only/);
       });
-      await check(browser,profile,'opaque bars, safe selectable text and quotation notice',async page=>{
+      await check(browser,profile,'visible euphemisms, source-safe quotation notice and accessibility',async page=>{
         await page.goto(origin+'/annals.html');
-        const bar=page.locator('#offline-browser-quote .annal-redaction');
-        assert.equal(await bar.innerText(),'[expletive]');
-        const style=await bar.evaluate(e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return {background:s.backgroundColor,colour:s.color,width:r.width,height:r.height};});
-        assert.equal(style.background,'rgb(0, 0, 0)');assert.equal(style.colour,'rgba(0, 0, 0, 0)');assert.ok(style.width>0&&style.height>0);
-        assert.equal(await bar.evaluate(e=>{const r=document.createRange();r.selectNodeContents(e);const s=getSelection();s.removeAllRanges();s.addRange(r);return s.toString();}),'[expletive]');
-        assert.match(await page.locator('#offline-browser-quote').innerText(),/Editorially redacted quotation — not verbatim\./);
-        assert.match(await page.locator('#offline-browser-quote').innerText(),/\[POOP\].*damn/);
-        assert.doesNotMatch(await page.content(),/\[EXPLETIVE\]/);
-        assert.equal(await bar.getAttribute('aria-hidden'),null);
-        const accessible=await page.locator('#offline-browser-quote').ariaSnapshot();
-        assert.match(accessible,/\[expletive\]/);assert.match(accessible,/Editorially redacted quotation/);
+        const card=page.locator('#offline-browser-quote');
+        const spoken=await card.innerText();
+        assert.match(spoken,/\[EXPLETIVE\]/);
+        assert.match(spoken,/\[POOP\].*damn/);
+        assert.match(spoken,/Editorially redacted quotation — not verbatim\./);
+        assert.equal(await card.locator('.annal-redaction').count(),0);
+        assert.match(await page.locator('.annal-editorial-notice').innerText(),/conspicuous euphemisms/);
+        const accessible=await card.ariaSnapshot();
+        assert.match(accessible,/\[EXPLETIVE\]/);
+        assert.match(accessible,/Editorially redacted quotation/);
+        assert.doesNotMatch(await page.content(),/annal-redaction|black redaction bars/i);
       });
-      await check(browser,profile,'lowercase fallback with stylesheet unavailable',async page=>{
+      await check(browser,profile,'euphemisms stay readable without styling',async page=>{
         await page.goto(origin+'/annals.html');
         await page.evaluate(()=>{for(const sheet of document.styleSheets)sheet.disabled=true;});
-        const bar=page.locator('#offline-browser-quote .annal-redaction');
-        assert.equal(await bar.innerText(),'[expletive]');assert.notEqual(await bar.evaluate(e=>getComputedStyle(e).color),'rgba(0, 0, 0, 0)');
+        const card=page.locator('#offline-browser-quote');
+        assert.match(await card.innerText(),/\[EXPLETIVE\]/);
       });
       await check(browser,profile,'keyboard skip, focus and contribution targets',async page=>{
         for(const file of ['annals.html','history.html']){
@@ -408,15 +408,16 @@ try{
         assert.equal(await page.locator('section h2').count(),2);
         assert.ok(parseFloat(await page.locator('section p').first().evaluate(e=>getComputedStyle(e).fontSize))>=16);
       });
-      await check(browser,profile,'dark preference keeps safe redaction and layout',async page=>{
+      await check(browser,profile,'dark preference retains readable euphemism and layout',async page=>{
         await page.goto(origin+'/annals.html');await noOverflow(page);
-        assert.equal(await page.locator('#offline-browser-quote .annal-redaction').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(0, 0, 0)');
+        assert.match(await page.locator('#offline-browser-quote').innerText(),/\[EXPLETIVE\]/);
       },{colorScheme:'dark'});
-      if(profile.name==='desktop-chromium')await check(browser,profile,'forced-colours readable fallback',async page=>{
+      if(profile.name==='desktop-chromium')await check(browser,profile,'forced-colours preserve readable euphemisms',async page=>{
         await page.goto(origin+'/annals.html');
-        const bar=page.locator('#offline-browser-quote .annal-redaction');
-        assert.equal(await bar.innerText(),'[expletive]');assert.notEqual(await bar.evaluate(e=>getComputedStyle(e).color),'rgba(0, 0, 0, 0)');
-        assert.equal(await bar.evaluate(e=>getComputedStyle(e).overflow),'visible');
+        const card=page.locator('#offline-browser-quote');
+        assert.match(await card.innerText(),/\[EXPLETIVE\]/);
+        assert.match(await card.ariaSnapshot(),/\[EXPLETIVE\]/);
+        assert.equal(await card.locator('.annal-redaction').count(),0);
       },{forcedColors:'active'});
     }finally{await browser.close();}
   }

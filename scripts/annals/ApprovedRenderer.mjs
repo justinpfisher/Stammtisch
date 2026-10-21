@@ -6,7 +6,7 @@ import Photos from './PhotoContracts.js';
  */
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { escapeHtml } from './PrivatePreview.mjs';
-import { displayDate, editorialHtml, recipeIntroduction, EDITORIAL_NOTICE, REDACTION_CSS, siteHeader, siteFooter } from './EditorialDisplay.mjs';
+import { displayDate, editorialHtml, recipeIntroduction, EDITORIAL_NOTICE, siteHeader, siteFooter } from './EditorialDisplay.mjs';
 import { emptyHistory, validateHistory } from './HistoryPublisher.mjs';
 
 const TYPES = Object.freeze({
@@ -421,9 +421,6 @@ function buildAnnals(entries, receipts, verifyReceipt, history = emptyHistory())
 <script type="module" src="annals-photos.mjs"></script>
 <script type="module" src="annals-browse.mjs"></script>
 <link rel="stylesheet" href="annals.css">
-<style>
-${REDACTION_CSS}
-</style>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
