@@ -137,7 +137,7 @@ export function readClubState(raw) {
         !correction.pickId.startsWith(prefix) ||
         !Number.isInteger(row) || row<3 || row>9999 ||
         correction.pickId!==prefix+String(row) ||
-        !Number.isInteger(correction.points) || correction.points<0 || correction.points>1000)
+        !Number.isInteger(correction.points) || correction.points< -1000 || correction.points>1000)
       throw new Error('Invalid GitHub points correction');
     const id=correction.seasonYear+':'+correction.pickId;
     if(pointIds.has(id))throw new Error('Duplicate GitHub points correction');
