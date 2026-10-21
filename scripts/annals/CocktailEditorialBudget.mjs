@@ -52,6 +52,35 @@ export function validateBudgetLedger(data){
   }
   return data;
 }
+/* The owner-only Apps Script issuer is the SOLE monetary reservation writer.
+ * Verify its already-durable ledger snapshot against the separately signed
+ * private permit; never reserve another USD 2 in a second local ledger.
+ * The caller MUST verify the permit HMAC before relying on this read-only check.
+ */
+export function verifyIssuedCocktailBudget({
+  ledger,permit,entryId,sourceSha256,now=new Date()
+}){
+  const saved=validateBudgetLedger(ledger);
+  if(typeof entryId!=='string'||!SHA.test(sourceSha256||'')||
+     !(now instanceof Date)||!Number.isFinite(now.valueOf())||
+     !permit||permit.entryId!==entryId||
+     permit.sourceSha256!==sourceSha256||
+     permit.budgetReserved!==true||
+     permit.budgetPeriod!==torontoPeriod(now)||
+     permit.monthlyCeilingCents!==MONTHLY_CENTS||
+     permit.perPhotoCeilingCents!==PHOTO_CENTS||
+     permit.reservedCents!==PHOTO_CENTS||
+     !Number.isFinite(Date.parse(permit.issuedAt))||
+     Date.parse(permit.issuedAt)>now.getTime()+60000)
+    throw Error('Owner-issued editorial budget authorisation invalid');
+  const match=saved.reservations.find(p=>p.sourceSha256===sourceSha256);
+  if(!match||match.entryId!==entryId||
+     match.period!==permit.budgetPeriod||
+     Date.parse(match.reservedAt)>Date.parse(permit.issuedAt))
+    throw Error('Owner-issued durable budget reservation absent or inconsistent');
+  return Object.freeze({...match});
+}
+
 export function imageSpendCents(usage){
   // The direct Images Edit API documents total token counts, but its detailed
   // input/output breakdowns are optional. Never equate missing breakdowns
