@@ -5,7 +5,9 @@
  *
  * Depends on the pre-existing private Production.gs, PhotoProduction.gs,
  * AnnalsProduction/AnnalsCocktailEditorial modules and the private owner-only
- * consent registry; introduces NO new trigger, public route or API request.
+ * consent registry; introduces no new trigger, public route, scheduled API
+ * call or paid request. A separate explicit owner-editor preflight checks model
+ * metadata with a non-billed GET; it never exposes credential values.
  */
 function annalsCocktailEditorialContext_(itemId,photoIndex){
   var folder=annalsFolder_(itemId),source=annalsRead_(folder,'source-private.json'),
