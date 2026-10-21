@@ -28,8 +28,6 @@ jobs:
           ANNALS_PHOTOS_GUARDED_JPEG_ENABLED: ${{ vars.ANNALS_PHOTOS_GUARDED_JPEG_ENABLED }}
           ANNALS_PHOTOS_V2_RELEASE_ENABLED: ${{ vars.ANNALS_PHOTOS_V2_RELEASE_ENABLED }}
           ANNALS_SIGNING_REMEDIATION_VERIFIED: ${{ vars.ANNALS_SIGNING_REMEDIATION_VERIFIED }}
-          ANNALS_PHOTOS_ACCEPTANCE_ENTRY_ID: ${{ vars.ANNALS_PHOTOS_ACCEPTANCE_ENTRY_ID }}
-          ANNALS_PHOTOS_ACCEPTANCE_UNTIL: ${{ vars.ANNALS_PHOTOS_ACCEPTANCE_UNTIL }}
           ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED: ${{ vars.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED }}
         run: node scripts/annals/apply-approved-entry.mjs
       - name: Verify qualified editorial assets without creating artificial photographs
