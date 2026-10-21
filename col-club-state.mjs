@@ -51,7 +51,7 @@ export function competitionYearForDeathDate(date, verifiedInstant = null) {
   if (date < cutoff) return year-1;
   if (date > cutoff) return year;
   if (!Number.isFinite(verifiedInstant)) return null;
-  return competitionYearAt(new Date(verifiedInstant).toISOString());
+  return verifiedInstant < Date.parse(januaryHandover(year).utc) ? year-1 : year;
 }
 
 export function isJettisonEligible(pick, memberId, asOf, clubState = null) {
