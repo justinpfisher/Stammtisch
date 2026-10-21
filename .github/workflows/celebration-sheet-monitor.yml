@@ -33,6 +33,7 @@ on:
 permissions:
   actions: read
   contents: write
+  # Failure and independent-verification exceptions still create actionable issues.
   issues: write
   pages: write
 
@@ -86,19 +87,6 @@ jobs:
           publication_inputs_changed="$(python -c "import json; print(str(json.load(open('monitor-result.json'))['publicationInputsChanged']).lower())")"
           printf 'publication_inputs_changed=%s\n' "$publication_inputs_changed" >> "$GITHUB_OUTPUT"
         id: compare
-      - name: Open or update a metadata-only change alert
-        if: success() && steps.compare.outputs.changed == 'true' && vars.CELEBRATION_SHEET_MONITOR_ISSUES_ENABLED != 'false'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const result = require('./monitor-result.json');
-            const metadata = result.changes.map(c => `- sheetId ${c.sheetId}: ${c.kind}${c.cells ? ` (${c.cellCount} cells: ${c.cells.join(', ')})` : ''}`).join('\n');
-            const title = 'Celebration Sheet monitor: meaningful change detected';
-            const body = `<!-- sheet-monitor:${result.alertKey} -->\nA read-only monitor detected a meaningful Sheet change at ${result.checkedAt}.\n\n${metadata}\n\nNo cell values, formulas, notes, or excerpts are included here. The encrypted workflow artifact contains the detailed comparison.`;
-            const { data: issues } = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100 });
-            const existing = issues.find(issue => issue.title === title);
-            if (existing) { const { data: comments } = await github.rest.issues.listComments({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, per_page: 100 }); if (![existing.body, ...comments.map(c => c.body)].some(text => text.includes(`sheet-monitor:${result.alertKey}`))) await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body }); }
-            else await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
       - name: Reconcile current Sheet with published website data
         # A previous monitor baseline may already include edits missing from the site.
         # Run after every successful normal comparison, not just a new sheet diff.
@@ -200,35 +188,6 @@ jobs:
         # public JSON is identical to the validated committed register.
         if: success() && steps.site_sync.outcome == 'success'
         run: python scripts/verify-celebration-publication.py --expected data/celebration.json --commit "$(git rev-parse HEAD)"
-      - name: Record successful website publication
-        if: success() && steps.site_commit.outputs.changed == 'true' && vars.CELEBRATION_SHEET_MONITOR_ISSUES_ENABLED != 'false'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const result = require('./monitor-result.json');
-            const title = 'Celebration Sheet monitor: meaningful change detected';
-            const marker = '<!-- site-published:' + result.alertKey + ' -->';
-            const body = marker + '\nThe verified website data was updated and the GitHub Pages build completed in run ' + context.serverUrl + '/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId + '. The site calculates standings, commemorations, awards and draft previews from the updated register.';
-            const { data: issues } = await github.rest.issues.listForRepo({ owner:context.repo.owner, repo:context.repo.repo, state:'open', per_page:100 });
-            const issue = issues.find(item => item.title === title);
-            if (issue) {
-              const { data: comments } = await github.rest.issues.listComments({ owner:context.repo.owner, repo:context.repo.repo, issue_number:issue.number, per_page:100 });
-              if (![issue.body, ...comments.map(c => c.body)].some(text => text?.includes(marker)))
-                await github.rest.issues.createComment({ owner:context.repo.owner, repo:context.repo.repo, issue_number:issue.number, body });
-            } else {
-              // A change captured before publisher activation won't have a new
-              // monitor alert. Record the public-data reconciliation explicitly.
-              const title = 'Celebration website sync: verified register refresh published';
-              const { data: existing } = await github.rest.issues.listForRepo({ owner:context.repo.owner, repo:context.repo.repo, state:'open', per_page:100 });
-              const prior = existing.find(item => item.title === title);
-              if (prior) {
-                const { data: comments } = await github.rest.issues.listComments({ owner:context.repo.owner, repo:context.repo.repo, issue_number:prior.number, per_page:100 });
-                if (![prior.body, ...comments.map(c => c.body)].some(text => text?.includes(marker)))
-                  await github.rest.issues.createComment({ owner:context.repo.owner, repo:context.repo.repo, issue_number:prior.number, body });
-              } else {
-                await github.rest.issues.create({ owner:context.repo.owner, repo:context.repo.repo, title, body });
-              }
-            }
       - name: Promote successful comparison state
         if: success()
         run: mv monitor-state/next-baseline.enc monitor-state/baseline.enc
