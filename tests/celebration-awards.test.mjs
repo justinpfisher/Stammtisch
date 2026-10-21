@@ -321,6 +321,13 @@ test('Metric Calendar birthday labels match the official ordinal method and reta
   assert.equal(metricBirthdayLabel(2028,'03-26'),'Bloom 13');
   assert.equal(metricBirthdayLabel(2028,'09-19'),'Reflect 8');
   assert.equal(metricBirthdayLabel(2028,'02-29'),'Awaken 24');
+  // Metric Leap Day is final day of month 10, not Gregorian February 29.
+  assert.equal(metricBirthdayLabel(2028,'12-30'),'Restore 37');
+  assert.equal(metricBirthdayLabel(2028,'12-31'),'Restore 38');
+  assert.equal(metricBirthdayLabel(2026,'12-31'),'Restore 37');
+  assert.equal(metricBirthdayLabel(2027,'12-31'),'Restore 37');
+  assert.equal(metricBirthdayLabel(2100,'12-31'),'Restore 37');
+  assert.equal(metricBirthdayLabel(2000,'12-31'),'Restore 38');
   assert.equal(metricBirthdayLabel(2026,'02-29'),null);
   assert.equal(metricBirthdayLabel(2026,'not-a-date'),null);
   const saved=JSON.stringify(source);
