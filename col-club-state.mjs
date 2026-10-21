@@ -65,6 +65,31 @@ export function correctedCompetitionYear(event, clubState) {
   return correction?.competitionYear ?? null;
 }
 
+// Apply explicitly GitHub-recorded historical points corrections at display
+// time, after a Sheet input import. Never edit the signed imported source or
+// create a death event; attribution and earlier values remain in Git history.
+export function applyPointsCorrections(data, clubState) {
+  const changes=clubState?.pointsCorrections?.filter(c=>c.seasonYear===data.year) ?? [];
+  if (!changes.length) return data;
+  const result=structuredClone(data),affected=new Set();
+  for (const change of changes) {
+    const member=result.members.find(m=>m.id===change.memberId);
+    const pick=member?.picks.find(p=>p.id===change.pickId);
+    if (!pick || !pick.counted ||
+        celebrityKey(pick.name,pick.born)!==celebrityKey(change.name,change.born))
+      throw new Error('GitHub points correction does not match recorded selection');
+    pick.points=change.points;
+    affected.add(member.id);
+  }
+  for (const member of result.members) if (affected.has(member.id)) {
+    const scored=member.picks.filter(p=>p.counted);
+    if (scored.some(p=>!Number.isFinite(p.points)))
+      throw new Error('Corrected standing contains invalid points');
+    member.score=scored.reduce((total,p)=>total+p.points,0);
+  }
+  return result;
+}
+
 export function isJettisonEligible(pick, memberId, asOf, clubState = null) {
   if (!isRecord(pick) || !Number.isInteger(pick.pick) ||
       pick.pick < 1 || pick.pick > 50 || !validDate(pick.born) ||
@@ -80,7 +105,7 @@ export function isJettisonEligible(pick, memberId, asOf, clubState = null) {
 }
 
 export function readClubState(raw) {
-  if (!sameKeys(raw, ['schemaVersion','yearHandover','birthdayBuffet','seasonCorrections','protectionPlacements','draftActions']) ||
+  if (!sameKeys(raw, ['schemaVersion','yearHandover','birthdayBuffet','seasonCorrections','pointsCorrections','protectionPlacements','draftActions']) ||
       raw.schemaVersion !== 1) throw new Error('Unsupported Club register');
   const h=raw.yearHandover, b=raw.birthdayBuffet;
   if (!sameKeys(h,['month','week','weekday','localTime','timeZone']) ||
@@ -88,8 +113,8 @@ export function readClubState(raw) {
       h.timeZone!=='America/Toronto') throw new Error('Club handover rule mismatch');
   if (!sameKeys(b,['dateSource','corrections']) ||
       b.dateSource!=='shared-spreadsheet-unless-corrected' || !Array.isArray(b.corrections) ||
-      !Array.isArray(raw.seasonCorrections) || !Array.isArray(raw.protectionPlacements) || !Array.isArray(raw.draftActions) ||
-      b.corrections.length>200 || raw.seasonCorrections.length>200 || raw.protectionPlacements.length>300 || raw.draftActions.length>500)
+      !Array.isArray(raw.seasonCorrections) || !Array.isArray(raw.pointsCorrections) || !Array.isArray(raw.protectionPlacements) || !Array.isArray(raw.draftActions) ||
+      b.corrections.length>200 || raw.seasonCorrections.length>200 || raw.pointsCorrections.length>200 || raw.protectionPlacements.length>300 || raw.draftActions.length>500)
     throw new Error('Invalid Club register lists');
   const corrected = new Set(), placed = new Set();
   for (const c of b.corrections) {
@@ -99,6 +124,24 @@ export function readClubState(raw) {
     const id=celebrityKey(c.name,c.born);
     if (corrected.has(id)) throw new Error('Duplicate Birthday Buffet correction');
     corrected.add(id);
+  }
+  const pointIds=new Set();
+  for(const correction of raw.pointsCorrections) {
+    const prefix=String(correction.memberId)+'-';
+    const row=Number(String(correction.pickId).slice(prefix.length));
+    if (!sameKeys(correction,['seasonYear','memberId','pickId','name','born','points']) ||
+        !Number.isInteger(correction.seasonYear) || correction.seasonYear<2026 ||
+        !members.has(correction.memberId) || !validName(correction.name) ||
+        !validDate(correction.born) ||
+        typeof correction.pickId!=='string' ||
+        !correction.pickId.startsWith(prefix) ||
+        !Number.isInteger(row) || row<3 || row>9999 ||
+        correction.pickId!==prefix+String(row) ||
+        !Number.isInteger(correction.points) || correction.points<0 || correction.points>1000)
+      throw new Error('Invalid GitHub points correction');
+    const id=correction.seasonYear+':'+correction.pickId;
+    if(pointIds.has(id))throw new Error('Duplicate GitHub points correction');
+    pointIds.add(id);
   }
   const seasons = new Set();
   for (const c of raw.seasonCorrections) {

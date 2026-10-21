@@ -1,7 +1,7 @@
 import { ageAt, basePoints, distinctionReason } from './celebration-rules.mjs';
 export { ageAt, basePoints } from './celebration-rules.mjs';
-import { calculateAwards, awardsMarkup, draftMarkup } from './celebration-awards.mjs?v=col-correct-20261021';
-import {readClubState} from './col-club-state.mjs?v=col-correct-20261021';
+import { calculateAwards, awardsMarkup, draftMarkup } from './celebration-awards.mjs?v=col-points-20261021';
+import {readClubState,applyPointsCorrections} from './col-club-state.mjs?v=col-points-20261021';
 import {loadOperativeSnapshot} from './col-rules-reader.mjs';
 import {verifiedAwardPolicy} from './col-award-policy.mjs?v=col-release-20261020';
 
@@ -125,7 +125,17 @@ export async function mountCelebration() {
     const stateResponse = await fetch('data/col-club-state.json', {cache:'no-store'});
     if (!stateResponse.ok) throw new Error('Club register unavailable');
     clubState = readClubState(await stateResponse.json());
-  } catch { /* Existing recorded Sheet totals remain visible and unchanged. */ }
+  } catch { /* The imported source remains visible with a clear warning below. */ }
+  // Member-authored GitHub corrections take precedence even after a later
+  // spreadsheet import. An identity mismatch must NOT silently drop a correction.
+  try { data=applyPointsCorrections(data,clubState); }
+  catch {
+    document.querySelector('#standings').innerHTML='<p>Club score corrections need reconciliation before standings can be shown.</p>';
+    document.querySelector('#award-leaders').innerHTML='<p>Club score corrections need reconciliation.</p>';
+    document.querySelector('#draft-benefits').innerHTML='<p>Draft scoring is unavailable until the Club register matches its recorded selections.</p>';
+    document.querySelector('#member-lists').innerHTML='<p class="load-message">The Club record needs reconciliation.</p>';
+    return;
+  }
   const e = escapeHtml;
   const members = rankedMembers(data.members);
   const renderAwardViews=awards=>{
@@ -151,7 +161,9 @@ export async function mountCelebration() {
   const statusControl = document.querySelector('#status-filter');
   document.querySelector('[data-year]').textContent = data.year;
   document.querySelector('[data-snapshot-date]').textContent = `Register updated ${dateLabel(data.asOf)}.`;
-  document.querySelector('#source-date').textContent = `Standings as recorded ${dateLabel(data.asOf)}. Newly confirmed passings appear in the totals when the club records their awards.`;
+  document.querySelector('#source-date').textContent = clubState
+    ? `Club standings as of ${dateLabel(data.asOf)}. Authenticated GitHub corrections take precedence over spreadsheet entries. Newly confirmed passings enter when the Club records their awards.`
+    : `The Club correction register could not be loaded. Showing provisional spreadsheet totals as of ${dateLabel(data.asOf)}; recorded member corrections may be missing.`;
   document.querySelector('#standings').innerHTML = members.map(member => `<a class="standing-card" href="#the-lists" data-member-link="${e(member.id)}" aria-label="${e(member.name)}, rank ${member.rank}, ${member.score} points. View full list."><span class="standing-rank">${String(member.rank).padStart(2, '0')}</span><img src="${e(member.avatar)}" width="240" height="240" alt=""><span class="standing-name">${e(member.name)}</span><span class="standing-score">${pointsLabel(member.score)}<small>points</small></span><span class="standing-cta">View list <span aria-hidden="true">↗</span></span></a>`).join('');
   filters.innerHTML = [{ id: 'all', name: 'Everyone' }, ...members].map(member => `<button type="button" data-member="${e(member.id)}" aria-pressed="${member.id === 'all'}">${e(member.name)}</button>`).join('');
   document.querySelector('#register-controls').hidden = false;
