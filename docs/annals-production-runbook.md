@@ -2,25 +2,11 @@
 
 [Current state](current-state.md) is the single production reference; [publication guidelines](annals-publication-guidelines.md) define content/rights. This runbook describes recurring operations and changes. Older launch procedures remain in Git history and dated evidence, not as prerequisites to routine updates.
 
-## Temporary owner-only read-only diagnostics
+## Earlier owner-only diagnostics — historical, not a standing task
 
-The reviewed PR #144 backend functions already exist in the owner-only Version 47 project, but Work could not select them from the Apps Script editor's function picker. The existing private Annals review desk now has two read-only buttons wired to those same owner-authenticated functions; this replaces the need to select them in the editor. These are temporary diagnosis controls, not new release gates or scheduled tasks.
+The Version 47–48 recipe, Inbox-coverage and signed-publication readbacks were introduced for specific older exceptions. Their original instructions and observations remain in Git history and [Issue #24](https://github.com/justinpfisher/Stammtisch/issues/24); they are **not** standing requirements to recheck permissions, resend notices or replay accepted submissions.
 
-`annalsRecipeRecoveryReadbackInEditor(itemId)` checks the existing private recipe's exact eligibility, rights and one-shot markers without publishing, spending, or changing state. Use only the real item identifier privately in the authenticated editor. Its Boolean results and fixed reason codes identify a blocker; a green result does not authorise blind repetition of an uncertain operation.
-
-`annalsInboxCoverageReadbackInEditor()` compares a bounded sample of up to 20 Inbox threads and 80 messages with existing staging and notice records, returning aggregate counts only. Missing source counts require inspection in the dedicated Inbox and are not proof that legitimate mail was lost. The bounded sample is not complete mailbox reconciliation. No mail state, cursor, content, journal, trigger or credential is modified.
-
-An old held draft that already has its owner notice may receive one previously missing generic contributor notice in the normal existing intake cycle, with no AI or dispatch retry. Retire these temporary diagnostics after the documented exception is resolved. **Operating path:** open the existing authenticated private desk (do not expose its owner-only URL or IDs publicly), then either select **Check sampled inbox status** under Contributions or open the previously held recipe through its existing private item link and choose **Check saved recipe status — read only**. The two controls call the installed backend directly, return no source text or private identifiers and do not invoke AI, recovery or dispatch. If the page does not show them, the newly reviewed ReviewUi.html has not yet been installed in the same deployment; do not repeat the Production.gs installation merely to work around a selector.
-
-## Temporary signed-publication follow-up — Version 48
-
-The genuine text cocktail was accepted into the signed public archive and live Pages under the existing one-time owner recovery. Do not rerun the signed dispatch, paid draft, photograph converter or owner permission process to obtain a contributor email.
-
-The private scheduled verifier ordinarily discovers accepted records through its existing bounded folder cursor, independently matches the approved public entry, signature and exact HTML anchor, then saves `auto-live-verification-private.json` and attempts one `published-email-private.json` notice. Both records remained absent in a later read-only snapshot, despite matching public/private publication records. This is an **incomplete private verification/notice operation**, not a failed public release.
-
-The temporary owner-only function `annalsPublishedReceiptReadbackInEditor(itemId)` and its accepted-entry private-desk button **Check public receipt and notification state** diagnose an individual accepted item. It fetches at most the same two public sources as the scheduled verifier and returns only bounded HTTP statuses, Boolean checks, and presence of the existing one-time markers. It changes **no** Gmail, Drive file, cursor, scheduled trigger, consent, content, budget or provider state and cannot manufacture live verification or recipient delivery. The private current item identifier is supplied only by the existing owner-authenticated desk.
-
-If all public matching checks pass but the saved private live/notice markers are missing, inspect the last ordinary scheduled trigger outcomes and its preserved verification cursor before changing the scheduler. If a public check fails, investigate exactly the reported HTTP or matching condition. If a dispatch remains unverified for 24 hours, the existing one-time member status email accurately says that **publication was accepted but website verification is pending**, rather than incorrectly describing it as an unapproved held contribution. A missing contributor notice can be addressed only through a verified, deduplicated existing process; do not fabricate a `sent` marker or resend after an uncertain prior attempt. Once the exception is reconciled, remove the temporary UI control and function without creating an ongoing reporting job.
+The existing restricted private desk is now Version 57. Its saved direct-item link and first-page return were verified without replaying an item or resending a notice. For a new, concrete exception, use an existing read-only diagnostic only where it actually applies and preserve its source, one-shot markers and cursor. A Sent-folder message never proves recipient delivery.
 
 ## Routine operation
 
