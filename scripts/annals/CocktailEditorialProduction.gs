@@ -69,8 +69,8 @@ function annalsCocktailEditorialPreflightInEditor(itemId,photoIndex){
       providerCalled:false,published:false};
     try{
       var p=annalsProps_();
-      // A boolean-only readback never calls getProperties(), JSON.stringify(p)
-      // or returns even a key prefix. It also never invokes an API endpoint.
+      // A Boolean-only readback never enumerates Script Properties, serialises
+      // property contents or returns key prefixes. No API endpoint is invoked.
       r.recoveryRequired=p.getProperty('ANNALS_EDITORIAL_SECURITY_RECOVERY_VERIFIED')!=='true';
       var key=p.getProperty('ANNALS_EDITORIAL_PERMIT_SIGNING_KEY')||'',
         publisher=p.getProperty('ANNALS_PUBLISH_SIGNING_KEY')||'';
