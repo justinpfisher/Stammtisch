@@ -1,28 +1,34 @@
-# CoL editorial interpretation and matters for deliberation
+# CoL editorial interpretation and Matters for Club Deliberation
 
-Owner decision: 19 October 2026. This governs future authenticated member-initiated CoL amendments. It replaces earlier requests for member/owner approval of *interpretation*, but not the independent technical checks required before changing live rules or awards.
+**Current owner direction — 21 October 2026.** This replaces unnecessary website-publication barriers in the 19 October policy. The Club is six friends: its rulebook should be current, intelligible and mildly amused by its own importance.
 
-## Editorial authority
+## Publish the Club's decisions simply
 
-- A genuine authenticated operative instruction from any one of the six members is sufficient. A separate club vote, second member, owner adoption or approval of an AI interpretation is not required.
-- AI may reorganise, clarify and rewrite in Stammtisch's dry mock-institutional voice. Ceremonial commentary, illustrative examples and humorous asides must be visibly separate from operative scoring provisions. Do not invent history, decisions, quotations or factual examples.
-- When submitted provisions conflict, AI chooses and records the most defensible prospective interpretation, with the source-grounded rationale and the plausible alternative. An AI choice is an interpretation of member authority, not permission to alter verified historical awards.
-- Where a rule remains internally contradictory or a needed condition is absent, place a conspicuous **Matter for Club Deliberation** in the relevant official provision, identifying the question, selected interpretation and currently executable treatment. Do not silently invent missing dates, winners, tie-breakers or spreadsheet values.
-- Deliberation notices invite future member clarification but do not constitute an approval gate. Clear independent portions may proceed without waiting for unrelated open questions.
+- A clear operative rule instruction from any one authenticated member is sufficient. Interpret it in the established Stammtisch voice and update the **public rulebook promptly** through the existing site workflow. No second vote, owner-adoption ritual, prescribed email formula or repeated recovery of an older rules document is required. The Club can correct our interpretation.
+- Record the genuine decision and the date it became public. Preserve originals privately, and never invent speaker quotations, past votes, meetings, facts or retroactive effective dates. Questions, jokes and speculation are not amendments.
+- Maintain **one clear rulebook on the Celebration of Life page**. Retain earlier signed editions in the existing revision history, with links from the current rules. Do not allow an older dynamic historical snapshot to overwrite newly agreed website wording. A historical edition must remain authentic and accessible rather than rewritten to suggest it said something newer.
+- Keep the distinctions clear with a brief ordinary-language notice: the publicly agreed wording is current; the scoreboard continues to show **actually recorded** points. When the rules introduce new calculations, verify the affected formula, existing earned benefits, actual source evidence and independent Viewer before changing values or claiming a new sealed scoring version.
+- A missing first WhatsApp post, unrecorded placed Protection or unagreed future date holds **only the related calculation**. Do not delay unrelated wording changes, other safe website releases or correctly recorded past results. Do not invent a missing datum to make the scoreboard agree with the words.
+- For genuine score- or permission-changing operations, preserve the prior signed allocations, security and independent checks, one-shot dispatch history, and new-confirmed-death-only notifications. Do not resend death alerts for editorial rulebook edits. No new service, login, trigger or recurring approval process is warranted.
 
-## Release and record boundaries
+## Matters for Club Deliberation
 
-- Preserve the authenticated original privately. Exact-source provenance and the currently operative version remain independently verifiable; AI paraphrases are editorial proposals, never fabricated verbatim quotations.
-- A selected interpretation that changes calculations, award eligibility, scoring period, drafts or other executable behaviour must be qualified against the authoritative workbook, code, existing recorded point allocations and examples. Only a complete, independently verified, prospective signed release can make that portion operative. This is engineering verification, not human interpretation approval.
-- Where an interpretation cannot yet be executed safely, the last independently verified treatment remains in force for that affected operation and the new interpretation is clearly recorded as **not yet operative**. Do not present two conflicting scoring instructions as simultaneously active.
-- Do not recalculate earlier points, change signed awards, replay paid AI attempts, reprocess consumed source IDs, send notifications for amendments or backdate effective timestamps. Notifications about passings remain for new independently verified deaths only.
-- Any separately qualified subset needs its own source-, base-, version- and completion-bound receipt. Publishing one subset does not imply the remainder of a replacement document was adopted.
-- Keep private original emails, member particulars, source proofs and scoring-workbook exports out of every public GitHub surface, including branches, Actions and previews. Publish only source-screened rules and deliberation notices through the established rules release mechanism.
+The title remains **Matter for Club Deliberation**. Use it only for a question the members actually have **not settled**, or a future decision they expressly reserved for the gathering. An established interpretation is not an unresolved debate merely because an implementation task remains. When an issue is settled, update the rulebook and remove the obsolete notice from the current display.
 
-## Presentation within the rules
+Each public notice should be **one or two graceful sentences** in the Club's heritage-minded, mock-institutional voice. State the outstanding question plainly, allow a restrained dry observation, and stop. Avoid technical terms such as *non-operative*, *source digest*, *Viewer*, *qualification*, *ledger*, *migration*, *rule flag*, *signed phase* or *release gate*. Keep engineering explanations in docs/current-state.md or Issue #24, not in the reader's ceremony.
 
-Place the notice immediately after the relevant rule, with a heading such as:
+Illustrative examples of **style only**, not additional adopted rules:
 
-> **Matter for Club Deliberation (non-operative).** The text leaves [precise question] open. The present interpretation is [chosen reading and brief basis]. Until a verified rule and its calculations are released, [the existing executable treatment] remains authoritative. A future member amendment may settle the matter.
+> **Matter for Club Deliberation.** The exact moment the year changes hands will be fixed when the company next assembles. The Committee will not issue minutes for a meeting which has yet to take place.
 
-Do not create a separate rules page or competing unofficial source of authority. Existing dated rules, revision register and implementation qualification remain the authoritative record. This policy does not itself enact any submitted rule change.
+> **Matter for Club Deliberation.** Two competing accounts await a reliable record. In the meantime, the Committee declines to select a winner on the strength of its imagination.
+
+Do not fabricate a disagreement, member sentiment, document, rule or historical event to justify a joke. Retain the familiar cream, forest and brass presentation and clear mobile disclosure controls.
+
+## Boundary of the current agreement
+
+The six-member owner-attested 21 October decisions already settle Renewal-to-Renewal years, the date of first WhatsApp reporting for Birthday Buffet, exclusions for placed Protections and Diamonds, the lifetime of a placed Protection, draft sequence, 50-name ceiling, unused-right expiry and the chronological oldest-death Steal. Those subjects are **not** Matters for Club Deliberation on the current page.
+
+The Club has not yet fixed the precise cutoff at its actual first 2027 Stammtisch. Do not invent a date or time, recalculate historical points or override the existing January safety hold. The notice about that future handover may remain, written in the Club's voice.
+
+This policy is an editorial workflow standard. It does not falsely claim that published narrative alone recalculates the private spreadsheet or creates a new signed prospective scorekeeping release.

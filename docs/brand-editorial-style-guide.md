@@ -341,7 +341,11 @@ A poignant or private recollection may be written with the Club's characteristic
 
 The game, lists, awards and procedural sections may employ dry formality and affectionate absurdity. **Actual deaths, factual notices, verification status and individual commemorations require dignity, accuracy and care.** Avoid joking about a person's death or inventing an obituary.
 
-Keep operational rules precise and separate non-operative ceremonial commentary or Matters for Club Deliberation from executable scoring provisions. Use the adopted rules and qualified prospective amendment process, not this style guide, for legal-like meaning, points and notifications. The CoL page is the sole home for operative amendments.
+Keep the Club's agreed rules current and easy to read on its single CoL rulebook page. The older signed editions remain intact in the revision archive; recorded scores must never be silently reallocated. The publication of clear new wording needs no separate vote or ceremony. A genuine calculation change retains its focused evidence and safety checks without holding up the rulebook.
+
+**Matter for Club Deliberation** is a wry notice of a *real* unanswered question, not a technical release note. Never publish phrases such as “non-operative”, “implementation class”, “verified register representation”, “calendar-year executable treatment”, “qualification gate” or “source-matched release” in a reader-facing notice. Use one or two sentences in the Club's mock-institutional voice, gently amused at its own seriousness. Once the Club settles the question, remove the notice rather than reciting the obstacles that used to exist. The exact future 2027 handover hour remains to be agreed at the gathering; the settled seven-stage draft and lifetime Protection meaning do not require fresh deliberation.
+
+**Illustrative tone, not an additional rule:** “Matter for Club Deliberation. The precise hour of the next handover shall be agreed when the company assembles. The Committee has declined to put words in the clock's mouth.” Never invent meeting decisions or actual timing as part of the joke.
 
 ### Editorial Committee and disclosures
 

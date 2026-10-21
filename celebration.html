@@ -17,10 +17,9 @@
   <meta name="apple-mobile-web-app-title" content="Stammtisch">
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="celebration.css?v=col-live-20261008">
+  <link rel="stylesheet" href="celebration.css?v=club-rules-20261021">
   <script type="module" src="celebration.mjs?v=metric-birthdays-20261021"></script>
   <script type="module" src="col-push.mjs?v=col-live-20261008"></script>
-  <script type="module">import {refreshOfficialRules} from './col-rules-reader.mjs'; refreshOfficialRules();</script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -53,10 +52,10 @@
     </div></section>
     <section class="shell awards-section" id="awards" aria-labelledby="awards-title">
       <div class="register-heading"><div><p class="eyebrow">The year in progress</p><h2 id="awards-title">Awards &amp; <em>the next draft.</em></h2></div><p id="awards-date">Calculated from the shared register.</p></div>
-      <p class="awards-intro">Follow the leaders, badge contenders and benefits for the next January draft. These update whenever the website’s register is refreshed. Year-end awards remain provisional until the final register is confirmed.</p>
+      <p class="awards-intro">Follow the recorded standings and possible draft benefits. The shared register supplies the points; uncertain dates and unrecorded Protections are not guessed. Final awards belong to the Club's completed proceedings.</p>
       <div class="awards-grid" id="award-leaders"><p>Loading award progress…</p></div>
       <details class="badge-preview"><summary>Club badge progress &amp; Birthday Buffet <span aria-hidden="true">+</span></summary><p>Cavalcade of Calamity and Copycat are badges for our ceremony at the cottage. Cavalcade goes to the player with the most deaths worth fewer than 9 points, with a minimum of three qualifying deaths. Copycat goes to the member whose celebrity dies second when two different members’ celebrities die on the same date, using the actual date and time of death. Neither changes the day-to-day standings or scoring.</p><div class="awards-grid" id="badge-leaders"></div></details>
-      <details class="draft-preview"><summary>If the draft were held now <span aria-hidden="true">+</span></summary><p>Opening order runs from lowest to highest score, then reverses. Tied positions are decided by rock, paper, scissors. Steal order needs the actual dates of death; the rows below are in draft order.</p><div class="draft-grid" id="draft-benefits"></div><p>Available spaces reflect listed passings, before any steals or jettisons. Diamonds and celebrities over 100 cannot be jettisoned.</p></details>
+      <details class="draft-preview"><summary>If the draft were held now <span aria-hidden="true">+</span></summary><p>This is an illustration from today's recorded standings, not a completed draft. Ties are settled by rock, paper, scissors, and Steals need their actual dates of death.</p><div class="draft-grid" id="draft-benefits"></div><p>Spaces reflect the recorded lists, before Steals or optional Jettisons. Diamonds, placed Protections and celebrities over 100 stay put.</p></details>
       <noscript><p>Enable JavaScript to see calculated awards, or consult the <a href="#official-rules">official rules</a> and shared register.</p></noscript>
     </section>
     <section class="shell tradition-section" id="how-it-works" aria-labelledby="tradition-title">
@@ -69,50 +68,56 @@
       </div>
     </section>
     <section class="shell rules-section" id="official-rules" aria-labelledby="rules-title">
-      <div class="register-heading"><div><p class="eyebrow">04 / The pool</p><h2 id="rules-title">Official <em>rules.</em></h2></div><p>Celebration of Life Pool<br>Supplied September 20, 2026</p></div>
-      <p id="rules-version-status" class="rules-reference" aria-live="polite"></p>
-      <div class="rules-content"><p>Each member of Stammtisch has a list of 50 Celebrities. When a celebrity on your list dies, you get points. Whoever has the most points at the end of the year wins.</p>
-<details class="rule-topic"><summary>POINTS<span aria-hidden="true">+</span></summary><div class="rule-body"><p>The number of points is equal to 100 minus their age at time of death.</p>
-<p>If the celebrity is 100 years old when they die, you receive 10 points, and a Steal at the next draft. Diamond bonuses apply as described below; a Brown Diamond at 100 earns two Blood Diamonds instead of a Steal.</p>
-<p>If the celebrity is over 100 when they die, you lose points. The number of points is equal to their age minus 100.</p></div></details>
-<details class="rule-topic"><summary>BLUE DIAMOND<span aria-hidden="true">+</span></summary><div class="rule-body"><p>The first Celebrity on your list, #1, is your Blue Diamond.</p>
-<p>When your Blue Diamond dies, you get double points (or lose double points, if they’re over 100.) You also earn a Steal at the next draft.</p>
-<p>If your Blue Diamond dies at exactly 100, you earn two Steals.</p></div></details>
-<details class="rule-topic"><summary>BROWN DIAMOND<span aria-hidden="true">+</span></summary><div class="rule-body"><p>The last Celebrity on your list, #50, is your Brown Diamond.</p>
-<p>When your Brown Diamond dies, you get double points (or lose double points, if they’re over 100.) You also earn a Blood Diamond at the next draft. (Blood Diamond is a protection you place on one of your celebrities, making them unstealable.)</p>
-<p>If your Brown Diamond dies at exactly 100, you earn two Blood Diamonds.</p></div></details>
-<details class="rule-topic"><summary>PRIZE<span aria-hidden="true">+</span></summary><div class="rule-body"><p>The person with the highest score for the year (January 1 to December 31) gets a $100 gift, paid for and chosen by the other five.</p>
-<p>If players tie for the win, they share the prize.</p></div></details>
-<details class="rule-topic"><summary>BIRTHDAY BUFFET<span aria-hidden="true">+</span></summary><div class="rule-body"><p>If we discover a celebrity dies on someone’s birthday, the birthday boy gets the points, regardless of whose list their on. <em>(NOTE: Birthday Buffet points are based on when we learn the death occurred, not necessarily the date of death. A player cannot withhold information of a death to benefit.)</em></p>
-<p>If a 100-year-old dies, they get the 10 points, but NOT the Steal.</p>
-<p>Diamonds are excluded from Birthday Buffet.</p>
-<table><caption>Member birthdays</caption><thead><tr><th scope="col">Member</th><th scope="col">Birthday</th></tr></thead><tbody><tr><th scope="row">MARC</th><td>March 26</td></tr><tr><th scope="row">JEROME</th><td>May 9</td></tr><tr><th scope="row">MATT</th><td>June 25</td></tr><tr><th scope="row">JUSTIN</th><td>July 6</td></tr><tr><th scope="row">KEN</th><td>July 20</td></tr><tr><th scope="row">JAMIE</th><td>September 19</td></tr></tbody></table></div></details>
-<details class="rule-topic"><summary>DRAFTING<span aria-hidden="true">+</span></summary><div class="rule-body"><p>Every January, we draft new Celebrities until we each have 50 again.</p></div></details>
-<details class="rule-topic"><summary>DRAFT - ORDER OF BUSINESS<span aria-hidden="true">+</span></summary><div class="rule-body"><h3>FIRST - Blood Diamonds</h3>
-<p>If your Brown Diamond died in the previous calendar year, you add a Blood Diamond to someone on your list, making them ineligible for Steals and Jettisons. <em>(Note Blood Diamonds do NOT give you double-points when they die, unlike the Blue or Brown Diamond.)</em></p>
-<p>Whoever had the youngest celebrity death the previous year also gets a Blood Diamond. If needed, compare ages at the day level.</p>
-<h3>SECOND - Steals</h3>
-<p>Steals go next. <em>(Remember, you’re eligible for a steal if you had a Celebrity die at 100, or if your Blue Diamond died.)</em> Steals happen in the same order as the deaths prompting them.</p>
-<p>You can steal any Celebrity from anyone else’s list, excluding Diamonds. Once a Celebrity is stolen, they can’t be stolen again until next year.</p>
-<h3>THIRD - Devil’s Share</h3>
-<p>The player with the lowest points from the previous year gets either one Steal OR one Blood Diamond.</p>
-<p>If players tie for the lowest score, each receives Devil’s Share.</p>
-<h3>THIRD - Jettisons</h3>
-<p>If you have fewer than five spots available on your list, you can jettison Celebrities until you have five. You can waive this right if you prefer to keep your current Celebrities. (In that case you won’t get five new picks.) If you have five or more spots available, you’re not eligible to jettison.</p>
-<p>You can’t jettison a Diamond, or a Celebrity over 100 years.</p>
-<p>You can jettison a 100-year-old Celebrity, but if they die before they turn 101, you lose ten points.</p>
-<p>Once all players have five spots available, or have chosen not to jettison, jettisoning is complete.</p>
-<p>All jettisoned Celebrities become immediately available for the draft.</p>
-<h3>FOURTH - Draft</h3>
-<p>Your new drafts replace empty slots on your list.</p>
-<p>The person with lowest score for the previous year drafts first, followed by second lowest, etc. The person with the highest overall score goes last, then drafts again and it goes back down the line.</p>
-<p>Tied scores for draft order are resolved by rock, paper, scissors.</p>
-<p>Drafting continues until all lists are back to 50 celebrities.</p>
-<h3>FIFTH - New Diamonds</h3>
-<p>If any of your Diamonds died the previous year, they can be replaced by any of your new drafts, or by moving an existing celebrity from your list into the Diamond spot. (Note that when a Blood Diamond dies, the Blood Diamond is lost… Unlike a Blue Diamond or Brown Diamond, the distinction dies with the celebrity.)</p></div></details>
-      <p class="rules-reference">Any one of the six members may introduce a change to these rules by email. No second member, vote or owner approval is required. Changes are entered in the Register when they take effect; previously awarded points and benefits remain unchanged unless the club expressly agrees otherwise. <a href="col-revisions.html">Rules Revision Register</a> · <a href="mailto:annals@stammtischbrewery.com">Propose an amendment</a>.</p>
-      
-      <a class="text-link" href="col-rules-version.html?reference=1">Read the complete rules <span aria-hidden="true">↗</span></a></div>
+      <div class="register-heading"><div><p class="eyebrow">04 / The pool</p><h2 id="rules-title">Official <em>rules.</em></h2></div><p>The Club's agreed rules<br>Clarifications recorded 21 October 2026</p></div>
+      <p class="rules-reference">The company has settled these particulars. Earlier scores stand as recorded; the scorekeeper does not guess at a missing death date, a private Protection or the first word in the group chat.</p>
+      <div class="rules-content">
+        <p>Each member keeps a list of up to 50 celebrities. Their passings earn points, distinctions and, occasionally, the right to interfere with another gentleman's list. The highest score wins the competition year.</p>
+        <details class="rule-topic"><summary>POINTS<span aria-hidden="true">+</span></summary><div class="rule-body">
+          <p>A passing is worth 100 minus the celebrity's age at death. A passing at exactly 100 earns <strong>10 points</strong>; a passing over 100 incurs the corresponding negative points. The Blue and Brown Diamonds carry double points or double penalties.</p>
+          <p>Reaching 100 earns no additional Steal or extra Diamond privilege merely by reaching that age. The ordinary Blue and Brown Diamond benefits remain. Previously awarded points and benefits are not rewritten.</p>
+        </div></details>
+        <details class="rule-topic"><summary>DIAMONDS &amp; PROTECTIONS<span aria-hidden="true">+</span></summary><div class="rule-body">
+          <p>The <strong>Blue Diamond</strong> is selection #1. Its death earns double points and one Steal at the next draft. The <strong>Brown Diamond</strong> is selection #50. Its death earns double points and one Protection (Blood Diamond) at the next draft.</p>
+          <p>The member with the youngest celebrity death of the competition year earns a Protection, with age compared to the day when necessary. A Protection may be placed on an eligible celebrity to prevent Steals and Jettisons. It does not double points.</p>
+          <p>Once placed, a Protection stays with that celebrity until death, even across competition years. It cannot be cancelled, moved or jettisoned. An earned but <em>unplaced</em> Protection is only a right to place one at the applicable draft; that unused right expires when the draft concludes.</p>
+          <p>Blue and Brown Diamonds cannot be stolen or jettisoned. If either distinction becomes vacant through death, a replacement may be appointed in the final stage of the next draft.</p>
+        </div></details>
+        <details class="rule-topic"><summary>THE YEAR &amp; THE PRIZE<span aria-hidden="true">+</span></summary><div class="rule-body">
+          <p>The competition runs from the first Stammtisch of one calendar year to the first Stammtisch of the next. The exact handover time is decided and recorded when the company assembles; the length of the year may therefore vary slightly. From January 1 until that handover, qualifying deaths belong to the preceding competition year. The existing selections continue until the draft.</p>
+          <p>The highest scorer receives a <strong>$100 gift</strong>, chosen and paid for by the other five. Tied winners share the prize.</p>
+          <p class="matter-for-deliberation"><strong>Matter for Club Deliberation.</strong> The precise hour of the 2027 handover belongs to the first gathering of 2027. The Committee declines to record the time of a proceeding which has yet to occur.</p>
+        </div></details>
+        <details class="rule-topic"><summary>BIRTHDAY BUFFET<span aria-hidden="true">+</span></summary><div class="rule-body">
+          <p>When a celebrity's death is <strong>first reported in the Club's WhatsApp group</strong> on a member's birthday, the birthday gentleman receives the points, regardless of whose list holds the name. It is the date of that first group report, not the death itself, private discovery or a news alert, that counts. Members are honour-bound to report promptly.</p>
+          <p>Blue Diamonds, Brown Diamonds and celebrities bearing a placed Protection are excluded. A death at exactly 100 earns the birthday gentleman 10 points, but no Steal. Existing expressly agreed allocations remain as recorded.</p>
+          <table><caption>Birthday register — the 2026 Metric equivalents are shown beside their Gregorian dates. Metric dates are recalculated for leap years.</caption><thead><tr><th scope="col">Member</th><th scope="col">Metric (2026)</th><th scope="col">Gregorian</th></tr></thead><tbody>
+            <tr><th scope="row">Marc</th><td>Bloom 12</td><td>March 26</td></tr>
+            <tr><th scope="row">Jerome</th><td>Thrive 20</td><td>May 9</td></tr>
+            <tr><th scope="row">Matt</th><td>Radiate 30</td><td>June 25</td></tr>
+            <tr><th scope="row">Justin</th><td>Sustain 5</td><td>July 6</td></tr>
+            <tr><th scope="row">Ken</th><td>Sustain 19</td><td>July 20</td></tr>
+            <tr><th scope="row">Jamie</th><td>Reflect 7</td><td>September 19</td></tr>
+          </tbody></table>
+        </div></details>
+        <details class="rule-topic"><summary>THE ANNUAL ORDER OF BUSINESS<span aria-hidden="true">+</span></summary><div class="rule-body">
+          <p>The annual proceedings have seven stages. Devil's Share follows the earned Steals, by deliberate design.</p>
+          <ol>
+            <li><strong>Declare the winner</strong> of the completed competition year, including any shared prize.</li>
+            <li><strong>Place earned Protections</strong>, including those arising from a Brown Diamond or the youngest celebrity death.</li>
+            <li><strong>Exercise earned Steals</strong> in order of the actual deaths that earned them. A Blue Diamond death earns a Steal; the member with the oldest celebrity death also earns one. For the oldest-death Steal, its place in line is determined by the celebrity's actual date of death, not the later date on which the award is declared. A stolen celebrity cannot be stolen again during the same draft.</li>
+            <li><strong>Devil's Share.</strong> The member with the lowest score chooses a Steal or a Protection. Everyone tied for last receives their own choice. This consolation comes after the earned Steals.</li>
+            <li><strong>Optional Jettisons.</strong> Members with fewer than five vacancies may jettison eligible names to make up to five spaces, or decline. Diamonds, placed Protections and celebrities over 100 cannot be jettisoned. If a 100-year-old is jettisoned and dies before 101, the ten-point penalty applies. Jettisoned celebrities return to the available pool.</li>
+            <li><strong>The snake draft.</strong> Fill the actual vacancies, without exceeding 50 names per member. Lowest score chooses first and the highest chooses last, then the order reverses. A tie in draft position is decided by rock, paper, scissors. There is no requirement to manufacture five vacancies or take five new names.</li>
+            <li><strong>Appoint replacement Diamonds.</strong> Vacant Blue or Brown Diamond positions may be filled by new or retained eligible selections. A placed Protection belongs to its celebrity; it is not inherited by a replacement.</li>
+          </ol>
+          <p>An unused earned Steal or an unplaced Protection expires when its applicable draft concludes. A Protection already placed on a living celebrity does not expire with the draft, the season or the Committee's patience.</p>
+        </div></details>
+        <details class="rule-topic"><summary>AMENDING THE RULES<span aria-hidden="true">+</span></summary><div class="rule-body">
+          <p>Any one of the six members may send a clear CoL amendment to <a href="mailto:annals@stammtischbrewery.com">the Club's Annals address</a>. No second vote, special wording or ceremonial countersignature is needed. The Committee interprets the instruction, updates the website and keeps the former wording on record. If its interpretation has wandered from the Club's intent, the members are invited to correct the record.</p>
+          <p>A question, joke or recollection is not an instruction to change the rules. Earlier awards remain as recorded unless the Club expressly decides otherwise.</p>
+        </div></details>
+        <p class="rules-reference">These are the Club's agreed rules. Current standings show the points actually recorded in the authoritative register; no historic points, protection claims or WhatsApp reporting dates have been invented to bring them into line. <a href="col-revisions.html">Earlier signed editions and revisions</a> remain available for the permanent record.</p>
+      </div>
     </section>
     <section class="shell distinctions-section" aria-labelledby="distinctions-title"><details class="distinctions-disclosure"><summary><span><span class="eyebrow">From the “buttons?” tab</span><span id="distinctions-title">Club distinctions &amp; button ideas</span></span><span aria-hidden="true">+</span></summary><div class="distinctions-grid" id="distinctions"></div></details></section>
     <div class="shell register-source"><p id="source-date">Based on the club’s recorded selections and scores.</p></div>

@@ -233,9 +233,9 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}, polic
     const expected = event.ageConfirmed ? basePoints(event.age) : null;
     return { name:event.name, recipient:recipient?.name, date:event.discoveredOn, expected, allocations:event.allocations, decision:event.allocationDecision };
   });
-  cards.push({id:'birthday-buffet', title:'Birthday Buffet', status:buffet.length ? 'Recorded birthday matches' : 'No dated matches',
-    value:buffet.length ? names(buffet.map(x => ({name:x.recipient}))) : 'No match yet', description:'Uses the group’s discovery date. Diamonds are excluded.',
-    details:buffet.map(x => `${x.name} · ${dateText(x.date)} · Birthday: ${x.recipient}. Recorded allocation: ${x.allocations.map(a => `${a.name} ${a.points}`).join(', ') || 'none'}${x.decision ? `. ${x.decision}` : x.expected === null ? '. Age at death needs confirmation.' : `. Rule value: ${x.expected} points.`}`).concat(buffet.some(x => !x.decision) ? ['Undecided birthday matches are flagged for review; recorded scores are not reassigned automatically.'] : [], [`Birthday register (${data.year}, Metric first): ${birthdayDisplay}.`])});
+  cards.push({id:'birthday-buffet', title:'Birthday Buffet', status:buffet.length ? 'Dates worth checking' : 'No birthday dates noted',
+    value:buffet.length ? names(buffet.map(x => ({name:x.recipient}))) : 'No match noted', description:'The first report in the Club’s WhatsApp group decides a Birthday Buffet. A discovery date alone is not an award.',
+    details:buffet.map(x => `${x.name} · ${dateText(x.date)} · Possible birthday member: ${x.recipient}. Recorded allocation: ${x.allocations.map(a => `${a.name} ${a.points}`).join(', ') || 'none'}${x.decision ? `. ${x.decision}` : x.expected === null ? '. Age at death needs confirmation.' : `. The age-based value would be ${x.expected} points if the Club confirms eligibility.`}`).concat(['The register does not establish first WhatsApp reports or placed Protections. Previous Club awards remain as recorded; no new Birthday Buffet award is assumed.'], [`Birthday register (${data.year}, Metric first): ${birthdayDisplay}.`])});
   return { year:data.year, asOf:data.asOf, final, cards, draft, events, undated,
     officialAwardCards:policy.oldestDeathSteal === true ? 4 : 3 };
 }
