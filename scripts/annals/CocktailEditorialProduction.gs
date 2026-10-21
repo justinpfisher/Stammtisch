@@ -124,7 +124,7 @@ function annalsCocktailEditorialCredentialPreflightInEditor(){
     var status=response.getResponseCode();
     result.modelLookupAccepted=status===200;
     // Endpoint access is independently permissioned: a restricted key may
-    // allow /v1/images requests yet deny /v1/models metadata reads.
+    // allow image-edit requests yet deny model-catalogue metadata reads.
     // Keep this bounded enum only; never read the provider body or headers.
     result.modelLookupStatus=status===200?'model_metadata_visible':
       status===401?'authentication_or_models_read_denied':
