@@ -149,8 +149,18 @@ jobs:
           target="$(git rev-parse HEAD)"
           live_ref="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
           if [ "$target" != "$live_ref" ]; then
-            echo 'main advanced while attempting to publish; retry from a fresh checkout' >&2
-            exit 1
+            # A simultaneous unrelated Club publication must not turn a
+            # successful read-only Sheet comparison into a spurious failure.
+            # Accept the newer head only if BOTH public source-data files
+            # remain byte-identical; a competing score edit still fails closed.
+            git fetch --quiet --no-tags origin main
+            if git diff --quiet "$target" "$live_ref" -- data/celebration.json data/celebration-confirmations.json; then
+              echo 'main advanced without changing validated CoL data; verify the latest Pages build.'
+              target="$live_ref"
+            else
+              echo 'main advanced with different CoL data; retry from a fresh checkout' >&2
+              exit 1
+            fi
           fi
           latest_commit="$(gh api "repos/$GITHUB_REPOSITORY/pages/builds/latest" --jq '.commit // empty' 2>/dev/null || true)"
           latest_status="$(gh api "repos/$GITHUB_REPOSITORY/pages/builds/latest" --jq '.status // empty' 2>/dev/null || true)"
