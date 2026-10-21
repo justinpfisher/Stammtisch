@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Explicit owner-side one-shot Kingston/ordinary cocktail image-edit runner.
+/* Source-bound, protected one-shot Kingston/ordinary cocktail image-edit runner.
  * No side effects without --execute AND verified signed private authority.
  * Generation, assessment and candidates stay outside the PUBLIC repository
  * until independently qualified for guarded publication. No automatic retry.
@@ -9,7 +9,6 @@ import {createHash} from 'node:crypto';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {verifyPublicApproval} from './ApprovedRenderer.mjs';
-import {verifyIssuedCocktailBudget,imageSpendCents,reviewSpendCents,enforceTotalSpend} from './CocktailEditorialBudget.mjs';
 import {
   verifiedCocktailSource,verifyEditorialPermit,extractUnspentEditorialPermit,stripJpegMetadata,makeSunburstEditRequest,
   requestSunburstEdit,makeVisualReviewRequest,assessSunburstEdit,
@@ -23,7 +22,7 @@ function args(argv){
   for(let i=0;i<argv.length;i++){
     if(argv[i]==='--execute'){if(result.execute)throw Error('Duplicate execution mode');result.execute=true;continue}
     if(argv[i]==='--check-handoff'){if(result.checkHandoff)throw Error('Duplicate handoff mode');result.checkHandoff=true;continue}
-    if(!['--entry','--reference','--permit','--budget-ledger','--private-output'].includes(argv[i])||
+    if(!['--entry','--reference','--permit','--private-output'].includes(argv[i])||
        i+1>=argv.length||argv[i+1].startsWith('--')||result[argv[i].slice(2)])
       throw Error('Unsupported image-edit argument');
     result[argv[i].slice(2)]=argv[++i];
@@ -31,7 +30,7 @@ function args(argv){
   if(!/^[a-z0-9][a-z0-9-]{5,63}$/.test(result.entry||''))throw Error('Invalid entry ID');
   if(result.execute&&result.checkHandoff)throw Error('Choose exactly one protected execution mode');
   if(!result.execute&&!result.checkHandoff&&
-     (result.reference||result.permit||result['budget-ledger']||result['private-output']))
+     (result.reference||result.permit||result['private-output']))
     throw Error('Protected inputs require explicit --execute');
   return result;
 }
@@ -48,10 +47,13 @@ async function privateFile(p,required=true){
 async function privateDirectory(p){
   if(!p||!path.isAbsolute(p))throw Error('Private output directory required');
   const resolved=await realpath(p);
-  const canonical=process.env.ANNALS_EDITORIAL_BUDGET_DIR;
+  // Reuse the existing canonical private folder; the legacy variable is
+  // an alias only, not a separate monetary ledger.
+  const canonical=process.env.ANNALS_EDITORIAL_PRIVATE_DIR ||
+    process.env.ANNALS_EDITORIAL_BUDGET_DIR;
   if(!canonical||!path.isAbsolute(canonical)||
      resolved!==await realpath(canonical))
-    throw Error('Canonical private image budget directory unavailable');
+    throw Error('Canonical private editorial attempt directory unavailable');
   if(resolved===repo||resolved.startsWith(repo+path.sep))
     throw Error('Private outputs cannot reside inside public GitHub repository');
   if(!(await stat(resolved)).isDirectory())throw Error('Private output directory unavailable');
@@ -73,7 +75,7 @@ async function run(){
     throw Error('Public source image digest mismatch');
   if(!options.execute&&!options.checkHandoff){
     // Offline source-only check; does NOT certify the private signature, grant,
-    // budget reservation, generation or published image.
+    // monetary reservation, generation or published image.
     console.log(JSON.stringify({state:'preflight-source-digest-only',
       sourceSha256:photo.sha256,publisherVerified:false,providerCalled:false,
       generationEnabled:false}));
@@ -105,20 +107,21 @@ async function run(){
     signingKey:process.env.ANNALS_PUBLISH_SIGNING_KEY,
     permitSigningKey:process.env.ANNALS_EDITORIAL_PERMIT_SIGNING_KEY});
   const privateOutput=await privateDirectory(options['private-output']);
-  // Validate the already-durable OWNER-ISSUER ledger before any provider call.
-  // Never create a second, independently spendable local budget reservation.
-  const ledgerBytes=await privateFile(options['budget-ledger']);
-  let ownerLedger;
-  try{ownerLedger=JSON.parse(ledgerBytes.toString('utf8'))}
-  catch{throw Error('Private owner-issued budget snapshot invalid')}
-  const reservation=verifyIssuedCocktailBudget({
-    ledger:ownerLedger,permit,entryId:subject.entryId,
-    sourceSha256:subject.sourceSha256});
   const editRequest=makeSunburstEditRequest({subject,referenceBytes});
   const prior=await readdir(privateOutput);
-  if(prior.includes('cocktail-editorial-budget-private.json')||
-     prior.includes('cocktail-editorial-budget.lock'))
-    throw Error('Conflicting local image spending ledger; no provider call');
+  // Existing old-style private budget reservations remain evidence of
+  // earlier authorisation/attempts. Read only for exact-source replay
+  // protection; no new balances, ledgers or reservations are created.
+  if(prior.includes('cocktail-editorial-budget-private.json')){
+    let older;
+    try { older=JSON.parse(await readFile(path.join(
+      privateOutput,'cocktail-editorial-budget-private.json'),'utf8')); }
+    catch { throw Error('Unreconciled historical editorial source; no provider call'); }
+    if(!Array.isArray(older.reservations)||
+       older.reservations.some(x=>!x||typeof x.sourceSha256!=='string'||
+         x.sourceSha256===subject.sourceSha256))
+      throw Error('Previously reserved editorial source; no provider retry');
+  }
   // Detect older private attempt markers before migrating to the stable
   // source-based marker. Corrupt records hold rather than permit a repeat.
   for(const name of prior.filter(x=>x.endsWith('-attempt-private.json'))){
@@ -137,9 +140,9 @@ async function run(){
     console.log(JSON.stringify({
       state:'private-handoff-verified-offline',publisherVerified:true,
       issuerPermitVerified:true,sourceReferenceBound:true,
-      ownerLedgerReservationMatched:true,priorSourceAttemptAbsent:true,
+      priorSourceAttemptAbsent:true,
       providerCalled:false,paidRequestMade:false,markerCreated:false,
-      budgetReservationMade:false,published:false
+      published:false
     }));
     return;
   }
@@ -153,7 +156,6 @@ async function run(){
     'cocktail-'+subject.sourceSha256+'-attempt-private.json');
   const attempt={state:'reserved-no-retry',entryId:subject.entryId,
     sourceSha256:subject.sourceSha256,attemptDigest:proof.attemptDigest,
-    budgetPeriod:reservation.period,reservedCents:reservation.reservationCents,
     reservedAt:new Date().toISOString(),apiCallsAttempted:false};
   // 'wx' is deliberately exclusive; a crash or uncertain API response
   // leaves the file and prevents billing another call on re-execution.
@@ -184,22 +186,16 @@ async function run(){
       {flag:'wx',mode:0o600});
     attempt.editedSha256=edited.editedSha256;
     attempt.generationUsage=edited.usage;
-    const generationCents=imageSpendCents(edited.usage);
-    // Provider usage missing or over-limit: no SECOND billable review.
-    attempt.generationEstimatedCents=generationCents;
-    // Hold rather than buy a second assessment with effectively no headroom.
-    // Reserve a conservative USD 0.50 of the already authorised USD 2 for
-    // high-detail multi-image review; still verify actual total usage after it.
-    enforceTotalSpend({editCents:generationCents,reviewCents:50});
+    // Provider-enforced US$5 monthly project cap replaces the retired
+    // per-photo estimate and private spending ledger. If the provider
+    // refuses a second review for quota, preserve the paid edit privately,
+    // stop without retry and leave the authentic original on the website.
     const reviewRequest=makeVisualReviewRequest({
       subject,editedBytes:edited.bytes,referenceBytes});
     const judgement=await assessSunburstEdit({request:reviewRequest,
       permitVerification:proof,reservedAttempt:true,
       apiKey:process.env.ANNALS_EDITORIAL_IMAGE_API_KEY});
     attempt.reviewUsage=judgement.usage;
-    attempt.reviewEstimatedCents=reviewSpendCents(judgement.usage);
-    attempt.totalEstimatedCents=enforceTotalSpend({
-      editCents:generationCents,reviewCents:attempt.reviewEstimatedCents});
     attempt.reviewedAt=new Date().toISOString();
     attempt.passed=judgement.assessment.qualified;
     attempt.failedChecks=judgement.assessment.failedChecks;

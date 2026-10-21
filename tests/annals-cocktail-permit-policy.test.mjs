@@ -38,12 +38,6 @@ function rights(){
   noUnconsentedPeopleOrPrivateDetails:true
  };
 }
-const blank=()=>({schemaVersion:1,monthlyCeilingCents:500,
- perPhotoCeilingCents:200,reservations:[]});
-const plan=(ledger,photo=id,src=source,when=at)=>Policy.planReservation({
- ledger,entryId:photo,sourceSha256:src,referenceSha256:reference,
- now:when,rightsEligible:true,sourceStillSigned:true
-});
 test('previously approved documentary photograph can have a later, owner-dated edit scope without backdating',()=>{
  const input=rights();
  assert.deepEqual(Policy.evaluate(input),{eligible:true,reason:'qualified_private_evidence_only'});
@@ -96,60 +90,41 @@ test('scope mismatch, future attestation, missing owner evidence and old ordinar
   let r=rights();change(r);assert.equal(Policy.evaluate(r).eligible,false);
  }
 });
-test('budget plan reserves exact USD 2 from separate USD 5 Toronto-month ledger',()=>{
- const p1=plan(blank());
- const p2=plan(p1.ledger,'annal-'+'c'.repeat(24),'c'.repeat(64));
- assert.equal(p1.reservation.period,'2026-10');
- assert.equal(p1.reservation.reservationCents,200);
- assert.equal(p2.ledger.reservations.length,2);
- assert.deepEqual(blank().reservations,[]);
- assert.throws(()=>plan(p2.ledger,'annal-'+'d'.repeat(24),'d'.repeat(64)),/allowance/);
- assert.throws(()=>plan(p1.ledger,id,source),/already reserved/);
- assert.throws(()=>plan(p1.ledger,id,source,new Date('2026-11-20T23:30:00Z')),/already reserved/);
-});
-test('Toronto month boundaries retain DST and January-year offset',()=>{
- assert.equal(Policy.period(new Date('2026-11-01T03:59:00Z')),'2026-10');
- assert.equal(Policy.period(new Date('2026-11-01T04:00:00Z')),'2026-11');
- assert.equal(Policy.period(new Date('2027-01-01T04:59:00Z')),'2026-12');
- assert.equal(Policy.period(new Date('2027-01-01T05:00:00Z')),'2027-01');
-});
-test('malformed, missing or replenished ledgers never initialise or clear history',()=>{
- assert.throws(()=>Policy.validateLedger(null),/invalid/);
- assert.throws(()=>plan(null),/invalid/);
- const valid=plan(blank()).ledger;
- assert.throws(()=>Policy.validateLedger({...valid,reservations:[...valid.reservations,...valid.reservations]}),/invalid/);
- assert.throws(()=>Policy.validateLedger({...valid,monthlyCeilingCents:700}),/invalid/);
- const forged={...valid,reservations:valid.reservations.map(x=>({...x,reservationCents:100}))};
- assert.throws(()=>Policy.validateLedger(forged),/invalid/);
- assert.throws(()=>Policy.planReservation({...{
-  ledger:blank(),entryId:id,sourceSha256:source,referenceSha256:reference,
-  now:at,rightsEligible:true,sourceStillSigned:false
- }}),/evidence/);
-});
-test('unsigned permit derives only from one durable source reservation and trusted nonce',()=>{
- const planned=plan(blank()),ledger=planned.ledger;
- assert.equal(Policy.PERMIT_SCOPE,'cocktail-editorial-transform-v1');
- const p=Policy.unsignedPermit({
-  entryId:id,sourceSha256:source,referenceSha256:reference,
-  rightsEligible:true,nonce:'f'.repeat(32),now:at,ledger
+
+test('owner-side rights permit is source-bound, time-limited and contains no budget ledger',()=>{
+ const permit=Policy.unsignedPermit({
+   entryId:id,sourceSha256:source,referenceSha256:reference,
+   rightsEligible:true,sourceStillSigned:true,
+   nonce:'f'.repeat(32),now:at
  });
- assert.equal(p.scope,'cocktail-editorial-transform-v1');
- assert.equal(p.entryId,id);assert.equal(p.sourceSha256,source);
- assert.equal(p.referenceSha256,reference);assert.equal(p.budgetReserved,true);
- assert.equal(p.reservedCents,200);assert.equal(p.monthlyCeilingCents,500);
- assert.equal(p.budgetPeriod,'2026-10');
- assert.equal(Date.parse(p.expiresAt)-Date.parse(p.issuedAt),7200000);
- assert.equal(Object.keys(p).sort().join(','),
-  'budgetPeriod,budgetReserved,entryId,expiresAt,issuedAt,monthlyCeilingCents,nonce,perPhotoCeilingCents,referenceSha256,reservedCents,rightsActive,scope,screened,sourceSha256');
- assert.throws(()=>Policy.unsignedPermit({
-  entryId:id,sourceSha256:'e'.repeat(64),referenceSha256:reference,
-  rightsEligible:true,nonce:'f'.repeat(32),now:at,ledger
- }),/matching durable/);
- assert.throws(()=>Policy.unsignedPermit({
-  entryId:id,sourceSha256:source,referenceSha256:reference,
-  rightsEligible:false,nonce:'f'.repeat(32),now:at,ledger
- }),/missing/);
+ assert.equal(Policy.PERMIT_SCOPE,'cocktail-editorial-transform-v2');
+ assert.equal(permit.scope,Policy.PERMIT_SCOPE);
+ assert.equal(permit.entryId,id);
+ assert.equal(permit.sourceSha256,source);
+ assert.equal(permit.referenceSha256,reference);
+ assert.equal(Date.parse(permit.expiresAt)-Date.parse(permit.issuedAt),7200000);
+ assert.deepEqual(Object.keys(permit).sort(),[
+   'entryId','expiresAt','issuedAt','nonce','referenceSha256',
+   'rightsActive','scope','screened','sourceSha256'
+ ]);
+ assert.equal(typeof Policy.planReservation,'undefined');
+ assert.equal(typeof Policy.validateLedger,'undefined');
+ assert.equal(typeof Policy.MONTHLY,'undefined');
+ assert.equal(typeof Policy.PER_PHOTO,'undefined');
 });
+
+test('a malformed source, missing rights or untrusted nonce cannot produce an issuer permission',()=>{
+ const params={entryId:id,sourceSha256:source,referenceSha256:reference,
+   rightsEligible:true,sourceStillSigned:true,
+   nonce:'f'.repeat(32),now:at};
+ for(const bad of [
+   {rightsEligible:false},{sourceStillSigned:false},
+   {entryId:'unqualified'},{sourceSha256:'tampered'},
+   {referenceSha256:'tampered'},{nonce:'short'},
+   {now:new Date('invalid')}
+ ])assert.throws(()=>Policy.unsignedPermit({...params,...bad}),/evidence/);
+});
+
 test('recursive stable JSON serialisation cannot be influenced by property insertion order',()=>{
  const p={members:[{z:1,a:2}],d:{y:3,b:4},a:'x'};
  const q={a:'x',d:{b:4,y:3},members:[{a:2,z:1}]};

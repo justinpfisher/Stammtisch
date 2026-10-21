@@ -1,12 +1,11 @@
 /* Source-bound, provider-agnostic contracts for the optional Cocktail Register
  * image editor. No paid requests occur on import. Never receives raw member mail,
  * unscreened originals, consent proofs or public GitHub credentials in prompts.
- * Private rights and one-shot budget authority are independently required.
+ * Private rights and a durable per-source attempt record are required.
  */
 import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {verifyPublicApproval} from './ApprovedRenderer.mjs';
-import {MONTHLY_CENTS,PHOTO_CENTS,torontoPeriod} from './CocktailEditorialBudget.mjs';
 import {metadataFreeJpegDimensions,photoSources} from './EditorialPhotoManifest.mjs';
 
 export const EDIT_MODEL='gpt-image-2.5-sunburst';
@@ -61,29 +60,24 @@ export function verifiedCocktailSource({entry,approval,signingKey,sourcePath,sou
 }
 
 export function verifyEditorialPermit(permit,{entryId,sourceSha256,referenceSha256='',signingKey,permitSigningKey,now=new Date()}){
-  // A separate private HMAC receipt must attest real active scoped transform
-  // rights and a one-shot private budget reservation. The signed public
-  // original's photoPublication Boolean alone never grants these.
+  // The private issuer signs specific rights and a screened original, NOT an
+  // invented monetary balance. The configured provider hard limit guards cost.
   if(!permit||typeof permit!=='object'||Array.isArray(permit)||
      Object.keys(permit).sort().join(',')!==
-       'budgetPeriod,budgetReserved,entryId,expiresAt,issuedAt,monthlyCeilingCents,nonce,perPhotoCeilingCents,referenceSha256,reservedCents,rightsActive,scope,screened,signature,sourceSha256'||
-     permit.scope!=='cocktail-editorial-transform-v1'||
+       'entryId,expiresAt,issuedAt,nonce,referenceSha256,rightsActive,scope,screened,signature,sourceSha256'||
+     permit.scope!=='cocktail-editorial-transform-v2'||
      permit.entryId!==entryId||permit.sourceSha256!==sourceSha256||
      permit.referenceSha256!==referenceSha256||
      (referenceSha256!==''&&!SHA.test(referenceSha256))||
      (entryId==='annal-96b5ae266a36793c6a203033'&&!SHA.test(referenceSha256))||
-     permit.rightsActive!==true||permit.budgetReserved!==true||
-     permit.budgetPeriod!==torontoPeriod(now)||
-     permit.monthlyCeilingCents!==MONTHLY_CENTS||
-     permit.perPhotoCeilingCents!==PHOTO_CENTS||
-     permit.reservedCents!==PHOTO_CENTS||
-     permit.screened!==true||!SHA.test(sourceSha256||'')||
+     permit.rightsActive!==true||permit.screened!==true||
+     !SHA.test(sourceSha256||'')||
      !/^[0-9a-f]{32}$/.test(permit.nonce||'')||
      !/^[0-9a-f]{64}$/.test(permit.signature||'')||
      typeof signingKey!=='string'||signingKey.length<32||
      typeof permitSigningKey!=='string'||permitSigningKey.length<32||
      permitSigningKey===signingKey)
-    throw Error('Current editorial rights and budget proof unavailable');
+    throw Error('Current signed editorial rights proof unavailable');
   const from=Date.parse(permit.issuedAt),until=Date.parse(permit.expiresAt),
     time=now.getTime();
   if(!Number.isFinite(time)||!Number.isFinite(from)||!Number.isFinite(until)||
@@ -91,29 +85,22 @@ export function verifyEditorialPermit(permit,{entryId,sourceSha256,referenceSha2
      time-from>2*60*60*1000)
     throw Error('Editorial authorisation expired or premature');
   const signed={...permit};delete signed.signature;
-  // A compromised publishing key must never mint a spending permit.
-  // After security recovery use an independently provisioned image-permit key.
   const expected=createHmac('sha256',permitSigningKey)
     .update(JSON.stringify(canonical(signed))).digest();
   if(!timingSafeEqual(expected,Buffer.from(permit.signature,'hex')))
     throw Error('Editorial authorisation signature invalid');
   return Object.freeze({sourceSha256,entryId,
-    budgetPeriod:permit.budgetPeriod,
-    monthlyCeilingCents:MONTHLY_CENTS,perPhotoCeilingCents:PHOTO_CENTS,
-    reservedCents:PHOTO_CENTS,budgetReserved:true,
     attemptDigest:hash(Buffer.from(permit.signature,'hex'))});
 }
 
-/* The owner-only issuer writes a whole immutable private receipt, NOT a
- * standalone signed permit. Consume that exact record, fail closed for any
- * spent/held/ambiguous state, and verify the nested HMAC separately below.
- * Receipt file and full ledger MUST remain in owner-private storage.
+/* A private issuer writes one immutable scoped receipt, never an independent
+ * spending ledger. Refuse previously consumed, held or ambiguous attempts.
  */
 export function extractUnspentEditorialPermit(receipt){
   if(!receipt||typeof receipt!=='object'||Array.isArray(receipt)||
      Object.keys(receipt).sort().join(',')!==
        'at,generatedImageQualified,permit,providerCalled,publicRelease,state'||
-     receipt.state!=='reserved_unspent'||
+     receipt.state!=='issued_unspent'||
      receipt.providerCalled!==false||receipt.generatedImageQualified!==false||
      receipt.publicRelease!==false||
      typeof receipt.at!=='string'||!Number.isFinite(Date.parse(receipt.at))||
@@ -237,8 +224,8 @@ export async function requestSunburstEdit({request,apiKey,permitVerification,res
      request.images?.length>2||!apiKey||typeof apiKey!=='string'||
      !SHA.test(permitVerification?.attemptDigest||'')||reservedAttempt!==true)
     throw Error('Authorised editing provider unavailable');
-  // Exactly one attempt. Caller MUST reserve the private one-shot marker and
-  // authorised budget before invoking this function. Never auto retry.
+  // Exactly one attempt. Caller MUST write a private source-bound marker
+  // before invoking this function. Never auto retry.
   const response=await fetchImpl(EDIT_ENDPOINT,{method:'POST',
     headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
     body:JSON.stringify(request),redirect:'error',

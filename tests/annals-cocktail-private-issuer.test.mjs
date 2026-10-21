@@ -52,8 +52,7 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
   ANNALS_EDITORIAL_IMAGE_API_KEY:'fictional-model-key-not-real',
   ANNALS_EDITORIAL_REFERENCE_FILE_ID:referenceId
  };
- const root={files:new Map([['cocktail-editorial-budget-private.json',
-  {schemaVersion:1,monthlyCeilingCents:500,perPhotoCeilingCents:200,reservations:[]}]])};
+ const root={files:new Map()};
  const folder={files:new Map([
   ['source-private.json',submission],
   ['approval-private.json',signed]
@@ -102,89 +101,90 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
  vm.runInContext(moduleSource,context,{filename:'CocktailEditorialProduction.gs',timeout:10000});
  return {context,folder,root,props,member,signed,log,events};
 }
-test('owner preflight returns Boolean statuses only and makes no writes or calls',()=>{
+test('owner preflight checks existing provider cap and rights but creates no ledger',()=>{
  const f=fixture();
  const report=f.context.annalsCocktailEditorialPreflightInEditor(itemId,0);
  assert.equal(report.eligible,true);
+ assert.equal(report.providerLimitVerified,true);
  assert.equal(report.providerCalled,false);
  assert.equal(report.published,false);
  assert.equal(report.recoveryRequired,false);
- assert.ok(f.events.ownerChecks>0);
- assert.equal(f.root.files.size,1);
+ assert.equal(f.root.files.size,0);
  assert.equal(f.folder.files.size,2);
  assert.deepEqual(f.log,[]);
  assert.doesNotMatch(JSON.stringify(report),/fictional-model-key|permit-key|publisher-key|example.invalid/);
 });
-test('owner-private issuer writes a durable budget reservation and distinct signed permit, never a paid request',()=>{
+test('owner issuer writes one signed source-specific permit without a monetary reservation or provider request',()=>{
  const f=fixture();
- const result=f.context.annalsCocktailEditorialReserveInEditor(itemId,0);
- assert.equal(result.reserved,true);assert.equal(result.requestMade,false);
- assert.equal(result.published,false);assert.equal(result.reservationCents,200);
- const ledger=f.root.files.get('cocktail-editorial-budget-private.json');
- assert.equal(ledger.reservations.length,1);
- assert.equal(ledger.reservations[0].entryId,entryId);
+ const result=f.context.annalsCocktailEditorialPermitInEditor(itemId,0);
+ assert.equal(result.issued,true);assert.equal(result.providerCalled,false);
+ assert.equal(result.published,false);assert.equal(f.root.files.size,0);
  const record=f.folder.files.get('cocktail-editorial-permit-'+sourceSha+'-private.json');
- assert.equal(record.state,'reserved_unspent');
+ assert.equal(record.state,'issued_unspent');
  assert.equal(record.providerCalled,false);
  assert.equal(record.publicRelease,false);
  assert.equal(record.permit.referenceSha256,sha(referenceBuffer));
  const verified=verifyEditorialPermit(record.permit,{
-  entryId,sourceSha256:sourceSha,referenceSha256:sha(referenceBuffer),
-  signingKey:publicKey,permitSigningKey:issuerKey,
-  now:new Date(record.permit.issuedAt)
+   entryId,sourceSha256:sourceSha,referenceSha256:sha(referenceBuffer),
+   signingKey:publicKey,permitSigningKey:issuerKey,
+   now:new Date(record.permit.issuedAt)
  });
- assert.equal(verified.budgetReserved,true);
- assert.equal(f.log.length,0);
- assert.throws(()=>f.context.annalsCocktailEditorialReserveInEditor(itemId,0),/reserved/);
+ assert.equal(verified.entryId,entryId);
+ assert.match(verified.attemptDigest,/^[a-f0-9]{64}$/);
+ assert.throws(()=>f.context.annalsCocktailEditorialPermitInEditor(itemId,0),/issuance exists/);
 });
-test('exact private immutable issuer journal is consumed as a receipt, not a forged bare permit',()=>{
+test('exact immutable private issuance is required; consumed or counterfeit receipts fail',()=>{
  const f=fixture();
- f.context.annalsCocktailEditorialReserveInEditor(itemId,0);
+ f.context.annalsCocktailEditorialPermitInEditor(itemId,0);
  const record=f.folder.files.get('cocktail-editorial-permit-'+sourceSha+'-private.json');
  const permit=extractUnspentEditorialPermit(record);
  assert.equal(permit.entryId,entryId);
- assert.equal(permit.sourceSha256,sourceSha);
  assert.equal(verifyEditorialPermit(permit,{
    entryId,sourceSha256:sourceSha,referenceSha256:sha(referenceBuffer),
    signingKey:publicKey,permitSigningKey:issuerKey,
    now:new Date(permit.issuedAt)
- }).budgetReserved,true);
+ }).sourceSha256,sourceSha);
  for(const invalid of [
-   permit, // bare copied permit is not evidence of the issuer's one-shot journal
-   {...record,state:'spent'},
+   permit,
+   {...record,state:'reserved_unspent'},
    {...record,state:'held_no_retry'},
    {...record,providerCalled:true},
    {...record,generatedImageQualified:true},
    {...record,publicRelease:true},
    {...record,at:'invalid'},
    {...record,extra:'untrusted'}
- ]){
-   assert.throws(()=>extractUnspentEditorialPermit(invalid),/receipt unavailable or previously used/);
- }
- assert.equal(f.root.files.get('cocktail-editorial-budget-private.json').reservations.length,1);
+ ])assert.throws(()=>extractUnspentEditorialPermit(invalid),/receipt unavailable or previously used/);
+ assert.equal(f.root.files.size,0);
  assert.deepEqual(f.log,[]);
 });
-test('issuer refuses until separate incident recovery, even when project hard limit exists',()=>{
- const f=fixture({recovered:false});
- const view=f.context.annalsCocktailEditorialPreflightInEditor(itemId,0);
- assert.equal(view.eligible,false);
- assert.equal(view.recoveryRequired,true);
- assert.throws(()=>f.context.annalsCocktailEditorialReserveInEditor(itemId,0),/disabled/);
- assert.equal(f.root.files.get('cocktail-editorial-budget-private.json').reservations.length,0);
-});
-test('issuer refuses revocation, missing historical receipt or disabled feature, with no ledger mutation',()=>{
- for(const config of [{revoked:true},{originalReceiptValid:false},{enabled:false}]){
-  const f=fixture(config);
-  assert.throws(()=>f.context.annalsCocktailEditorialReserveInEditor(itemId,0));
-  assert.equal(f.root.files.get('cocktail-editorial-budget-private.json').reservations.length,0);
+test('recovery, signing, cap and scoped rights prevent issuance without a new ledger',()=>{
+ for(const config of [{recovered:false},{revoked:true},
+   {originalReceiptValid:false},{enabled:false}]){
+   const f=fixture(config);
+   assert.throws(()=>f.context.annalsCocktailEditorialPermitInEditor(itemId,0));
+   assert.equal(f.root.files.size,0);
+   assert.equal(f.folder.files.size,2);
  }
+ const f=fixture();
+ f.props.ANNALS_EDITORIAL_PROJECT_HARD_LIMIT_VERIFIED='false';
+ assert.equal(f.context.annalsCocktailEditorialPreflightInEditor(itemId,0).eligible,false);
+ assert.throws(()=>f.context.annalsCocktailEditorialPermitInEditor(itemId,0),/cap unavailable/);
 });
-test('missing budget ledger never triggers unsafe reset or a spending permit',()=>{
- const f=fixture();f.root.files.delete('cocktail-editorial-budget-private.json');
- assert.throws(()=>f.context.annalsCocktailEditorialReserveInEditor(itemId,0),/ledger invalid/);
- assert.equal(f.root.files.size,0);
+test('existing historical private source reservations still block duplicate attempts',()=>{
+ const f=fixture();
+ f.root.files.set('cocktail-editorial-budget-private.json',{
+   reservations:[{sourceSha256:sourceSha}]
+ });
+ assert.throws(()=>f.context.annalsCocktailEditorialPermitInEditor(itemId,0),/Historical source attempt/);
+ assert.equal(f.folder.files.size,2);
+ const unrelated=fixture();
+ unrelated.root.files.set('cocktail-editorial-budget-private.json',{
+   reservations:[{sourceSha256:'f'.repeat(64)}]
+ });
+ assert.equal(unrelated.context.annalsCocktailEditorialPermitInEditor(itemId,0).issued,true);
+ assert.equal(unrelated.root.files.size,1,'historical ledger kept private and unchanged');
 });
-test('no raw Script Properties enumeration or key logging exists in staged issuer source',()=>{
+test('issuer source never lists private properties or sends paid provider requests',()=>{
  assert.doesNotMatch(moduleSource,/getProperties\s*\(/);
  assert.doesNotMatch(moduleSource,/console\.(?:log|warn|error)\s*\(/);
  assert.equal((moduleSource.match(/UrlFetchApp\.fetch\s*\(/g)||[]).length,1);
@@ -192,7 +192,6 @@ test('no raw Script Properties enumeration or key logging exists in staged issue
  assert.match(moduleSource,/ANNALS_EDITORIAL_SECURITY_RECOVERY_VERIFIED/);
  assert.match(moduleSource,/ANNALS_EDITORIAL_PERMIT_SIGNING_KEY/);
 });
-
 test('credential status uses owner-only GET and returns Booleans, never keys or response bodies',()=>{
  const f=fixture();
  const result=f.context.annalsCocktailEditorialCredentialPreflightInEditor();
@@ -210,7 +209,7 @@ test('credential status uses owner-only GET and returns Booleans, never keys or 
    url:'https://api.openai.com/v1/models/gpt-image-2.5-sunburst',
    method:'get',followRedirects:false,muteHttpExceptions:true
  });
- assert.equal(f.root.files.size,1);
+ assert.equal(f.root.files.size,0);
  assert.equal(f.folder.files.size,2);
  assert.deepEqual(f.log,[]);
  assert.doesNotMatch(JSON.stringify(result),/fictional-model-key|permit-key|publisher-key|example.invalid|Bearer /);
@@ -249,7 +248,7 @@ test('provider rejects/unavailable and unset owner flags remain non-spending fal
    assert.equal(report.modelLookupStatus,'not_attempted');
    assert.equal(f.events.modelRequests||0,0);
    assert.equal(report.paidRequestMade,false);
-   assert.equal(f.root.files.size,1);
+   assert.equal(f.root.files.size,0);
    assert.equal(f.folder.files.size,2);
    assert.deepEqual(f.log,[]);
  }
@@ -264,7 +263,7 @@ test('after recorded recovery, provider 401 and transport failures remain non-bi
    assert.equal(report.modelLookupStatus,networkFail?'transport_failure':'authentication_or_models_read_denied');
    assert.equal(report.paidRequestMade,false);
    assert.equal(f.events.modelRequests,1);
-   assert.equal(f.root.files.size,1);
+   assert.equal(f.root.files.size,0);
    assert.equal(f.folder.files.size,2);
    assert.deepEqual(f.log,[]);
  }
@@ -288,7 +287,7 @@ test('bounded model metadata statuses distinguish failures without exposing prov
    assert.equal(report.modelLookupAccepted,visible);
    assert.equal(report.paidRequestMade,false);
    assert.equal(f.events.modelRequests,1);
-   assert.equal(f.root.files.size,1);
+   assert.equal(f.root.files.size,0);
    assert.equal(f.folder.files.size,2);
    assert.deepEqual(f.log,[]);
    assert.doesNotMatch(JSON.stringify(report),/Bearer|fictional-model-key|permit-key|publisher-key|example.invalid/i);
@@ -296,7 +295,7 @@ test('bounded model metadata statuses distinguish failures without exposing prov
 });
 test('model credential probe contains no source records, mutation or paid endpoints',()=>{
  const begin=moduleSource.indexOf('function annalsCocktailEditorialCredentialPreflightInEditor()');
- const end=moduleSource.indexOf('/** Owner-only private reservation;',begin);
+ const end=moduleSource.indexOf('/** Owner-only source-specific editorial permission',begin);
  assert.ok(begin>0&&end>begin);
  const source=moduleSource.slice(begin,end);
  assert.match(source,/annalsOwner_\(\)/);
