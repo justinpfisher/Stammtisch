@@ -31,6 +31,7 @@ async function fixture(){
   await mkdir(path.join(mock,'data'),{recursive:true});
   await mkdir(path.join(mock,'docs'),{recursive:true});
   await mkdir(path.join(mock,'assets','annals'),{recursive:true});
+  await mkdir(path.join(mock,'scripts'),{recursive:true});
   await mkdir(output,{recursive:true});
   await cp(path.join(root,'scripts','annals'),path.join(mock,'scripts','annals'),{recursive:true});
   await copyFile(path.join(root,'docs','brand-editorial-style-guide.md'),
