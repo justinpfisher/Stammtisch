@@ -117,12 +117,13 @@ jobs:
             echo 'changed=true' >> "$GITHUB_OUTPUT"
           fi
       - name: Verify generated site data and award calculations
-        # Code is checked in PR CI. Every hourly run still validates/reconciles
-        # source and live data; run regressions when public data actually changes.
+        # All code changes receive PR CI. For routine member Sheet updates,
+        # verify only the changed scoring, source-import and push surface.
+        # Do not rerun independent cocktail, email or layout test suites.
         if: success() && steps.public_changes.outputs.changed == 'true'
         run: |
           python -m unittest discover -s tests -p 'test_*.py'
-          node --test tests/*.test.mjs
+          node --test tests/celebration*.test.mjs tests/col-*.test.mjs
       - name: Commit verified website data
         if: success() && steps.site_sync.outcome == 'success'
         id: site_commit
