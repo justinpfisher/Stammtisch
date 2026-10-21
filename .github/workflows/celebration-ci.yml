@@ -53,11 +53,44 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # PR checkouts are GitHub-created merge commits: HEAD^1 is the
+          # exact destination branch, so file scope can be read without API calls.
+          fetch-depth: 2
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Local-equivalent Python and Node regression checks
+      - name: Detect ordinary static-page copy changes
+        id: scope
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'static_copy=false' >> "$GITHUB_OUTPUT"
+          # Unknown git ancestry or empty diffs get the original full suite.
+          if ! git rev-parse --verify 'HEAD^1' >/dev/null 2>&1; then exit 0; fi
+          files="$(git diff --name-only --diff-filter=ACMRT HEAD^1 HEAD)"
+          if [ -z "$files" ]; then exit 0; fi
+          while IFS= read -r file; do
+            case "$file" in
+              index.html|location.html) ;;
+              *) exit 0 ;;
+            esac
+          done <<< "$files"
+          # A change adding/removing executable markup or dynamic event
+          # handlers is functional, not static copy: retain the full suite.
+          if git diff --unified=0 HEAD^1 HEAD -- index.html location.html |
+            grep -E '^[+-][^+-].*(<script|<iframe|<form|javascript:|on[a-z]+[[:space:]]*=)' >/dev/null; then
+            exit 0
+          fi
+          echo 'static_copy=true' >> "$GITHUB_OUTPUT"
+      - name: Focused public-page and accessibility-contract checks
+        if: steps.scope.outputs.static_copy == 'true'
+        run: |
+          node --test tests/assembly.test.mjs tests/monthly.test.mjs tests/site-chrome.test.mjs tests/annals-brand-voice.test.mjs tests/annals-public-site.test.mjs tests/col-public-language.test.mjs
+      - name: Full Python and Node regression for functional and other changes
+        if: steps.scope.outputs.static_copy != 'true'
         run: node scripts/local-dev.mjs check
