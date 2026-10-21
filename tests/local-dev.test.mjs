@@ -50,9 +50,9 @@ test('focused CI never ignores deletions, renames or case-varied executable mark
   const end=workflow.indexOf('      - name: Focused public-page',start);
   assert.ok(start>0 && end>start,'Focused CI classifier must be present');
   const scope=workflow.slice(start,end);
-  assert.match(scope,/git diff --no-renames --name-status HEAD\^1 HEAD/);
-  assert.match(scope,/\[ "\$status" = 'M' \] \|\| exit 0/);
+  assert.match(scope,/git diff --name-only HEAD\^1 HEAD/);
+  assert.match(scope,/--diff-filter=ACDRTUXB/);
   assert.match(scope,/grep -Ei/,'HTML execution detection must ignore case');
-  assert.doesNotMatch(scope,/--diff-filter=ACMRT|git diff --name-only/);
+  assert.doesNotMatch(scope,/--diff-filter=ACMRT|while IFS=\\n/);
   assert.match(workflow,/Full Python and Node regression for functional and other changes/);
 });
