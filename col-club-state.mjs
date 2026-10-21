@@ -58,7 +58,7 @@ export function isJettisonEligible(pick, memberId, asOf, clubState = null) {
   if (!isRecord(pick) || !Number.isInteger(pick.pick) ||
       pick.pick < 1 || pick.pick > 50 || !validDate(pick.born) ||
       !validDate(asOf) || pick.born > asOf || pick.counted ||
-      pick.dateOfPassing || pick.actualDeathDate || pick.needsReview ||
+      pick.dateOfPassing || pick.actualDeathDate || pick.dateSource?.dateOfPassing || pick.needsReview ||
       isProtectedPick(pick,memberId,clubState)) return false;
   const [by,bm,bd]=pick.born.split('-').map(Number);
   const [ay,am,ad]=asOf.split('-').map(Number);
