@@ -45,6 +45,16 @@ class GitHubAuthorityTests(unittest.TestCase):
         self.assertEqual(authority.apply_awarded_points(source,ledger()),corrected)
         self.assertEqual(authority.apply_awarded_points(corrected,ledger()),corrected)
 
+    def test_negative_award_correction_for_over_centenary_passing(self):
+        source = awarded()
+        original = copy.deepcopy(source)
+        corrected = authority.apply_awarded_points(source, ledger(-18))
+        self.assertEqual(corrected["members"][0]["score"], -18)
+        self.assertEqual(corrected["members"][0]["picks"][0]["points"], -18)
+        self.assertEqual(source, original, "signed imported points must remain unchanged")
+        self.assertEqual(list(sync.newly_reported_deaths(source, corrected)), [],
+                         "score correction must never announce a new passing")
+
     def test_repeat_sheet_import_cannot_reverse_git_authorised_award(self):
         previous = awarded()
         sheet = copy.deepcopy(previous)
@@ -115,7 +125,7 @@ class GitHubAuthorityTests(unittest.TestCase):
     def test_correction_validation_and_unique_selection_guard(self):
         template=ledger()
         for field,value in [("memberId","seventh-member"),("points",True),
-                            ("points",-1),("points",1001),
+                            ("points",-1001),("points",1001),
                             ("born","2026-02-31"),("seasonYear",True)]:
             bad=copy.deepcopy(template)
             bad["pointsCorrections"][0][field]=value

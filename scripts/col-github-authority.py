@@ -36,7 +36,7 @@ def validated_corrections(club):
             or not c["pickId"].startswith(c["memberId"]+"-")
             or not isinstance(c["name"],str) or not 1<=len(c["name"].strip())<=160
             or not isinstance(c["born"],str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}",c["born"])
-            or type(c["points"]) is not int or not 0<=c["points"]<=1000):
+            or type(c["points"]) is not int or not -1000<=c["points"]<=1000):
             raise ValueError("Invalid GitHub score correction identity")
         try:
             dt.date.fromisoformat(c["born"])

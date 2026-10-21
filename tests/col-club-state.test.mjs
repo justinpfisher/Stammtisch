@@ -124,10 +124,23 @@ test('a GitHub points correction overrides a stale Sheet score without editing t
   assert.equal(corrected.members[0].picks[0].actualDeathDate,'2026-03-25');
 });
 
+test('Club corrections permit negative point awards for deaths past age 100',()=>{
+  const data=season([member('fish',[{...pick('Fictional'),id:'fish-3',points:4}])]);
+  data.members[0].score=4;
+  const state=copy();state.pointsCorrections=[{
+    seasonYear:2026,memberId:'fish',pickId:'fish-3',name:'Fictional',born:'1950-01-01',points:-18
+  }];
+  assert.equal(readClubState(state),state);
+  const result=applyPointsCorrections(data,state);
+  assert.equal(result.members[0].score,-18);
+  assert.equal(result.members[0].picks[0].points,-18);
+  assert.equal(data.members[0].score,4,'original signed Sheet state remains intact');
+});
+
 test('GitHub score overrides reject mismatched identity, unawarded picks and malformed corrections',()=>{
   const data=season([member('fish',[{...pick('Fictional'),id:'fish-3'}])]);
   const c={seasonYear:2026,memberId:'fish',pickId:'fish-3',name:'Fictional',born:'1950-01-01',points:37};
-  for(const bad of [{...c,points:-1},{...c,points:2.5},{...c,memberId:'outsider'},
+  for(const bad of [{...c,points:-1001},{...c,points:1001},{...c,points:2.5},{...c,memberId:'outsider'},
     {...c,pickId:'marc-3'},{...c,seasonYear:2025},{...c,note:'unverified private detail'}]){
     const state=copy();state.pointsCorrections=[bad];
     assert.throws(()=>readClubState(state),/Invalid GitHub points correction/);
