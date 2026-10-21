@@ -288,8 +288,7 @@ async function list(reset){
     if(!page||!Array.isArray(page.items)||page.items.length>3||
        !(page.continuation===null||typeof page.continuation==='string')||
        page.items.some(item=>!item||!/^[a-f0-9]{64}$/.test(item.id||'')||
-         typeof item.subject!=='string'||typeof item.state!=='string'||
-         item.subject.length>200||item.state.length>180))
+         typeof item.subject!=='string'||typeof item.state!=='string'))
       throw new Error('The private list response was not a valid bounded page. No result was applied.');
     const rows=page.items.map(item=>{
       const li=document.createElement('li'),b=document.createElement('button');
