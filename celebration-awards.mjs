@@ -88,8 +88,10 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}, polic
   const allEvents = awardEvents(data);
   const events = allEvents.filter(x => x.inSeason && !x.dateConflict);
   const undated = allEvents.filter(x => !x.at || x.dateConflict).length;
-  // Finishing the calendar year never finalizes an old or incomplete snapshot.
-  const final = settings.finalizedYear === data.year && data.asOf >= `${data.year}-12-31`;
+  // The Club's competition ends at the recorded first-gathering handover, not
+  // December 31. Until the Renewal-to-Renewal score source and January gap are
+  // reconciled, this public draft preview must not certify a final winner.
+  const final = false;
   const leader = members.filter(m => m.score === Math.max(...members.map(m => m.score)));
   const lowest = members.filter(m => m.score === Math.min(...members.map(m => m.score)));
   const ageEvents = events.filter(x => x.age !== null && x.owners.length);
