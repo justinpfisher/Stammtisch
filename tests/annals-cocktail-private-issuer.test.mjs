@@ -205,7 +205,6 @@ test('missing image key does not call provider; separate signer mismatches are r
    assert.equal(report.permitSignerPresentAndDistinct,false);
    assert.equal(report.modelLookupAccepted,false);
    assert.equal(report.modelLookupStatus,'not_attempted');
-   assert.equal(report.modelLookupStatus,'not_attempted');
    assert.equal(f.events.modelRequests||0,0);
    assert.deepEqual(f.log,[]);
  }
@@ -220,7 +219,6 @@ test('provider rejects/unavailable and unset owner flags remain non-spending fal
    assert.equal(report.recoveryFlagSet,false);
    assert.equal(report.projectHardLimitFlagSet,false);
    assert.equal(report.modelLookupAccepted,false);
-   assert.equal(report.modelLookupStatus,'not_attempted');
    assert.equal(report.modelLookupStatus,'not_attempted');
    assert.equal(f.events.modelRequests||0,0);
    assert.equal(report.paidRequestMade,false);
