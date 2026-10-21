@@ -1,4 +1,5 @@
 import copy
+import datetime as dt
 import importlib.util
 import pathlib
 import unittest
@@ -75,8 +76,13 @@ class GitHubAuthorityTests(unittest.TestCase):
     def test_january_source_hold_does_not_reject_a_github_only_award_correction(self):
         previous, sheet = awarded(), awarded()
         sheet["asOf"]="2027-01-16"
-        original, original_cells = sync.importer.import_data, sync.sheets_api_cells
+        original, original_cells, original_clock = sync.importer.import_data, sync.sheets_api_cells, sync.datetime
+        class FrozenJanuaryClock(dt.datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return dt.datetime(2027, 1, 17, tzinfo=tz)
         try:
+            sync.datetime = FrozenJanuaryClock
             sync.sheets_api_cells = lambda _: {"LEADERBOARD":{"A1":{"value":2026}}}
             sync.importer.import_data = lambda *args, **kwargs: copy.deepcopy(sheet)
             status, published, _ = sync.prepare({},previous,[],"2027-01-16T22:00:00Z",
@@ -88,7 +94,7 @@ class GitHubAuthorityTests(unittest.TestCase):
                 sync.prepare({},previous,[],"2027-01-16T22:00:00Z",
                              allow_research=False,corrections=ledger())
         finally:
-            sync.importer.import_data, sync.sheets_api_cells = original, original_cells
+            sync.importer.import_data, sync.sheets_api_cells, sync.datetime = original, original_cells, original_clock
 
     def test_newly_reported_passing_cannot_be_created_by_score_only_correction(self):
         source = awarded()
@@ -107,7 +113,7 @@ class GitHubAuthorityTests(unittest.TestCase):
                     authority.apply_awarded_points(awarded(),broken)
         unawarded=awarded()
         unawarded["members"][0]["picks"][0]["counted"]=False
-        with self.assertRaisesRegex(ValueError,"already awarded"):
+        with self.assertRaisesRegex(ValueError,"existing awarded"):
             authority.apply_awarded_points(unawarded,ledger())
 
     def test_correction_attribution_schema_and_order_guard(self):
