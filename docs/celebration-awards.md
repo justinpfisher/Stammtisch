@@ -11,9 +11,7 @@
 
 # Celebration of Life award calculations
 
-The website's **Awards & the next draft** section is recalculated in the browser
-from `data/celebration.json` on each page load. Publishing a refreshed register
-updates these results. It does not fetch news, edit the spreadsheet, allocate
+The website's **Awards & the next draft** section is recalculated in the browser from the shared Sheet's screened `data/celebration.json` and the Club's canonical GitHub `data/col-club-state.json` for Protection placements and corrected report dates. Publishing refreshed records updates the corresponding preview. It does not fetch news, edit the spreadsheet, allocate
 points, choose benefits, conduct steals or finalize the year automatically.
 
 The [official pool rules](celebration-of-life-rules.md) govern pool benefits.
@@ -37,9 +35,7 @@ The spreadsheet's `distinctions` entries supply the separate button ideas.
   Replacement counts use numbered selections with dated passings, excluding BB
   entries. Optional jettisons show the maximum needed to reach five spaces,
   before steals or jettisons. The preview does not choose any celebrity to remove.
-- Birthday Buffet matches use group discovery dates and the six birthdays in the
-  rules. Blue, Brown and explicitly recorded Blood Diamonds are excluded. Existing
-  score allocations remain unchanged. Justin confirmed that Kevin Keegan's
+- Birthday Buffet matches use the dates recorded in the shared Sheet as the presumed first WhatsApp group report, unless a member provides a correction in GitHub `data/col-club-state.json`. Blue, Brown and separately placed Blood Diamond Protections are excluded. Existing score allocations remain unchanged. Justin confirmed that Kevin Keegan's
   12 points for Matt and 13 for Ken were approved by a group vote; this is a
   settled exception, not an allocation needing review.
 
@@ -122,12 +118,7 @@ the youngest-death result remains provisional. Duplicate celebrity/BB records
 are grouped into one event; missing or conflicting dates do not earn benefits.
 Prior-year and future-dated events are excluded from the season calculation.
 
-The clock alone never finalizes an award. After reviewing the completed annual
-register, a maintainer may set `awardSettings.finalizedYear` on that snapshot to
-the matching `year`, with `asOf` at December 31 or later. This permits the
-points winner (or shared winners) and Devil's Share eligibility to be labelled final. It does not
-resolve badge definitions, ties, unconfirmed ages or nominations. The importer
-does not carry this reviewed finalization flag into a fresh snapshot.
+The year now changes at **8 p.m. America/Toronto on the third Friday of January** (15 January 2027 for the upcoming handover). A bare death date or December 31 does not prove that an award is final. The legacy `awardSettings.finalizedYear` flag is deliberately ignored by the public preview after PR #229. The source-bound January transition, final points, awards and historic protections must first be reconciled under the existing safeguards; the approved website wording does not itself recalculate these outcomes. The importer does not carry a finalized-year flag into a fresh snapshot.
 
 ## Verification
 
@@ -139,8 +130,7 @@ member links on desktop and phone widths when changing the UI.
 
 ## Current Blood Diamond status
 
-Justin confirmed that no Blood Diamonds have been assigned yet. Blue and Brown
-Diamonds remain selections #1 and #50 respectively.
+The previous owner-confirmed state was that **no separately placed Blood Diamonds had been assigned**. Blue and Brown Diamonds remain numbered selections #1 and #50 and are protected by position. All future actual placements, report-date corrections and annual draft actions are kept in the GitHub Club register, not a new spreadsheet tab. An empty placements array means none have been recorded there; it does not fabricate any past draft decision.
 
 ## Independent post-snapshot reports
 

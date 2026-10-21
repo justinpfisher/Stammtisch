@@ -1,6 +1,7 @@
 import { ageAt, basePoints, distinctionReason } from './celebration-rules.mjs';
 export { ageAt, basePoints } from './celebration-rules.mjs';
-import { calculateAwards, awardsMarkup, draftMarkup } from './celebration-awards.mjs?v=metric-birthdays-20261021';
+import { calculateAwards, awardsMarkup, draftMarkup } from './celebration-awards.mjs?v=col-handover-20261021';
+import {readClubState} from './col-club-state.mjs';
 import {loadOperativeSnapshot} from './col-rules-reader.mjs';
 import {verifiedAwardPolicy} from './col-award-policy.mjs?v=col-release-20261020';
 
@@ -117,6 +118,14 @@ export async function mountCelebration() {
     document.querySelector('#commemoration-list').innerHTML = '<p>Please reload the page to see commemorations.</p>';
     return;
   }
+  // GitHub is authoritative for the Club's draft/Protection record and report
+  // date corrections. A failed optional read cannot alter Sheet-derived scores.
+  let clubState = null;
+  try {
+    const stateResponse = await fetch('data/col-club-state.json', {cache:'no-store'});
+    if (!stateResponse.ok) throw new Error('Club register unavailable');
+    clubState = readClubState(await stateResponse.json());
+  } catch { /* Existing recorded Sheet totals remain visible and unchanged. */ }
   const e = escapeHtml;
   const members = rankedMembers(data.members);
   const renderAwardViews=awards=>{
@@ -125,12 +134,12 @@ export async function mountCelebration() {
     document.querySelector('#badge-leaders').innerHTML = awardsMarkup({ ...awards, cards:awards.cards.slice(official) });
     document.querySelector('#draft-benefits').innerHTML = draftMarkup(awards);
   };
-  renderAwardViews(calculateAwards(data));
+  renderAwardViews(calculateAwards(data,data.awardSettings??{},{},clubState));
   // Refresh award benefits only after the existing reader admits a fully
   // witnessed rule release. The initial standings never wait for this read.
   loadOperativeSnapshot().then(snapshot=>{
     const policy=verifiedAwardPolicy(snapshot);
-    if(policy.oldestDeathSteal||policy.age100PrivilegeEndsAt)renderAwardViews(calculateAwards(data,data.awardSettings??{},policy));
+    if(policy.oldestDeathSteal||policy.age100PrivilegeEndsAt)renderAwardViews(calculateAwards(data,data.awardSettings??{},policy,clubState));
   }).catch(()=>{});
   document.querySelector('#awards-date').textContent = data.year + ' season · Register updated ' + dateLabel(data.asOf) + '.';
   let selectedMember = 'all';

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "yearHandover": {
+    "month": 1,
+    "week": 3,
+    "weekday": "Friday",
+    "localTime": "20:00",
+    "timeZone": "America/Toronto"
+  },
+  "birthdayBuffet": {
+    "dateSource": "shared-spreadsheet-unless-corrected",
+    "corrections": []
+  },
+  "protectionPlacements": [],
+  "draftActions": []
+}

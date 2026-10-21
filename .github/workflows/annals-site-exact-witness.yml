@@ -10,6 +10,8 @@ on:
       - 'celebration.html'
       - 'celebration.mjs'
       - 'celebration-awards.mjs'
+      - 'col-club-state.mjs'
+      - 'data/col-club-state.json'
       - 'history.html'
       - 'photos.html'
       - 'annals-photos.mjs'
@@ -45,5 +47,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify 17 core files and each qualified signed/editorial photo live
+      - name: Verify 19 core files and each qualified signed/editorial photo live
         run: node scripts/annals/observe-hosted-site.mjs

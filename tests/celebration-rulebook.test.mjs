@@ -25,17 +25,19 @@ test('one public current Club rulebook is readable without JS and not overwritte
 });
 
 test('year, dates, birthday entitlement and protections display the actual 21 October decisions',()=>{
-  assert.match(rulebook,/first Stammtisch of one calendar year to the first Stammtisch of the next/);
-  assert.match(rulebook,/exact handover time is decided and recorded when the company assembles/);
-  assert.match(rulebook,/From January 1 until that handover, qualifying deaths belong to the preceding competition year/);
+  assert.match(rulebook,/third Friday of January/);
+  assert.match(rulebook,/Friday, January 15, 2027, at 8 p.m./);
+  assert.match(rulebook,/From January 1 until that hour, qualifying deaths still count for the previous competition year/);
   assert.match(rulebook,/first reported in the Club's WhatsApp group/);
-  assert.match(rulebook,/private discovery or a news alert/);
+  assert.match(rulebook,/private discovery or news alert/);
   assert.match(rulebook,/Blue Diamonds, Brown Diamonds and celebrities bearing a placed Protection are excluded/);
   assert.match(rulebook,/honour-bound to report promptly/);
-  assert.match(rulebook,/Once placed, a Protection stays with that celebrity until death, even across competition years/);
+  assert.match(rulebook,/shared CoL spreadsheet is the Club's <strong>default first-report date<\/strong> unless a member supplies a correction/);
+  assert.match(rulebook,/it stays with that celebrity until death, even across competition years/);
+  assert.match(rulebook,/living Blue and Brown Diamond picks \(positions #1 and #50\) are protected/);
   assert.match(rulebook,/cannot be cancelled, moved or jettisoned/);
   assert.match(rulebook,/does not double points/);
-  assert.match(rulebook,/unplaced.*expires when the draft concludes/);
+  assert.match(rulebook,/unplaced.*expires at the applicable draft/);
 });
 
 test('agreed annual business is exactly seven stages and Devil’s Share follows earned Steals',()=>{
@@ -63,8 +65,8 @@ test('unchanged prior scores and sealed rules remain visibly distinguished from 
   assert.match(rulebook,/Previously awarded points and benefits are not rewritten/);
   assert.doesNotMatch(rulebook,/Matter for Club Deliberation \(non-operative\)|implementation class|Viewer|release gate|snapshot digest|qualified implementation/);
   const matters=(rulebook.match(/Matter for Club Deliberation/g)||[]).length;
-  assert.equal(matters,1,'Only the still-future precise cutoff is unsettled');
-  assert.match(rulebook,/precise hour of the 2027 handover/);
+  assert.equal(matters,0,'The Club has already fixed the January handover hour');
+  assert.match(rulebook,/Club's permanent register records Protection placements and draft actions/);
   assert.doesNotMatch(rulebook,/seven-stage order, but its annual boundary.*unresolved/);
   assert.doesNotMatch(rulebook,/Protections last until death.*verified register representation/);
   const ids=new Set(ledger.operations.map(o=>o.revisionId));
@@ -81,15 +83,16 @@ test('website-wide instructions favour simple releases and a short Club-voice Ma
   assert.doesNotMatch(rulebook,/new rule.*needs.*second vote/i);
 });
 
-test('Birthday Buffet preview no longer equates discovery dates with WhatsApp proof',()=>{
+test('Birthday Buffet uses the shared spreadsheet date by default without reallocating historical points',()=>{
   const source=JSON.parse(readFileSync(new URL('../data/celebration.json',import.meta.url),'utf8'));
   const original=JSON.stringify(source),model=calculateAwards(source);
   const card=model.cards.find(c=>c.id==='birthday-buffet');
   assert.ok(card);
-  assert.match(card.description,/first report in the Club’s WhatsApp group decides/);
-  assert.match(card.description,/discovery date alone is not an award/);
-  assert.doesNotMatch(card.description,/Uses the group’s discovery date/);
+  assert.match(card.description,/date recorded in its shared spreadsheet as the first WhatsApp report date/);
+  assert.match(card.description,/unless corrected/);
+  assert.doesNotMatch(card.description,/private verification required/);
   assert.match(card.details.join(' '),/Previous Club awards remain as recorded/);
+  assert.doesNotMatch(card.details.join(' '),/if the Club confirms eligibility/);
   assert.match(card.details.join(' '),/Matt 12, Ken 13/);
   assert.equal(JSON.stringify(source),original,'display work does not rewrite points');
 });
@@ -102,8 +105,8 @@ test('prize preview uses the agreed handover instead of an obsolete fixed Decemb
   const prize=model.cards.find(c=>c.id==='pool-prize');
   assert.ok(prize);
   assert.match(prize.description,/Recorded so far/);
-  assert.match(prize.details.join(' '),/first Stammtisch of the following year/);
-  assert.match(prize.details.join(' '),/handover time agreed and recorded by the Club/);
+  assert.match(prize.details.join(' '),/8 p.m. Toronto time on the third Friday of January/);
+  assert.doesNotMatch(prize.details.join(' '),/handover time agreed and recorded by the Club/);
   assert.doesNotMatch(prize.details.join(' '),/January 1 to December 31/);
   assert.equal(model.final,false,'A live preview is not an authenticated year-end award');
   assert.equal(JSON.stringify(fixture),before,'descriptive copy must not change recorded standings');
