@@ -93,3 +93,18 @@ test('Birthday Buffet preview no longer equates discovery dates with WhatsApp pr
   assert.match(card.details.join(' '),/Matt 12, Ken 13/);
   assert.equal(JSON.stringify(source),original,'display work does not rewrite points');
 });
+
+test('prize preview uses the agreed handover instead of an obsolete fixed December cutoff',()=>{
+  const recorded=JSON.parse(readFileSync(new URL('../data/celebration.json',import.meta.url),'utf8'));
+  const fixture={...recorded,members:recorded.members.map((m,i)=>({...m,score:100+i}))};
+  const before=JSON.stringify(fixture);
+  const model=calculateAwards(fixture);
+  const prize=model.cards.find(c=>c.id==='pool-prize');
+  assert.ok(prize);
+  assert.match(prize.description,/Recorded so far/);
+  assert.match(prize.details.join(' '),/first Stammtisch of the following year/);
+  assert.match(prize.details.join(' '),/handover time agreed and recorded by the Club/);
+  assert.doesNotMatch(prize.details.join(' '),/January 1 to December 31/);
+  assert.equal(model.final,false,'A live preview is not an authenticated year-end award');
+  assert.equal(JSON.stringify(fixture),before,'descriptive copy must not change recorded standings');
+});

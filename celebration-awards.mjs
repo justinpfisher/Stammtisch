@@ -113,8 +113,8 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}, polic
   const oldestTieUnresolved = oldestOwners.length > 1;
   const oldestFinal = final && !oldestIncomplete && !oldestTieUnresolved;
   const cards = [{ id:'pool-prize', title:'The $100 prize', status:leader.length > 1 ? (final ? 'Shared winners' : 'Tied on points') : final ? 'Winner' : 'Leading',
-    value:names(leader), description:`${leader[0]?.score ?? 0} points · ${final ? 'Final register' : 'Year to date'}`,
-    details:leader.length > 1 ? ['Tied winners share the $100 prize.'] : ['The highest score from January 1 to December 31 wins.'] },
+    value:names(leader), description:`${leader[0]?.score ?? 0} points · ${final ? 'Final register' : 'Recorded so far'}`,
+    details:leader.length > 1 ? ['Tied winners share the $100 prize.'] : ['The winner is determined at the first Stammtisch of the following year, at the handover time agreed and recorded by the Club. Current points remain provisional until then.'] },
   { id:'youngest', title:'Youngest celebrity', status:youngest.length ? 'Provisional contenders' : 'No dated records',
     value:youngest.length ? names(members.filter(m => youngestOwners.includes(m.id))) : 'No contender yet',
     description:minAge === null ? 'One Blood Diamond at the next draft.' : `Youngest recorded age: ${minAge} · One Blood Diamond at the next draft`,
