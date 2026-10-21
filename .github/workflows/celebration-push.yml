@@ -10,8 +10,11 @@ on:
     branches: [main]
     paths:
       - 'data/celebration.json'
+  # Hourly source-monitor completions and real CoL data pushes already
+  # wake delivery. Keep a bounded six-hour recovery check only for missed
+  # platform events; it never creates a new death or overrides deduplication.
   schedule:
-    - cron: '29 * * * *'
+    - cron: '29 */6 * * *'
   workflow_dispatch:
     inputs:
       pilot_test:
