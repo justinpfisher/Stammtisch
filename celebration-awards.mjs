@@ -24,7 +24,7 @@ function deathInstant(value, date) {
 // remain authoritative for eligibility; convert each occurrence's year because
 // after February a leap year changes its Metric Calendar ordinal.
 export function metricBirthdayLabel(year, monthDay) {
-  if (!Number.isInteger(year) || year < 100 || year > 9999 || !/^\\d{2}-\\d{2}$/.test(monthDay || '')) return null;
+  if (!Number.isInteger(year) || year < 100 || year > 9999 || !/^\d{2}-\d{2}$/.test(monthDay || '')) return null;
   const gregorian = `${year}-${monthDay}`;
   if (!validDate(gregorian)) return null;
   let ordinal = 1 + Math.floor((Date.parse(gregorian+'T00:00:00Z')-Date.UTC(year,0,1))/86400000);
