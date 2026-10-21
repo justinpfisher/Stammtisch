@@ -109,7 +109,11 @@ function annalsCocktailEditorialCredentialPreflightInEditor(){
       recoveryFlagSet:properties.getProperty('ANNALS_EDITORIAL_SECURITY_RECOVERY_VERIFIED')==='true',
       projectHardLimitFlagSet:properties.getProperty('ANNALS_EDITORIAL_PROJECT_HARD_LIMIT_VERIFIED')==='true',
       modelLookupAccepted:false,paidRequestMade:false,propertiesChanged:false};
-  if(!result.imageCredentialPresent)return result;
+  // Do not even query model metadata with a possibly exposed credential
+  // until the owner has separately recorded protected recovery and the
+  // independent permit signer is present and distinct.
+  if(!result.imageCredentialPresent||!result.permitSignerPresentAndDistinct||
+     !result.recoveryFlagSet)return result;
   try{
     // Public provider model-metadata endpoint: GET, not image generation.
     // Never inspect/log response text, token headers or diagnostic errors.
