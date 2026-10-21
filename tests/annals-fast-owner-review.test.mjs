@@ -164,3 +164,99 @@ test('owner-only live receipt check is available from the already authenticated 
   const owner=s.slice(s.indexOf('async function ownerReadback('),s.indexOf('function attemptMessage('));
   assert.doesNotMatch(owner,/annalsDispatchApproved|annalsReassessHeldRecipe|annalsApproveReview|GmailApp/);
 });
+
+function fictionalQueueHarness(nextResult){
+  const script=ui.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const start=script.indexOf('const QUEUE_DELIVERY_TIMEOUT_MS='),
+    end=script.indexOf('async function open(',start);
+  assert.ok(start>=0&&end>start,'Expected isolated queue-read implementation');
+  const items={children:[],replaceChildren(){this.children=[];},append(node){this.children.push(node);}};
+  const more={hidden:false,disabled:false},refresh={disabled:false};
+  const values={items,more,refreshList:refresh};
+  const calls=[],messages=[],timers=[];
+  let next=nextResult;
+  const scope={
+    nonce:'fictional-nonce',continuation:'existing-cursor',
+    call:(method,...args)=>{calls.push({method,args});return next();},
+    el:id=>values[id],
+    say:text=>messages.push(text),
+    setTimeout:(fn,delay)=>{const t={fn,delay,cleared:false};timers.push(t);return t;},
+    clearTimeout:t=>{t.cleared=true;},
+    document:{createElement:tag=>tag==='li'
+      ? {children:[],append(node){this.children.push(node);}}
+      : {dataset:{},textContent:'',onclick:null}},
+    act:()=>{throw Error('Queue fixture cannot perform actions');},
+    open:()=>{throw Error('Queue fixture cannot open items');}
+  };
+  const ctx=vm.createContext(scope);
+  vm.runInContext(script.slice(start,end),ctx);
+  return {ctx,items,more,refresh,calls,messages,timers,scope,setNext:fn=>{next=fn;}};
+}
+const fictionalPage={items:[{id:'b'.repeat(64),subject:'Fictional sample',state:'Held privately'}],continuation:null};
+
+test('read-only queue renders a bounded valid page without repeating request or leaking item identifiers into status',async()=>{
+  const f=fictionalQueueHarness(()=>Promise.resolve(fictionalPage));
+  await f.ctx.list(true);
+  assert.equal(f.calls.length,1);
+  assert.equal(f.calls[0].method,'annalsReviewList');
+  assert.equal(f.calls[0].args[0],'fictional-nonce');
+  assert.equal(f.calls[0].args[1],null);
+  assert.equal(f.items.children.length,1);
+  assert.equal(f.items.children[0].children[0].textContent,'Fictional sample — Held privately');
+  assert.equal(f.more.hidden,true);
+  assert.equal(f.refresh.disabled,false);
+  assert.equal(f.more.disabled,false);
+  assert.equal(f.messages.at(-1),'Private review is ready.');
+  assert.ok(f.timers.every(t=>t.cleared));
+});
+
+test('completed server execution with missing iframe callback reports a bounded hold without repeating or clearing queue',async()=>{
+  let lateResult;
+  const f=fictionalQueueHarness(()=>new Promise(resolve=>{lateResult=resolve;}));
+  const existing={previous:true};f.items.children.push(existing);
+  const load=f.ctx.list(true);
+  assert.equal(f.calls.length,1);
+  assert.equal(f.refresh.disabled,true);
+  assert.equal(f.timers.length,1);
+  assert.equal(f.timers[0].delay,45000);
+  f.timers[0].fn(); // Simulate elapsed browser wall time, no actual wait.
+  await assert.rejects(load,/did not reach this page/);
+  assert.equal(f.calls.length,1);
+  assert.deepEqual(f.items.children,[existing]);
+  assert.equal(f.scope.continuation,'existing-cursor');
+  assert.equal(f.refresh.disabled,false);
+  assert.equal(f.more.disabled,false);
+  lateResult(fictionalPage);
+  await Promise.resolve();
+  assert.deepEqual(f.items.children,[existing]);
+});
+
+test('overlapping private queue clicks and malformed result fail safely without duplicated rows',async()=>{
+  let respond;
+  const f=fictionalQueueHarness(()=>new Promise(resolve=>{respond=resolve;}));
+  const pending=f.ctx.list(false);
+  await f.ctx.list(true); // Explicit second click while a read is pending
+  assert.equal(f.calls.length,1);
+  assert.match(f.messages.at(-1),/No additional request was sent/);
+  respond({items:[{id:'not-a-private-id',subject:'Unsafe',state:'ready'}],continuation:null});
+  await assert.rejects(pending,/not a valid bounded page/);
+  assert.equal(f.items.children.length,0);
+  assert.equal(f.scope.continuation,'existing-cursor');
+  assert.equal(f.more.disabled,false);
+  assert.equal(f.refresh.disabled,false);
+});
+
+test('failed refresh preserves previously displayed rows and cursor; a fresh explicit read can recover',async()=>{
+  const f=fictionalQueueHarness(()=>Promise.reject(Error('fictional transport failure')));
+  const old={existing:true};f.items.children.push(old);
+  await assert.rejects(f.ctx.list(true),/fictional transport failure/);
+  assert.deepEqual(f.items.children,[old]);
+  assert.equal(f.scope.continuation,'existing-cursor');
+  assert.equal(f.calls.length,1);
+  f.setNext(()=>Promise.resolve(fictionalPage));
+  await f.ctx.list(true);
+  assert.equal(f.calls.length,2);
+  assert.equal(f.items.children.length,1);
+  assert.equal(f.items.children[0].children[0].dataset.itemId,'b'.repeat(64));
+  assert.equal(f.scope.continuation,null);
+});
