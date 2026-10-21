@@ -15,6 +15,7 @@ FILES = (
     "production-appsscript.json", "PhotoContracts.js", "PhotoProduction.gs",
     "RulesCore.js", "RulesProduction.gs", "JpegCodec.js", "PhotoDerivative.js", "GuardedRelease.gs",
     "CocktailEditorialCore.js", "CocktailEditorialProduction.gs",
+    "IntakeCadence.gs",
 )
 
 
