@@ -471,8 +471,8 @@ def main():
     parser.add_argument("--workbook", type=pathlib.Path, required=True)
     parser.add_argument("--existing", type=pathlib.Path, default=ROOT / "data/celebration.json")
     parser.add_argument("--confirmations", type=pathlib.Path, default=ROOT / "data/celebration-confirmations.json")
-    parser.add_argument("--score-corrections", type=pathlib.Path,
-                        default=ROOT / "data/col-score-corrections.json")
+    parser.add_argument("--club-state", type=pathlib.Path,
+                        default=ROOT / "data/col-club-state.json")
     parser.add_argument("--status", type=pathlib.Path, required=True)
     parser.add_argument("--checked-at", required=True)
     parser.add_argument("--disable-research", action="store_true")
@@ -480,7 +480,7 @@ def main():
     workbook = json.loads(args.workbook.read_text(encoding="utf-8"))
     existing = json.loads(args.existing.read_text(encoding="utf-8"))
     confirmations = json.loads(args.confirmations.read_text(encoding="utf-8"))
-    corrections = json.loads(args.score_corrections.read_text(encoding="utf-8"))
+    corrections = json.loads(args.club_state.read_text(encoding="utf-8"))
     datetime.fromisoformat(args.checked_at.replace("Z", "+00:00"))
     try:
         result, data, combined = prepare(workbook, existing, confirmations, args.checked_at,
