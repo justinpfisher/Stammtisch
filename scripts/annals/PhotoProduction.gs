@@ -1,15 +1,15 @@
 function annalsSpeakerIdentities_(){return AnnalsProduction.portraitMap(AnnalsPilot.allowedSenders(annalsProps_().getProperty('ANNALS_ALLOWED_SENDERS')||''),JSON.parse(annalsProps_().getProperty('ANNALS_SPEAKER_IDENTITIES')||'null'));}
-/* In-place extension; all new capabilities default off. No trigger/setup API. */
+/* One rights-checked photo route, without obsolete single-source approval lanes.
+ * Signing, standing image permission, screening and exact derivatives remain
+ * independently required in downstream source-bound publication.
+ */
 function annalsPhotosReady_(id){
   var p=annalsProps_();
   if(!Number.isFinite(Date.parse(p.getProperty('ANNALS_SIGNING_REMEDIATED_AT'))))return false;
-  if(p.getProperty('ANNALS_AUTO_MEDIA_ENABLED')==='true' && p.getProperty('ANNALS_PHOTOS_V2_ENABLED')==='true' &&
-    (p.getProperty('ANNALS_PHOTOS_HOSTED_ACCEPTED')==='true'||typeof annalsGuardedPhotosReady_==='function'&&annalsGuardedPhotosReady_()))return true;
-  // A separate, short-lived, exact-source acceptance lane after security work.
-  // It cannot enable another email or override consent, budget or one-shot gates.
-  var until=Date.parse(p.getProperty('ANNALS_PHOTOS_ACCEPTANCE_UNTIL'));
-  return /^[a-f0-9]{64}$/.test(id||'') && id===p.getProperty('ANNALS_PHOTOS_ACCEPTANCE_SOURCE_ID') &&
-    until>Date.now() && until<=Date.now()+86400000;
+  return p.getProperty('ANNALS_AUTO_MEDIA_ENABLED')==='true' &&
+    p.getProperty('ANNALS_PHOTOS_V2_ENABLED')==='true' &&
+    (p.getProperty('ANNALS_PHOTOS_HOSTED_ACCEPTED')==='true' ||
+      typeof annalsGuardedPhotosReady_==='function' && annalsGuardedPhotosReady_());
 }
 function annalsReadPhotoPublicationGates(nonce){
   return annalsUiCall_(nonce,function(){var p=annalsProps_();return {
@@ -18,8 +18,7 @@ function annalsReadPhotoPublicationGates(nonce){
     photosHostedAccepted:p.getProperty('ANNALS_PHOTOS_HOSTED_ACCEPTED')==='true',
     rulesV2:p.getProperty('ANNALS_RULES_V2_ENABLED')==='true',
     rulesHostedAccepted:p.getProperty('ANNALS_RULES_HOSTED_ACCEPTED')==='true',
-    photoBlobTransport:p.getProperty('ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED')==='true',
-    photoAcceptanceConfigured:!!p.getProperty('ANNALS_PHOTOS_ACCEPTANCE_SOURCE_ID')
+    photoBlobTransport:p.getProperty('ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED')==='true'
   };});
 }
 /** Pure private V8 performance fixture. Never reads a signing property, calls a
@@ -34,7 +33,7 @@ function annalsQualifyPhotoCodecInEditor_(){
 function annalsReadPhotoGatesInEditor_(){
   annalsOwner_();var p=annalsProps_(),names=['ANNALS_AUTO_MEDIA_ENABLED','ANNALS_PHOTOS_V2_ENABLED','ANNALS_PHOTOS_HOSTED_ACCEPTED','ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED','ANNALS_RULES_V2_ENABLED','ANNALS_RULES_HOSTED_ACCEPTED','ANNALS_RULES_V3_ENABLED','ANNALS_RULES_V3_HOSTED_ACCEPTED','ANNALS_RULES_V3_CLOCK_QUALIFIED','ANNALS_RULES_V3_AUTO_LITERAL_ENABLED','ANNALS_HISTORY_PUBLICATION_ENABLED'];
   var result={};names.forEach(function(name){result[name]=p.getProperty(name)==='true';});
-  result.photoAcceptanceConfigured=!!p.getProperty('ANNALS_PHOTOS_ACCEPTANCE_SOURCE_ID');console.log(JSON.stringify(result));return result;
+  console.log(JSON.stringify(result));return result;
 }
 function annalsRunPhotoCodecFixture_(){
   return annalsLocked_(function(){
