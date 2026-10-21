@@ -104,7 +104,7 @@ test('one source attempt marker prevents duplicate billing without a private mon
   assert.doesNotMatch(source,/privateFile\(options\['budget-ledger'\]\)/);
   assert.doesNotMatch(source,/enforceTotalSpend|PHOTO_CENTS|MONTHLY_CENTS/);
   assert.match(source,/Previously attempted editorial source/);
-  assert.match(source,/cocktail-'+subject\.sourceSha256+'-attempt-private\.json'/);
+  assert.ok(source.includes("'cocktail-'+subject.sourceSha256+'-attempt-private.json'"));
   assert.match(source,/writeFile\(marker,[\s\S]*flag:'wx',mode:0o600/);
 });
 test('reference signature binds the exact original approved private bytes',async()=>{
