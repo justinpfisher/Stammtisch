@@ -64,12 +64,16 @@ test('manifest and OneSignal worker remain on the real Stammtisch origin and ded
   assert.match(ONESIGNAL_SCRIPT, /^https:\/\/cdn\.onesignal\.com\/sdks\/web\/v16/);
 });
 
-test('delivery has two public gating variables, avoids failed source publication, and uses retry schedule', () => {
+test('delivery retains event-driven death alerts and a six-hour recovery sweep', () => {
   assert.match(workflow, /COL_PUSH_DELIVERY_MODE == 'pilot'.*workflow_dispatch/);
   assert.match(workflow, /COL_PUSH_DELIVERY_MODE == 'live'/);
   assert.match(workflow, /COL_PUSH_LIVE_APPROVED == 'true'/);
   assert.match(workflow, /workflow_run\.conclusion == 'success'/);
-  assert.match(workflow, /cron: '29 \* \* \* \*'/);
+  assert.match(workflow, /workflow_run:/);
+  assert.match(workflow, /workflows: \["Celebration sheet monitor"\]/);
+  assert.match(workflow, /paths:[\s\S]*'data\/celebration\.json'/);
+  assert.match(workflow, /cron: '29 \*\/6 \* \* \*'/);
+  assert.doesNotMatch(workflow, /cron: '29 \* \* \* \*'/);
   assert.match(workflow, /fetch-depth: 0/);
   assert.match(workflow, /secrets\.COL_PUSH_ONESIGNAL_API_KEY/);
   assert.match(workflow, /secrets\.COL_PUSH_TEST_SUBSCRIPTION_IDS/);
