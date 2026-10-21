@@ -4,12 +4,12 @@
  * Generation, assessment and candidates stay outside the PUBLIC repository
  * until independently qualified for guarded publication. No automatic retry.
  */
-import {readFile,writeFile,realpath,stat} from 'node:fs/promises';
+import {readFile,writeFile,realpath,stat,readdir} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {verifyPublicApproval} from './ApprovedRenderer.mjs';
-import {reserveCocktailBudget,imageSpendCents,reviewSpendCents,enforceTotalSpend} from './CocktailEditorialBudget.mjs';
+import {verifyIssuedCocktailBudget,imageSpendCents,reviewSpendCents,enforceTotalSpend} from './CocktailEditorialBudget.mjs';
 import {
   verifiedCocktailSource,verifyEditorialPermit,stripJpegMetadata,makeSunburstEditRequest,
   requestSunburstEdit,makeVisualReviewRequest,assessSunburstEdit,
@@ -22,13 +22,13 @@ function args(argv){
   const result={execute:false};
   for(let i=0;i<argv.length;i++){
     if(argv[i]==='--execute'){result.execute=true;continue}
-    if(!['--entry','--reference','--permit','--private-output'].includes(argv[i])||
+    if(!['--entry','--reference','--permit','--budget-ledger','--private-output'].includes(argv[i])||
        i+1>=argv.length||argv[i+1].startsWith('--')||result[argv[i].slice(2)])
       throw Error('Unsupported image-edit argument');
     result[argv[i].slice(2)]=argv[++i];
   }
   if(!/^[a-z0-9][a-z0-9-]{5,63}$/.test(result.entry||''))throw Error('Invalid entry ID');
-  if(!result.execute&&(result.reference||result.permit||result['private-output']))
+  if(!result.execute&&(result.reference||result.permit||result['budget-ledger']||result['private-output']))
     throw Error('Protected inputs require explicit --execute');
   return result;
 }
@@ -97,18 +97,39 @@ async function run(){
   catch{throw Error('Private editorial rights receipt invalid')}
   const proof=verifyEditorialPermit(permit,{
     entryId:subject.entryId,sourceSha256:subject.sourceSha256,
-    referenceSha256:referenceBytes?sourceDigest(stripJpegMetadata(referenceBytes)):'',
+    // Apps Script signs the ORIGINAL private reference bytes, before
+    // the editor strips optional JPEG metadata for the provider request.
+    referenceSha256:referenceBytes?sourceDigest(referenceBytes):'',
     signingKey:process.env.ANNALS_PUBLISH_SIGNING_KEY,
     permitSigningKey:process.env.ANNALS_EDITORIAL_PERMIT_SIGNING_KEY});
   const privateOutput=await privateDirectory(options['private-output']);
-  // Perform ALL no-spend validation before a durable one-shot reservation.
+  // Validate the already-durable OWNER-ISSUER ledger before any provider call.
+  // Never create a second, independently spendable local budget reservation.
+  const ledgerBytes=await privateFile(options['budget-ledger']);
+  let ownerLedger;
+  try{ownerLedger=JSON.parse(ledgerBytes.toString('utf8'))}
+  catch{throw Error('Private owner-issued budget snapshot invalid')}
+  const reservation=verifyIssuedCocktailBudget({
+    ledger:ownerLedger,permit,entryId:subject.entryId,
+    sourceSha256:subject.sourceSha256});
   const editRequest=makeSunburstEditRequest({subject,referenceBytes});
-  // One canonical owner-private ledger, independent of the existing text AI
-  // allowance. A valid signed budget flag is not itself a spend reservation.
-  const reservation=await reserveCocktailBudget({directory:privateOutput,
-    entryId:subject.entryId,sourceSha256:subject.sourceSha256,permit});
+  const prior=await readdir(privateOutput);
+  if(prior.includes('cocktail-editorial-budget-private.json')||
+     prior.includes('cocktail-editorial-budget.lock'))
+    throw Error('Conflicting local image spending ledger; no provider call');
+  // Detect older private attempt markers before migrating to the stable
+  // source-based marker. Corrupt records hold rather than permit a repeat.
+  for(const name of prior.filter(x=>x.endsWith('-attempt-private.json'))){
+    let saved;
+    try{saved=JSON.parse(await readFile(path.join(privateOutput,name),'utf8'))}
+    catch{throw Error('Unreconciled prior editorial attempt; no provider call')}
+    if(saved?.sourceSha256===subject.sourceSha256)
+      throw Error('Previously attempted editorial source; no provider retry');
+  }
+  // Stable exact-source marker, not a permit-nonce marker. A newly signed
+  // permit cannot evade the local one-shot ban for the same photograph.
   const marker=path.join(privateOutput,
-    sourceDigest(Buffer.from(proof.attemptDigest+subject.sourceSha256))+'-attempt-private.json');
+    'cocktail-'+subject.sourceSha256+'-attempt-private.json');
   const attempt={state:'reserved-no-retry',entryId:subject.entryId,
     sourceSha256:subject.sourceSha256,attemptDigest:proof.attemptDigest,
     budgetPeriod:reservation.period,reservedCents:reservation.reservationCents,
@@ -145,7 +166,10 @@ async function run(){
     const generationCents=imageSpendCents(edited.usage);
     // Provider usage missing or over-limit: no SECOND billable review.
     attempt.generationEstimatedCents=generationCents;
-    enforceTotalSpend({editCents:generationCents});
+    // Hold rather than buy a second assessment with effectively no headroom.
+    // Reserve a conservative USD 0.50 of the already authorised USD 2 for
+    // high-detail multi-image review; still verify actual total usage after it.
+    enforceTotalSpend({editCents:generationCents,reviewCents:50});
     const reviewRequest=makeVisualReviewRequest({
       subject,editedBytes:edited.bytes,referenceBytes});
     const judgement=await assessSunburstEdit({request:reviewRequest,

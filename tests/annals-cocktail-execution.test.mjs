@@ -40,6 +40,7 @@ test('no caller-selected source URL or environment key is supported by the CLI',
   for(const args of [
     ['--entry',entry,'--source','http://malicious.example/image.jpg'],
     ['--entry',entry,'--permit','secret.json'],
+    ['--entry',entry,'--budget-ledger','owner-private-ledger.json'],
     ['--entry',entry,'--execute']
   ]){
     const run=cli(args);
@@ -58,4 +59,29 @@ test('every successful paid edit is retained owner-privately before another paid
   assert.match(source,/generated-private\.jpg'[\s\S]*flag:'wx',mode:0o600/);
   assert.match(source,/publicRelease:false,visualQualified:false/);
   assert.match(source,/reserved-no-retry/);
+});
+
+test('one-shot CLI consumes the owner-issued ledger without a second reservation writer',async()=>{
+  const source=await readFile(script,'utf8');
+  assert.match(source,/verifyIssuedCocktailBudget\s*\(/);
+  assert.match(source,/privateFile\(options\['budget-ledger'\]\)/);
+  assert.doesNotMatch(source,/reserveCocktailBudget\s*\(/);
+  assert.match(source,/Conflicting local image spending ledger/);
+  assert.match(source,/Previously attempted editorial source/);
+  assert.match(source,/cocktail-'\+subject\.sourceSha256\+'-attempt-private\.json'/);
+  assert.match(source,/writeFile\(marker,[\s\S]*flag:'wx',mode:0o600/);
+});
+test('reference signature binds the exact original approved private bytes',async()=>{
+  const source=await readFile(script,'utf8');
+  assert.match(source,/referenceSha256:referenceBytes\?sourceDigest\(referenceBytes\):''/);
+  assert.doesNotMatch(source,/referenceSha256:referenceBytes\?sourceDigest\(stripJpegMetadata/);
+  // This does not relax actual JPEG decoding before a billable request.
+  assert.match(source,/makeSunburstEditRequest\(\{subject,referenceBytes\}\)/);
+});
+test('a costly generated image does not automatically trigger a second billed assessment',async()=>{
+  const source=await readFile(script,'utf8');
+  const edit=source.indexOf('const edited=await requestSunburstEdit(');
+  const hold=source.indexOf('enforceTotalSpend({editCents:generationCents,reviewCents:50})');
+  const review=source.indexOf('const judgement=await assessSunburstEdit(');
+  assert.ok(edit>=0&&hold>edit&&review>hold);
 });
