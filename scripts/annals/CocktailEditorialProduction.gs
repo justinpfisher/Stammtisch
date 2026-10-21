@@ -87,6 +87,40 @@ function annalsCocktailEditorialPreflightInEditor(itemId,photoIndex){
     return r;
   });
 }
+/** Read-only, non-billed credential and model-visibility probe for the
+ * existing owner-only Apps Script editor. The former Script Properties view
+ * may expose raw secrets; this function NEVER returns, logs or stores them.
+ * A successful model lookup does NOT prove image-edit entitlement, rights,
+ * spending capacity, secure key rotation or permission to send a paid request.
+ */
+function annalsCocktailEditorialCredentialPreflightInEditor(){
+  annalsOwner_();
+  var properties=annalsProps_(),
+    imageKey=properties.getProperty('ANNALS_EDITORIAL_IMAGE_API_KEY')||'',
+    permitKey=properties.getProperty('ANNALS_EDITORIAL_PERMIT_SIGNING_KEY')||'',
+    publisherKey=properties.getProperty('ANNALS_PUBLISH_SIGNING_KEY')||'',
+    approvalKey=properties.getProperty('ANNALS_APPROVAL_KEY')||'',
+    result={kind:'cocktail-editorial-credential-readonly-v1',
+      imageCredentialPresent:typeof imageKey==='string'&&imageKey.length>0,
+      permitSignerPresentAndDistinct:typeof permitKey==='string'&&
+        permitKey.length>=32&&permitKey!==publisherKey&&permitKey!==approvalKey,
+      recoveryFlagSet:properties.getProperty('ANNALS_EDITORIAL_SECURITY_RECOVERY_VERIFIED')==='true',
+      projectHardLimitFlagSet:properties.getProperty('ANNALS_EDITORIAL_PROJECT_HARD_LIMIT_VERIFIED')==='true',
+      modelLookupAccepted:false,paidRequestMade:false,propertiesChanged:false};
+  if(!result.imageCredentialPresent)return result;
+  try{
+    // Public provider model-metadata endpoint: GET, not image generation.
+    // Never inspect/log response text, token headers or diagnostic errors.
+    var response=UrlFetchApp.fetch('https://api.openai.com/v1/models/gpt-image-2.5-sunburst',{
+      method:'get',headers:{Authorization:'Bearer '+imageKey},
+      followRedirects:false,muteHttpExceptions:true});
+    result.modelLookupAccepted=response.getResponseCode()===200;
+  }catch(ignored){
+    result.modelLookupAccepted=false;
+  }
+  return result;
+}
+
 /** Owner-only private reservation; does NOT call OpenAI or publish a photo.
  * Install only AFTER independent post-exposure secret/signing recovery.
  * One lock covers read/plan/save of the separate private spending ledger.
