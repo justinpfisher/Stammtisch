@@ -1,6 +1,9 @@
 import { ageAt, basePoints, cavalcadeRule, copycatRule } from './celebration-rules.mjs';
 
 const birthdays = { marc: '03-26', jerome: '05-09', matt: '06-25', fish: '07-06', ken: '07-20', jamie: '09-19' };
+const birthdayNames = { marc:'Marc', jerome:'Jerome', matt:'Matt', fish:'Justin', ken:'Ken', jamie:'Jamie' };
+const metricMonths = ['Renewal','Awaken','Bloom','Thrive','Radiate','Sustain','Gather','Reflect','Diminish','Restore'];
+const gregorianMonths = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const isPick = p => Number.isInteger(p.pick) && p.pick >= 1 && p.pick <= 50;
 const identity = p => `${p.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()}:${p.born}`;
 const unique = values => [...new Set(values)];
@@ -15,6 +18,32 @@ function deathInstant(value, date) {
   // the reader's timezone to decide who died second.
   const match = /^(\d{4}-\d{2}-\d{2})T([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?(Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.exec(value ?? '');
   return match && match[1] === date && validDate(date) ? Date.parse(value) : null;
+}
+
+// Calendar labels are supplementary display only. The recorded Gregorian dates
+// remain authoritative for eligibility; convert each occurrence's year because
+// after February a leap year changes its Metric Calendar ordinal.
+export function metricBirthdayLabel(year, monthDay) {
+  if (!Number.isInteger(year) || year < 100 || year > 9999 || !/^\\d{2}-\\d{2}$/.test(monthDay || '')) return null;
+  const gregorian = `${year}-${monthDay}`;
+  if (!validDate(gregorian)) return null;
+  let ordinal = 1 + Math.floor((Date.parse(gregorian+'T00:00:00Z')-Date.UTC(year,0,1))/86400000);
+  for (let index=0; index<metricMonths.length; index++) {
+    const length = index % 2 ? 37 : 36;
+    if (ordinal <= length) return `${metricMonths[index]} ${ordinal}`;
+    ordinal -= length;
+  }
+  return null;
+}
+
+export function birthdayCalendar(year) {
+  return Object.entries(birthdays).map(([id, monthDay]) => {
+    const [month, day] = monthDay.split('-').map(Number);
+    return {
+      member:birthdayNames[id], metric:metricBirthdayLabel(year,monthDay),
+      gregorian:`${gregorianMonths[month-1]} ${day}`
+    };
+  });
 }
 
 // The legacy dateOfPassing field is a group discovery date, except where
@@ -194,6 +223,7 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}, polic
       missingDeathDates ? [`${missingDeathDates} passing(s) still need confirmed actual death dates; the preview may be incomplete.`] : []) });
   cards.push({id:'providence', title:'Hand of Providence', status:'By nomination', value:'Chosen by the group', description:'A passing that narrowly avoids a loss or reduction in points.', details:['A date close to a birthday does not establish this award. The group nominates the recipient.']},
     {id:'summit', title:'Summit in Purgatory', status:'Event confirmation needed', value:'Chosen by the group', description:'Multiple CoL deaths in a mass casualty event.', details:['Matching dates alone do not establish a shared event.']});
+  const birthdayDisplay = birthdayCalendar(data.year).map(b => `${b.member}: ${b.metric} (${b.gregorian})`).join(' · ');
   const buffet = events.filter(x => !x.diamond && x.discoveredOn && Object.values(birthdays).includes(x.discoveredOn.slice(5))).map(event => {
     const recipient = members.find(m => birthdays[m.id] === event.discoveredOn.slice(5));
     const expected = event.ageConfirmed ? basePoints(event.age) : null;
@@ -201,7 +231,7 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}, polic
   });
   cards.push({id:'birthday-buffet', title:'Birthday Buffet', status:buffet.length ? 'Recorded birthday matches' : 'No dated matches',
     value:buffet.length ? names(buffet.map(x => ({name:x.recipient}))) : 'No match yet', description:'Uses the group’s discovery date. Diamonds are excluded.',
-    details:buffet.map(x => `${x.name} · ${dateText(x.date)} · Birthday: ${x.recipient}. Recorded allocation: ${x.allocations.map(a => `${a.name} ${a.points}`).join(', ') || 'none'}${x.decision ? `. ${x.decision}` : x.expected === null ? '. Age at death needs confirmation.' : `. Rule value: ${x.expected} points.`}`).concat(buffet.some(x => !x.decision) ? ['Undecided birthday matches are flagged for review; recorded scores are not reassigned automatically.'] : [])});
+    details:[`Birthday register (${data.year}, Metric first): ${birthdayDisplay}.`].concat(buffet.map(x => `${x.name} · ${dateText(x.date)} · Birthday: ${x.recipient}. Recorded allocation: ${x.allocations.map(a => `${a.name} ${a.points}`).join(', ') || 'none'}${x.decision ? `. ${x.decision}` : x.expected === null ? '. Age at death needs confirmation.' : `. Rule value: ${x.expected} points.`}`),buffet.some(x => !x.decision) ? ['Undecided birthday matches are flagged for review; recorded scores are not reassigned automatically.'] : [])});
   return { year:data.year, asOf:data.asOf, final, cards, draft, events, undated,
     officialAwardCards:policy.oldestDeathSteal === true ? 4 : 3 };
 }
