@@ -3,6 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {calculateAwards} from '../celebration-awards.mjs';
 
 const page=readFileSync(new URL('../celebration.html',import.meta.url),'utf8');
 const editions=readFileSync(new URL('../col-rules-version.html',import.meta.url),'utf8');
@@ -78,4 +79,17 @@ test('website-wide instructions favour simple releases and a short Club-voice Ma
   assert.match(editorial,/An established interpretation is not an unresolved debate/);
   assert.match(editorial,/Retain earlier signed editions in the existing revision history/);
   assert.doesNotMatch(rulebook,/new rule.*needs.*second vote/i);
+});
+
+test('Birthday Buffet preview no longer equates discovery dates with WhatsApp proof',()=>{
+  const source=JSON.parse(readFileSync(new URL('../data/celebration.json',import.meta.url),'utf8'));
+  const original=JSON.stringify(source),model=calculateAwards(source);
+  const card=model.cards.find(c=>c.id==='birthday-buffet');
+  assert.ok(card);
+  assert.match(card.description,/first report in the Club’s WhatsApp group decides/);
+  assert.match(card.description,/discovery date alone is not an award/);
+  assert.doesNotMatch(card.description,/Uses the group’s discovery date/);
+  assert.match(card.details.join(' '),/Previous Club awards remain as recorded/);
+  assert.match(card.details.join(' '),/Matt 12, Ken 13/);
+  assert.equal(JSON.stringify(source),original,'display work does not rewrite points');
 });
