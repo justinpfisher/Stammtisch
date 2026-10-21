@@ -92,6 +92,7 @@ test('Birthday Buffet uses the shared spreadsheet date by default without reallo
   assert.match(card.description,/unless corrected/);
   assert.doesNotMatch(card.description,/private verification required/);
   assert.match(card.details.join(' '),/Previous Club awards remain as recorded/);
+  assert.doesNotMatch(card.details.join(' '),/if the Club confirms eligibility/);
   assert.match(card.details.join(' '),/Matt 12, Ken 13/);
   assert.equal(JSON.stringify(source),original,'display work does not rewrite points');
 });
