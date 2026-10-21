@@ -1,5 +1,13 @@
 # CoL staged release protocol
 
+## Scope after the owner's 21 October 2026 simplicity decision
+
+**This protocol is for protected CoL scorekeeping changes, not an extra gate before publishing clear Club rules in ordinary language.** An authenticated member's clear prospective rule amendment may be interpreted and shown on the public Celebration of Life rulebook through the established ordinary website release. No routine second vote, owner adoption, historical Google Docs download, freshly generated source-digest token or signed v3 ceremony is needed to correct *website wording*. Previous signed editions remain immutable and accessible as history.
+
+**Only changed executable behaviour**—point allocation, eligibility, historical awards, season selection, durable Protection rights, private Sheet changes and death notifications—requires the affected source, test, independent Viewer and signed v3 checks set out below. Website publication does **not** claim that those mechanics are implemented or that previously awarded points were recalculated. Hold a genuinely missing first WhatsApp report, placed-Protection record or actual future cutoff for its affected calculation without blocking other independently clear changes. Do not change the January 2027 safety hold until the Club records the exact meeting cutoff.
+
+The technical history and acceptance examples below remain relevant to score-affecting releases only. They cannot reinstate withdrawn presentation approvals or reverse completed sealed amendments.
+
 ## Editorial interpretation decision — 19 October 2026
 
 The owner authorised AI to choose and explain the most defensible interpretation of a genuine authenticated member amendment without any further interpretation approval. Full rewrites in Stammtisch's mock-institutional style, with non-operative ceremonial asides and examples, are welcome. Record genuine unresolved conflicts and gaps as clearly labelled **Matters for Club Deliberation** within the versioned rules when a qualified release is available. Release independently qualified portions without holding them for unrelated questions. See [CoL editorial interpretation](col-editorial-interpretation.md).
