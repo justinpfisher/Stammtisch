@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Explicit owner-side one-shot Kingston/ordinary cocktail image-edit runner.
+/* Source-bound, protected one-shot Kingston/ordinary cocktail image-edit runner.
  * No side effects without --execute AND verified signed private authority.
  * Generation, assessment and candidates stay outside the PUBLIC repository
  * until independently qualified for guarded publication. No automatic retry.
@@ -75,7 +75,7 @@ async function run(){
     throw Error('Public source image digest mismatch');
   if(!options.execute&&!options.checkHandoff){
     // Offline source-only check; does NOT certify the private signature, grant,
-    // budget reservation, generation or published image.
+    // monetary reservation, generation or published image.
     console.log(JSON.stringify({state:'preflight-source-digest-only',
       sourceSha256:photo.sha256,publisherVerified:false,providerCalled:false,
       generationEnabled:false}));
