@@ -31,3 +31,16 @@ test('both pages and calendar agree on the confirmed start', () => {
   assert.ok(calendar.includes('END:VCALENDAR\r\n'));
   for (const line of calendar.split('\r\n')) assert.ok(Buffer.byteLength(line) <= 75);
 });
+
+test('future Assembly publicity does not identify the private booked property', () => {
+  for(const file of ['index.html','location.html']){
+    const html=readFileSync(new URL('../'+file,import.meta.url),'utf8');
+    assert.match(html,/Huntsville/,'general location remains in the Club record');
+    assert.doesNotMatch(html,/airbnb\.ca\/rooms\/|a0\.muscache\.com\/im\/pictures\/|Big East River|Near Arrowhead|Hosting-605759557639781130/i,
+      'property-specific links, photographs and clues must stay private');
+  }
+  const home=readFileSync(new URL('../index.html',import.meta.url),'utf8');
+  assert.match(home,/src="assets\/crest\.webp"/);
+  const assembly=readFileSync(new URL('../location.html',import.meta.url),'utf8');
+  assert.match(assembly,/booking and access details are circulated privately/);
+});
