@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {januaryHandover, competitionYearAt, competitionYearForDeathDate,
+import {januaryHandover, competitionYearAt, competitionYearForDeathDate, correctedCompetitionYear,
   isJettisonEligible, readClubState, firstReportDate,
   isProtectedPick} from '../col-club-state.mjs';
 import {awardEvents,calculateAwards} from '../celebration-awards.mjs';
@@ -40,6 +40,7 @@ test('GitHub draft/protection source is empty of unreported actions, never an in
   const before=JSON.stringify(source);
   assert.equal(readClubState(source),source);
   assert.deepEqual(source.protectionPlacements,[]);
+  assert.deepEqual(source.seasonCorrections,[]);
   assert.deepEqual(source.draftActions,[]);
   assert.deepEqual(source.birthdayBuffet.corrections,[]);
   assert.equal(JSON.stringify(source),before);
@@ -67,6 +68,40 @@ test('sheet report date is the default, with exact GitHub correction taking prec
     {name:'Fictional',born:'1950-01-01',reportedOn:'2026-03-27'}];
   assert.equal(firstReportDate(entry,readClubState(corrected)),'2026-03-27');
   assert.equal(firstReportDate({...entry,name:'Another'},readClubState(corrected)),'2026-03-26');
+});
+
+test('member-authored GitHub season correction overrides the untimed handover default in previews only',()=>{
+  const correction={name:'Fictional',born:'1950-01-01',diedOn:'2027-01-15',competitionYear:2027};
+  const changed=copy();changed.seasonCorrections=[correction];
+  readClubState(changed);
+  assert.equal(correctedCompetitionYear({name:'FICTIONAL',born:'1950-01-01',diedOn:'2027-01-15'},changed),2027);
+  assert.equal(correctedCompetitionYear({name:'Fictional',born:'1950-01-01',diedOn:'2027-01-14'},changed),null);
+  const data={year:2026,asOf:'2027-01-16',members:[member('fish',[
+    pick('Fictional',{actualDeathDate:'2027-01-15',discoveryDate:'2027-01-15'})])]};
+  const original=JSON.stringify(data);
+  assert.equal(calculateAwards(data,{}, {},copy()).events.length,1,'previous-season default applies');
+  assert.equal(calculateAwards(data,{}, {},changed).events.length,0,'member correction applies');
+  data.year=2027;
+  assert.equal(calculateAwards(data,{}, {},changed).events.length,1);
+  assert.equal(data.members[0].score,10,'recorded scores never change');
+  assert.equal(JSON.stringify(data.members),JSON.stringify(JSON.parse(original).members),'recorded pick allocations are untouched');
+});
+
+test('season overrides require an actual handover date, allowable year and unique celebrity',()=>{
+  const valid={name:'Fictional',born:'1950-01-01',diedOn:'2027-01-15',competitionYear:2027};
+  for(const incorrect of [
+    {...valid,diedOn:'2027-01-14'},
+    {...valid,competitionYear:2028},
+    {...valid,born:'2027-01-16'},
+    {...valid,diedOn:'2026-01-16'},
+    {...valid,competitionYear:'2026'},
+    {...valid,reason:'unverified private communication'},
+  ]){
+    const invalid=copy();invalid.seasonCorrections=[incorrect];
+    assert.throws(()=>readClubState(invalid),/Season correction|Invalid season correction/);
+  }
+  const repeated=copy();repeated.seasonCorrections=[valid,{...valid,name:'FICTIONAL',competitionYear:2026}];
+  assert.throws(()=>readClubState(repeated),/Duplicate season correction/);
 });
 
 test('Blue and Brown Diamonds are protected; earned placements are lasting and member-specific',()=>{

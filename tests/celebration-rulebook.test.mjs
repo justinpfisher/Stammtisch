@@ -75,8 +75,9 @@ test('unchanged prior scores and sealed rules remain visibly distinguished from 
 });
 
 test('website-wide instructions favour simple releases and a short Club-voice Matter',()=>{
-  assert.match(agents,/Remove avoidable barriers across the entire website/);
-  assert.match(agents,/the Club's publicly adopted words can be updated immediately/);
+  assert.match(agents,/authenticated decision.*sufficient Club authority/);
+  assert.match(agents,/publish without a second vote/);
+  assert.match(agents,/automatic GitHub Pages publication/);
   assert.match(editorial,/one or two graceful sentences/);
   assert.match(editorial,/An established interpretation is not an unresolved debate/);
   assert.match(editorial,/Retain earlier signed editions in the existing revision history/);

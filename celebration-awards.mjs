@@ -1,5 +1,5 @@
 import { ageAt, basePoints, cavalcadeRule, copycatRule } from './celebration-rules.mjs';
-import {firstReportDate, isProtectedPick, competitionYearForDeathDate, isJettisonEligible} from './col-club-state.mjs?v=col-default-20261021';
+import {firstReportDate, isProtectedPick, competitionYearForDeathDate, correctedCompetitionYear, isJettisonEligible} from './col-club-state.mjs?v=col-correct-20261021';
 
 const birthdays = { marc: '03-26', jerome: '05-09', matt: '06-25', fish: '07-06', ken: '07-20', jamie: '09-19' };
 const birthdayNames = { marc:'Marc', jerome:'Jerome', matt:'Matt', fish:'Justin', ken:'Ken', jamie:'Jamie' };
@@ -73,11 +73,16 @@ export function awardEvents(data, clubState = null) {
     const confirmedAge = explicitAges.length === 1 ? explicitAges[0] : ageAt(event.born, diedOn);
     const age = explicitAges.length > 1 || deaths.length > 1 ? null : confirmedAge ?? ageAt(event.born, discoveredOn);
     const at = diedOn || discoveredOn;
-    const inSeason = Boolean(at && at <= data.asOf && competitionYearForDeathDate(at,diedAt) === data.year);
+    // GitHub's member-authored correction wins over the default for an actual
+    // source-confirmed handover-Friday death; the Sheet's report date cannot
+    // silently reverse it. Historical awards remain untouched.
+    const correctedYear = diedOn ? correctedCompetitionYear({...event,diedOn},clubState) : null;
+    const competitionYear = correctedYear ?? competitionYearForDeathDate(at,diedAt);
+    const inSeason = Boolean(at && at <= data.asOf && competitionYear === data.year);
     return { ...event, discoveredOn, reportedOn:firstReportDate({...event, discoveredOn},clubState), diedOn, diedAt, at, age, ageConfirmed:confirmedAge !== null,
       ageInDays:validDate(event.born) && diedOn && diedOn >= event.born ? daysBetween(event.born,diedOn) : null,
       allocationDecision:event.entries.find(p => p.allocationDecision)?.allocationDecision ?? null,
-      inSeason, dateConflict:discoveries.length > 1 || deaths.length > 1,
+      inSeason, competitionYear, seasonCorrected:correctedYear!==null, dateConflict:discoveries.length > 1 || deaths.length > 1,
       owners:event.entries.filter(isPick),
       diamond:event.entries.some(p => isProtectedPick(p,p.memberId,clubState,diedOn)),
       allocations:event.entries.filter(p => p.counted).map(p => ({id:p.memberId, name:p.memberName, points:p.points})) };
