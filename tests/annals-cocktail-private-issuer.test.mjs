@@ -88,6 +88,14 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
    getUuid:()=> 'ffffffff-ffff-ffff-ffff-ffffffffffff',
    computeHmacSha256Signature:(raw,key)=>Array.from(createHmac('sha256',key).update(raw).digest())
   },
+  UrlFetchApp:{fetch:(url,options)=>{
+    events.modelRequests=(events.modelRequests||0)+1;
+    events.modelRequestShape={url,method:options.method,
+      followRedirects:options.followRedirects,
+      muteHttpExceptions:options.muteHttpExceptions};
+    if(events.rejectModelRequest)throw Error('fictional network failure');
+    return {getResponseCode:()=>events.modelResponseCode??200};
+  }},
   console:{log:(...args)=>log.push(args)}
  };
  vm.createContext(context);
@@ -152,8 +160,74 @@ test('missing budget ledger never triggers unsafe reset or a spending permit',()
 test('no raw Script Properties enumeration or key logging exists in staged issuer source',()=>{
  assert.doesNotMatch(moduleSource,/getProperties\s*\(/);
  assert.doesNotMatch(moduleSource,/console\.(?:log|warn|error)\s*\(/);
- assert.doesNotMatch(moduleSource,/UrlFetchApp\.fetch\s*\(/);
+ assert.equal((moduleSource.match(/UrlFetchApp\.fetch\s*\(/g)||[]).length,1);
  assert.doesNotMatch(moduleSource,/(?:setProperty|deleteProperty)\s*\(/);
  assert.match(moduleSource,/ANNALS_EDITORIAL_SECURITY_RECOVERY_VERIFIED/);
  assert.match(moduleSource,/ANNALS_EDITORIAL_PERMIT_SIGNING_KEY/);
+});
+
+test('credential status uses owner-only GET and returns Booleans, never keys or response bodies',()=>{
+ const f=fixture();
+ const result=f.context.annalsCocktailEditorialCredentialPreflightInEditor();
+ assert.equal(result.kind,'cocktail-editorial-credential-readonly-v1');
+ assert.equal(result.imageCredentialPresent,true);
+ assert.equal(result.permitSignerPresentAndDistinct,true);
+ assert.equal(result.modelLookupAccepted,true);
+ assert.equal(result.recoveryFlagSet,true);
+ assert.equal(result.projectHardLimitFlagSet,true);
+ assert.equal(result.paidRequestMade,false);
+ assert.equal(result.propertiesChanged,false);
+ assert.equal(f.events.modelRequests,1);
+ assert.deepEqual(f.events.modelRequestShape,{
+   url:'https://api.openai.com/v1/models/gpt-image-2.5-sunburst',
+   method:'get',followRedirects:false,muteHttpExceptions:true
+ });
+ assert.equal(f.root.files.size,1);
+ assert.equal(f.folder.files.size,2);
+ assert.deepEqual(f.log,[]);
+ assert.doesNotMatch(JSON.stringify(result),/fictional-model-key|permit-key|publisher-key|example.invalid|Bearer /);
+});
+test('missing image key does not call provider; separate signer mismatches are reported only as false',()=>{
+ for(const changedKey of ['',null]){
+   const f=fixture();
+   f.props.ANNALS_EDITORIAL_IMAGE_API_KEY=changedKey;
+   const report=f.context.annalsCocktailEditorialCredentialPreflightInEditor();
+   assert.equal(report.imageCredentialPresent,false);
+   assert.equal(report.modelLookupAccepted,false);
+   assert.equal(f.events.modelRequests||0,0);
+ }
+ for(const signer of ['ANNALS_PUBLISH_SIGNING_KEY','ANNALS_APPROVAL_KEY']){
+   const f=fixture();
+   f.props.ANNALS_EDITORIAL_PERMIT_SIGNING_KEY=f.props[signer];
+   const report=f.context.annalsCocktailEditorialCredentialPreflightInEditor();
+   assert.equal(report.permitSignerPresentAndDistinct,false);
+   assert.deepEqual(f.log,[]);
+ }
+});
+test('provider rejects/unavailable and unset owner flags remain non-spending false statuses',()=>{
+ for(const thrown of [false,true]){
+   const f=fixture({recovered:false});
+   f.props.ANNALS_EDITORIAL_PROJECT_HARD_LIMIT_VERIFIED='false';
+   f.events.modelResponseCode=401;
+   f.events.rejectModelRequest=thrown;
+   const report=f.context.annalsCocktailEditorialCredentialPreflightInEditor();
+   assert.equal(report.recoveryFlagSet,false);
+   assert.equal(report.projectHardLimitFlagSet,false);
+   assert.equal(report.modelLookupAccepted,false);
+   assert.equal(report.paidRequestMade,false);
+   assert.equal(f.root.files.size,1);
+   assert.equal(f.folder.files.size,2);
+   assert.deepEqual(f.log,[]);
+ }
+});
+test('model credential probe contains no source records, mutation or paid endpoints',()=>{
+ const begin=moduleSource.indexOf('function annalsCocktailEditorialCredentialPreflightInEditor()');
+ const end=moduleSource.indexOf('/** Owner-only private reservation;',begin);
+ assert.ok(begin>0&&end>begin);
+ const source=moduleSource.slice(begin,end);
+ assert.match(source,/annalsOwner_\(\)/);
+ assert.match(source,/method:'get'/);
+ assert.match(source,/\/v1\/models\/gpt-image-2\.5-sunburst/);
+ assert.doesNotMatch(source,/\/v1\/(?:images|chat\/completions)/);
+ assert.doesNotMatch(source,/console\.|Logger\.|getContentText\(|(?:setProperty|deleteProperty|annalsSavePrivate_|annalsWriteOnce_)\(/);
 });
