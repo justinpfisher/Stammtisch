@@ -43,3 +43,16 @@ test('public repository production and CI workflows remain GitHub-hosted', () =>
     assert.doesNotMatch(workflow, /runs-on:\s*[^\n]*(?:self-hosted|gmktec)/i, file);
   }
 });
+
+test('focused CI never ignores deletions, renames or case-varied executable markup',()=>{
+  const workflow=readFileSync(new URL('../.github/workflows/celebration-ci.yml',import.meta.url),'utf8');
+  const start=workflow.indexOf('      - name: Detect ordinary static-page copy changes');
+  const end=workflow.indexOf('      - name: Focused public-page',start);
+  assert.ok(start>0 && end>start,'Focused CI classifier must be present');
+  const scope=workflow.slice(start,end);
+  assert.match(scope,/git diff --name-only HEAD\^1 HEAD/);
+  assert.match(scope,/--diff-filter=ACDRTUXB/);
+  assert.match(scope,/grep -Ei/,'HTML execution detection must ignore case');
+  assert.doesNotMatch(scope,/--diff-filter=ACMRT|while IFS=\\n/);
+  assert.match(workflow,/Full Python and Node regression for functional and other changes/);
+});

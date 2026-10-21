@@ -72,8 +72,13 @@ jobs:
           echo 'static_copy=false' >> "$GITHUB_OUTPUT"
           # Unknown git ancestry or empty diffs get the original full suite.
           if ! git rev-parse --verify 'HEAD^1' >/dev/null 2>&1; then exit 0; fi
-          files="$(git diff --name-only --diff-filter=ACMRT HEAD^1 HEAD)"
+          # Reject any added, copied, deleted, renamed, unmerged or
+          # type-changed path. Only modifications to existing static pages
+          # can use the narrow test lane.
+          files="$(git diff --name-only HEAD^1 HEAD)"
           if [ -z "$files" ]; then exit 0; fi
+          other_status="$(git diff --name-only --diff-filter=ACDRTUXB HEAD^1 HEAD)"
+          if [ -n "$other_status" ]; then exit 0; fi
           while IFS= read -r file; do
             case "$file" in
               index.html|location.html) ;;
@@ -83,7 +88,7 @@ jobs:
           # A change adding/removing executable markup or dynamic event
           # handlers is functional, not static copy: retain the full suite.
           if git diff --unified=0 HEAD^1 HEAD -- index.html location.html |
-            grep -E '^[+-][^+-].*(<script|<iframe|<form|javascript:|on[a-z]+[[:space:]]*=)' >/dev/null; then
+            grep -Ei '^[+-][^+-].*(<script|<iframe|<form|javascript:|on[a-z]+[[:space:]]*=)' >/dev/null; then
             exit 0
           fi
           echo 'static_copy=true' >> "$GITHUB_OUTPUT"
