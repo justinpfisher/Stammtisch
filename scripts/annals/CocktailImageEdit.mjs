@@ -1,7 +1,7 @@
 /* Source-bound, provider-agnostic contracts for the optional Cocktail Register
  * image editor. No paid requests occur on import. Never receives raw member mail,
  * unscreened originals, consent proofs or public GitHub credentials in prompts.
- * Private rights and one-shot budget authority are independently required.
+ * Private rights and a durable per-source attempt record are required.
  */
 import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
 import {readFileSync} from 'node:fs';
@@ -224,8 +224,8 @@ export async function requestSunburstEdit({request,apiKey,permitVerification,res
      request.images?.length>2||!apiKey||typeof apiKey!=='string'||
      !SHA.test(permitVerification?.attemptDigest||'')||reservedAttempt!==true)
     throw Error('Authorised editing provider unavailable');
-  // Exactly one attempt. Caller MUST reserve the private one-shot marker and
-  // authorised budget before invoking this function. Never auto retry.
+  // Exactly one attempt. Caller MUST write a private source-bound marker
+  // before invoking this function. Never auto retry.
   const response=await fetchImpl(EDIT_ENDPOINT,{method:'POST',
     headers:{Authorization:'Bearer '+apiKey,'Content-Type':'application/json'},
     body:JSON.stringify(request),redirect:'error',
