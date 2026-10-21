@@ -72,37 +72,23 @@ jobs:
           echo 'static_copy=false' >> "$GITHUB_OUTPUT"
           # Unknown git ancestry or empty diffs get the original full suite.
           if ! git rev-parse --verify 'HEAD^1' >/dev/null 2>&1; then exit 0; fi
-          # Inspect ALL changed paths, including deletions. Renames are
-          # separate add/delete events. Focused checks are allowed only for
-          # modifications of the two existing public static HTML files.
-          changes="$(git diff --no-renames --name-status HEAD^1 HEAD)"
-          if [ -z "$changes" ]; then exit 0; fi
-          while IFS=
-          # A change adding/removing executable markup or dynamic event
-          # handlers is functional, not static copy: retain the full suite.
-          if git diff --unified=0 HEAD^1 HEAD -- index.html location.html |
-            grep -Ei '^[+-][^+-].*(<script|<iframe|<form|javascript:|on[a-z]+[[:space:]]*=)' >/dev/null; then
-            exit 0
-          fi
-          echo 'static_copy=true' >> "$GITHUB_OUTPUT"
-      - name: Focused public-page and accessibility-contract checks
-        if: steps.scope.outputs.static_copy == 'true'
-        run: |
-          node --test tests/assembly.test.mjs tests/monthly.test.mjs tests/site-chrome.test.mjs tests/annals-brand-voice.test.mjs tests/annals-public-site.test.mjs tests/col-public-language.test.mjs
-      - name: Full Python and Node regression for functional and other changes
-        if: steps.scope.outputs.static_copy != 'true'
-        run: node scripts/local-dev.mjs check
-\t' read -r status file; do
-            [ "$status" = 'M' ] || exit 0
+          # Reject any added, copied, deleted, renamed, unmerged or
+          # type-changed path. Only modifications to existing static pages
+          # can use the narrow test lane.
+          files="$(git diff --name-only HEAD^1 HEAD)"
+          if [ -z "$files" ]; then exit 0; fi
+          other_status="$(git diff --name-only --diff-filter=ACDRTUXB HEAD^1 HEAD)"
+          if [ -n "$other_status" ]; then exit 0; fi
+          while IFS= read -r file; do
             case "$file" in
               index.html|location.html) ;;
               *) exit 0 ;;
             esac
-          done <<< "$changes"
+          done <<< "$files"
           # A change adding/removing executable markup or dynamic event
           # handlers is functional, not static copy: retain the full suite.
           if git diff --unified=0 HEAD^1 HEAD -- index.html location.html |
-            grep -E '^[+-][^+-].*(<script|<iframe|<form|javascript:|on[a-z]+[[:space:]]*=)' >/dev/null; then
+            grep -Ei '^[+-][^+-].*(<script|<iframe|<form|javascript:|on[a-z]+[[:space:]]*=)' >/dev/null; then
             exit 0
           fi
           echo 'static_copy=true' >> "$GITHUB_OUTPUT"
