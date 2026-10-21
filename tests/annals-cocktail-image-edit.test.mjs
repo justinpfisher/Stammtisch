@@ -41,11 +41,9 @@ const subject=()=>verifiedCocktailSource({
 });
 const permit=()=>{
   const unsigned={
-    scope:'cocktail-editorial-transform-v1',entryId:kingston.id,
+    scope:'cocktail-editorial-transform-v2',entryId:kingston.id,
     sourceSha256:sha(original),referenceSha256:sha(original),rightsActive:true,screened:true,
-    budgetPeriod:'2026-10',monthlyCeilingCents:500,
-    perPhotoCeilingCents:200,reservedCents:200,
-    budgetReserved:true,nonce:'a'.repeat(32),
+    nonce:'a'.repeat(32),
     issuedAt:'2026-10-20T09:00:00Z',expiresAt:'2026-10-20T10:00:00Z'
   };
   return {...unsigned,signature:createHmac('sha256',permitKey)
