@@ -11,6 +11,7 @@
     "dateSource": "shared-spreadsheet-unless-corrected",
     "corrections": []
   },
+  "seasonCorrections": [],
   "protectionPlacements": [],
   "draftActions": []
 }
