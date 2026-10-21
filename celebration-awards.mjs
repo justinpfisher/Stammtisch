@@ -1,5 +1,5 @@
 import { ageAt, basePoints, cavalcadeRule, copycatRule } from './celebration-rules.mjs';
-import {firstReportDate, isProtectedPick} from './col-club-state.mjs';
+import {firstReportDate, isProtectedPick, competitionYearForDeathDate, isJettisonEligible} from './col-club-state.mjs';
 
 const birthdays = { marc: '03-26', jerome: '05-09', matt: '06-25', fish: '07-06', ken: '07-20', jamie: '09-19' };
 const birthdayNames = { marc:'Marc', jerome:'Jerome', matt:'Matt', fish:'Justin', ken:'Ken', jamie:'Jamie' };
@@ -73,7 +73,7 @@ export function awardEvents(data, clubState = null) {
     const confirmedAge = explicitAges.length === 1 ? explicitAges[0] : ageAt(event.born, diedOn);
     const age = explicitAges.length > 1 || deaths.length > 1 ? null : confirmedAge ?? ageAt(event.born, discoveredOn);
     const at = diedOn || discoveredOn;
-    const inSeason = Boolean(at && at.slice(0,4) === String(data.year) && at <= data.asOf);
+    const inSeason = Boolean(at && at <= data.asOf && competitionYearForDeathDate(at,diedAt) === data.year);
     return { ...event, discoveredOn, reportedOn:firstReportDate({...event, discoveredOn},clubState), diedOn, diedAt, at, age, ageConfirmed:confirmedAge !== null,
       ageInDays:validDate(event.born) && diedOn && diedOn >= event.born ? daysBetween(event.born,diedOn) : null,
       allocationDecision:event.entries.find(p => p.allocationDecision)?.allocationDecision ?? null,
@@ -174,10 +174,12 @@ export function calculateAwards(data, settings = data.awardSettings ?? {}, polic
     }
     const rank = 1 + members.filter(m => m.score < member.score).length;
     const replacements = owned.flatMap(x => x.owners.filter(p => p.memberId === member.id).map(p => ({pick:p.pick, name:x.name})));
+    const eligibleJettisons=member.picks.filter(p=>isJettisonEligible(p,member.id,data.asOf,clubState)).length;
     return { id:member.id, name:member.name, score:member.score, rank,
       tied:members.some(m => m.id !== member.id && m.score === member.score), benefits,
       replacements, vacancies:replacements.length,
-      optionalJettisons:Math.max(0,5-replacements.length), youngest:youngestOwners.includes(member.id), devil:lowest.some(m => m.id === member.id) };
+      optionalJettisons:Math.min(Math.max(0,5-replacements.length),eligibleJettisons),
+      youngest:youngestOwners.includes(member.id), devil:lowest.some(m => m.id === member.id) };
   });
   const dated = events.filter(x => x.discoveredOn && x.discoveredOn.slice(0,4) === String(data.year) && x.discoveredOn <= data.asOf);
   const discoveryMissing = events.filter(x => !x.discoveredOn).length + undated;
@@ -247,6 +249,23 @@ export function awardsMarkup(model) {
   return model.cards.map(card => `<article class="award-card" id="award-${e(card.id)}"><p class="award-status">${e(card.status)}</p><h3>${e(card.title)}</h3><p class="award-holder">${e(card.value)}</p><p class="award-description">${e(card.description)}</p>${card.details.length ? `<details><summary>How this is worked out <span aria-hidden="true">+</span></summary><ul>${card.details.map(line => `<li>${e(line)}</li>`).join('')}</ul></details>` : ''}</article>`).join('');
 }
 
+// Protections are placed before regular Steals. Within the Steal stage the
+// actual date of death determines the order, including the oldest-death award.
+// Date-only same-day ties between distinct passings remain expressly unsettled.
+export function orderedDraftBenefits(benefits) {
+  const stage=b=>b.kind==='Blood Diamond'?2:b.kind==='Steal'?3:4;
+  const ordered=benefits.map((item,index)=>({item,index})).sort((a,b)=>
+    stage(a.item)-stage(b.item) ||
+    (a.item.at??'9999-12-31').localeCompare(b.item.at??'9999-12-31') ||
+    a.index-b.index);
+  return ordered.map(({item},index)=>({
+    ...item,
+    sameDayOrderUnknown:item.kind==='Steal' && Boolean(item.at) &&
+      ordered.some((other,i)=>i!==index && other.item.kind==='Steal' &&
+        other.item.at===item.at && other.item.event!==item.event)
+  }));
+}
+
 export function draftMarkup(model) {
-  return model.draft.map(member => `<article class="draft-card"><h3><a href="#the-lists" data-member-link="${e(member.id)}">${e(member.name)}</a></h3><p class="draft-position">${member.tied ? 'Tied at' : 'Pick'} ${member.rank} · ${member.score} points${member.tied ? ' · Rock, paper, scissors decides order' : ''}</p><ul>${member.benefits.map(b => `<li><strong>${e(b.kind)}${b.confirmed ? '' : ' to confirm'}</strong> · ${e(b.event)} (${e(b.reason)})</li>`).join('')}${member.youngest ? '<li>Youngest-death Blood Diamond contender</li>' : ''}${member.devil ? '<li>Devil’s Share contender: choose a Steal or Blood Diamond</li>' : ''}${!member.benefits.length && !member.youngest && !member.devil ? '<li>No draft benefit indicated yet</li>' : ''}</ul><p>${member.vacancies} listed ${member.vacancies === 1 ? 'passing' : 'passings'} to replace · Up to ${member.optionalJettisons} optional jettisons to make five spaces.</p></article>`).join('');
+  return model.draft.map(member => `<article class="draft-card"><h3><a href="#the-lists" data-member-link="${e(member.id)}">${e(member.name)}</a></h3><p class="draft-position">${member.tied ? 'Tied at' : 'Pick'} ${member.rank} · ${member.score} points${member.tied ? ' · Rock, paper, scissors decides order' : ''}</p><ul>${orderedDraftBenefits(member.benefits).map(b => `<li><strong>${e(b.kind)}${b.confirmed ? '' : ' to confirm'}</strong> · ${e(b.event)} (${e(b.reason)})${b.sameDayOrderUnknown ? ' · Same-date order needs confirmation' : ''}</li>`).join('')}${member.youngest ? '<li>Youngest-death Blood Diamond contender</li>' : ''}${member.devil ? '<li>Devil’s Share contender: choose a Steal or Blood Diamond</li>' : ''}${!member.benefits.length && !member.youngest && !member.devil ? '<li>No draft benefit indicated yet</li>' : ''}</ul><p>${member.vacancies} listed ${member.vacancies === 1 ? 'passing' : 'passings'} to replace · Up to ${member.optionalJettisons} eligible optional jettisons to make up to five spaces.</p></article>`).join('');
 }

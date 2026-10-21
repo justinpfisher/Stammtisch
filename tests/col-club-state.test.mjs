@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {januaryHandover, competitionYearAt, readClubState, firstReportDate,
+import {januaryHandover, competitionYearAt, competitionYearForDeathDate,
+  isJettisonEligible, readClubState, firstReportDate,
   isProtectedPick} from '../col-club-state.mjs';
 import {awardEvents,calculateAwards} from '../celebration-awards.mjs';
 
@@ -102,4 +103,46 @@ test('birthday previews use corrected dates and recorded Protections without cha
   buffet=calculateAwards(data,{}, {},placed).cards.find(x=>x.id==='birthday-buffet');
   assert.doesNotMatch(buffet.details.join(' '),/Fictional/);
   assert.equal(JSON.stringify(data),before,'no historical allocation has been edited');
+});
+
+test('a source death date belongs to the old year until the 8 p.m. January handover',()=>{
+  assert.equal(competitionYearForDeathDate('2026-01-15'),2026,
+    'previously awarded 2026 results must not be reassigned');
+  assert.equal(competitionYearForDeathDate('2026-12-31'),2026);
+  assert.equal(competitionYearForDeathDate('2027-01-01'),2026);
+  assert.equal(competitionYearForDeathDate('2027-01-14'),2026);
+  assert.equal(competitionYearForDeathDate('2027-01-15'),null,
+    'the actual changeover date needs verified death time');
+  assert.equal(competitionYearForDeathDate('2027-01-15',Date.parse('2027-01-15T19:59:59-05:00')),2026);
+  assert.equal(competitionYearForDeathDate('2027-01-15',Date.parse('2027-01-15T20:00:00-05:00')),2027);
+  assert.equal(competitionYearForDeathDate('2027-01-16'),2027);
+  assert.equal(competitionYearForDeathDate('2028-01-20'),2027);
+  assert.equal(competitionYearForDeathDate('2028-01-21'),null);
+  assert.equal(competitionYearForDeathDate('2028-01-22'),2028);
+  assert.equal(competitionYearForDeathDate('2027-02-30'),null);
+});
+
+test('only living, eligible, unprotected numbered picks may be jettisoned',()=>{
+  const state=readClubState(copy()),asOf='2027-01-15';
+  const living={pick:2,name:'Fictional',born:'1950-01-01',counted:false};
+  assert.equal(isJettisonEligible(living,'fish',asOf,state),true);
+  assert.equal(isJettisonEligible({...living,pick:1},'fish',asOf,state),false);
+  assert.equal(isJettisonEligible({...living,pick:50},'fish',asOf,state),false);
+  assert.equal(isJettisonEligible({...living,born:'1927-01-15'},'fish','2027-01-15',state),true,
+    'a celebrity aged exactly 100 remains jettisonable');
+  assert.equal(isJettisonEligible({...living,born:'1926-01-14'},'fish','2027-01-15',state),false,
+    'a celebrity over 100 cannot be jettisoned');
+  assert.equal(isJettisonEligible({...living,bloodDiamond:true},'fish',asOf,state),false);
+  assert.equal(isJettisonEligible({...living,dateOfPassing:'2026-11-01'},'fish',asOf,state),false);
+  assert.equal(isJettisonEligible({...living,actualDeathDate:'2026-11-01'},'fish',asOf,state),false);
+  assert.equal(isJettisonEligible({...living,dateSource:{dateOfPassing:'2026-11-01'}},'fish',asOf,state),false);
+  assert.equal(isJettisonEligible({...living,counted:true},'fish',asOf,state),false);
+  assert.equal(isJettisonEligible({...living,needsReview:true},'fish',asOf,state),false);
+  assert.equal(isJettisonEligible({...living,born:null},'fish',asOf,state),false);
+  const placed=copy();placed.protectionPlacements=[
+    {memberId:'fish',name:'Fictional',born:'1950-01-01',placedOn:'2027-01-15'}];
+  assert.equal(isJettisonEligible(living,'fish','2028-01-15',readClubState(placed)),false,
+    'a placed Protection does not lapse between competitions');
+  assert.equal(isJettisonEligible(living,'marc','2028-01-15',readClubState(placed)),true,
+    'a Protection cannot silently transfer to another member');
 });

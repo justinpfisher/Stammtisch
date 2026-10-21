@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { awardEvents, calculateAwards, awardsMarkup, draftMarkup, metricBirthdayLabel, birthdayCalendar } from '../celebration-awards.mjs';
+import { awardEvents, calculateAwards, awardsMarkup, draftMarkup, orderedDraftBenefits, metricBirthdayLabel, birthdayCalendar } from '../celebration-awards.mjs';
 import { distinctionReason } from '../celebration-rules.mjs';
 
 const source = JSON.parse(readFileSync(new URL('../data/celebration.json', import.meta.url), 'utf8'));
@@ -336,4 +336,70 @@ test('Metric Calendar birthday labels match the official ordinal method and reta
   const model=calculateAwards(source);
   assert.match(card(model,'birthday-buffet').details.at(-1),/Birthday register \(2026, Metric first\): Marc: Bloom 12 \(March 26\)/);
   assert.equal(JSON.stringify(source),saved,'metric labels must never mutate awarded data');
+});
+
+
+test('January 2027 death dates belong to 2026 until the 8 p.m. handover; its date-only boundary stays held',()=>{
+  const death=(name,when,instant)=>pick(name,{
+    born:'1950-01-01',actualDeathDate:when,discoveryDate:when,
+    ...(instant?{actualDeathAt:instant}:{})
+  });
+  const data={year:2026,asOf:'2027-01-16',members:[
+    member('fish',0,[
+      death('Before Friday','2027-01-14'),
+      death('Exact Friday without time','2027-01-15'),
+      death('Before 8 p.m.','2027-01-15','2027-01-15T19:59:59-05:00'),
+      death('At 8 p.m.','2027-01-15','2027-01-15T20:00:00-05:00'),
+      death('Following Saturday','2027-01-16')])
+  ]};
+  const original=JSON.stringify(data);
+  const result=calculateAwards(data);
+  assert.deepEqual(result.events.map(x=>x.name),['Before Friday','Before 8 p.m.']);
+  assert.equal(result.final,false);
+  assert.equal(result.draft[0].vacancies,2);
+  assert.equal(JSON.stringify(data),original);
+});
+
+test('draft preview caps optional jettisons by actual unprotected living eligible picks',()=>{
+  const deceased=(name,number)=>pick(name,{pick:number});
+  const living=(name,number,born='1950-01-01',more={})=>pick(name,{
+    pick:number,born,counted:false,actualDeathDate:undefined,
+    discoveryDate:undefined,dateOfPassing:undefined,...more
+  });
+  const data=season([member('fish',10,[
+    deceased('Deceased one',2),deceased('Deceased two',3),
+    living('Blue protected',1),living('Brown protected',50),
+    living('Too old',4,'1900-01-01'),
+    living('Placed protection',5,'1950-01-01',{bloodDiamond:true}),
+    living('Only eligible',6)
+  ])]);
+  const result=calculateAwards(data).draft[0];
+  assert.equal(result.vacancies,2);
+  assert.equal(result.optionalJettisons,1);
+  assert.match(draftMarkup({draft:[result]}),/1 eligible optional jettisons/);
+  assert.equal(JSON.stringify(data.members[0].picks.filter(x=>x.counted).map(x=>x.name)),
+    JSON.stringify(['Deceased one','Deceased two']));
+});
+
+test('draft displays placed Protection rights before earned Steals, ordered by actual death date',()=>{
+  const benefits=[
+    {kind:'Steal',event:'Late Steal',at:'2026-08-01',confirmed:true,reason:'Blue Diamond'},
+    {kind:'Steal',event:'Same date B',at:'2026-03-01',confirmed:true,reason:'Oldest celebrity death of the year'},
+    {kind:'Blood Diamond',event:'Protection',at:'2026-07-01',confirmed:true,reason:'Brown Diamond'},
+    {kind:'Steal',event:'Same date A',at:'2026-03-01',confirmed:true,reason:'Blue Diamond'},
+    {kind:'Steal',event:'Earlier Steal',at:'2026-02-01',confirmed:true,reason:'Blue Diamond'}
+  ];
+  const original=JSON.stringify(benefits);
+  const ordered=orderedDraftBenefits(benefits);
+  assert.deepEqual(ordered.map(x=>x.event),[
+    'Protection','Earlier Steal','Same date B','Same date A','Late Steal']);
+  assert.deepEqual(ordered.map(x=>x.sameDayOrderUnknown),[false,false,true,true,false]);
+  const markup=draftMarkup({draft:[{
+    id:'fish',name:'Justin',rank:1,score:10,tied:false,benefits,
+    vacancies:0,optionalJettisons:0,youngest:false,devil:false
+  }]});
+  assert.ok(markup.indexOf('Protection') < markup.indexOf('Earlier Steal'));
+  assert.ok(markup.indexOf('Earlier Steal') < markup.indexOf('Late Steal'));
+  assert.match(markup,/Same-date order needs confirmation/);
+  assert.equal(JSON.stringify(benefits),original,'preview does not mutate rights or their source');
 });
