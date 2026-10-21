@@ -27,7 +27,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Offline regressions before source observation
+      - name: Qualify code once for a new CoL candidate
+        # Later signed activation/confirmation/seal phases replay the exact
+        # candidate and independent source/host checks; testing all unrelated
+        # Annals and site modules five times is not additional assurance.
+        if: github.event.action == 'annals-col-candidate-v3'
         run: node scripts/local-dev.mjs check
       - name: Install existing read-only monitor dependencies
         if: github.event.action != 'annals-col-cancel-v3' && github.event.action != 'annals-col-seal-v3'
