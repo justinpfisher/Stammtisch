@@ -325,6 +325,6 @@ test('Metric Calendar birthday labels match the official ordinal method and reta
   assert.equal(metricBirthdayLabel(2026,'not-a-date'),null);
   const saved=JSON.stringify(source);
   const model=calculateAwards(source);
-  assert.match(card(model,'birthday-buffet').details[0],/Birthday register \(2026, Metric first\): Marc: Bloom 12 \(March 26\)/);
+  assert.match(card(model,'birthday-buffet').details.at(-1),/Birthday register \(2026, Metric first\): Marc: Bloom 12 \(March 26\)/);
   assert.equal(JSON.stringify(source),saved,'metric labels must never mutate awarded data');
 });
