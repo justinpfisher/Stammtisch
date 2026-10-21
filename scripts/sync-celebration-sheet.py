@@ -24,6 +24,7 @@ def load_module(filename, name):
 
 importer = load_module("import-celebration.py", "celebration_importer")
 verifier = load_module("verify-celebration-death.py", "celebration_verifier")
+authority = load_module("col-github-authority.py", "celebration_git_authority")
 
 def column_name(index):
     letters = ""
@@ -225,8 +226,9 @@ def sheets_api_cells(workbook):
         tabs[title] = cells
     mapping = canonical_sheet_mapping(tabs)
     canonical = {name: copy.deepcopy(tabs[title]) for name, title in mapping.items()}
-    # The existing XLSX importer remains the final score/selection authority.
-    # Only the transient leaderboard formulas are normalized to its expected ids.
+    # The imported workbook is an input, not the final authority for explicit
+    # GitHub-recorded corrections. Leaderboard formula normalization remains
+    # limited to the verified tab identities.
     normalise_board_member_links(canonical["LEADERBOARD"], mapping)
     return canonical
 
@@ -274,7 +276,9 @@ def newly_reported_deaths(existing, proposed):
             if now_reported and (new_identity or newly_dated or newly_counted):
                 yield member["id"], pick
 
-def prepare(workbook, existing, confirmations, checked_at, allow_research=True):
+def prepare(workbook, existing, confirmations, checked_at, allow_research=True, corrections=None):
+    corrections = corrections if corrections is not None else {"schemaVersion": 1, "corrections": []}
+    authored = authority.validated_corrections(corrections)
     sheets = sheets_api_cells(workbook)
     # The old season's vetted confirmations are tied to its exact people and
     # selections. Refuse a new competition year BEFORE applying those records
@@ -344,19 +348,22 @@ def prepare(workbook, existing, confirmations, checked_at, allow_research=True):
                                              (born.month, born.day))
             base = 10 if years == 100 else 100 - years
             expected = base * (2 if pick["pick"] in (1, 50) else 1)
-            if pick["points"] != expected:
+            if pick["points"] != expected and not authority.overridden_pick(
+                authored, candidate["year"], member["id"], pick
+            ):
                 raise ValueError("Verified passing points disagree with the club's scoring rules")
-    # The scoring year ends on December 31, even when existing picks stay
-    # active until the January draft. The attribution of post-year passings
-    # during that gap has not been adopted. Keep unchanged hourly checks
-    # quiet, but do not expose new awards, entries, edits or death dates as
-    # part of the previous scoring year's public results.
-    # This is a safeguard, not a new rule or an automatic rollover.
+    # Until the new January scoring calculation is qualified, Sheet-driven
+    # changes in the post-calendar-year gap remain held. A *GitHub-authorised*
+    # correction to an already awarded score can still publish: first verify
+    # that the Sheet has not independently changed any other material field.
     if date.fromisoformat(candidate["asOf"]).year > candidate["year"]:
-        if public_material(candidate) != public_material(existing):
+        corrected = authority.apply_awarded_points(candidate, corrections)
+        expected = authority.apply_awarded_points(existing, corrections)
+        if public_material(corrected) != public_material(expected):
             raise ValueError("Post-year scoring boundary requires qualified transition")
-        return {"status": "ready", "pending": 0, "publish": False,
-                "confirmationsAdded": 0}, None, None
+        changed = public_material(corrected) != public_material(existing)
+        return {"status": "ready", "pending": 0, "publish": changed,
+                "confirmationsAdded": 0}, (corrected if changed else None), None
 
     known_sources = {}
     for member in candidate["members"]:
@@ -391,6 +398,9 @@ def prepare(workbook, existing, confirmations, checked_at, allow_research=True):
     combined = confirmations + to_append
     if to_append:
         candidate = importer.import_data(None, checked_at, combined, sheets=sheets)
+    # Always reapply committed GitHub corrections, so later routine Sheet
+    # imports cannot restore an older point allocation or leaderboard total.
+    candidate = authority.apply_awarded_points(candidate, corrections)
     changed = public_material(candidate) != public_material(existing)
     return {"status":"ready", "pending":0, "publish":changed,
             "confirmationsAdded":len(to_append)}, (candidate if changed else None), (combined if to_append else None)
@@ -461,6 +471,8 @@ def main():
     parser.add_argument("--workbook", type=pathlib.Path, required=True)
     parser.add_argument("--existing", type=pathlib.Path, default=ROOT / "data/celebration.json")
     parser.add_argument("--confirmations", type=pathlib.Path, default=ROOT / "data/celebration-confirmations.json")
+    parser.add_argument("--club-state", type=pathlib.Path,
+                        default=ROOT / "data/col-club-state.json")
     parser.add_argument("--status", type=pathlib.Path, required=True)
     parser.add_argument("--checked-at", required=True)
     parser.add_argument("--disable-research", action="store_true")
@@ -468,10 +480,12 @@ def main():
     workbook = json.loads(args.workbook.read_text(encoding="utf-8"))
     existing = json.loads(args.existing.read_text(encoding="utf-8"))
     confirmations = json.loads(args.confirmations.read_text(encoding="utf-8"))
+    corrections = json.loads(args.club_state.read_text(encoding="utf-8"))
     datetime.fromisoformat(args.checked_at.replace("Z", "+00:00"))
     try:
         result, data, combined = prepare(workbook, existing, confirmations, args.checked_at,
-                                         allow_research=not args.disable_research)
+                                         allow_research=not args.disable_research,
+                                         corrections=corrections)
     except Exception as exc:
         # No private names, values, formulas, dates, or source snippets in public
         # GitHub logs/issues. The failure label is a fixed, allowlisted code.

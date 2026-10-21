@@ -16,6 +16,9 @@ on:
       - 'tests/test_full_mapping_contract.py'
       - 'tests/test_publication_health.py'
       - 'data/celebration-confirmations.json'
+      - 'data/col-club-state.json'
+      - 'scripts/col-github-authority.py'
+      - 'tests/test_col_github_authority.py'
   schedule:
     - cron: '58 * * * *'
       timezone: America/Toronto
