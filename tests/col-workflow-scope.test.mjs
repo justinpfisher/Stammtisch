@@ -26,3 +26,15 @@ test('Sheet processing tests the affected score/push modules and keeps source ve
   assert.match(wf,/scripts\/verify-celebration-publication\.py/);
   assert.match(wf,/git push origin HEAD:main/);
 });
+
+test('routine successful Sheet changes no longer generate public issues while failures still alert',()=>{
+  const wf=readFileSync(new URL('../.github/workflows/celebration-sheet-monitor.yml',import.meta.url),'utf8');
+  assert.doesNotMatch(wf,/Open or update a metadata-only change alert|Record successful website publication|site-published:/);
+  assert.match(wf,/Reconcile current Sheet with published website data/);
+  assert.match(wf,/Commit verified website data/);
+  assert.match(wf,/Verify visitor-facing website register/);
+  assert.match(wf,/Upload encrypted baseline and report/);
+  assert.match(wf,/Open or update a monitor failure alert/);
+  assert.match(wf,/independent verification required/);
+  assert.match(wf,/season transition requires engineering/);
+});
