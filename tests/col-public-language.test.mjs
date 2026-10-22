@@ -37,3 +37,31 @@ test('recorded rules include the unchanged official preamble only after admissio
   for(const line of preamble)assert.ok(reference.includes(line));
   assert.match(read('col-rules-version.mjs'),/querySelector\('#rules-preamble'\)\.hidden=false/);
 });
+
+test('newest rule revisions appear first without changing chronological source records', () => {
+  const record=JSON.parse(read('data/col-rules-register.json'));
+  const older={
+    id:'col-fixture-older-0001',member:'marc',submittedAt:'2026-10-16T12:00:00Z',
+    publishedAt:'2026-10-16T12:05:00Z',effectiveAt:'2026-10-16T12:05:00Z',
+    state:'active',baseVersion:record.baseline.id,explanation:'Fictional earlier amendment.',
+    changes:[{provision:'PRIZE',before:'Before one.',after:'After one.'}],correctionOf:null
+  };
+  const newer={
+    ...older,id:'col-fixture-newer-0002',member:'ken',
+    submittedAt:'2026-10-18T12:00:00Z',publishedAt:'2026-10-18T12:05:00Z',
+    effectiveAt:'2026-10-18T12:05:00Z',explanation:'Fictional later correction.',
+    changes:[{provision:'PRIZE',before:'After one.',after:'After two.'}],correctionOf:older.id
+  };
+  record.revisions=[older,newer]; // The immutable public record remains append-ordered.
+  const source=JSON.stringify(record);
+  const html=renderRegister(record);
+  const newerAt=html.indexOf('<article id="'+newer.id+'">');
+  const olderAt=html.indexOf('<article id="'+older.id+'">');
+  const baselineAt=html.indexOf('<section id="'+record.baseline.id+'">');
+  assert.ok(newerAt>=0&&newerAt<olderAt&&olderAt<baselineAt,'newest, older, baseline');
+  assert.match(html,/Corrects or reverses <a href="#col-fixture-older-0001"/);
+  assert.equal(JSON.stringify(record),source,'display order must not mutate source data');
+  const staticHtml=read('col-revisions.html');
+  assert.ok(staticHtml.indexOf('No new amendments have been entered')<
+    staticHtml.indexOf('<section id="col-baseline-20261015">'));
+});
