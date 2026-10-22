@@ -1,9 +1,6 @@
 # STAMMTISCH — Celebration of Life Pool
 
-This file preserves the dated official baseline and confirmations below. The
-[current operative rules and version-bound official reference](../col-rules-version.html?reference=1)
-and [permanent revision register](../col-revisions.html) also include any later
-fully qualified amendments. An incomplete candidate never replaces this baseline.
+This file preserves the **historical September–15 October baseline** and its dated confirmations. It is not the present authored public rulebook. Jerome's 18 October replacement is preserved verbatim in [`data/col-jerome-rules.txt`](../data/col-jerome-rules.txt) and [the official rules page](../celebration.html#official-rules). The [version-bound operative reference](../col-rules-version.html?reference=1), [revision register](../col-revisions.html), and [current production state](current-state.md) distinguish already signed scoring releases from subsequent editorial wording. An incomplete candidate never changes historical awards or becomes an operative scoring release.
 
 Official rules supplied by Justin on September 20, 2026. Formatting and HTML
 spacing have been cleaned up. Justin confirmed the Brown Diamond wording
@@ -164,12 +161,9 @@ It is an engineering qualification, not a second approval of the member's author
 An inaccessible Sheet write route or inconsistent source retains the prior operative
 version and leaves the revision awaiting implementation. The monitor's existing
 credentials remain read-only; this decision does not grant them Editor access.
-January 1 calendar-year scoring remains distinct from the actual January draft;
-the intervening-January interpretation remains unresolved.
+**Historical 15 October position, superseded 21 October 2026:** January 1 calendar-year scoring was then distinguished from the January draft, and the intervening-January interpretation was unresolved. The later adopted Renewal-to-Renewal boundary is the third Friday of January at 8 p.m. Toronto time, with unknown death times on that Friday assigned to the previous year by default. Prospective numerical implementation remains a separate protected release.
 
 The permanent [CoL Rules Revision Register](../col-revisions.html) establishes a
 dated baseline and records sanitised revisions, exact before/after wording,
 status events, corrections and reversals. Original requests and authentication
-remain private. No earlier amendment chronology is inferred. New email automation
-remains disabled until signing remediation, private installation and hosted genuine
-acceptance are verified; recording this authority does not claim activation.
+remain private. No earlier amendment chronology is inferred. The original October automation-activation statement is historical; see [current state](current-state.md) for the already qualified private installation and what remains to activate.
