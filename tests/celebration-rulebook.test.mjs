@@ -15,7 +15,9 @@ const rendered=page.slice(a+start.length,b).trim();
 test('official rules display exactly the verified source-renderer output',()=>{
   assert.ok(a>=0&&b>a,'expected one bounded verbatim rules region');
   assert.equal(rendered,renderRules(source));
-  assert.equal((rendered.match(/class="jerome-verbatim-text"/g)||[]).length,19);
+  assert.doesNotMatch(rendered,/<pre\\b|jerome-verbatim-text/);
+  assert.match(rendered,/<ul class="jerome-bullet-list">/);
+  assert.match(rendered,/<ol class="jerome-numbered-list">/);
   assert.equal((rendered.match(/<details class="rule-topic">/g)||[]).length,7);
 });
 
@@ -23,7 +25,9 @@ test('verbatim presentation keeps accessible headings, disclosure controls and w
   assert.match(page,/<section class="shell rules-section" id="official-rules" aria-labelledby="rules-title">/);
   assert.match(rendered,/<details class="rule-topic"><summary>POINTS/);
   assert.match(rendered,/<h4 class="jerome-subheading">4\. DEVIL’S SHARE<\/h4>/);
-  assert.match(rendered,/class="jerome-verbatim-text"/);
+  assert.match(rendered,/<li><p>You can’t steal a Diamond\\.<\\/p><\\/li>/);
+  assert.match(rendered,/If your celebrity dies at 101 or older, you lose one point for every year over 100\\./);
+  assert.match(rendered,/Birthday Buffet is based on when the death is reported in our group chat \\(not date of death\\.\\)/);
   assert.match(page,/Earlier signed editions and revisions/);
 });
 
