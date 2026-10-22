@@ -179,6 +179,7 @@ list and adds them to their own.
    A celebrity can’t be stolen twice in the same year.
 
 
+
 4. DEVIL’S SHARE
 
 The person with the fewest points chooses either a Steal or Protection, and
@@ -208,6 +209,7 @@ You cannot jettison…
 
 If you jettison a 100-year-old and they die before turning 101, you lose ten
 points.
+
 
 
 6. DRAFT
