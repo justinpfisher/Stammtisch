@@ -20,7 +20,7 @@ on:
       - 'scripts/col-github-authority.py'
       - 'tests/test_col_github_authority.py'
   schedule:
-    - cron: '58 * * * *'
+    - cron: '17 * * * *'
       timezone: America/Toronto
   workflow_dispatch:
     inputs:
