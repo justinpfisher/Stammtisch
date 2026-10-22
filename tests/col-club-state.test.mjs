@@ -208,6 +208,29 @@ test('a source death date belongs to the old year until the 8 p.m. January hando
   assert.equal(competitionYearForDeathDate('2027-02-30'),null);
 });
 
+test('a verified cross-zone death time governs Toronto handover even if its local date is Saturday',()=>{
+  const before='2027-01-16T04:00:00+14:00'; // Friday 9 a.m. Toronto
+  const atCutoff='2027-01-16T15:00:00+14:00'; // Friday 8 p.m. Toronto
+  assert.equal(competitionYearAt(before),2026);
+  assert.equal(competitionYearAt(atCutoff),2027);
+  assert.equal(competitionYearForDeathDate('2027-01-16',Date.parse(before)),2026);
+  assert.equal(competitionYearForDeathDate('2027-01-16',Date.parse(atCutoff)),2027);
+  assert.equal(competitionYearForDeathDate('2027-01-16'),2027,
+    'without independently verified time, the recorded Saturday date applies');
+  assert.equal(competitionYearForDeathDate('2027-01-16',Number.NaN),2027,
+    'invalid timestamps never manufacture a different season');
+  assert.equal(competitionYearForDeathDate('2026-01-17',Date.parse('2026-01-17T04:00:00+14:00')),2026,
+    'signed 2026 history is never retrospectively reassigned');
+  const record={year:2026,asOf:'2027-01-20',members:[member('fish',[
+    pick('Fictional',{actualDeathDate:'2027-01-16',actualDeathAt:before,discoveryDate:'2027-01-16'})])]};
+  const saved=JSON.stringify(record);
+  const event=awardEvents(record,readClubState(copy()))[0];
+  assert.equal(event.competitionYear,2026);
+  assert.equal(event.inSeason,true);
+  assert.equal(event.diedOn,'2027-01-16');
+  assert.equal(JSON.stringify(record),saved,'preview never mutates signed recorded points');
+});
+
 test('only living, eligible, unprotected numbered picks may be jettisoned',()=>{
   const state=readClubState(copy()),asOf='2027-01-15';
   const living={pick:2,name:'Fictional',born:'1950-01-01',counted:false};

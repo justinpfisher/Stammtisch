@@ -27,15 +27,21 @@ export function januaryHandover(year) {
     utc:new Date(date+'T20:00:00-05:00').toISOString(), timeZone:'America/Toronto'});
 }
 
+function competitionYearAtInstant(epochMs) {
+  if (!Number.isFinite(epochMs)) return null;
+  const instant = new Date(epochMs);
+  if (!Number.isFinite(instant.getTime())) return null;
+  const localYear = Number(new Intl.DateTimeFormat('en-US',
+    {year:'numeric', timeZone:'America/Toronto'}).format(instant));
+  if (localYear < 2027 || localYear > 9998) return null;
+  return epochMs < Date.parse(januaryHandover(localYear).utc) ? localYear - 1 : localYear;
+}
+
 export function competitionYearAt(value) {
   // A bare date cannot establish which side of the 8 p.m. handover a death
   // belongs to. Never invent the previous 2026 handover time.
   if (!validTimestamp(value)) return null;
-  const instant = new Date(value);
-  const localYear = Number(new Intl.DateTimeFormat('en-US',
-    {year:'numeric', timeZone:'America/Toronto'}).format(instant));
-  if (localYear < 2027 || localYear > 9998) return null;
-  return instant.getTime() < Date.parse(januaryHandover(localYear).utc) ? localYear - 1 : localYear;
+  return competitionYearAtInstant(Date.parse(value));
 }
 
 // Dates normally establish the season. On changeover Friday, a genuinely
@@ -48,11 +54,13 @@ export function competitionYearForDeathDate(date, verifiedInstant = null) {
   if (!validDate(date)) return null;
   const year=Number(date.slice(0,4));
   if (year < 2027) return year;
+  // Verified death time always uses Toronto's clock, even if a source in
+  // another time zone records a different calendar day. The date-only
+  // fallback retains the Club's previous-year default on handover Friday.
+  const fromTime=competitionYearAtInstant(verifiedInstant);
+  if (fromTime !== null) return fromTime;
   const cutoff=januaryHandover(year).date;
-  if (date < cutoff) return year-1;
-  if (date > cutoff) return year;
-  if (!Number.isFinite(verifiedInstant)) return year-1;
-  return verifiedInstant < Date.parse(januaryHandover(year).utc) ? year-1 : year;
+  return date <= cutoff ? year-1 : year;
 }
 
 // A clear member correction is recorded by an authenticated, attributable Git
