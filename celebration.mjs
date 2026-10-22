@@ -1,7 +1,7 @@
 import { ageAt, basePoints, distinctionReason } from './celebration-rules.mjs';
 export { ageAt, basePoints } from './celebration-rules.mjs';
-import { calculateAwards, awardsMarkup, draftMarkup } from './celebration-awards.mjs?v=col-renewal-instant-20261021';
-import {readClubState,applyPointsCorrections} from './col-club-state.mjs?v=col-renewal-instant-20261021';
+import { calculateAwards, awardsMarkup, draftMarkup } from './celebration-awards.mjs?v=col-renewal-snapshot-20261021';
+import {readClubState,applyPointsCorrections} from './col-club-state.mjs?v=col-renewal-snapshot-20261021';
 import {loadOperativeSnapshot} from './col-rules-reader.mjs';
 import {verifiedAwardPolicy} from './col-award-policy.mjs?v=col-release-20261020';
 
