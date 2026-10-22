@@ -62,3 +62,29 @@ test('private photo activation cannot set any genuine acceptance marker or alter
  c.annalsGuardedEnableJpegInEditor();assert.equal(writes.length,4);assert.ok(writes.every(([k])=>!/HOSTED_ACCEPTED|RULES|HISTORY/.test(k)));
  c.annalsOwner_=()=>{throw Error('Wrong owner');};assert.throws(()=>c.annalsGuardedEnableJpegInEditor(),/owner/);
 });
+
+test('owner readback distinguishes installed token cutoff from fallback and never asserts trigger frequency or provider expiry',()=>{
+  const values={ANNALS_GITHUB_TOKEN:'private-test-credential',ANNALS_ALLOWED_SENDERS:'six-members'};
+  const c=vm.createContext({
+    Date,annalsOwner_:()=>{},annalsProps_:()=>({getProperties:()=>({...values})}),
+    annalsPublisherExpiry_:()=>Date.parse(values.ANNALS_GITHUB_TOKEN_EXPIRES_AT||'2026-11-09T00:00:00Z'),
+    AnnalsPilot:{allowedSenders:()=>['a','b','c','d','e','f']},
+    ScriptApp:{getProjectTriggers:()=>[{getHandlerFunction:()=> 'runAnnalsProductionIntake'}]},
+    console:{log:()=>{}}
+  });
+  vm.runInContext(code,c);
+  let result=c.annalsQuickProductionReadbackInEditor();
+  assert.equal(result.publisherExpirySource,'source_fallback');
+  assert.equal(result.publisherTokenExpiryVerifiedByProvider,false);
+  assert.equal(result.intakeFiveMinuteMarkerPresent,false);
+  assert.equal(result.intakeIntervalObservedByThisCheck,false);
+  assert.equal(result.soleTriggerIsIntake,true);
+  values.ANNALS_GITHUB_TOKEN_EXPIRES_AT='2027-01-20T00:00:00Z';
+  values.ANNALS_INTAKE_CADENCE_MINUTES='5';
+  result=c.annalsQuickProductionReadbackInEditor();
+  assert.equal(result.publisherExpirySource,'installed_script_property');
+  assert.equal(result.publisherCutoff,'2027-01-20T00:00:00.000Z');
+  assert.equal(result.intakeFiveMinuteMarkerPresent,true);
+  assert.equal(result.intakeIntervalObservedByThisCheck,false);
+  assert.doesNotMatch(JSON.stringify(result),/private-test-credential|six-members/);
+});
