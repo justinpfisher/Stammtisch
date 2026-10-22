@@ -17,19 +17,32 @@ test('member-authored source is complete, structured, and contains no private ma
   assert.match(source,/4\. DEVIL’S SHARE/);
 });
 
-test('presentation preserves original headings and text without AI interpolation',()=>{
+test('semantic HTML displays original headings, paragraphs, bullets and seven draft stages',()=>{
   const markup=renderRules(source);
   assert.equal((markup.match(/<details class="rule-topic">/g)||[]).length,7);
-  assert.equal((markup.match(/class="jerome-verbatim-text"/g)||[]).length,19);
+  assert.equal((markup.match(/<ul class="jerome-bullet-list">/g)||[]).length,6);
+  assert.equal((markup.match(/<ol class="jerome-numbered-list">/g)||[]).length,2);
+  assert.equal((markup.match(/<li>/g)||[]).length,24);
+  assert.doesNotMatch(markup,/<pre\b|class="jerome-verbatim-text"/);
   for(const heading of HEADINGS){
     const encoded=heading.replace('&','&amp;');
     assert.ok(markup.includes('>'+encoded),heading);
   }
-  assert.match(markup,/The points equal 100 minus age at death\./);
-  assert.match(markup,/BIRTHDAY BUFFET/);
-  assert.match(markup,/WINNER DECLARED/);
-  assert.match(markup,/Protections can’t be transferred or cancelled\./);
+  assert.match(markup,/<li><p>You can’t steal a Diamond\.<\/p><\/li>/);
+  assert.match(markup,/<li><p>Protections last until the celebrity dies\.<\/p><\/li>/);
+  assert.match(markup,/<strong class="jerome-list-title">Devli’s Share<\/strong>/);
+  assert.match(markup,/<h4 class="jerome-subheading">4\. DEVIL’S SHARE<\/h4>/);
   assert.doesNotMatch(markup,/Matter for Club Deliberation|Clarifications recorded|The Committee will observe the appointed hour/);
+});
+
+test('rendered visible words and original heading order match Jerome without editorial additions',()=>{
+  const markup=renderRules(source);
+  const expected=source.replace(/^[ \t]*-[ \t]*$/gm,'').replace(/^[ \t]*\d+\.[ \t]*$/gm,'').replace(/\s+/g,' ').trim();
+  const actual=markup.replace(/<span aria-hidden="true">\+<\/span>/g,'')
+    .replace(/<[^>]+>/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<')
+    .replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'")
+    .replace(/\s+/g,' ').trim();
+  assert.equal(actual,expected,'formatting must not change words or reorder headings');
 });
 
 test('renderer refuses partial source and missing or ambiguous replacement boundaries',()=>{
