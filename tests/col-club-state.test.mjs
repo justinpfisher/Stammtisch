@@ -228,6 +228,17 @@ test('a verified cross-zone death time governs Toronto handover even if its loca
   assert.equal(event.competitionYear,2026);
   assert.equal(event.inSeason,true);
   assert.equal(event.diedOn,'2027-01-16');
+  const snapshot=structuredClone(record);
+  snapshot.asOf='2027-01-15';
+  assert.equal(awardEvents(snapshot,readClubState(copy()))[0].inSeason,true,
+    'the verified Friday morning death has occurred by the Toronto Friday snapshot');
+  delete snapshot.members[0].picks[0].actualDeathAt;
+  assert.equal(awardEvents(snapshot,readClubState(copy()))[0].inSeason,false,
+    'without death-time evidence a source-local Saturday must not be backdated');
+  snapshot.year=2027;
+  snapshot.members[0].picks[0].actualDeathAt=atCutoff;
+  assert.equal(awardEvents(snapshot,readClubState(copy()))[0].inSeason,true,
+    'the exact 8 p.m. Toronto handover belongs to the new season');
   assert.equal(JSON.stringify(record),saved,'preview never mutates signed recorded points');
 });
 
