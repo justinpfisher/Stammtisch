@@ -1,5 +1,5 @@
 import { ageAt, basePoints, cavalcadeRule, copycatRule } from './celebration-rules.mjs';
-import {firstReportDate, isProtectedPick, competitionYearForDeathDate, correctedCompetitionYear, isJettisonEligible} from './col-club-state.mjs?v=col-renewal-instant-20261021';
+import {firstReportDate, isProtectedPick, competitionYearForDeathDate, correctedCompetitionYear, isJettisonEligible} from './col-club-state.mjs?v=col-renewal-snapshot-20261021';
 
 const birthdays = { marc: '03-26', jerome: '05-09', matt: '06-25', fish: '07-06', ken: '07-20', jamie: '09-19' };
 const birthdayNames = { marc:'Marc', jerome:'Jerome', matt:'Matt', fish:'Justin', ken:'Ken', jamie:'Jamie' };
@@ -19,6 +19,18 @@ function deathInstant(value, date) {
   // the reader's timezone to decide who died second.
   const match = /^(\d{4}-\d{2}-\d{2})T([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?(Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.exec(value ?? '');
   return match && match[1] === date && validDate(date) ? Date.parse(value) : null;
+}
+
+function torontoDateAtInstant(epochMs) {
+  if (!Number.isFinite(epochMs)) return null;
+  const date = new Date(epochMs);
+  if (!Number.isFinite(date.getTime())) return null;
+  // The Sheet snapshot day is Toronto-local, while a verified death's source
+  // calendar day may be Saturday abroad while Toronto is still Friday.
+  const parts = new Intl.DateTimeFormat('en-US',
+    { year:'numeric', month:'2-digit', day:'2-digit', timeZone:'America/Toronto' }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(p => [p.type, p.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 // Calendar labels are supplementary display only. The recorded Gregorian dates
@@ -78,7 +90,8 @@ export function awardEvents(data, clubState = null) {
     // silently reverse it. Historical awards remain untouched.
     const correctedYear = diedOn ? correctedCompetitionYear({...event,diedOn},clubState) : null;
     const competitionYear = correctedYear ?? competitionYearForDeathDate(at,diedAt);
-    const inSeason = Boolean(at && at <= data.asOf && competitionYear === data.year);
+    const snapshotDay = diedAt === null ? at : torontoDateAtInstant(diedAt);
+    const inSeason = Boolean(snapshotDay && snapshotDay <= data.asOf && competitionYear === data.year);
     return { ...event, discoveredOn, reportedOn:firstReportDate({...event, discoveredOn},clubState), diedOn, diedAt, at, age, ageConfirmed:confirmedAge !== null,
       ageInDays:validDate(event.born) && diedOn && diedOn >= event.born ? daysBetween(event.born,diedOn) : null,
       allocationDecision:event.entries.find(p => p.allocationDecision)?.allocationDecision ?? null,
