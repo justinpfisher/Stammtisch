@@ -90,6 +90,10 @@ function annalsQuickProductionReadbackInEditor(){
     intakeTriggerCount:triggers?triggers.length:null,
     soleTriggerIsIntake:!!(triggers&&triggers.length===1&&
       triggers[0].getHandlerFunction()==='runAnnalsProductionIntake'),
+    // Apps Script does not expose a time trigger's actual interval here.
+    // This is the one-shot installation marker, NOT observed execution.
+    intakeFiveMinuteMarkerPresent:p.ANNALS_INTAKE_CADENCE_MINUTES==='5',
+    intakeIntervalObservedByThisCheck:false,
     budgetMonth:budget&&/^\d{4}-\d{2}$/.test(budget.month||'')?budget.month:null,
     budgetReservedCents:budget&&budget.schemaVersion===1&&
       Number.isSafeInteger(budget.reservedCents)&&budget.reservedCents>=0&&budget.reservedCents<=500?
@@ -100,6 +104,10 @@ function annalsQuickProductionReadbackInEditor(){
     signingMaterialsSeparate:approved.length>=32&&publisher.length>=32&&history.length>=32&&
       approved!==publisher&&approved!==history&&publisher!==history,
     publisherCredentialPresent:!!p.ANNALS_GITHUB_TOKEN,
+    // A configured Script Property differs from the code's fallback cutoff.
+    // Neither can by itself prove GitHub's actual credential expiry.
+    publisherExpirySource:p.ANNALS_GITHUB_TOKEN_EXPIRES_AT?'installed_script_property':'source_fallback',
+    publisherTokenExpiryVerifiedByProvider:false,
     publisherCutoff:Number.isFinite(cutoff)?new Date(cutoff).toISOString():null,
     publisherCutoffInFuture:Number.isFinite(cutoff)&&cutoff>Date.now(),
     providerAuthenticationVerifiedByThisCheck:false,
