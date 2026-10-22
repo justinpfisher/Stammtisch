@@ -27,7 +27,7 @@ export function renderRules(raw){
     }
     if(GROUPS.has(heading)){
       if(open)out+='</div></details>\n';
-      out+='<details class="rule-topic jerome-rule-topic"><summary>'+esc(heading)+'<span aria-hidden="true">+</span></summary><div class="rule-body">\n';
+      out+='<details class="rule-topic"><summary>'+esc(heading)+'<span aria-hidden="true">+</span></summary><div class="rule-body">\n';
       open=true;
     }else{
       if(!open)throw Error('Heading outside section');

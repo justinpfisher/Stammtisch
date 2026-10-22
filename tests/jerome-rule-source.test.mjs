@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {sections,renderRules,replaceRules,HEADINGS} from '../scripts/render-jerome-rules.mjs';
 
-const source=readFileSync(new URL('../data/col-jerome-rules.txt',import.meta.url),'utf8');
+const source=readFileSync(new URL('../data/col-jerome-rules.txt',import.meta.url),'utf8').replace(/\r\n/g,'\n');
 
 test('member-authored source is complete, structured, and contains no private mail wrapper',()=>{
   assert.equal(source.length,3916);
@@ -19,11 +19,11 @@ test('member-authored source is complete, structured, and contains no private ma
 
 test('presentation preserves original headings and text without AI interpolation',()=>{
   const markup=renderRules(source);
-  assert.equal((markup.match(/class="jerome-rule-topic"/g)||[]).length,7);
+  assert.equal((markup.match(/<details class="rule-topic">/g)||[]).length,7);
   assert.equal((markup.match(/class="jerome-verbatim-text"/g)||[]).length,19);
   for(const heading of HEADINGS){
     const encoded=heading.replace('&','&amp;');
-    assert.ok(markup.includes('>'+encoded+'</'),heading);
+    assert.ok(markup.includes('>'+encoded),heading);
   }
   assert.match(markup,/The points equal 100 minus age at death\./);
   assert.match(markup,/BIRTHDAY BUFFET/);
@@ -33,8 +33,8 @@ test('presentation preserves original headings and text without AI interpolation
 });
 
 test('renderer refuses partial source and missing or ambiguous replacement boundaries',()=>{
-  assert.throws(()=>sections(source.replace('POINTS\n','')),/heading/i);
-  assert.throws(()=>sections(source.replace('STEAL\n','STEEL\n')),/heading/i);
+  assert.throws(()=>sections(source.replace(/^POINTS\r?$/m,'')),/heading/i);
+  assert.throws(()=>sections(source.replace(/^STEAL\r?$/m,'STEEL')),/heading/i);
   assert.throws(()=>replaceRules('not a Club page',source),/bounded/i);
   const bounded='<main><!-- Jerome verbatim rules start -->old<!-- Jerome verbatim rules end --></main>';
   const once=replaceRules(bounded,source);

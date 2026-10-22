@@ -204,6 +204,9 @@ details[open]>summary>.disclosure-icon { transform:rotate(45deg)!important; }
 .rule-topic { border-bottom:1px solid var(--line); }
 .rule-topic:first-of-type { border-top:1px solid var(--line); }
 .rule-topic>summary { font:600 13px/1.6 var(--sans); letter-spacing:.06em; padding-block:22px; }
+.jerome-verbatim-text { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; line-height:1.85; }
+.jerome-rule-transcript .jerome-rule-preamble { margin-bottom:20px; }
+.jerome-rule-transcript .jerome-subheading { margin-block:16px 8px; font:600 13px/1.6 var(--sans); letter-spacing:.04em; }
 .rule-body { padding-bottom:25px; font-size:14px; line-height:1.85; }
 .rule-body p+p { margin-top:16px; }
 .rule-body ol { margin-block:16px 20px; padding-inline-start:24px; }
