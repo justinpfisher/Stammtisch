@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {MEMBERS,migrateBaseline,calculatePassing,prospectiveTotals,annualRights,beginDraft,applyDraftAction,jettisonPenalty,validateSelections} from '../col-prospective.mjs';
 import {celebrityKey} from '../col-club-state.mjs';
+import {BEHAVIOR_FILES,behaviorDigest} from '../scripts/annals/RulesRelease.mjs';
 const read=p=>JSON.parse(readFileSync(new URL(p,import.meta.url),'utf8'));
 const club=()=>read('../data/col-club-state.json');
 const person=(name='Fictional One',more={})=>({name,born:'1950-01-01',pick:2,...more});
@@ -14,6 +15,13 @@ const event=(p=person(),more={})=>{
 };
 const calculate=(p=person(),e=event(p),more={})=>calculatePassing({members:members(p),event:e,clubState:club(),effectiveAt:'2026-10-25T12:00:00Z',observedAt:'2028-02-02T00:00:00Z',...more});
 
+test('signed CoL implementation digest includes prospective scoring and correction code',async()=>{
+  for(const path of ['col-prospective.mjs','col-club-state.mjs','celebration-rules.mjs',
+    'col-award-policy.mjs','celebration-awards.mjs'])
+    assert.ok(BEHAVIOR_FILES.includes(path),'Unbound numerical behaviour: '+path);
+  assert.equal(new Set(BEHAVIOR_FILES).size,BEHAVIOR_FILES.length,'Duplicate digest inputs');
+  assert.match(await behaviorDigest(),/^[a-f0-9]{64}$/);
+});
 test('migration preserves all 301 actual rows, 14 signed allocations and all six totals',()=>{
   const data=read('../data/celebration.json'),before=JSON.stringify(data),m=migrateBaseline(data,club());
   assert.equal(m.baseline.members.flatMap(x=>x.picks).length,301);
