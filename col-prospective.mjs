@@ -116,6 +116,22 @@ export function prospectiveTotals(migration,calculated,seasonYear) {
   return totals;
 }
 
+// Preserve the Club's seven-stage order: Protections, ordinary Steals in actual
+// death chronology, then the oldest-death Steal. Source-local dates may differ
+// across time zones; exact verified instants override their calendar labels.
+function draftRightPriority(right){
+  return right.kind==='Protection'?0:right.reason==='Oldest death'?2:1;
+}
+function compareDraftRights(a,b){
+  const priority=draftRightPriority(a)-draftRightPriority(b);
+  if(priority)return priority;
+  if(a.diedAt&&b.diedAt){
+    const delta=Date.parse(a.diedAt)-Date.parse(b.diedAt);
+    if(delta)return delta;
+  }
+  return a.at.localeCompare(b.at)||a.personKey.localeCompare(b.personKey);
+}
+
 export function annualRights(events,totals,seasonYear) {
   assert(MEMBERS.every(id=>Number.isInteger(totals[id])),'Complete signed standings required');
   const relevant=events.filter(e=>e.seasonYear===seasonYear);
@@ -132,7 +148,7 @@ export function annualRights(events,totals,seasonYear) {
     if(owners.length!==1||matched.length!==1){held.push({reason:`${reason} tie needs a recorded decision`,members:owners});continue;}
     const e=matched[0];rights.push({kind,memberId:e.ownerId,reason,id:`${seasonYear}:${reason}`,personKey:e.personKey,at:e.diedOn,diedAt:e.diedAt,seasonYear});
   }
-  rights.sort((a,b)=>(a.kind==='Protection'?2:3)-(b.kind==='Protection'?2:3)||a.at.localeCompare(b.at)||((a.diedAt&&b.diedAt)?Date.parse(a.diedAt)-Date.parse(b.diedAt):0));
+  rights.sort(compareDraftRights);
   const scores=Object.values(totals),min=Math.min(...scores),max=Math.max(...scores);
   return {rights,held,winners:MEMBERS.filter(id=>totals[id]===max),devil:MEMBERS.filter(id=>totals[id]===min),
     tiedOrder:MEMBERS.filter(id=>MEMBERS.some(other=>id!==other&&totals[id]===totals[other]))};
@@ -160,7 +176,7 @@ export function beginDraft({members,clubState,completedYear,at,awards,totals,ord
     members:members.map(m=>({...structuredClone(m),picks:m.picks.filter(p=>numbered(p)&&!dead(p)).map(p=>structuredClone(p))})),
     protections:structuredClone(clubState.protectionPlacements.filter(p=>members.some(m=>m.id===p.memberId&&m.picks.some(x=>key(x)===key(p)&&!dead(x))))),
     expiredProtections:structuredClone(clubState.protectionPlacements.filter(p=>members.some(m=>m.picks.some(x=>key(x)===key(p)&&dead(x))))),
-    rights:structuredClone(awards.rights).sort((a,b)=>a.at.localeCompare(b.at)||((a.diedAt&&b.diedAt)?Date.parse(a.diedAt)-Date.parse(b.diedAt):0)),devil:[...awards.devil],
+    rights:structuredClone(awards.rights).sort(compareDraftRights),devil:[...awards.devil],
     consumedRights:[],stolen:[],jettisons:[],jettisonWaivers:[],actions:[],closed:false,
     deadPeople:[...new Set(members.flatMap(m=>m.picks.filter(dead).map(key)))],
     vacantDiamonds:Object.fromEntries(members.map(m=>[m.id,[1,50].filter(slot=>!m.picks.some(p=>p.pick===slot&&!dead(p)))]))};
@@ -175,7 +191,9 @@ function spend(s,id,kind,memberId){
   if(kind==='Steal') {
     const remaining=s.rights.filter(x=>x.kind==='Steal'&&!s.consumedRights.includes(x.id));
     const earliest=remaining[0];assert(earliest,'No remaining Steal');
-    assert(!remaining.some(x=>x.at===r.at&&x.personKey!==r.personKey&&(!x.diedAt||!r.diedAt||Date.parse(x.diedAt)===Date.parse(r.diedAt))),'Same-day Steal order needs evidence');
+    assert(!remaining.some(x=>x.personKey!==r.personKey&&draftRightPriority(x)===draftRightPriority(r)&&
+      (x.diedAt&&r.diedAt?Date.parse(x.diedAt)===Date.parse(r.diedAt):x.at===r.at)),
+      'Same-day Steal order needs evidence');
     assert(earliest.id===id,'Steals must follow actual death chronology');
   }
   s.consumedRights.push(id);
