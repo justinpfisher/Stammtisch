@@ -24,6 +24,22 @@ var AnnalsAuto = (function () {
   // Specific hard stops. Generic club language ("home", "family", "history",
   // "photograph") is NOT inherently a reason to suppress innocent text.
   var PRIVATE_DATA = /(?:\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b|https?:\/\/|www\.|\b(?:\+?1[- .]?)?\(?[2-9]\d{2}\)?[- .][2-9]\d{2}[- .]\d{4}\b|\b[A-CEGHJ-NPRSTVXY]\d[A-CEGHJ-NPRSTV-Z][ -]?\d[A-CEGHJ-NPRSTV-Z]\d\b|\b\d{1,5}\s+[\w'-]+\s+(?:street|st\.|avenue|ave\.|road|rd\.|drive|lane|boulevard|blvd\.)\b|\b(?:password|passcode|access code|door code|postal code|credit card|bank account|home address|private address|personal phone|private message|confidential|secret|medical diagnosis)\b|^\s*(?:from|sent|subject|to|cc|bcc)\s*:|^\s*>|^\s*--\s*$|<[^>]+>|\b(?:ignore previous instructions|system prompt|developer instructions|api key|publish this regardless|override safeguards)\b)/im;
+  // Only public, canonical accommodation listing links are ordinary Club context.
+  // Query strings, fragments, user-info, lookalike hosts and other URLs retain
+  // the existing private-detail screening. No booking or access token is allowed.
+  var PUBLIC_VENUE_URL = /^https:\/\/(?:www\.)?airbnb\.(?:ca|com)\/rooms\/[1-9][0-9]{4,19}\/?$/i;
+  var WEB_URL = /https?:\/\/[^\s<>"']+/gi;
+  function isPublicVenueUrl(value) {
+    return PUBLIC_VENUE_URL.test(String(value).replace(/[.,;!)]*$/, ''));
+  }
+  function withoutPublicVenueLinks(value) {
+    return String(value).replace(WEB_URL,function(url) {
+      return isPublicVenueUrl(url) ? 'PUBLIC_LISTING' : url;
+    });
+  }
+  function hasPublicVenueLink(value) {
+    return (String(value).match(WEB_URL) || []).some(isPublicVenueUrl);
+  }
   var ALLEGATION = /\b(?:accused of|allegedly|arrested for|charged with|fraud|assault|abuse|crime|criminal|illegal activity|diagnosed with|passed away|died by suicide)\b/i;
   var THIRD_PARTY = /\b(?:he said|she said|they said|he told me|she told me|they told me|according to|quoted from|overheard|guest named|colleague named|mr\.|mrs\.|dr\.)\b/i;
   var MEDIA_DEPENDENT = /\b(?:as pictured|in the photo|see (?:the )?(?:photo|image|picture|attachment|scan|file)|attached (?:photo|image|picture|recipe)|image says|photo shows|pictured here)\b/i;
@@ -59,7 +75,7 @@ var AnnalsAuto = (function () {
   }
   function independentText(text) { return !MEDIA_DEPENDENT.test(text); }
   function protectedText(text) {
-    return PRIVATE_DATA.test(text) || ALLEGATION.test(text) ||
+    return PRIVATE_DATA.test(withoutPublicVenueLinks(text)) || ALLEGATION.test(text) ||
       THIRD_PARTY.test(text) || NAMED_PERSON.test(text);
   }
   // Preserve the complete private original. Only this derived text is sent
@@ -86,7 +102,9 @@ var AnnalsAuto = (function () {
         // Redact only the contact token or the explicitly labelled guest name.
         // Unknown identity/rights and allegations cannot be made safe by
         // arbitrarily substituting a person or inventing a narrative.
-        var masked = text.replace(CONTACT_TOKENS,'[DETAIL OMITTED]')
+        var masked = text.replace(CONTACT_TOKENS,function(token) {
+          return isPublicVenueUrl(token) ? token : '[DETAIL OMITTED]';
+        })
           .replace(/\b(?:guest|visitor|colleague)\s+named\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b/g,
             function(match) {return match.split(/\s+/)[0]+' [NAME OMITTED]';})
           // The six members' approved first names remain intact. A distinct
@@ -346,7 +364,12 @@ var AnnalsAuto = (function () {
     var media = privateSource.attachmentManifest;
     if (!media || !Array.isArray(media.items) || !independentText(full)) return held('media_context_required');
     if (!Array.isArray(candidate.riskFlags) || candidate.riskFlags.some(function (flag) {
-      return HARD_FLAGS.indexOf(flag) >= 0 ||
+      // Publicly advertised Assembly rentals are no longer treated as secret.
+      // This exception is for verified source text, not attached photographs,
+      // private-home locations or other independent privacy warnings.
+      var publicAssemblyLocation = flag === 'location_or_home_context' &&
+        candidate.category === 'assembly' && hasPublicVenueLink(full);
+      return (HARD_FLAGS.indexOf(flag) >= 0 && !publicAssemblyLocation) ||
         (MAY_IGNORE_MEDIA_FLAGS.indexOf(flag) >= 0 && !independentText(full));
     })) return held('material_uncertainty');
     if (!reasonableCategory(candidate.category, full)) return held('classification_not_supported');

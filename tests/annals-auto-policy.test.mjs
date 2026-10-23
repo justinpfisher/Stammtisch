@@ -142,6 +142,59 @@ test('safe standalone text publishes even if an unrelated image is held privatel
   const imageOnly=sample();imageOnly.source.excerpt='See attached photo.';
   assert.equal(policy.propose(imageOnly,draft(),id).eligible,false);
 });
+test('source-grounded public Assembly rental links no longer trigger a blanket privacy hold',()=>{
+  const listing='https://www.airbnb.ca/rooms/123456789012345678';
+  const s=sample();
+  s.source.subject='Annual Assembly cottage';
+  s.source.excerpt='The cottage has a public listing at '+listing+'. Marc will bring an imaginary deck of cards.';
+  const d={...draft(),category:'assembly',title:s.source.subject,
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]},
+    riskFlags:['location_or_home_context']};
+  const screened=policy.safeSource(s.source.subject,s.source.excerpt,false);
+  assert.equal(screened.valid,true);
+  assert.equal(screened.redacted,false);
+  assert.equal(screened.excerpt,s.source.excerpt);
+  assert.equal(policy.sensitiveText(s.source.excerpt),false);
+  const decision=policy.propose(s,d,id);
+  assert.equal(decision.eligible,true,decision.reason);
+  assert.equal(decision.entry.summary,s.source.excerpt);
+  assert.equal(verifyPublicApproval(decision.entry,proof(decision.entry),secret),true);
+  assert.equal(policy.propose(s,{...d,riskFlags:['location_or_home_context','private_context']},id).eligible,false);
+  assert.equal(policy.propose(s,{...d,category:'club_history'},id).eligible,false,
+    'a location warning needs an actual public Assembly context');
+});
+test('public venue URL exception rejects private links, query tokens and lookalike hosts',()=>{
+  const listing='https://www.airbnb.ca/rooms/123456789012345678';
+  const unsafe=[
+    listing+'?check_in=2027-02-05',
+    listing+'#doorcode',
+    'http://www.airbnb.ca/rooms/123456789012345678',
+    'https://www.airbnb.ca.evil.example/rooms/123456789012345678',
+    'https://www.airbnb.ca/rooms/123456789012345678/private',
+    'https://user:password@www.airbnb.ca/rooms/123456789012345678',
+    'https://example.test/private-photo'
+  ];
+  for (const link of unsafe){
+    const source='The venue details were sent via '+link+'.';
+    const safe=policy.safeSource('Annual Assembly cottage',source,false);
+    if (!safe.valid) {
+      // An embedded password or other sensitive token may correctly hold the
+      // entire item; no public output is preferable to partial leakage.
+      assert.match(safe.reason,/private_personal_or_sensitive_content|no_safe_standalone_text/);
+    } else {
+      assert.equal(safe.redacted,true,link);
+      assert.doesNotMatch(safe.excerpt,/https?:\/\/|www\./,link);
+      assert.match(safe.excerpt,/\[DETAIL OMITTED\]/,link);
+    }
+  }
+  const source='The cottage listing is '+listing+'. The door code is 4321.';
+  const safe=policy.safeSource('Annual Assembly cottage',source,false);
+  assert.equal(safe.valid,true);
+  assert.equal(safe.redacted,true);
+  assert.match(safe.excerpt,/airbnb\.ca\/rooms\/123456789012345678/);
+  assert.doesNotMatch(safe.excerpt,/door code|4321/);
+  assert.equal(policy.sensitiveText('The door code is 4321.'),true);
+});
 test('generic language about a club gathering is not a privacy veto',()=>{
   const s=sample();s.source.subject='Club history';s.source.excerpt='We gathered at home and had a damn good laugh.';
   const d={...draft(),category:'club_history',title:'Club history',
