@@ -35,6 +35,8 @@ regressions on the exact commit. Its artifact contains hashes/counts/results,
 never workbook cells, credentials, original communications or rights records.
 The ordinary snapshot option retains its original semantics for existing v3 jobs.
 
+The signed CoL implementation digest now also binds `col-prospective.mjs` and `col-club-state.mjs`, so future qualified CoL releases cannot silently change prospective numerical code or GitHub correction precedence without changing that digest. This is an integrity binding, not a production adapter or operative scoring activation.
+
 Neither the qualification artifact nor a PR merge activates this engine. The
 production adapter still needs to bind authenticated selection/draft actions,
 independent death-verifier records, frozen earlier benefits and exact baseline to
