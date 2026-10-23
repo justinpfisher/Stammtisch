@@ -35,6 +35,8 @@ regressions on the exact commit. Its artifact contains hashes/counts/results,
 never workbook cells, credentials, original communications or rights records.
 The ordinary snapshot option retains its original semantics for existing v3 jobs.
 
+A separate `prospectiveBehaviorDigest()` covers the existing rule sources plus `col-prospective.mjs` and `col-club-state.mjs` for a future source-bound numerical adapter. The operative v3 rule staging manifest remains unchanged, so the existing private Apps Script installation does not need modification merely to preserve ordinary rule amendments. This preparatory digest must be consumed by a qualified numerical release adapter before activation.
+
 Neither the qualification artifact nor a PR merge activates this engine. The
 production adapter still needs to bind authenticated selection/draft actions,
 independent death-verifier records, frozen earlier benefits and exact baseline to
