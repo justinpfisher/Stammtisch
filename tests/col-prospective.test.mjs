@@ -111,9 +111,9 @@ test('annual Steal rights use verified instants across zones and keep oldest-dea
   const earlier=calculate(earlyPick,event(earlyPick,{
     diedOn:'2027-02-02',diedAt:'2027-02-02T00:15:00+11:00'
   }));
-  const later={...calculate(laterPick,event(laterPick,{
+  const later=calculate(laterPick,event(laterPick,{
     diedOn:'2027-02-01',diedAt:'2027-02-01T14:00:00-05:00'
-  })),ownerId:'marc'};
+  }),{members:MEMBERS.map(id=>({id,name:id,score:0,picks:id==='marc'?[laterPick]:[]}))});
   assert.equal(earlier.status,'calculated');
   assert.equal(later.status,'calculated');
   const rights=annualRights([earlier,later],zero(),2027).rights.filter(r=>r.kind==='Steal');
