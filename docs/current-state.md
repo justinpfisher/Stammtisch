@@ -1,6 +1,6 @@
 # Stammtisch — current production state
 
-**Checked 21 October 2026 (America/Toronto).** Enduring Club authority: [AGENTS.md](../AGENTS.md). This file is the concise **actual state**; [Issue #24](https://github.com/justinpfisher/Stammtisch/issues/24) tracks the one set of remaining exceptions and evidence. Older reports, comments and code versions preserve genuine history but do not restore retired Club controls.
+**Checked 22 October 2026 (America/Toronto).** Enduring Club authority: [AGENTS.md](../AGENTS.md). This file is the concise **actual state**; [Issue #24](https://github.com/justinpfisher/Stammtisch/issues/24) tracks the one set of remaining exceptions and evidence. Older reports, comments and code versions preserve genuine history but do not restore retired Club controls.
 
 ## Operative today
 
