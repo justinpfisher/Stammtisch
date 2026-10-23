@@ -317,7 +317,7 @@ function approvedEntryMarkup(entry) {
         esc(entry.contributorPortrait) + '-annals.webp" alt="Illustrated portrait of ' +
         esc(CONTRIBUTOR_PORTRAITS[entry.contributorPortrait]) +
         ', who contributed this entry" width="42" height="42" loading="lazy" decoding="async">' +
-        '<span>Contributor</span></div>'
+        '<span>Recorded by ' + esc(CONTRIBUTOR_PORTRAITS[entry.contributorPortrait]) + '</span></div>'
       : contributorCreditMarkup(entry.credit);
   const introductionMarkup = entry.category === 'quotation' ? ''
     : (introduction
