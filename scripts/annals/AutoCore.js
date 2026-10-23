@@ -74,8 +74,11 @@ var AnnalsAuto = (function () {
     return !!norm(phrase) && norm(source).indexOf(norm(phrase)) >= 0;
   }
   function independentText(text) { return !MEDIA_DEPENDENT.test(text); }
-  function protectedText(text) {
-    return PRIVATE_DATA.test(withoutPublicVenueLinks(text)) || ALLEGATION.test(text) ||
+  function protectedText(text, allowPublicVenueLink) {
+    // Default public/privacy checks never trust a URL. The exception is passed
+    // explicitly only from an authenticated, source-grounded Assembly entry.
+    var checked = allowPublicVenueLink === true ? withoutPublicVenueLinks(text) : text;
+    return PRIVATE_DATA.test(checked) || ALLEGATION.test(text) ||
       THIRD_PARTY.test(text) || NAMED_PERSON.test(text);
   }
   // Preserve the complete private original. Only this derived text is sent
@@ -85,7 +88,7 @@ var AnnalsAuto = (function () {
   var OMIT_SENTENCE = /\b(?:password|passcode|access code|door code|postal code|credit card|bank account|home address|private address|personal phone|private message|confidential|secret|medical diagnosis|diagnosed with|financial hardship|intimate relationship|family dispute)\b/i;
   var RAW_HEADER = /^\s*(?:from|sent|subject|to|cc|bcc)\s*:|^\s*>|^\s*--\s*$|<[^>]+>|\b(?:ignore previous instructions|system prompt|developer instructions|api key|publish this regardless|override safeguards)\b/i;
   var RECIPE_MATERIAL = /(?:^|\s)(?:\d+(?:[./]\d+|[¼½¾])?|[¼½¾])\s*(?:oz|ounces?|ml|cl|g|grams?|cups?|tbsp|tsp|dash(?:es)?|drops?|parts?)\b|^\s*(?:stir|shake|strain|garnish|mix|pour|blend|muddle|simmer|boil|add|combine|chill|serve|heat|steep)\b|\b\d+\s*:\s*\d+\s*(?:ratio|parts?)?\b/i;
-  function safeField(value, allowMemberQuote) {
+  function safeField(value, allowMemberQuote, allowPublicVenueLink) {
     // Apply the established sign-off cleaner, but never discard the actual
     // authoritative private original. This also preserves harmless Markdown
     // indentation and quantities when no redaction is necessary.
@@ -103,7 +106,7 @@ var AnnalsAuto = (function () {
         // Unknown identity/rights and allegations cannot be made safe by
         // arbitrarily substituting a person or inventing a narrative.
         var masked = text.replace(CONTACT_TOKENS,function(token) {
-          return isPublicVenueUrl(token) ? token : '[DETAIL OMITTED]';
+          return allowPublicVenueLink && isPublicVenueUrl(token) ? token : '[DETAIL OMITTED]';
         })
           .replace(/\b(?:guest|visitor|colleague)\s+named\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b/g,
             function(match) {return match.split(/\s+/)[0]+' [NAME OMITTED]';})
@@ -119,7 +122,7 @@ var AnnalsAuto = (function () {
         var contactOnly=masked!==text &&
           /^(?:(?:please|kindly)\s+)?(?:email|call|text|phone|contact|reach|write|send)\b/i.test(text);
         if (RAW_HEADER.test(text) || ALLEGATION.test(text) || OMIT_SENTENCE.test(text) ||
-            contactOnly || quoteRisk || protectedText(masked)) {
+            contactOnly || quoteRisk || protectedText(masked,allowPublicVenueLink)) {
           changed = true;
           lineChanged = true;
           if(RECIPE_MATERIAL.test(text))recipeMaterialRedacted = true;
@@ -138,11 +141,14 @@ var AnnalsAuto = (function () {
     return {text:result.join('\n').trim(),changed:changed,
       recipeMaterialRedacted:recipeMaterialRedacted,holdReason:holdReason};
   }
-  function safeSource(subject, excerpt, allowMemberQuote) {
+  function safeSource(subject, excerpt, allowMemberQuote, allowPublicVenueLink) {
     if (typeof subject !== 'string' || typeof excerpt !== 'string')
       return {valid:false,reason:'source_incomplete'};
     if (protectedRoute(subject,excerpt)!=='annals') return {valid:false,reason:'col_proposal_private_review'};
-    var a=safeField(subject,allowMemberQuote===true),b=safeField(excerpt,allowMemberQuote===true);
+    var venueContext = allowPublicVenueLink === true &&
+      /\b(?:assembly|cottage|retreat|annual gathering)\b/i.test(subject+' '+excerpt);
+    var a=safeField(subject,allowMemberQuote===true,venueContext),
+      b=safeField(excerpt,allowMemberQuote===true,venueContext);
     // Remove incidental "see attached photo" sentences when a stand-alone
     // contribution remains. An image-only submission keeps its source for
     // the distinct positive photo-screening/depiction-rights workflow.
@@ -162,7 +168,7 @@ var AnnalsAuto = (function () {
     if (!a.text&&!b.text || excerpt.trim()&&!b.text&&changed)
       return {valid:false,reason:b.holdReason||a.holdReason||'no_safe_standalone_text'};
     var screened=[a.text,b.text].filter(Boolean).join('\n');
-    if (!screened.trim() || screened.length>11000 || protectedText(screened))
+    if (!screened.trim() || screened.length>11000 || protectedText(screened,venueContext))
       return {valid:false,reason:'private_personal_or_sensitive_content'};
     return {valid:true,subject:a.text,excerpt:b.text,redacted:changed,
       recipeMaterialRedacted:a.recipeMaterialRedacted||b.recipeMaterialRedacted};
@@ -351,7 +357,9 @@ var AnnalsAuto = (function () {
     // Publish only the independently safe remainder. This uses a derived
     // representation, not an edited private source or a model's assertion
     // that sensitive details are acceptable.
-    var screened = safeSource(s.subject,s.excerpt,false);
+    var publicAssemblySource = candidate.category === 'assembly' &&
+      /\b(?:assembly|cottage|retreat|annual gathering)\b/i.test(full);
+    var screened = safeSource(s.subject,s.excerpt,false,publicAssemblySource);
     if (!screened.valid) return held(screened.reason);
     subject=screened.subject;
     body=cleanText(screened.excerpt);
@@ -360,7 +368,7 @@ var AnnalsAuto = (function () {
     if (candidate.category==='cocktail' && screened.recipeMaterialRedacted)
       return held('recipe_measure_or_step_uncertain');
     if (reportedSpeech(full)) return held('third_party_quotation_permission');
-    if (protectedText(full)) return held('private_personal_or_sensitive_content');
+    if (protectedText(full,publicAssemblySource)) return held('private_personal_or_sensitive_content');
     var media = privateSource.attachmentManifest;
     if (!media || !Array.isArray(media.items) || !independentText(full)) return held('media_context_required');
     if (!Array.isArray(candidate.riskFlags) || candidate.riskFlags.some(function (flag) {
@@ -368,18 +376,18 @@ var AnnalsAuto = (function () {
       // This exception is for verified source text, not attached photographs,
       // private-home locations or other independent privacy warnings.
       var publicAssemblyLocation = flag === 'location_or_home_context' &&
-        candidate.category === 'assembly' && hasPublicVenueLink(full);
+        publicAssemblySource && hasPublicVenueLink(full);
       return (HARD_FLAGS.indexOf(flag) >= 0 && !publicAssemblyLocation) ||
         (MAY_IGNORE_MEDIA_FLAGS.indexOf(flag) >= 0 && !independentText(full));
     })) return held('material_uncertainty');
     if (!reasonableCategory(candidate.category, full)) return held('classification_not_supported');
     // Ignore unverified AI event dates; publish only the verified receipt period.
     if (typeof candidate.title !== 'string' || !candidate.title.trim() || candidate.title.length > 160 ||
-        protectedText(candidate.title)) return held('title_missing_or_sensitive');
+        protectedText(candidate.title,publicAssemblySource)) return held('title_missing_or_sensitive');
     // Model-created headlines are editorial labels, not historical evidence.
     // Prefer an innocuous original subject to unsupported model-created claims.
     var title = sourceGrounded(full,candidate.title) ? candidate.title.trim() : s.subject.trim();
-    if (!title || protectedText(title) || /(?:first ever|official record|unanimously decided|every member|all six were present)\b/i.test(title))
+    if (!title || protectedText(title,publicAssemblySource) || /(?:first ever|official record|unanimously decided|every member|all six were present)\b/i.test(title))
       return held('title_asserts_unverified_fact');
     var recipe = candidate.recipe;
     if (!recipe || !Array.isArray(recipe.drinkIngredients) || !Array.isArray(recipe.syrupIngredients) || !Array.isArray(recipe.steps))

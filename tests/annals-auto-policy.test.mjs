@@ -150,11 +150,16 @@ test('source-grounded public Assembly rental links no longer trigger a blanket p
   const d={...draft(),category:'assembly',title:s.source.subject,
     recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]},
     riskFlags:['location_or_home_context']};
-  const screened=policy.safeSource(s.source.subject,s.source.excerpt,false);
+  const screened=policy.safeSource(s.source.subject,s.source.excerpt,false,true);
+  const strict=policy.safeSource(s.source.subject,s.source.excerpt,false);
+  assert.equal(strict.valid,true);
+  assert.equal(strict.redacted,true);
+  assert.match(strict.excerpt,/\[DETAIL OMITTED\]/);
   assert.equal(screened.valid,true);
   assert.equal(screened.redacted,false);
   assert.equal(screened.excerpt,s.source.excerpt);
-  assert.equal(policy.sensitiveText(s.source.excerpt),false);
+  assert.equal(policy.sensitiveText(s.source.excerpt),true,
+    'generic text screening must not expose a public link outside authenticated Assembly context');
   const decision=policy.propose(s,d,id);
   assert.equal(decision.eligible,true,decision.reason);
   assert.equal(decision.entry.summary,s.source.excerpt);
@@ -162,6 +167,12 @@ test('source-grounded public Assembly rental links no longer trigger a blanket p
   assert.equal(policy.propose(s,{...d,riskFlags:['location_or_home_context','private_context']},id).eligible,false);
   assert.equal(policy.propose(s,{...d,category:'club_history'},id).eligible,false,
     'a location warning needs an actual public Assembly context');
+  for (const category of ['artefact','club_history','monthly_gathering']){
+    const other=policy.propose(s,{...d,category,riskFlags:[]},id);
+    assert.equal(other.eligible,true,category);
+    assert.match(other.entry.summary,/\[DETAIL OMITTED\]/,category);
+    assert.doesNotMatch(other.entry.summary,/https?:\/\//,category);
+  }
 });
 test('public venue URL exception rejects private links, query tokens and lookalike hosts',()=>{
   const listing='https://www.airbnb.ca/rooms/123456789012345678';
@@ -176,7 +187,7 @@ test('public venue URL exception rejects private links, query tokens and lookali
   ];
   for (const link of unsafe){
     const source='The venue details were sent via '+link+'.';
-    const safe=policy.safeSource('Annual Assembly cottage',source,false);
+    const safe=policy.safeSource('Annual Assembly cottage',source,false,true);
     if (!safe.valid) {
       // An embedded password or other sensitive token may correctly hold the
       // entire item; no public output is preferable to partial leakage.
@@ -188,7 +199,7 @@ test('public venue URL exception rejects private links, query tokens and lookali
     }
   }
   const source='The cottage listing is '+listing+'. The door code is 4321.';
-  const safe=policy.safeSource('Annual Assembly cottage',source,false);
+  const safe=policy.safeSource('Annual Assembly cottage',source,false,true);
   assert.equal(safe.valid,true);
   assert.equal(safe.redacted,true);
   assert.match(safe.excerpt,/airbnb\.ca\/rooms\/123456789012345678/);
