@@ -263,7 +263,7 @@ test('anonymous quotation archive does not infer a speaker or display a name', (
 
 
 
-test('non-quote verified sender is displayed by signed portrait, not a name or email address', () => {
+test('non-quote verified sender shows the consented first name with their signed portrait, never an email address', () => {
   const item={...baseDrink,credit:'anonymous',contributorPortrait:'marc'};
   const approved=signedTestReceipt(item,{recipeVerified:true,namedAttribution:true});
   assert.equal(verifyApproval(item,approved,TEST_SECRET),true);
@@ -271,7 +271,8 @@ test('non-quote verified sender is displayed by signed portrait, not a name or e
   assert.match(html,/annal-credited-illustration/);
   assert.match(html,/assets\/members\/annals\/marc-annals\.webp/);
   assert.match(html,/alt="Illustrated portrait of Marc, who contributed this entry"/);
-  assert.doesNotMatch(html,/Recorded by Marc|@example\.test/);
+  assert.match(html,/Recorded by Marc/);
+  assert.doesNotMatch(html,/@example\.test/);
   assert.equal(contentDigest(item)===contentDigest({...item,contributorPortrait:'ken'}),false);
   assert.equal(verifyApproval({...item,contributorPortrait:'ken'},approved,TEST_SECRET),false);
   const noAttribution=signedTestReceipt(item,{recipeVerified:true,namedAttribution:false});
