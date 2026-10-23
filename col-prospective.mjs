@@ -73,13 +73,21 @@ export function calculatePassing({members,event,clubState,effectiveAt,observedAt
   // manufacture midnight or use the news/report/verification timestamp.
   const releaseDay=torontoDay(effectiveAt);
   if(diedAt===null&&event.diedOn<=releaseDay||diedAt!==null&&diedAt<Date.parse(effectiveAt))return hold('historical-or-release-boundary-passing');
-  if(diedAt!==null&&diedAt>Date.parse(observedAt)||event.diedOn>observedAt.slice(0,10))return hold('future-passing');
+  // Verified exact death times are compared as instants; the source-local
+  // death date may be tomorrow relative to UTC without being in the future.
+  // Without a verified time, hold a date beyond today's Toronto calendar day.
+  if(diedAt!==null?diedAt>Date.parse(observedAt):event.diedOn>torontoDay(observedAt))return hold('future-passing');
   const owners=members.flatMap(m=>m.picks.filter(p=>numbered(p)&&key(p)===key(event)).map(p=>({...p,memberId:m.id})));
   if(owners.length!==1)return hold(owners.length?'shared-selection-needs-allocation':'numbered-owner-required');
   const owner=owners[0],age=ageAt(event.born,event.diedOn);
   const protectedPick=isProtectedPick(owner,owner.memberId,clubState,event.diedOn);
   const reportedOn=firstReportDate(event,clubState);
-  if(!protectedPick&&(!date(reportedOn)||reportedOn<event.diedOn||reportedOn>observedAt.slice(0,10)))return hold('club-report-date-required');
+  // Group-report dates are Toronto-local; a verified death timestamp can have
+  // a different source-local calendar date. Never compare either against UTC's
+  // date part, or treat tomorrow in Toronto as a completed WhatsApp report.
+  const reportDeathDay=diedAt===null?event.diedOn:torontoDay(diedAt);
+  if(!protectedPick&&(!date(reportedOn)||reportedOn<reportDeathDay||
+    reportedOn>torontoDay(observedAt)))return hold('club-report-date-required');
   const buffet=!protectedPick&&Object.keys(birthdays).find(id=>birthdays[id]===reportedOn.slice(5));
   const multiplier=[1,50].includes(owner.pick)?2:1;
   const points=basePoints(age)*multiplier;
@@ -242,8 +250,18 @@ export function applyDraftAction(state,action) {
 
 export function jettisonPenalty(jettison,event) {
   if(jettison.age!==100||key(jettison)!==key(event)||event.status!=='calculated')return null;
-  // Exact same-date order needs a verified death time after the action.
-  if(event.diedOn===jettison.at.slice(0,10)&&(!event.diedAt||Date.parse(event.diedAt)<=Date.parse(jettison.at)))return hold('jettison-death-order-required');
-  if(event.diedOn<jettison.at.slice(0,10)||ageAt(event.born,event.diedOn)!==100)return null;
+  if(!instant(jettison.at))return hold('jettison-death-order-required');
+  // Date prefixes refer to different zones. If an exact death instant exists,
+  // compare it with the actual jettison instant, not an arbitrary UTC day.
+  if(event.diedAt!=null){
+    if(!instant(event.diedAt)||event.diedAt.slice(0,10)!==event.diedOn)
+      return hold('jettison-death-order-required');
+    if(Date.parse(event.diedAt)<=Date.parse(jettison.at))return null;
+  }else{
+    const jettisonDay=torontoDay(jettison.at);
+    if(event.diedOn===jettisonDay)return hold('jettison-death-order-required');
+    if(event.diedOn<jettisonDay)return null;
+  }
+  if(ageAt(event.born,event.diedOn)!==100)return null;
   return {memberId:jettison.memberId,points:-10,seasonYear:event.seasonYear,notificationEligible:false};
 }
