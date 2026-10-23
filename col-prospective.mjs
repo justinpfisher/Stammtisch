@@ -259,8 +259,12 @@ export function jettisonPenalty(jettison,event) {
     if(Date.parse(event.diedAt)<=Date.parse(jettison.at))return null;
   }else{
     const jettisonDay=torontoDay(jettison.at);
-    if(event.diedOn===jettisonDay)return hold('jettison-death-order-required');
     if(event.diedOn<jettisonDay)return null;
+    // A source-local date through the next calendar day can still be before
+    // this Toronto action in a distant time zone. Require exact death-time
+    // evidence instead of awarding a penalty on an ambiguous date-only order.
+    const nextDay=new Date(Date.parse(jettisonDay+'T00:00:00Z')+86400000).toISOString().slice(0,10);
+    if(event.diedOn<=nextDay)return hold('jettison-death-order-required');
   }
   if(ageAt(event.born,event.diedOn)!==100)return null;
   return {memberId:jettison.memberId,points:-10,seasonYear:event.seasonYear,notificationEligible:false};
