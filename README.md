@@ -34,7 +34,7 @@ node scripts/local-dev.mjs check
 | Public notifications | [Push operations](docs/col-push-rollout.md), `scripts/col-push-delivery.py`, Issue #18 machine checkpoint; confirmed new passings only |
 | Approved artwork | `assets/`, `assets/members/annals/`, [portrait scope](docs/annals-member-portraits.md); private reference originals stay private |
 
-Current picks continue until the January draft; January 1–December 31 scoring is separate. The gap-period interpretation remains unresolved. Preserve awarded allocations and independently sourced actual death dates; spreadsheet discovery dates are different.
+The adopted prospective year runs between the third Fridays of January at 8 p.m. Toronto. Unknown actual death times on handover Friday default to the previous season. Existing signed allocations remain operative until the protected numerical implementation is released; see [the calculation candidate](docs/col-prospective-engine.md). Preserve actual death dates separately from group report dates.
 
 The public repository includes operational source and historical evidence. Dated proposals, launch reports and pilot notes are labelled historical; consult them for provenance or a specific repair, never as a routine checklist. Production, CI, Pages and push run on GitHub-hosted infrastructure and do not depend on the GMKtec being on. Keep Comparative/LCRS separate.
 

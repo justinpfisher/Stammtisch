@@ -19,6 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -39,7 +40,7 @@ jobs:
           git add -A -- annals.html data/annals-approved.json data/annals-editorial-photos.json data/photos assets
           git diff --cached --quiet && exit 1
           git commit -m "Publish approved Annals update"
-          git push origin HEAD:main
+          node scripts/annals/push-approved-commit.mjs
       - name: Request existing Pages deployment
         # GITHUB_TOKEN pushes do not trigger branch-based Pages builds.
         # Private reconciliation separately verifies actual hosted content.
