@@ -32,15 +32,18 @@ test('both pages and calendar agree on the confirmed start', () => {
   for (const line of calendar.split('\r\n')) assert.ok(Buffer.byteLength(line) <= 75);
 });
 
-test('future Assembly publicity does not identify the private booked property', () => {
-  for(const file of ['index.html','location.html']){
-    const html=readFileSync(new URL('../'+file,import.meta.url),'utf8');
-    assert.match(html,/Huntsville/,'general location remains in the Club record');
-    assert.doesNotMatch(html,/airbnb\.ca\/rooms\/|a0\.muscache\.com\/im\/pictures\/|Big East River|Near Arrowhead|Hosting-605759557639781130/i,
-      'property-specific links, photographs and clues must stay private');
+test('Assembly shows the chosen public cottage listing without access secrets', () => {
+  for (const file of ['index.html', 'location.html']) {
+    const html = readFileSync(new URL('../' + file, import.meta.url), 'utf8');
+    assert.match(html, /Huntsville/);
+    assert.match(html, /airbnb\.ca\/rooms\/605759557639781130/);
+    assert.match(html, /a0\.muscache\.com\/im\/pictures\//);
+    assert.match(html, /alt="[^"]*cottage[^"]*"/i);
+    assert.doesNotMatch(html, /(?:door|keypad|gate)\s+(?:access\s+)?code\s*[:=]\s*\S+/i);
   }
-  const home=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-  assert.match(home,/src="assets\/crest\.webp"/);
-  const assembly=readFileSync(new URL('../location.html',import.meta.url),'utf8');
-  assert.match(assembly,/booking and access details are circulated privately/);
+  const home = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(home, /Photograph from the/);
+  const assembly = readFileSync(new URL('../location.html', import.meta.url), 'utf8');
+  assert.match(assembly, /arrival instructions and access codes remain in the group chat/);
+  assert.match(assembly, /The proceedings must now endeavour to keep pace/);
 });
