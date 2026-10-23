@@ -35,7 +35,7 @@ regressions on the exact commit. Its artifact contains hashes/counts/results,
 never workbook cells, credentials, original communications or rights records.
 The ordinary snapshot option retains its original semantics for existing v3 jobs.
 
-The signed CoL implementation digest now also binds `col-prospective.mjs` and `col-club-state.mjs`, so future qualified CoL releases cannot silently change prospective numerical code or GitHub correction precedence without changing that digest. This is an integrity binding, not a production adapter or operative scoring activation.
+A separate `prospectiveBehaviorDigest()` covers the existing rule sources plus `col-prospective.mjs` and `col-club-state.mjs` for a future source-bound numerical adapter. The operative v3 rule staging manifest remains unchanged, so the existing private Apps Script installation does not need modification merely to preserve ordinary rule amendments. This preparatory digest must be consumed by a qualified numerical release adapter before activation.
 
 Neither the qualification artifact nor a PR merge activates this engine. The
 production adapter still needs to bind authenticated selection/draft actions,
