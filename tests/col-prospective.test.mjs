@@ -71,6 +71,32 @@ test('release-day date alone cannot establish prospectivity',()=>{
   const p=person();assert.equal(calculate(p,event(p,{diedOn:'2026-10-25'})).reason,'historical-or-release-boundary-passing');
   assert.equal(calculate(p,event(p,{diedOn:'2026-10-25',diedAt:'2026-10-25T13:00:00Z'})).status,'calculated');
 });
+test('verified cross-zone death and Toronto report dates use instants instead of UTC calendar prefixes',()=>{
+  const p=person('Fictional Overseas',{pick:2});
+  const e=event(p,{diedOn:'2027-02-02',diedAt:'2027-02-02T00:15:00+11:00',discoveredOn:'2027-02-01'});
+  // The February 2 source-local death occurred on February 1 in both UTC and
+  // Toronto. Its verified instant precedes the independent 14:00Z observation.
+  e.evidence.verifiedAt='2027-02-01T13:45:00Z';
+  const options={effectiveAt:'2027-01-20T00:00:00Z',observedAt:'2027-02-01T14:00:00Z'};
+  const result=calculate(p,e,options);
+  assert.equal(result.status,'calculated',result.reason);
+  assert.equal(result.reportedOn,'2027-02-01');
+  assert.equal(result.diedOn,'2027-02-02');
+  const dateOnly=event(p,{diedOn:'2027-02-02',discoveredOn:'2027-02-01'});
+  dateOnly.evidence.verifiedAt='2027-02-01T13:45:00Z';
+  assert.equal(calculate(p,dateOnly,options).reason,'future-passing',
+    'A date-only event potentially in the future must remain held');
+});
+test('tomorrow in Toronto is not already a valid WhatsApp report just because UTC has advanced',()=>{
+  const p=person('Fictional Late Report');
+  const e=event(p,{diedOn:'2027-02-01',diedAt:'2027-02-01T13:00:00-05:00',
+    discoveredOn:'2027-02-02'});
+  e.evidence.verifiedAt='2027-02-01T19:00:00Z';
+  const options={effectiveAt:'2027-01-20T00:00:00Z',observedAt:'2027-02-02T02:00:00Z'};
+  assert.equal(calculate(p,e,options).reason,'club-report-date-required');
+  const later=calculate(p,e,{...options,observedAt:'2027-02-02T20:00:00Z'});
+  assert.equal(later.status,'calculated',later.reason);
+});
 test('January handover uses 8 p.m. Toronto, verified cross-zone instant and previous-season date-only default',()=>{
   const p=person();
   for(const [diedOn,diedAt,expected] of [['2027-01-01',null,2026],['2027-01-15',null,2026],['2027-01-15','2027-01-15T19:59:59-05:00',2026],['2027-01-15','2027-01-15T20:00:00-05:00',2027],['2027-01-16','2027-01-16T09:00:00+09:00',2026],['2027-01-16',null,2027]]){
@@ -158,6 +184,17 @@ test('jettison-at-100 penalty stays negative and requires actual order and ident
   assert.equal(jettisonPenalty(j,e).points,-10);
   assert.equal(jettisonPenalty({...j,age:101},e),null);
   assert.equal(jettisonPenalty({...j,at:'2027-02-01T01:00:00Z'},e).status,'held');
+});
+test('jettison at the Toronto evening boundary compares verified death instants',()=>{
+  const p=person('Fictional Centenary',{born:'1927-01-15'});
+  const j={...p,memberId:'fish',age:100,at:'2027-01-16T01:00:00Z'};
+  const after={...p,status:'calculated',diedOn:'2027-01-15',
+    diedAt:'2027-01-15T21:00:00-05:00',seasonYear:2027};
+  assert.equal(jettisonPenalty(j,after).points,-10);
+  assert.equal(jettisonPenalty(j,{...after,diedAt:'2027-01-15T19:00:00-05:00'}),null);
+  assert.equal(jettisonPenalty(j,{...after,diedAt:null}).reason,'jettison-death-order-required');
+  assert.equal(jettisonPenalty(j,{...after,diedOn:'2027-01-16',diedAt:null}).reason,
+    'jettison-death-order-required','A source-local next day can predate a Toronto jettison');
 });
 test('selection validation rejects duplicate slots, member IDs and over-capacity lists',()=>{
   const m=fullMembers();m[0].picks[1].pick=1;assert.throws(()=>validateSelections(m),/Duplicate/);
