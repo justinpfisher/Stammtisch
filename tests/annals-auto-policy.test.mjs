@@ -379,7 +379,7 @@ test('speaker-specific signed quote passes actual public publisher, excludes sub
 });
 
 
-test('auto source-grounded submission can carry a signed anonymous sender likeness with no public email',async()=>{
+test('auto source-grounded submission uses signed named attribution with no public email',async()=>{
   const proposed=policy.propose(sample(),draft(),id);
   assert.equal(proposed.eligible,true);
   const submitted={...proposed.entry,contributorPortrait:'fish'};
@@ -394,7 +394,8 @@ test('auto source-grounded submission can carry a signed anonymous sender likene
   });
   assert.match(result.html,/assets\/members\/annals\/fish-annals\.webp/);
   assert.match(result.html,/who contributed this entry/);
-  assert.doesNotMatch(result.html,/Recorded by Justin|member\d+@example\.test/);
+  assert.match(result.html,/Recorded by Justin/);
+  assert.doesNotMatch(result.html,/member\d+@example\.test/);
   assert.doesNotMatch(JSON.stringify(result.data),/senderEmail|privateEvidence|example\.test/);
   assert.equal(verifyPublicApproval({...submitted,contributorPortrait:'marc'},receipt,secret),false);
   const incorrect={...receipt,consents:{...receipt.consents,namedAttribution:false}};
