@@ -16,7 +16,11 @@ Sheet unless corrected in the GitHub Club record. Placed Protections and Diamond
 slots exclude Birthday Buffet; Protections do not double points. Age 100 remains
 ten points and ordinary Diamond rights remain, without reviving retired extras.
 Release-day date-only evidence, shared ownership, missing group reports and
-unresolved exact age or chronological Steal ties remain held.
+unresolved exact age or chronological Steal ties remain held. Verified actual
+death instants are compared as instants even when their source-local date differs
+from UTC; the Club's WhatsApp report date is compared in Toronto local time.
+Ambiguous date-only timing around an age-100 Jettison remains held rather than
+inventing which event occurred first.
 
 Draft operations enforce the seven stages, chronological Steals, single theft per
 person per draft, permanent placed Protections, immediate Devil's Share use,

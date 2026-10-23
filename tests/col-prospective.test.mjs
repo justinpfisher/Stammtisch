@@ -71,6 +71,32 @@ test('release-day date alone cannot establish prospectivity',()=>{
   const p=person();assert.equal(calculate(p,event(p,{diedOn:'2026-10-25'})).reason,'historical-or-release-boundary-passing');
   assert.equal(calculate(p,event(p,{diedOn:'2026-10-25',diedAt:'2026-10-25T13:00:00Z'})).status,'calculated');
 });
+test('verified cross-zone death and Toronto report dates use instants instead of UTC calendar prefixes',()=>{
+  const p=person('Fictional Overseas',{pick:2});
+  const e=event(p,{diedOn:'2027-02-02',diedAt:'2027-02-02T00:15:00+11:00',discoveredOn:'2027-02-01'});
+  // The February 2 source-local death occurred on February 1 in both UTC and
+  // Toronto. Its verified instant precedes the independent 14:00Z observation.
+  e.evidence.verifiedAt='2027-02-01T13:45:00Z';
+  const options={effectiveAt:'2027-01-20T00:00:00Z',observedAt:'2027-02-01T14:00:00Z'};
+  const result=calculate(p,e,options);
+  assert.equal(result.status,'calculated',result.reason);
+  assert.equal(result.reportedOn,'2027-02-01');
+  assert.equal(result.diedOn,'2027-02-02');
+  const dateOnly=event(p,{diedOn:'2027-02-02',discoveredOn:'2027-02-01'});
+  dateOnly.evidence.verifiedAt='2027-02-01T13:45:00Z';
+  assert.equal(calculate(p,dateOnly,options).reason,'future-passing',
+    'A date-only event potentially in the future must remain held');
+});
+test('tomorrow in Toronto is not already a valid WhatsApp report just because UTC has advanced',()=>{
+  const p=person('Fictional Late Report');
+  const e=event(p,{diedOn:'2027-02-01',diedAt:'2027-02-01T13:00:00-05:00',
+    discoveredOn:'2027-02-02'});
+  e.evidence.verifiedAt='2027-02-01T19:00:00Z';
+  const options={effectiveAt:'2027-01-20T00:00:00Z',observedAt:'2027-02-02T02:00:00Z'};
+  assert.equal(calculate(p,e,options).reason,'club-report-date-required');
+  const later=calculate(p,e,{...options,observedAt:'2027-02-02T20:00:00Z'});
+  assert.equal(later.status,'calculated',later.reason);
+});
 test('January handover uses 8 p.m. Toronto, verified cross-zone instant and previous-season date-only default',()=>{
   const p=person();
   for(const [diedOn,diedAt,expected] of [['2027-01-01',null,2026],['2027-01-15',null,2026],['2027-01-15','2027-01-15T19:59:59-05:00',2026],['2027-01-15','2027-01-15T20:00:00-05:00',2027],['2027-01-16','2027-01-16T09:00:00+09:00',2026],['2027-01-16',null,2027]]){
@@ -78,6 +104,21 @@ test('January handover uses 8 p.m. Toronto, verified cross-zone instant and prev
   }
   const c=club();c.seasonCorrections=[{name:p.name,born:p.born,diedOn:'2027-01-15',competitionYear:2027}];
   assert.equal(calculate(p,event(p,{diedOn:'2027-01-15'}),{clubState:c}).seasonYear,2027);
+});
+test('annual Steal rights use verified instants across zones and keep oldest-death bonus last',()=>{
+  const earlyPick=person('Fictional Earlier',{born:'1920-01-01',pick:1});
+  const laterPick=person('Fictional Later',{born:'1950-01-01',pick:1});
+  const earlier=calculate(earlyPick,event(earlyPick,{
+    diedOn:'2027-02-02',diedAt:'2027-02-02T00:15:00+11:00'
+  }));
+  const later=calculate(laterPick,event(laterPick,{
+    diedOn:'2027-02-01',diedAt:'2027-02-01T14:00:00-05:00'
+  }),{members:MEMBERS.map(id=>({id,name:id,score:0,picks:id==='marc'?[laterPick]:[]}))});
+  assert.equal(earlier.status,'calculated');
+  assert.equal(later.status,'calculated');
+  const rights=annualRights([earlier,later],zero(),2027).rights.filter(r=>r.kind==='Steal');
+  assert.deepEqual(rights.map(r=>r.reason),['Blue Diamond','Blue Diamond','Oldest death']);
+  assert.deepEqual(rights.map(r=>r.memberId),['fish','marc','fish']);
 });
 test('prospective totals never double-count consumed events and retain historical scores',()=>{
   const m=migrateBaseline(read('../data/celebration.json'),club()),e=calculate();
@@ -134,6 +175,29 @@ test('Steals enforce chronological order, target protection, no repeated theft a
   assert.throws(()=>act(d,'steal',{rightId:rights[1].id,memberId:'marc',personKey:target}),/stolen/);
   assert.equal(d.members[0].picks.length,50);assert.equal(d.members[2].picks.length,49);
 });
+test('draft chronological Steals follow verified instants, not source dates',()=>{
+  const m=fullMembers();m[0].picks.pop();m[1].picks.pop();
+  const rights=[
+    {id:'right-earlier',memberId:'fish',kind:'Steal',seasonYear:2026,at:'2026-02-02',
+      diedAt:'2026-02-02T00:15:00+11:00',personKey:'overseas',reason:'Blue Diamond'},
+    {id:'right-later',memberId:'marc',kind:'Steal',seasonYear:2026,at:'2026-02-01',
+      diedAt:'2026-02-01T14:00:00-05:00',personKey:'local',reason:'Blue Diamond'},
+    {id:'right-oldest',memberId:'ken',kind:'Steal',seasonYear:2026,at:'2026-01-15',
+      diedAt:'2026-01-15T10:00:00Z',personKey:'oldest',reason:'Oldest death'}
+  ];
+  let d=advance(advance(draft(m,{rights,held:[],devil:[]})));
+  assert.deepEqual(d.rights.filter(x=>x.kind==='Steal').map(x=>x.id),
+    ['right-earlier','right-later','right-oldest']);
+  assert.throws(()=>act(d,'steal',{rightId:'right-later',memberId:'marc',
+    personKey:k(m[3].picks[2])}),/chronology/);
+  d=act(d,'steal',{rightId:'right-earlier',memberId:'fish',personKey:k(m[3].picks[2])});
+  assert.equal(d.consumedRights[0],'right-earlier');
+  const tied=rights.slice(0,2).map((x,i)=>i===1?
+    {...x,diedAt:'2026-02-01T08:15:00-05:00'}:x);
+  const ambiguous=advance(advance(draft(m,{rights:tied,held:[],devil:[]})));
+  assert.throws(()=>act(ambiguous,'steal',{rightId:'right-earlier',memberId:'fish',
+    personKey:k(m[3].picks[2])}),/Same-day Steal order needs evidence/);
+});
 test('optional jettisons stop at five vacancies and exclude age 101, Diamonds and Protections',()=>{
   const m=fullMembers();m[0].picks[2].born='1926-01-01';let d=draft(m);
   for(let i=0;i<4;i++)d=advance(d);
@@ -158,6 +222,17 @@ test('jettison-at-100 penalty stays negative and requires actual order and ident
   assert.equal(jettisonPenalty(j,e).points,-10);
   assert.equal(jettisonPenalty({...j,age:101},e),null);
   assert.equal(jettisonPenalty({...j,at:'2027-02-01T01:00:00Z'},e).status,'held');
+});
+test('jettison at the Toronto evening boundary compares verified death instants',()=>{
+  const p=person('Fictional Centenary',{born:'1927-01-15'});
+  const j={...p,memberId:'fish',age:100,at:'2027-01-16T01:00:00Z'};
+  const after={...p,status:'calculated',diedOn:'2027-01-15',
+    diedAt:'2027-01-15T21:00:00-05:00',seasonYear:2027};
+  assert.equal(jettisonPenalty(j,after).points,-10);
+  assert.equal(jettisonPenalty(j,{...after,diedAt:'2027-01-15T19:00:00-05:00'}),null);
+  assert.equal(jettisonPenalty(j,{...after,diedAt:null}).reason,'jettison-death-order-required');
+  assert.equal(jettisonPenalty(j,{...after,diedOn:'2027-01-16',diedAt:null}).reason,
+    'jettison-death-order-required','A source-local next day can predate a Toronto jettison');
 });
 test('selection validation rejects duplicate slots, member IDs and over-capacity lists',()=>{
   const m=fullMembers();m[0].picks[1].pick=1;assert.throws(()=>validateSelections(m),/Duplicate/);
