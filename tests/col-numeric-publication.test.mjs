@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {generateKeyPairSync,sign} from 'node:crypto';
+import {gzipSync} from 'node:zlib';
 import {readFile} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {attestationBytes,ACTIVATION_DOMAIN,buildNumericPayload,sha256,
   signNumericRelease} from '../col-numeric-adapter.mjs';
 import {verifyNumericTrust,verifyNumericViewerRun,verifyIndependentSource,
-  prepareNumericPublication} from '../scripts/col-numeric-publication.mjs';
+  numericDispatchBundle,prepareNumericPublication} from '../scripts/col-numeric-publication.mjs';
 import {observeNumericSite} from '../scripts/col-numeric-live-witness.mjs';
 
 const ROOT=path.resolve(fileURLToPath(new URL('../',import.meta.url)));
@@ -106,6 +107,19 @@ test('refuses source drift, forged run, altered signed snapshot, replay base, an
     keyring:{...keyring,currentReleaseDigest:'4'.repeat(64)}}),/release pointer/);
   await assert.rejects(prepareNumericPublication({...prep(),bundle,
     now:new Date('2026-10-23T12:40:00.000Z')}),/Fresh signed complete numeric release/);
+});
+
+test('complete six-member signed snapshot fits bounded Apps Script gzip dispatch',async()=>{
+  const {bundle}=await published();
+  const payload=gzipSync(Buffer.from(JSON.stringify(bundle),'utf8')).toString('base64');
+  const dispatch={schemaVersion:1,kind:'col-numeric-gzip-dispatch-v1',encoding:'gzip+base64',payload};
+  assert(payload.length<60000,'Real baseline must fit GitHub dispatch after compression');
+  assert(JSON.stringify(dispatch).length<65535,'GitHub repository_dispatch cap');
+  assert.deepEqual(numericDispatchBundle(dispatch),bundle);
+  assert.throws(()=>numericDispatchBundle({...dispatch,payload:'!'}),/Bounded compressed/);
+  assert.throws(()=>numericDispatchBundle({...dispatch,payload:'a'.repeat(60004)}),/Bounded compressed/);
+  const bomb=gzipSync(Buffer.alloc(513*1024,32)).toString('base64');
+  assert.throws(()=>numericDispatchBundle({...dispatch,payload:bomb}),/Invalid or oversized/);
 });
 
 test('public live witness verifies every hosted byte and browser-verifier result',async()=>{
