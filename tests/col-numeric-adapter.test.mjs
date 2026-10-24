@@ -70,6 +70,21 @@ test('builds source-bound candidate without rewriting historical awards or trust
   assert.equal(Object.hasOwn(result,'notificationEligibleEvents'),false);
 });
 
+test('no-events release rejects fabricated counted rows, date changes and score-neutral mutations',async()=>{
+  const forged=structuredClone(baseline),member=forged.members[0];
+  const innocent=member.picks.find(p=>p.counted===false&&Number.isInteger(p.pick));
+  assert(innocent,'A living numbered fixture is required');
+  innocent.counted=true;innocent.points=0;
+  await assert.rejects(payload({websiteResults:forged}),/Unsigned site change without new death or draft authority/);
+  const first=await payload();
+  const signed=signNumericRelease(first,{privateKey:numericKeys.privateKey,keyId:'test-numeric-release',
+    previousReleaseDigest:null,expectedPreviousDigest:null});
+  const mutated=structuredClone(first.siteResults);
+  mutated.members[0].picks.find(p=>p.counted===false).name='Unverified replacement';
+  await assert.rejects(payload({previousRelease:signed,expectedPreviousDigest:sha256(signed),websiteResults:mutated,
+    now:new Date('2026-10-23T12:05:00.000Z')}),/Unsigned site change without new death or draft authority/);
+});
+
 test('requires a separately signed initial boundary and preserves it across later releases',async()=>{
   await assert.rejects(payload({activationWitness:null}),/activation boundary/i);
   const first=await payload();
