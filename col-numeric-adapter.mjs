@@ -4,11 +4,13 @@
 import {createHash, createPrivateKey, createPublicKey, sign, verify} from 'node:crypto';
 import {migrateBaseline, calculatePassing, prospectiveTotals, annualRights,
   beginDraft, applyDraftAction, MEMBERS} from './col-prospective.mjs';
-import {readClubState} from './col-club-state.mjs';
+import {readClubState, celebrityKey} from './col-club-state.mjs';
 
 export const NUMERIC_DOMAIN='Stammtisch-CoL-Numeric-Release-v1';
 export const ACTION_DOMAIN='Stammtisch-CoL-Authenticated-Member-Action-v1';
 export const DEATH_DOMAIN='Stammtisch-CoL-Independent-Death-Witness-v1';
+export const ACTIVATION_DOMAIN='Stammtisch-CoL-Numeric-Activation-Boundary-v1';
+export const VIEWER_ROW_DOMAIN='Stammtisch-CoL-Viewer-Source-Row-v1';
 const HEX=/^[a-f0-9]{64}$/;
 const ISO=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{3})?(?:Z|[+-]\d\d:\d\d)$/;
 const assert=(ok,msg)=>{if(!ok)throw Error(msg);};
@@ -21,7 +23,7 @@ const exact=(obj,keys)=>obj&&Object.keys(obj).sort().join(',')===keys.slice().so
 export function verifyAttestation(envelope,{domain,keyring,purpose,now,maxAgeMs=86400000}) {
   assert(envelope&&(domain===NUMERIC_DOMAIN?exact(envelope,['schemaVersion','kind','keyId','payload','signature']):exact(envelope,['keyId','payload','signature'])), 'Signed attestation required');
   if(domain===NUMERIC_DOMAIN)assert(envelope.schemaVersion===1&&envelope.kind==='col-numeric-site-release-v1','Numeric release envelope required');
-  assert(domain===ACTION_DOMAIN||domain===DEATH_DOMAIN||domain===NUMERIC_DOMAIN,'Unknown signature domain');
+  assert(domain===ACTION_DOMAIN||domain===DEATH_DOMAIN||domain===ACTIVATION_DOMAIN||domain===VIEWER_ROW_DOMAIN||domain===NUMERIC_DOMAIN,'Unknown signature domain');
   const key=keyring?.keys?.find(k=>k.id===envelope.keyId&&k.purpose===purpose&&k.algorithm==='Ed25519');
   assert(key&&typeof key.publicKey==='string','Trusted purpose-specific public key unavailable');
   assert(keyring.keys.filter(k=>k.algorithm==='Ed25519').every((k,i,all)=>all.findIndex(x=>x.publicKey===k.publicKey)===i),
@@ -48,6 +50,16 @@ export function verifyMemberAction(envelope,keyring,now,seen=new Set()) {
   return structuredClone(p);
 }
 
+function verifyActivationBoundary(envelope,{keyring,now,commit,sourceDigest,behaviorDigest,viewerQualificationDigest}) {
+  const p=verifyAttestation(envelope,{domain:ACTIVATION_DOMAIN,keyring,purpose:'numeric-activation-boundary',now,maxAgeMs:365*86400000});
+  assert(exact(p,['schemaVersion','activationId','effectiveAt','implementationCommit','sourceDigest','behaviorDigest','viewerQualificationDigest','issuedAt'])&&
+    p.schemaVersion===1&&/^[a-z0-9-]{12,80}$/.test(p.activationId||'')&&ISO.test(p.effectiveAt||'')&&
+    p.implementationCommit===commit&&p.sourceDigest===sourceDigest&&p.behaviorDigest===behaviorDigest&&
+    p.viewerQualificationDigest===viewerQualificationDigest&&Date.parse(p.effectiveAt)<=Date.parse(p.issuedAt),
+    'Independently signed initial activation boundary required');
+  return p.effectiveAt;
+}
+
 function verifyDeath(envelope,keyring,now) {
   const p=verifyAttestation(envelope,{domain:DEATH_DOMAIN,keyring,purpose:'independent-death-verifier',now,maxAgeMs:30*86400000});
   assert(exact(p,['schemaVersion','personKey','name','born','diedOn','diedAt','evidenceDigest','verificationRecordDigest','verifiedAt','issuedAt'])&&
@@ -56,6 +68,17 @@ function verifyDeath(envelope,keyring,now) {
   assert(Date.parse(p.verifiedAt)<=Date.parse(p.issuedAt)&&p.diedOn&&(!p.diedAt||ISO.test(p.diedAt)), 'Invalid actual-death witness');
   return {kind:'independently-verified-death',personKey:p.personKey,name:p.name,born:p.born,diedOn:p.diedOn,diedAt:p.diedAt??undefined,
     digest:p.evidenceDigest,verificationRecordDigest:p.verificationRecordDigest,verifiedAt:p.verifiedAt};
+}
+
+function verifyViewerRow(envelope,{keyring,now,sourceDigest,viewerRunId,event}) {
+  const p=verifyAttestation(envelope,{domain:VIEWER_ROW_DOMAIN,keyring,purpose:'viewer-source-row-observer',now,maxAgeMs:30*60*1000});
+  assert(exact(p,['schemaVersion','sourceDigest','viewerRunId','sourceRowDigest','personKey','reportedOn','observedAt','issuedAt'])&&
+    p.schemaVersion===1&&p.sourceDigest===sourceDigest&&p.viewerRunId===viewerRunId&&HEX.test(p.sourceRowDigest||'')&&
+    p.personKey===celebrityKey(event.name,event.born)&&
+    /^\d{4}-\d{2}-\d{2}$/.test(p.reportedOn||'')&&ISO.test(p.observedAt||'')&&
+    Date.parse(p.observedAt)<=Date.parse(p.issuedAt)&&now.getTime()-Date.parse(p.observedAt)<=30*60*1000&&
+    event.discoveredOn===p.reportedOn,'Exact Viewer row and independently established Club report date required');
+  return {sourceRowDigest:p.sourceRowDigest,reportedOn:p.reportedOn};
 }
 
 function verifyViewerQualification(q,{commit,sourceDigest,now}) {
@@ -73,31 +96,66 @@ function verifyViewerQualification(q,{commit,sourceDigest,now}) {
 /** Build candidate data only; caller must sign and publish with separately
  * authenticated numeric-release authority. No historical row is rewritten. */
 export function buildNumericPayload({baseline,clubState,websiteResults=null,events=[],actionEnvelopes=[],draft=null,
-  viewerQualification,sourceDigest,implementationCommit,behaviorDigest,keyring,now=new Date()}) {
+  viewerQualification,sourceDigest,implementationCommit,behaviorDigest,keyring,activationWitness=null,previousRelease=null,
+  expectedPreviousDigest=null,now=new Date()}) {
   assert(HEX.test(behaviorDigest||'')&&/^[a-f0-9]{40}$/.test(implementationCommit||''),'Source-bound implementation required');
   const q=verifyViewerQualification(viewerQualification,{commit:implementationCommit,sourceDigest,now});
+  const qualificationDigest=sha256(q);
+  let activationAt,prior=null;
+  if(previousRelease){
+    assert(expectedPreviousDigest===sha256(previousRelease)&&keyring?.currentReleaseDigest===expectedPreviousDigest,
+      'Prior numerical release compare-and-swap mismatch');
+    prior=verifyAttestation(previousRelease,{domain:NUMERIC_DOMAIN,keyring,purpose:'numeric-release',now,maxAgeMs:365*86400000});
+    assert(previousRelease.payload?.kind==='col-numeric-release-payload-v1'&&
+      previousRelease.payload.previousReleaseDigest===prior.previousReleaseDigest&&
+      previousRelease.payload.siteResultsDigest===sha256(previousRelease.payload.siteResults),
+      'Prior numerical release chain is malformed');
+    assert(previousRelease.payload?.kind==='col-numeric-release-payload-v1'&&
+      previousRelease.payload.baselineDigest===sha256(baseline),'Prior release baseline mismatch');
+    assert(previousRelease.payload.correctionsDigest===sha256(clubState),
+      'Authorised GitHub correction changed; requalify the correction before release');
+    assert(HEX.test(prior.activationBoundaryDigest||'')&&ISO.test(prior.activationAt||''),
+      'Prior signed release lacks immutable activation boundary');
+    activationAt=prior.activationAt;
+  } else {
+    assert((keyring?.currentReleaseDigest??null)===null,'Initial activation requires an empty numerical release pointer');
+    assert(activationWitness,'Initial signed activation boundary required');
+    activationAt=verifyActivationBoundary(activationWitness,{keyring,now,commit:implementationCommit,sourceDigest,
+      behaviorDigest,viewerQualificationDigest:qualificationDigest});
+  }
   readClubState(clubState);
   const baselineDigest=sha256(baseline),correctionsDigest=sha256(clubState);
-  const migration=migrateBaseline(baseline,clubState),siteSnapshot=websiteResults??migration.corrected;
+  const migration=migrateBaseline(baseline,clubState),siteSnapshot=structuredClone(websiteResults??prior?.siteResults??migration.corrected);
   assert(siteSnapshot&&Array.isArray(siteSnapshot.members)&&siteSnapshot.members.length===6,'Complete website results required');
   for(const member of baseline.members){const current=siteSnapshot.members.find(m=>m.id===member.id);assert(current,'Website member set mismatch');
     for(const old of member.picks.filter(p=>p.counted)){const row=current.picks.find(p=>p.id===old.id);assert(row&&row.counted&&row.points===old.points,'Historical award changed in website snapshot');}}
-  const websiteResultsDigest=sha256(siteSnapshot);
-  const seen=new Set(),actions=actionEnvelopes.map(a=>verifyMemberAction(a,keyring,now,seen));
+  if(prior)for(const member of prior.siteResults.members){const current=siteSnapshot.members.find(m=>m.id===member.id);assert(current,'Prior release member set changed');
+    for(const old of member.picks.filter(p=>p.counted)){const row=current.picks.find(p=>p.id===old.id);assert(row&&row.counted&&row.points===old.points,'Previously released award changed');}}
+  const seen=new Set(prior?.actionReplayKeys??[]),actions=actionEnvelopes.map(a=>verifyMemberAction(a,keyring,now,seen));
   const deaths=events.map(event=>{
+    const sourceRow=verifyViewerRow(event.viewerRowWitness,{keyring,now,sourceDigest,viewerRunId:q.workflowRunId,event});
     const evidence=verifyDeath(event.deathWitness,keyring,now);
     assert(event.name===evidence.name&&event.born===evidence.born&&event.diedOn===evidence.diedOn,
       'Passing does not match independent witness');
-    return {...event,evidence};
+    return {...event,discoveredOn:sourceRow.reportedOn,sourceRowDigest:sourceRow.sourceRowDigest,evidence};
   });
-  const calculated=deaths.map(e=>calculatePassing({members:baseline.members,event:e,clubState,effectiveAt:now.toISOString(),
-    observedAt:now.toISOString(),consumedPeople:migration.consumedPeople}));
-  assert(calculated.every(e=>e.status==='calculated'),'One or more passings are held');
+  const rowDigests=[...(prior?.sourceRowDigests??[]),...deaths.map(e=>e.sourceRowDigest)];
+  assert(new Set(rowDigests).size===rowDigests.length,'Viewer source row replay detected');
+  const consumedPeople=[...new Set([...migration.consumedPeople,...(prior?.consumedPeople??[])])];
+  const calculatedNew=deaths.map(e=>calculatePassing({members:baseline.members,event:e,clubState,effectiveAt:activationAt,
+    observedAt:now.toISOString(),consumedPeople}));
+  assert(calculatedNew.every(e=>e.status==='calculated'),'One or more passings are held');
+  const priorEvents=prior?.calculated??[];
+  const calculated=[...priorEvents,...calculatedNew];
+  const allPeople=new Set(migration.consumedPeople);
+  for(const event of calculated){assert(event.status==='calculated'&&!allPeople.has(event.personKey),'Prior release contains duplicate or baseline passing');allPeople.add(event.personKey);}
+  assert(calculatedNew.every(e=>!priorEvents.some(old=>old.personKey===e.personKey)),'Passing was already counted in a prior release');
   const years=[...new Set(calculated.map(e=>e.seasonYear))];
   const totals=Object.fromEntries(years.map(year=>[year,prospectiveTotals(migration,calculated,year)]));
   const targetYear=Math.max(baseline.year,...years),expected=totals[targetYear]??migration.corrected.members.reduce((out,m)=>(out[m.id]=m.score,out),{});
   assert(siteSnapshot.year===targetYear&&MEMBERS.every(id=>siteSnapshot.members.find(m=>m.id===id)?.score===expected[id]),
     'Website snapshot totals do not match protected calculation');
+  draft=prior?structuredClone(prior.draft):draft;
   const draftActions=actions.filter(a=>a.action?.kind==='draft');
   if(draftActions.length) {
     assert(draft,'Draft state required for draft actions');
@@ -107,11 +165,14 @@ export function buildNumericPayload({baseline,clubState,websiteResults=null,even
     draft=state;
   }
   return {schemaVersion:1,kind:'col-numeric-release-payload-v1',implementationCommit,behaviorDigest,sourceDigest,
+    activationAt,activationBoundaryDigest:prior?.activationBoundaryDigest??sha256(activationWitness),observedAt:now.toISOString(),
+    consumedPeople:[...allPeople],actionReplayKeys:[...seen],previousReleaseDigest:previousRelease?sha256(previousRelease):null,
     viewerRunId:q.workflowRunId,viewerObservedAt:q.sourceObservation.observedAt,viewerSourceDigest:q.sourceObservation.sourceDigest,
     viewerQualificationDigest:sha256(q),baselineDigest,correctionsDigest,keyringDigest:sha256(trustProjection(keyring)),
     historicalTotals:Object.fromEntries(baseline.members.map(m=>[m.id,m.score])),calculated,totals,draft:draft??null,
-    siteResults:structuredClone(siteSnapshot),siteResultsDigest:websiteResultsDigest,
-    actionEventIds:actions.map(a=>a.eventId),actionDigest:sha256(actions),deathWitnessDigests:deaths.map(e=>e.evidence.digest),
+    siteResults:structuredClone(siteSnapshot),siteResultsDigest:sha256(siteSnapshot),
+    sourceRowDigests:rowDigests,
+    actionEventIds:[...(prior?.actionEventIds??[]),...actions.map(a=>a.eventId)],actionDigest:sha256([...seen]),deathWitnessDigests:[...(prior?.deathWitnessDigests??[]),...deaths.map(e=>e.evidence.digest)],
     createdAt:now.toISOString()};
 }
 
@@ -128,6 +189,14 @@ export function verifyNumericRelease(envelope,{keyring,expectedPreviousDigest,no
   const payload=verifyAttestation(envelope,{domain:NUMERIC_DOMAIN,keyring,purpose:'numeric-release',now,maxAgeMs:365*86400000});
   assert(payload.kind==='col-numeric-release-payload-v1'&&payload.previousReleaseDigest===expectedPreviousDigest&&
     payload.implementationCommit===commit&&payload.behaviorDigest===behaviorDigest,'Numeric release chain or source mismatch');
+  assert(ISO.test(payload.activationAt||'')&&ISO.test(payload.observedAt||'')&&Date.parse(payload.observedAt)>=Date.parse(payload.activationAt),
+    'Invalid activation or observation clock');
+  assert(HEX.test(payload.activationBoundaryDigest||'')&&
+    (payload.previousReleaseDigest===null||HEX.test(payload.previousReleaseDigest||'')),
+    'Signed activation boundary or prior release digest missing');
+  assert(Array.isArray(payload.consumedPeople)&&new Set(payload.consumedPeople).size===payload.consumedPeople.length&&
+    Array.isArray(payload.actionReplayKeys)&&new Set(payload.actionReplayKeys).size===payload.actionReplayKeys.length,
+    'Cumulative replay and consumed identity state required');
   assert(Array.isArray(payload.calculated)&&payload.calculated.every(e=>e.status==='calculated')&&payload.historicalTotals&&
     MEMBERS.every(m=>Number.isInteger(payload.historicalTotals[m])),'Incomplete numeric result');
   return payload;

@@ -89,3 +89,29 @@ qualification, protected signed release and live readback all succeed. The curre
 browser and Sheet monitor continue to use their existing operative calculations;
 the new module does not alter their results. Only the established independent
 new-passing/deduplication path may send an alert.
+
+## Activation-time and cumulative-release contract — 24 October 2026
+
+The public candidate now distinguishes an immutable first-activation boundary
+from the time each source observation is made. The first payload requires a
+domain-separated `numeric-activation-boundary` attestation bound to the exact
+Viewer qualification, source digest, implementation commit and behavior digest.
+Callers cannot choose an unsigned boundary. Later payloads must name the
+previous signed release and its exact digest; they inherit its original
+`activationAt`, while `observedAt` records the current observation. A stale or
+concurrent parent is rejected.
+
+Subsequent candidates carry forward prior calculations, site snapshot, consumed
+person identities, death-witness hashes and the complete action replay-key set.
+They reject previously counted passings, deleted prior awards and a changed
+correction-state digest until that correction is requalified. Each new passing
+also requires a separately signed Viewer-row observation bound to the current
+Viewer run/source and its exact group report date, alongside the independent
+death witness. Public output retains only the Viewer row digest.
+
+Fictional regression coverage exercises the initial boundary, a later cumulative
+release, unchanged activation time, current observation time, replay, deleted
+awards, source-row binding, distinct signing keys and CAS. The repository does
+**not** yet provide the production Viewer row signer, Apps Script authorities,
+hosted numerical publisher or public stable key anchors. The January hold remains
+active; no signed numerical snapshot is operative.

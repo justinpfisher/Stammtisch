@@ -2,6 +2,7 @@
  * Missing/invalid trust material returns null so the prior display is retained. */
 const canonical=v=>Array.isArray(v)?`[${v.map(canonical).join(',')}]`:v&&typeof v==='object'?`{${Object.keys(v).sort().map(k=>`${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`:JSON.stringify(v);
 const bytes=s=>new TextEncoder().encode(s);
+const ISO=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{3})?(?:Z|[+-]\d\d:\d\d)$/;
 async function digest(value){const hash=await crypto.subtle.digest('SHA-256',bytes(canonical(value)));return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('');}
 function fromBase64(value){return Uint8Array.from(atob(value),c=>c.charCodeAt(0));}
 function pemBytes(pem){return fromBase64(String(pem).replace(/-----[^-]+-----/g,'').replace(/\s/g,''));}
@@ -22,7 +23,14 @@ export async function verifyNumericSiteRelease({release,keyring,baseline,clubSta
       p.correctionsDigest!==await digest(clubState)||!/^[a-f0-9]{40}$/.test(p.implementationCommit||'')||
       !/^[a-f0-9]{64}$/.test(p.behaviorDigest||'')||!/^[a-f0-9]{64}$/.test(p.viewerSourceDigest||'')||
       !/^[0-9]{1,24}$/.test(p.viewerRunId||'')||!/^[a-f0-9]{64}$/.test(p.viewerQualificationDigest||'')||
-      !Number.isFinite(Date.parse(p.viewerObservedAt))||Date.parse(p.viewerObservedAt)>now||
+      !ISO.test(p.viewerObservedAt||'')||Date.parse(p.viewerObservedAt)>now||
+      !ISO.test(p.activationAt||'')||!ISO.test(p.observedAt||'')||Date.parse(p.activationAt)>Date.parse(p.observedAt)||
+      !Array.isArray(p.consumedPeople)||new Set(p.consumedPeople).size!==p.consumedPeople.length||
+      !Array.isArray(p.actionReplayKeys)||new Set(p.actionReplayKeys).size!==p.actionReplayKeys.length||
+      p.actionDigest!==await digest(p.actionReplayKeys)||!Array.isArray(p.sourceRowDigests)||
+      p.sourceRowDigests.some(x=>!/^[a-f0-9]{64}$/.test(x))||!Array.isArray(p.calculated)||
+      new Set(p.calculated.map(x=>x.personKey)).size!==p.calculated.length||
+      p.calculated.some(x=>x.status!=='calculated'||!p.consumedPeople.includes(x.personKey))||
       p.keyringDigest!==await digest({schemaVersion:keyring?.schemaVersion??1,keys:keyring?.keys??[]})||
       p.previousReleaseDigest!==(keyring.previousReleaseDigest??null)||keyring.currentReleaseDigest!==await digest(release)||
       !Array.isArray(keyring?.keys))return null;
