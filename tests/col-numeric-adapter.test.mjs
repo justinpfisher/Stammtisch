@@ -26,9 +26,9 @@ const qualification={kind:'col-prospective-calculation-qualification-v1',impleme
   qualification:'source-matched-candidate-calculation-only'};
 const clubState=JSON.parse(await readFile(new URL('../data/col-club-state.json',import.meta.url)));
 const baseline=JSON.parse(await readFile(new URL('../data/celebration.json',import.meta.url)));
-const activationPayload={schemaVersion:1,activationId:'activation-000001',effectiveAt:'2026-10-23T10:00:00.000Z',
+const activationPayload={schemaVersion:1,activationId:'activation-000001',effectiveAt:'2026-10-23T11:56:00.000Z',
   implementationCommit:observation.implementationCommit,sourceDigest:observation.sourceDigest,behaviorDigest:'f'.repeat(64),
-  viewerQualificationDigest:sha256(qualification),issuedAt:'2026-10-23T11:00:00.000Z'};
+  viewerQualificationDigest:sha256(qualification),issuedAt:'2026-10-23T11:56:00.000Z'};
 const activationWitness=attest(ACTIVATION_DOMAIN,'test-activation',activationPayload);
 function rowWitness(event){return attest(VIEWER_ROW_DOMAIN,'test-viewer-row',{schemaVersion:1,sourceDigest:observation.sourceDigest,
   viewerRunId:qualification.workflowRunId,sourceRowDigest:'9'.repeat(64),personKey:celebrityKey(event.name,event.born),
@@ -36,9 +36,9 @@ function rowWitness(event){return attest(VIEWER_ROW_DOMAIN,'test-viewer-row',{sc
 function fictionalPassing(observed=observation,day='2026-10-23',avoidId=null){
   const holder=baseline.members.find(m=>m.picks.some(p=>p.id!==avoidId&&p.pick>1&&p.pick<50&&!p.counted&&!p.actualDeathDate&&!p.dateOfPassing));
   const pick=holder.picks.find(p=>p.id!==avoidId&&p.pick>1&&p.pick<50&&!p.counted&&!p.actualDeathDate&&!p.dateOfPassing);
-  const event={name:pick.name,born:pick.born,diedOn:day,diedAt:`${day}T11:30:00.000Z`,discoveredOn:day};
+  const event={name:pick.name,born:pick.born,diedOn:day,diedAt:`${day}T11:58:00.000Z`,discoveredOn:day};
   const witness={schemaVersion:1,personKey:celebrityKey(event.name,event.born),name:event.name,born:event.born,diedOn:day,diedAt:event.diedAt,
-    evidenceDigest:'d'.repeat(64),verificationRecordDigest:'e'.repeat(64),verifiedAt:`${day}T11:40:00.000Z`,issuedAt:`${day}T11:45:00.000Z`};
+    evidenceDigest:'d'.repeat(64),verificationRecordDigest:'e'.repeat(64),verifiedAt:`${day}T11:59:00.000Z`,issuedAt:`${day}T11:59:00.000Z`};
   event.deathWitness=attest(DEATH_DOMAIN,'test-death-verifier',witness);
   event.viewerRowWitness=attest(VIEWER_ROW_DOMAIN,'test-viewer-row',{schemaVersion:1,sourceDigest:observed.sourceDigest,
     viewerRunId:observed.workflowRunId,sourceRowDigest:sha256(witness.personKey),personKey:witness.personKey,reportedOn:day,
@@ -64,6 +64,7 @@ test('builds source-bound candidate without rewriting historical awards or trust
   assert.equal(result.correctionsDigest,sha256(clubState));
   assert.equal(result.activationAt,activationPayload.effectiveAt);
   assert.equal(result.observedAt,now.toISOString());
+  assert(Date.parse(result.activationAt)>=Date.parse(observation.observedAt),'Initial release must not predate the real Viewer');
   assert.deepEqual(result.actionEventIds,[]);
   // Numerical releases never authorise notifications: only the independent
   // first-confirmed-passing delivery path may send a death alert.
@@ -97,6 +98,18 @@ test('requires a separately signed initial boundary and preserves it across late
   await assert.rejects(payload({previousRelease:firstEnvelope,expectedPreviousDigest:'a'.repeat(64),now:laterNow}),/compare-and-swap/i);
   const forged=structuredClone(activationWitness);forged.payload.effectiveAt='2026-10-20T00:00:00.000Z';
   await assert.rejects(payload({activationWitness:forged}),/signature/i);
+  // Even a legitimately signed, older or retrospectively timed witness must
+  // not move cutover before the independent Viewer or signing instant.
+  const past={...activationPayload,effectiveAt:'2026-10-23T11:54:00.000Z'};
+  await assert.rejects(payload({activationWitness:attest(ACTIVATION_DOMAIN,'test-activation',past)}),
+    /initial activation boundary required/i);
+  const separatelyDated={...activationPayload,effectiveAt:'2026-10-23T11:56:00.000Z',
+    issuedAt:'2026-10-23T11:57:00.000Z'};
+  await assert.rejects(payload({activationWitness:attest(ACTIVATION_DOMAIN,'test-activation',separatelyDated)}),
+    /initial activation boundary required/i);
+  const stale={...activationPayload,effectiveAt:'2026-10-22T12:00:00.000Z',issuedAt:'2026-10-22T12:00:00.000Z'};
+  await assert.rejects(payload({activationWitness:attest(ACTIVATION_DOMAIN,'test-activation',stale)}),
+    /stale|future/i);
 });
 
 test('carries awards and consumed identities across releases and rejects a replay or deletion',async()=>{
