@@ -20,6 +20,7 @@ on:
       - 'col-rules-reader.mjs'
       - 'col-numeric-adapter.mjs'
       - 'col-numeric-reader.mjs'
+      - 'col-numeric-baseline.mjs'
       - 'tests/col-numeric-adapter.test.mjs'
       - 'col-rules-witness.mjs'
       - 'col-rules-register.mjs'
