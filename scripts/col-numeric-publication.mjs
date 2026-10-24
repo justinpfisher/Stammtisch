@@ -3,6 +3,7 @@
  * Only GitHub's main-branch hosted job may provide independent Viewer evidence.
  * Importing this module has no network, Git, or publication side effects. */
 import {createPublicKey} from 'node:crypto';
+import {gunzipSync} from 'node:zlib';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import path from 'node:path';
@@ -24,6 +25,27 @@ const exact=(obj,keys)=>obj&&typeof obj==='object'&&!Array.isArray(obj)&&
   Object.keys(obj).sort().join(',')===keys.slice().sort().join(',');
 const stamp=v=>typeof v==='string'&&Number.isFinite(Date.parse(v));
 const safeJson=v=>JSON.stringify(v,null,2)+'\n';
+
+/* Repository-dispatch payloads are bounded (~65 KB), but the signed complete
+ * six-member snapshot is already larger. Private Apps Script should gzip the
+ * compact JSON bundle and base64-encode it with Utilities.gzip/newBlob and
+ * Utilities.base64Encode. The compression envelope grants no authority. */
+export function numericDispatchBundle(input) {
+  assert(exact(input,['schemaVersion','kind','encoding','payload'])&&
+    input.schemaVersion===1&&input.kind==='col-numeric-gzip-dispatch-v1'&&
+    input.encoding==='gzip+base64'&&typeof input.payload==='string'&&
+    input.payload.length>0&&input.payload.length<=60000&&
+    /^[A-Za-z0-9+/]+={0,2}$/.test(input.payload),
+    'Bounded compressed numeric dispatch required');
+  const compressed=Buffer.from(input.payload,'base64');
+  assert(compressed.length<=45000,'Compressed numeric dispatch exceeds GitHub limit');
+  let expanded;
+  try{expanded=gunzipSync(compressed,{maxOutputLength:512*1024});}
+  catch{throw Error('Invalid or oversized numeric dispatch compression');}
+  const raw=expanded.toString('utf8');
+  assert(Buffer.byteLength(raw,'utf8')===expanded.length,'Invalid UTF-8 numeric dispatch');
+  try{return JSON.parse(raw);}catch{throw Error('Invalid numeric dispatch JSON');}
+}
 
 export function verifyNumericTrust(keyring) {
   assert(keyring?.schemaVersion===1&&Array.isArray(keyring.keys)&&
@@ -185,7 +207,7 @@ async function main() {
   assert(!git('status','--porcelain')&&git('branch','--show-current')==='main',
     'Clean protected main checkout required');
   const event=JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH,'utf8'));
-  const bundle=event.client_payload;
+  const bundle=numericDispatchBundle(event.client_payload);
   const qualification=JSON.parse(await readFile(process.env.COL_NUMERIC_VIEWER_PATH,'utf8'));
   const viewerRun=JSON.parse(await readFile(process.env.COL_NUMERIC_VIEWER_RUN_PATH,'utf8'));
   const sourceObservation=JSON.parse(await readFile(process.env.COL_NUMERIC_SOURCE_PATH,'utf8'));
