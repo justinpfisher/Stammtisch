@@ -107,6 +107,10 @@ test('refuses source drift, forged run, altered signed snapshot, replay base, an
     keyring:{...keyring,currentReleaseDigest:'4'.repeat(64)}}),/release pointer/);
   await assert.rejects(prepareNumericPublication({...prep(),bundle,
     now:new Date('2026-10-23T12:40:00.000Z')}),/Fresh signed complete numeric release/);
+  const unsafe={...bundle,events:[{name:'Fictional',born:'1900-01-01',diedOn:'2026-10-23',
+    discoveredOn:'2026-10-23',deathWitness:{},viewerRowWitness:{},rawEmail:'PRIVATE'}]};
+  await assert.rejects(prepareNumericPublication({...prep(),bundle:unsafe}),
+    /Only screened signed numerical evidence/);
 });
 
 test('complete six-member signed snapshot fits bounded Apps Script gzip dispatch',async()=>{
