@@ -37,7 +37,7 @@ const freshSource={...sourceObservation,observedAt:'2026-10-23T11:59:00.000Z',wo
 const activationPayload={schemaVersion:1,activationId:'activation-000001',
   effectiveAt:'2026-10-23T11:56:00.000Z',implementationCommit:commit,
   sourceDigest:source,behaviorDigest:behavior,viewerQualificationDigest:sha256(qualification),
-  issuedAt:'2026-10-23T11:58:00.000Z'};
+  issuedAt:'2026-10-23T11:56:00.000Z'};
 const activationKey=keys.find(k=>k.purpose==='numeric-activation-boundary');
 const numericKey=keys.find(k=>k.purpose==='numeric-release');
 const activationWitness={keyId:activationKey.id,payload:activationPayload,
