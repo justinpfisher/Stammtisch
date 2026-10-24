@@ -15,6 +15,16 @@ test('new CoL candidate alone runs whole-code qualification while every phase re
   assert.match(wf,/Commit immutable package and compare-and-swap ledger/);
 });
 
+test('merged numerical engine changes automatically receive exact-main Viewer qualification',()=>{
+  const wf=read('col-source-observe.yml');
+  assert.match(wf,/push:\n    branches: \[main\]/);
+  assert.match(wf,/col-numeric-\*\.mjs/);
+  assert.match(wf,/\.github\/workflows\/col-source-observe\.yml/);
+  assert.match(wf,/qualification == 'prospective' \|\| github\.event_name == 'push'/);
+  assert.match(wf,/Qualify prospective calculations against the independent Viewer source/);
+  assert.match(wf,/Preserve public-safe observation/);
+});
+
 test('Sheet processing tests the affected score/push modules and keeps source verification',()=>{
   const wf=read('celebration-sheet-monitor.yml');
   const step=wf.split('      - name: Verify generated site data and award calculations',2)[1]
