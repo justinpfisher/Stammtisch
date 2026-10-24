@@ -12,7 +12,7 @@ export const DEATH_DOMAIN='Stammtisch-CoL-Independent-Death-Witness-v1';
 export const ACTIVATION_DOMAIN='Stammtisch-CoL-Numeric-Activation-Boundary-v1';
 export const VIEWER_ROW_DOMAIN='Stammtisch-CoL-Viewer-Source-Row-v1';
 const HEX=/^[a-f0-9]{64}$/;
-const ISO=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{3})?(?:Z|[+-]\d\d:\d\d)$/;
+const ISO=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,6})?(?:Z|[+-]\d\d:\d\d)$/;
 const assert=(ok,msg)=>{if(!ok)throw Error(msg);};
 const canonical=v=>Array.isArray(v)?`[${v.map(canonical).join(',')}]`:v&&typeof v==='object'?`{${Object.keys(v).sort().map(k=>`${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`:JSON.stringify(v);
 export const sha256=v=>createHash('sha256').update(typeof v==='string'?v:canonical(v)).digest('hex');
