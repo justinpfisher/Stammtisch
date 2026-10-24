@@ -287,6 +287,7 @@ test('unavailable image-dependent previews receive one private owner notice afte
      annalsFile_:(_f,name)=>name==='draft-notice-private.json'&&noticeExists?{}:null,
      AnnalsAuto:{protectedRoute:()=> 'annals'},
      annalsConsentActive_:()=>true,
+     annalsOrdinaryAiAllowed_:source=>source.senderAuthenticated===true && source.aiConsentActive===true,
      annalsAiIndependentSafeText_:()=>independent,
      annalsHasAiSource_:()=>true,annalsAiSafeSourceText_:()=> 'Photo attached.',
      annalsSafeTextForAutoAi_:()=>true,
