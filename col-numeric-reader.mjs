@@ -1,5 +1,6 @@
 /* Browser verifier for the independently signed, whole-site numeric snapshot.
  * Missing/invalid trust material returns null so the prior display is retained. */
+import {numericBaselineProjection} from './col-numeric-baseline.mjs';
 const canonical=v=>Array.isArray(v)?`[${v.map(canonical).join(',')}]`:v&&typeof v==='object'?`{${Object.keys(v).sort().map(k=>`${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`:JSON.stringify(v);
 const bytes=s=>new TextEncoder().encode(s);
 const ISO=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,6})?(?:Z|[+-]\d\d:\d\d)$/;
@@ -19,7 +20,7 @@ export async function verifyNumericSiteRelease({release,keyring,baseline,clubSta
   try{
     const p=release?.payload;
     if(!p||release.schemaVersion!==1||release.kind!=='col-numeric-site-release-v1'||p.kind!=='col-numeric-release-payload-v1'||
-      p.siteResultsDigest!==await digest(p.siteResults)||!completeSnapshot(p.siteResults)||p.baselineDigest!==await digest(baseline)||
+      p.siteResultsDigest!==await digest(p.siteResults)||!completeSnapshot(p.siteResults)||p.baselineDigest!==await digest(numericBaselineProjection(baseline))||
       p.correctionsDigest!==await digest(clubState)||!/^[a-f0-9]{40}$/.test(p.implementationCommit||'')||
       !/^[a-f0-9]{64}$/.test(p.behaviorDigest||'')||!/^[a-f0-9]{64}$/.test(p.viewerSourceDigest||'')||
       !/^[0-9]{1,24}$/.test(p.viewerRunId||'')||!/^[a-f0-9]{64}$/.test(p.viewerQualificationDigest||'')||
