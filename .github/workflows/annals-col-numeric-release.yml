@@ -36,8 +36,10 @@ jobs:
         run: |
           node --input-type=module -e '
           import {readFileSync,appendFileSync} from "node:fs";
+          import {numericDispatchBundle} from "./scripts/col-numeric-publication.mjs";
           const e=JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH,"utf8"));
-          const id=e.client_payload?.release?.payload?.viewerRunId;
+          const b=numericDispatchBundle(e.client_payload);
+          const id=b.release?.payload?.viewerRunId;
           if(typeof id!=="string"||!/^[0-9]{1,24}$/.test(id))process.exit(1);
           appendFileSync(process.env.GITHUB_ENV,"NUMERIC_VIEWER_RUN_ID="+id+"\n");'
       - name: Independently obtain actual successful Viewer run and artifact
