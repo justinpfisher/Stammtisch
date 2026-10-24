@@ -4,6 +4,41 @@
 network access, signing authority, publishing side effects or notification sender.
 It is a calculation candidate, **not a new operative scoring release**.
 
+## Numeric release candidate — 24 October 2026
+
+PR [#277](https://github.com/justinpfisher/Stammtisch/pull/277) added
+`col-numeric-adapter.mjs` and the browser-side `col-numeric-reader.mjs` at main
+commit `4a41873f61f2563f93a16305da15ebb4a5d2d558`. The additive prospective
+behavior digest now includes these files, the public trust registry, and the
+exact-commit qualification workflow/tests; the operative rules manifest is
+unchanged. Candidate checks use distinct Ed25519 domains/keys for authenticated
+member actions, independent death witnesses and numeric release signatures;
+reject replay, stale Viewer observations, historical summary actions, mismatched
+baseline/corrections, altered prior awards, site-total mismatch and failed
+compare-and-swap; and let the website accept only a whole signed site snapshot.
+
+The current public trust registry intentionally has no production keys, and no
+numeric release asset is published. The website reader falls back to the existing
+result when the release or valid trust root is absent. Exact-commit Viewer run
+[40052653786](https://github.com/justinpfisher/Stammtisch/actions/runs/40052653786)
+succeeded, matching 301 historical entries, 14 counted awards and all six member
+totals, while explicitly reporting `signedRelease: false`. Pages run
+[40052648304](https://github.com/justinpfisher/Stammtisch/actions/runs/40052648304)
+and live witness [40052648572](https://github.com/justinpfisher/Stammtisch/actions/runs/40052648572)
+passed on the merge commit. This is candidate engineering and qualification, not
+protected production activation.
+
+Production activation still needs the owner-controlled private member-action
+attestor, independent death-witness signer, separate numeric signing key and
+their real public trust anchors; a protected release publisher with immutable
+evidence, independently verified Viewer/workflow identity, compare-and-swap
+recovery and operative-version readback; and source-level binding of each action,
+death and group-report date to the authoritative Viewer row. None of those live
+private authorities or integration services is connected by this repository
+change. After completing them, qualify the final exact commit again, sign and
+publish its full site snapshot, independently verify live consumption, and only
+then retire the January numerical hold. Do not repurpose the v3 rules signer.
+
 The baseline migration preserves every source row and signed allocation, including
 negative points and the historical Birthday Buffet split. GitHub corrections are
 applied to a separate view. Previously recorded people are consumed identities,
@@ -39,14 +74,15 @@ regressions on the exact commit. Its artifact contains hashes/counts/results,
 never workbook cells, credentials, original communications or rights records.
 The ordinary snapshot option retains its original semantics for existing v3 jobs.
 
-A separate `prospectiveBehaviorDigest()` covers the existing rule sources plus `col-prospective.mjs` and `col-club-state.mjs` for a future source-bound numerical adapter. The operative v3 rule staging manifest remains unchanged, so the existing private Apps Script installation does not need modification merely to preserve ordinary rule amendments. This preparatory digest must be consumed by a qualified numerical release adapter before activation.
+A separate `prospectiveBehaviorDigest()` covers the existing rule sources and prospective calculator plus `col-numeric-adapter.mjs`, `col-numeric-reader.mjs`, the trust registry, qualification code and tests. The operative v3 rule staging manifest remains unchanged. The digest is included in the numeric candidate contract but does not provision trust keys or authenticate a production signature.
 
 Neither the qualification artifact nor a PR merge activates this engine. The
-production adapter still needs to bind authenticated selection/draft actions,
-independent death-verifier records, frozen earlier benefits and exact baseline to
-the calculation through the existing protected signed release. A digest-shaped
-test object is not an authenticated death witness or a member decision. Do not
-feed model output or an email directly into these operations.
+repository currently lacks a private production adapter that obtains genuine
+authenticated member actions, independent actual-death evidence and a Viewer-
+bound discovery date, then releases those inputs through a distinct numeric
+signer and independent hosted verifier. Test keys and digest-shaped fixtures are
+not authenticated death witnesses or member decisions. Do not feed model output
+or an email directly into these operations.
 
 The January numeric hold remains until that adapter, independent exact-commit
 qualification, protected signed release and live readback all succeed. The current
