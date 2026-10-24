@@ -64,7 +64,7 @@ def main():
     run = subprocess.run(["node", "--test", *tests], cwd=ROOT, capture_output=True, timeout=120)
     if run.returncode:
         raise ValueError("Calculation or release regression failed")
-    protected = ["col-prospective.mjs", "col-club-state.mjs", "col-numeric-adapter.mjs", "col-numeric-reader.mjs", "data/col-numeric-trust.json", "celebration.mjs", "celebration-rules.mjs",
+    protected = ["col-prospective.mjs", "col-club-state.mjs", "col-numeric-adapter.mjs", "col-numeric-reader.mjs", "col-numeric-baseline.mjs", "data/col-numeric-trust.json", "celebration.mjs", "celebration-rules.mjs",
                  "scripts/qualify-col-prospective.py", "scripts/col-numeric-publication.mjs", "scripts/col-numeric-live-witness.mjs", "scripts/annals/NumericTransport.gs", "tests/annals-numeric-transport.test.mjs", ".github/workflows/annals-col-numeric-release.yml",
                  "scripts/import-celebration.py",
                  "scripts/sync-celebration-sheet.py", "scripts/annals/RulesRelease.mjs", ".github/workflows/col-source-observe.yml", *tests]
