@@ -60,7 +60,7 @@ def main():
     # credentials are serialized, logged or made into an artifact.
     tests = ["tests/col-prospective.test.mjs", "tests/col-club-state.test.mjs", "tests/col-numeric-adapter.test.mjs",
              "tests/col-centenary-policy.test.mjs", "tests/col-award-policy.test.mjs",
-             "tests/annals-col-staged.test.mjs", "tests/col-numeric-publication.test.mjs"]
+             "tests/annals-col-staged.test.mjs", "tests/col-numeric-publication.test.mjs", "tests/annals-numeric-transport.test.mjs"]
     run = subprocess.run(["node", "--test", *tests], cwd=ROOT, capture_output=True, timeout=120)
     if run.returncode:
         raise ValueError("Calculation or release regression failed")
