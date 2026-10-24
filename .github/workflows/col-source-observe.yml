@@ -17,6 +17,8 @@ on:
       - tests/col-numeric-publication.test.mjs
       - scripts/col-numeric-publication.mjs
       - scripts/col-numeric-live-witness.mjs
+      - scripts/annals/NumericTransport.gs
+      - tests/annals-numeric-transport.test.mjs
       - .github/workflows/annals-col-numeric-release.yml
       - tests/col-prospective.test.mjs
       - .github/workflows/col-source-observe.yml
