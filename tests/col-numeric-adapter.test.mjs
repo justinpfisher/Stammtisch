@@ -162,3 +162,44 @@ test('signs with numeric domain, rejects wrong key, stale chain and concurrent C
   assert.equal(await verifyNumericSiteRelease({release:envelope,keyring:activeTrust,baseline,clubState:{...clubState,schemaVersion:99},now:now.getTime()}),null);
   assert.equal(await verifyNumericSiteRelease({release:envelope,keyring:activeTrust,baseline:altered,clubState,now:now.getTime()}),null);
 });
+
+test('supports independent 2048-bit RSA-SHA256 signers across all five domains',async()=>{
+  const purposes=[
+    [ACTION_DOMAIN,'authenticated-member-action','test-rsa-member'],
+    [DEATH_DOMAIN,'independent-death-verifier','test-rsa-death'],
+    [ACTIVATION_DOMAIN,'numeric-activation-boundary','test-rsa-activation'],
+    [VIEWER_ROW_DOMAIN,'viewer-source-row-observer','test-rsa-viewer'],
+    [NUMERIC_DOMAIN,'numeric-release','test-rsa-numeric']];
+  const signers=new Map(purposes.map(([domain,purpose,keyId])=>[domain,{keyId,
+    purpose,keys:generateKeyPairSync('rsa',{modulusLength:2048,publicExponent:0x10001})}]));
+  const rsaTrust={keys:[...signers.values()].map(({keyId,purpose,keys})=>({id:keyId,purpose,
+    algorithm:'RSA-SHA256',publicKey:keys.publicKey.export({type:'spki',format:'pem'})})),
+    currentReleaseDigest:null};
+  function nativeCompatibleAttest(domain,content){
+    const {keyId,keys}=signers.get(domain);
+    return {keyId,payload:content,
+      signature:sign('RSA-SHA256',attestationBytes(domain,content),keys.privateKey).toString('base64')};
+  }
+  const fictional=fictionalPassing();
+  fictional.event.deathWitness=nativeCompatibleAttest(DEATH_DOMAIN,fictional.event.deathWitness.payload);
+  fictional.event.viewerRowWitness=nativeCompatibleAttest(VIEWER_ROW_DOMAIN,fictional.event.viewerRowWitness.payload);
+  const action={schemaVersion:1,eventId:'event-000000002',nonce:'2'.repeat(32),memberId:'marc',
+    action:{kind:'member-decision',type:'note'},expectedDraftDigest:'b'.repeat(64),
+    sourceMessageDigest:'c'.repeat(64),authenticatedAt:'2026-10-23T11:50:00.000Z',issuedAt:'2026-10-23T11:51:00.000Z'};
+  const candidate=await payload({keyring:rsaTrust,
+    activationWitness:nativeCompatibleAttest(ACTIVATION_DOMAIN,activationPayload),
+    events:[fictional.event],websiteResults:siteWithPassing(fictional,fictional.points),
+    actionEnvelopes:[nativeCompatibleAttest(ACTION_DOMAIN,action)]});
+  const release=signNumericRelease(candidate,{privateKey:signers.get(NUMERIC_DOMAIN).keys.privateKey,
+    keyId:signers.get(NUMERIC_DOMAIN).keyId,previousReleaseDigest:null,expectedPreviousDigest:null});
+  const active={...rsaTrust,currentReleaseDigest:sha256(release),previousReleaseDigest:null};
+  assert.deepEqual(verifyNumericRelease(release,{keyring:active,expectedPreviousDigest:null,now,
+    commit:observation.implementationCommit,behaviorDigest:activationPayload.behaviorDigest}),candidate);
+  assert.deepEqual(await verifyNumericSiteRelease({release,keyring:active,baseline,clubState,now:now.getTime()}),candidate.siteResults);
+  const forged={...release,signature:Buffer.alloc(256).toString('base64')};
+  assert.equal(await verifyNumericSiteRelease({release:forged,
+    keyring:{...active,currentReleaseDigest:sha256(forged)},baseline,clubState,now:now.getTime()}),null);
+  const weak=generateKeyPairSync('rsa',{modulusLength:1024,publicExponent:0x10001});
+  assert.throws(()=>signNumericRelease(candidate,{privateKey:weak.privateKey,keyId:'test-rsa-numeric',
+    previousReleaseDigest:null,expectedPreviousDigest:null}),/insufficiently strong/i);
+});
