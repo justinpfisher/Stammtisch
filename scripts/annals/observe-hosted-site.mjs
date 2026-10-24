@@ -132,19 +132,21 @@ export async function observeHostedSite({fetchImpl=fetch,readFileImpl=readFile,c
 }
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
-  // A push-triggered observation can outrun the Pages build or edge refresh.
-  // Retry read-only checks for at most about 3 minutes; no job is dispatched.
-  let accepted=false;
-  for(let attempt=1;attempt<=18;attempt++){
+  // Pages sometimes completes after the earlier three-minute witness limit.
+  // Observe for up to five minutes; retain the public-only failure reason.
+  let accepted=false,lastError=null;
+  const attempts=30;
+  for(let attempt=1;attempt<=attempts;attempt++){
     try{
       process.stdout.write(JSON.stringify(await observeHostedSite(),null,2)+'\n');
       accepted=true;break;
-    }catch{
-      if(attempt<18)await new Promise(resolve=>setTimeout(resolve,10000));
+    }catch(error){
+      lastError=error;
+      if(attempt<attempts)await new Promise(resolve=>setTimeout(resolve,10000));
     }
   }
   if(!accepted){
-    console.error('Public site exact-byte verification held. No private or public release authority was established.');
+    console.error('Public site exact-byte verification held: '+(lastError?.message||'unavailable')+'.');
     process.exitCode=1;
   }
 }
