@@ -44,7 +44,7 @@ jobs:
           appendFileSync(process.env.GITHUB_ENV,"NUMERIC_VIEWER_RUN_ID="+id+"\n");'
       - name: Independently obtain actual successful Viewer run and artifact
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh api "repos/justinpfisher/Stammtisch/actions/runs/$NUMERIC_VIEWER_RUN_ID" \
             > "$RUNNER_TEMP/col-numeric-viewer-run.json"
@@ -56,21 +56,21 @@ jobs:
         run: python -m pip install google-auth==2.35.0 requests==2.32.3
       - name: Observe current authoritative source independently
         env:
-          GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON: \${{ secrets.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON }}
         run: |
           GITHUB_SHA="$(git rev-parse HEAD)" \
             python scripts/observe-col-source.py > "$RUNNER_TEMP/col-numeric-current-source.json"
       - name: Reconstruct and verify the signed complete numeric release
         env:
           COL_NUMERIC_RELEASE_ENABLED: 'true'
-          GITHUB_EVENT_ACTION: \${{ github.event.action }}
-          COL_NUMERIC_VIEWER_PATH: \${{ runner.temp }}/numeric-viewer/col-source-observation.json
-          COL_NUMERIC_VIEWER_RUN_PATH: \${{ runner.temp }}/col-numeric-viewer-run.json
-          COL_NUMERIC_SOURCE_PATH: \${{ runner.temp }}/col-numeric-current-source.json
+          GITHUB_EVENT_ACTION: ${{ github.event.action }}
+          COL_NUMERIC_VIEWER_PATH: ${{ runner.temp }}/numeric-viewer/col-source-observation.json
+          COL_NUMERIC_VIEWER_RUN_PATH: ${{ runner.temp }}/col-numeric-viewer-run.json
+          COL_NUMERIC_SOURCE_PATH: ${{ runner.temp }}/col-numeric-current-source.json
         run: node scripts/col-numeric-publication.mjs
       - name: Final independent source read before immutable publication
         env:
-          GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON: \${{ secrets.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON }}
         run: |
           GITHUB_SHA="$(git rev-parse HEAD)" \
             python scripts/observe-col-source.py > "$RUNNER_TEMP/col-numeric-final-source.json"
@@ -91,7 +91,7 @@ jobs:
           git push origin HEAD:refs/heads/main
       - name: Request existing GitHub Pages deployment
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: gh api --method POST repos/justinpfisher/Stammtisch/pages/builds
       - name: Read back complete public bytes and browser-verified numeric results
         run: node scripts/col-numeric-live-witness.mjs
