@@ -19,7 +19,7 @@ const keyring={keys:[{id:'test-member-authority',purpose:'authenticated-member-a
 const now=new Date('2026-10-23T12:00:00.000Z');
 function attest(domain,keyId,payload){const key=domain===ACTION_DOMAIN?memberKeys.privateKey:domain===DEATH_DOMAIN?deathKeys.privateKey:domain===ACTIVATION_DOMAIN?activationKeys.privateKey:domain===VIEWER_ROW_DOMAIN?viewerKeys.privateKey:numericKeys.privateKey;
   return {keyId,payload,signature:sign(null,attestationBytes(domain,payload),key).toString('base64')};}
-const observation={kind:'col-source-readonly-observation-v1',sourceDigest:'a'.repeat(64),observedAt:'2026-10-23T11:55:00.000Z',
+const observation={kind:'col-source-readonly-observation-v1',sourceDigest:'a'.repeat(64),observedAt:'2026-10-23T11:55:00.925895Z',
   implementationCommit:'b'.repeat(40),workflowRunId:'123456',scope:'spreadsheets.readonly',qualification:'snapshot-only-not-formula-or-allocation-approval'};
 const qualification={kind:'col-prospective-calculation-qualification-v1',implementationCommit:'b'.repeat(40),workflowRunId:'123456',
   sourceObservation:observation,sourceAllocationMatch:true,regressionPassed:true,signedRelease:false,

@@ -11,8 +11,13 @@ on:
       - data/celebration.json
       - data/celebration-confirmations.json
       - data/col-club-state.json
+      - data/col-numeric-trust.json
       - scripts/qualify-col-prospective.py
       - tests/col-numeric-adapter.test.mjs
+      - tests/col-numeric-publication.test.mjs
+      - scripts/col-numeric-publication.mjs
+      - scripts/col-numeric-live-witness.mjs
+      - .github/workflows/annals-col-numeric-release.yml
       - tests/col-prospective.test.mjs
       - .github/workflows/col-source-observe.yml
   workflow_dispatch:
