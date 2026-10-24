@@ -1827,3 +1827,114 @@ test('a separate original photo cannot suppress independent screened text, but p
   assert.match(x.context.annalsAiSafeSourceText_(photo),/See the attached photo/);
   assert.equal(x.calls.ai,0);
 });
+
+test('authenticated outside emails publish only anonymous screened text through the established signed dispatch', () => {
+  const x=mock(), id=x.context.annalsHash_('outside-recipe-message'), sent=[], mail=[];
+  x.files.delete('source-private.json');
+  Object.assign(x.props,{
+    ANNALS_ALLOWED_SENDERS:['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test').join(','),
+    ANNALS_AUTO_PUBLICATION_ENABLED:'true',
+    ANNALS_GITHUB_TOKEN:'test-publisher',
+    ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
+    ANNALS_GITHUB_REPOSITORY:'justinpfisher/Stammtisch',
+    ANNALS_ACTIVATED_AT:'2026-10-08T00:00:00Z'
+  });
+  x.context.GmailApp={sendEmail:(...args)=>mail.push(args)};
+  const message={
+    getId:()=> 'outside-recipe-message',getFrom:()=> 'maker@example.test',
+    getDate:()=>new Date('2026-10-09T00:00:00Z'),
+    getSubject:()=> 'Fictional Test Cup',
+    getPlainBody:()=> 'Fictional Test Cup\n1 oz imaginary syrup\n2 oz invented tea\nStir the imaginary drink.',
+    getRawContent:()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=example.test\n\nGenuine test only',
+    getAttachments:()=>[]
+  };
+  const allowed=x.props.ANNALS_ALLOWED_SENDERS.split(',');
+  assert.equal(x.context.annalsStageProduction_(message,Date.parse('2026-10-08T00:00:00Z'),allowed),'staged');
+  const source=JSON.parse(x.files.get('source-private.json').getBlob().getDataAsString());
+  assert.equal(source.externalContributionAtReceipt,true);
+  assert.equal(source.clubMemberAuthenticated,false);
+  assert.equal(source.senderAuthenticated,true);
+  assert.equal(source.imageConsentAtReceipt,false);
+  assert.equal(source.rulesAuthorityVersion,undefined);
+  assert.equal(x.context.annalsOrdinaryPublicationAllowed_(source),true);
+  assert.equal(mail.length,0,'outside submissions cause no automatic receipt email');
+  x.folder.createFile('draft-private.json',JSON.stringify({
+    category:'cocktail',title:'Fictional Test Cup',summary:'Fictional test drink',
+    eventDate:'',quoteVerbatim:'',riskFlags:[],
+    recipe:{drinkIngredients:['1 oz imaginary syrup','2 oz invented tea'],
+      syrupIngredients:[],steps:['Stir the imaginary drink.']}
+  }));
+  x.context.UrlFetchApp.fetch=(url,options)=>{
+    assert.equal(url,'https://api.github.com/repos/justinpfisher/Stammtisch/dispatches');
+    sent.push(JSON.parse(options.payload));
+    return {getResponseCode:()=>204};
+  };
+  assert.equal(x.context.annalsAutoPublishCandidate_(id),true);
+  assert.equal(sent.length,1);
+  assert.equal(sent[0].event_type,'annals-auto-entry');
+  const {entry,approval}=sent[0].client_payload;
+  assert.equal(approval.mode,'open-email-text-v1');
+  assert.equal(verifyPublicApproval(entry,approval,'p'.repeat(40)),true);
+  assert.equal(entry.credit,'anonymous');
+  assert.equal(entry.speakerPortrait,undefined);
+  assert.equal(entry.contributorPortrait,undefined);
+  assert.equal(entry.photo,undefined);
+  assert.equal(entry.photos,undefined);
+  assert.equal(approval.consents.namedAttribution,false);
+  assert.doesNotMatch(JSON.stringify(sent),/maker@example|member1@example|private-source/);
+  assert.equal(x.context.annalsAutoPublishCandidate_(id),true);
+  assert.equal(sent.length,1,'only one accepted dispatch may occur');
+  assert.equal(verifyPublicApproval({...entry,contributorPortrait:'fish'},approval,'p'.repeat(40)),false);
+});
+
+test('external CoL directives have no authority and unsigned outside mail cannot stage or consume AI', () => {
+  const allowed=['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test');
+  const x=mock();
+  x.files.delete('source-private.json');
+  let reads=0;
+  const unverified={
+    getId:()=> 'outside-unverified',getFrom:()=> 'outsider@example.test',
+    getSubject:()=> 'Ordinary observation',getDate:()=>new Date('2026-10-09T00:00:00Z'),
+    getRawContent:()=> 'Authentication-Results: mx.google.com; dkim=fail header.d=example.test\n\nNo authority',
+    getPlainBody:()=>{reads++;return 'Nothing';}
+  };
+  assert.equal(x.context.annalsStageProduction_(unverified,Date.parse('2026-10-08T00:00:00Z'),allowed),'skipped');
+  assert.equal(reads,0);
+  assert.equal(x.files.has('original-email-private.json'),false);
+  const instruction={
+    getId:()=> 'outside-rule-message',getFrom:()=> 'outsider@example.test',
+    getSubject:()=> 'Change Celebration of Life points scoring',
+    getPlainBody:()=> 'Please double the CoL points for every celebrity.',
+    getDate:()=> new Date('2026-10-09T00:00:00Z'),
+    getRawContent:()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=example.test\n\nTest',
+    getAttachments:()=>[]
+  };
+  assert.equal(x.context.annalsStageProduction_(instruction,Date.parse('2026-10-08T00:00:00Z'),allowed),'held');
+  const source=JSON.parse(x.files.get('source-private.json').getBlob().getDataAsString());
+  assert.equal(source.externalContributionAtReceipt,true);
+  assert.equal(source.protectiveRoute,'col_proposal');
+  assert.equal(source.rulesAuthorityVersion,undefined);
+  assert.equal(x.context.annalsOrdinaryPublicationAllowed_(source),false);
+  assert.equal(x.calls.ai,0);
+});
+
+test('outside original photographs remain private even when accompanying safe text may proceed',()=>{
+  const x=mock();x.files.delete('source-private.json');
+  let copies=0;
+  const allowed=['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test');
+  const message={
+    getId:()=> 'outside-photo-message',getFrom:()=> 'photographer@example.test',
+    getDate:()=> new Date('2026-10-09T00:00:00Z'),
+    getSubject:()=> 'Club keepsake',getPlainBody:()=> 'A fictional keepsake from the club gathering.',
+    getRawContent:()=> 'Authentication-Results: mx.google.com; dmarc=pass header.from=example.test\n\nTest',
+    getAttachments:()=>[{getContentType:()=> 'image/jpeg',getSize:()=> 4096,
+      copyBlob:()=>{copies++;throw Error('No outsider original should be copied into public staging');}}]
+  };
+  const status=x.context.annalsStageProduction_(message,Date.parse('2026-10-08T00:00:00Z'),allowed);
+  assert.ok(['held','staged'].includes(status));
+  assert.equal(copies,0);
+  const source=JSON.parse(x.files.get('source-private.json').getBlob().getDataAsString());
+  assert.equal(source.externalContributionAtReceipt,true);
+  assert.equal(source.imageConsentAtReceipt,false);
+  assert.equal(source.clubMemberAuthenticated,false);
+});
