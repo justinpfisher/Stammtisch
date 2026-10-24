@@ -166,6 +166,14 @@ export function buildNumericPayload({baseline,clubState,websiteResults=null,even
     'Website snapshot totals do not match protected calculation');
   draft=prior?structuredClone(prior.draft):draft;
   const draftActions=actions.filter(a=>a.action?.kind==='draft');
+  // Without a newly verified passing or authenticated draft action, a release
+  // may only retain the exact previous signed site (or the corrected historical
+  // baseline for first activation). Matching totals alone cannot substantiate
+  // newly marked counted selections, altered dates or changed identities.
+  if(!calculatedNew.length&&!draftActions.length) {
+    const unchanged=prior?.siteResults??migration.corrected;
+    assert(sha256(siteSnapshot)===sha256(unchanged),'Unsigned site change without new death or draft authority');
+  }
   if(draftActions.length) {
     assert(draft,'Draft state required for draft actions');
     let state=structuredClone(draft);
