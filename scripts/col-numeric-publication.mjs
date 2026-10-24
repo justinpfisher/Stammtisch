@@ -118,6 +118,15 @@ export async function prepareNumericPublication({
   assert(/^[a-f0-9]{40}$/.test(checkoutCommit||'')&&
     /^[0-9]{1,24}$/.test(String(publisherRunId||''))&&now instanceof Date&&
     Number.isFinite(now.getTime()),'Trusted hosted publication identity required');
+  // Only screened public celebrity facts and signed, source-bound proofs may
+  // enter GitHub's event transport. Never accept raw email/chat, source URLs,
+  // contact details or an arbitrary narrative note as a numeric action.
+  const allowedEvent=['name','born','diedOn','diedAt','discoveredOn','deathWitness','viewerRowWitness'];
+  assert(bundle.events.every(e=>e&&typeof e==='object'&&
+    ['name','born','diedOn','discoveredOn','deathWitness','viewerRowWitness'].every(k=>Object.hasOwn(e,k))&&
+    Object.keys(e).every(k=>allowedEvent.includes(k)))&&
+    bundle.actionEnvelopes.every(a=>a?.payload?.action?.kind==='draft'),
+    'Only screened signed numerical evidence belongs in GitHub dispatch');
   verifyNumericTrust(keyring);
   const release=bundle.release,p=release?.payload;
   assert(p&&p.kind==='col-numeric-release-payload-v1'&&
