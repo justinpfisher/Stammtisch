@@ -37,11 +37,17 @@ export async function verifyNumericSiteRelease({release,keyring,baseline,clubSta
     // Historical awarded rows are immutable across prospective releases.
     for(const member of baseline.members){const current=p.siteResults.members.find(m=>m.id===member.id);if(!current)return null;
       for(const old of member.picks.filter(x=>x.counted)){const row=current.picks.find(x=>x.id===old.id);if(!row||!row.counted||row.points!==old.points)return null;}}
-    const key=keyring.keys.find(k=>k.id===release.keyId&&k.purpose==='numeric-release'&&k.algorithm==='Ed25519');
+    const key=keyring.keys.find(k=>k.id===release.keyId&&k.purpose==='numeric-release'&&
+      (k.algorithm==='Ed25519'||k.algorithm==='RSA-SHA256'));
     if(!key||typeof key.publicKey!=='string')return null;
-    const publicKey=await crypto.subtle.importKey('spki',pemBytes(key.publicKey),{name:'Ed25519'},false,['verify']);
+    const rsa=key.algorithm==='RSA-SHA256',algorithm=rsa?
+      {name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'}:{name:'Ed25519'};
+    const publicKey=await crypto.subtle.importKey('spki',pemBytes(key.publicKey),algorithm,false,['verify']);
+    if(rsa&&publicKey.algorithm.modulusLength<2048)return null;
+    const signature=fromBase64(release.signature),length=rsa?publicKey.algorithm.modulusLength/8:64;
+    if(signature.length!==length)return null;
     const signed=bytes(`Stammtisch-CoL-Numeric-Release-v1\n${canonical(p)}`);
-    if(!await crypto.subtle.verify({name:'Ed25519'},publicKey,fromBase64(release.signature),signed))return null;
+    if(!await crypto.subtle.verify({name:algorithm.name},publicKey,signature,signed))return null;
     const issued=Date.parse(p.createdAt);if(!Number.isFinite(issued)||issued>now+60000||now-issued>365*86400000)return null;
     return structuredClone(p.siteResults);
   }catch{return null;}

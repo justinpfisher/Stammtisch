@@ -115,3 +115,22 @@ awards, source-row binding, distinct signing keys and CAS. The repository does
 **not** yet provide the production Viewer row signer, Apps Script authorities,
 hosted numerical publisher or public stable key anchors. The January hold remains
 active; no signed numerical snapshot is operative.
+
+### Native Apps Script signing compatibility (unqualified production option)
+
+Google Apps Script V8 does not supply `crypto.subtle` or the Node `crypto` module.
+Its native `Utilities.computeRsaSha256Signature` can instead sign purpose-separated
+canonical UTF-8 envelopes with RSA-SHA256. The public numeric verification contract
+accepts independently provisioned RSA-SHA256 keys of at least 2048 bits in each
+existing purpose, alongside the previous Ed25519 option. Browser verification uses
+`RSASSA-PKCS1-v1_5` with SHA-256; Node verifies the same signed bytes. Use
+independent keys for each domain, never a shared signer. Preserve the existing
+Ed25519 test and release compatibility.
+
+This is a **compatibility candidate**, not an installed Apps Script signing service.
+Before any real trust anchor is made operative, qualify a real Apps Script-native
+signature (including canonical Unicode and UTF-8 encoding) against the Node and
+browser validators using non-secret fixtures. Keep private PEM keys only in the
+restricted owner-controlled project; never commit them, pass them through dispatch,
+or log them. Do not activate scoring until the protected publisher and source,
+death, action, and Viewer attestations are independently verified.

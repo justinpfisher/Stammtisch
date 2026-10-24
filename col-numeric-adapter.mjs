@@ -24,12 +24,21 @@ export function verifyAttestation(envelope,{domain,keyring,purpose,now,maxAgeMs=
   assert(envelope&&(domain===NUMERIC_DOMAIN?exact(envelope,['schemaVersion','kind','keyId','payload','signature']):exact(envelope,['keyId','payload','signature'])), 'Signed attestation required');
   if(domain===NUMERIC_DOMAIN)assert(envelope.schemaVersion===1&&envelope.kind==='col-numeric-site-release-v1','Numeric release envelope required');
   assert(domain===ACTION_DOMAIN||domain===DEATH_DOMAIN||domain===ACTIVATION_DOMAIN||domain===VIEWER_ROW_DOMAIN||domain===NUMERIC_DOMAIN,'Unknown signature domain');
-  const key=keyring?.keys?.find(k=>k.id===envelope.keyId&&k.purpose===purpose&&k.algorithm==='Ed25519');
+  const key=keyring?.keys?.find(k=>k.id===envelope.keyId&&k.purpose===purpose&&
+    (k.algorithm==='Ed25519'||k.algorithm==='RSA-SHA256'));
   assert(key&&typeof key.publicKey==='string','Trusted purpose-specific public key unavailable');
-  assert(keyring.keys.filter(k=>k.algorithm==='Ed25519').every((k,i,all)=>all.findIndex(x=>x.publicKey===k.publicKey)===i),
-    'Trust domains must use distinct signing keys');
+  const trusted=keyring.keys.filter(k=>k.algorithm==='Ed25519'||k.algorithm==='RSA-SHA256');
+  // Compare actual SPKI key material, not PEM text (RSA permits multiple encodings).
+  const identities=trusted.map(k=>createPublicKey(k.publicKey).export({type:'spki',format:'der'}).toString('base64'));
+  assert(new Set(identities).size===identities.length,'Trust domains must use distinct signing keys');
+  const material=createPublicKey(key.publicKey);
+  const rsa=key.algorithm==='RSA-SHA256';
+  assert(rsa?material.asymmetricKeyType==='rsa'&&material.asymmetricKeyDetails?.modulusLength>=2048:
+    material.asymmetricKeyType==='ed25519','Public key algorithm or strength mismatch');
   let signatureBytes;try{signatureBytes=Buffer.from(envelope.signature,'base64');}catch{throw Error('Invalid signature encoding');}
-  assert(signatureBytes.length===64&&verify(null,attestationBytes(domain,envelope.payload),createPublicKey(key.publicKey),signatureBytes),'Invalid domain-separated signature');
+  assert(signatureBytes.length===(rsa?material.asymmetricKeyDetails.modulusLength/8:64)&&
+    verify(rsa?'RSA-SHA256':null,attestationBytes(domain,envelope.payload),material,signatureBytes),
+    'Invalid domain-separated signature');
   const at=envelope.payload?.issuedAt||envelope.payload?.verifiedAt||envelope.payload?.createdAt;
   assert(typeof at==='string'&&ISO.test(at)&&Number.isFinite(Date.parse(at)),'Attestation timestamp required');
   assert(Date.parse(at)<=now.getTime()+60000&&now.getTime()-Date.parse(at)<=maxAgeMs,'Stale or future attestation');
@@ -181,7 +190,11 @@ export function signNumericRelease(payload,{privateKey,keyId,previousReleaseDige
     'Numeric release compare-and-swap failed');
   assert(payload?.kind==='col-numeric-release-payload-v1'&&payload.implementationCommit&&payload.behaviorDigest,'Qualified numeric payload required');
   const envelope={schemaVersion:1,kind:'col-numeric-site-release-v1',keyId,payload:{...payload,previousReleaseDigest}};
-  envelope.signature=sign(null,attestationBytes(NUMERIC_DOMAIN,envelope.payload),privateKey?.type==='private'?privateKey:createPrivateKey(privateKey)).toString('base64');
+  const material=privateKey?.type==='private'?privateKey:createPrivateKey(privateKey);
+  const rsa=material.asymmetricKeyType==='rsa';
+  assert(material.asymmetricKeyType==='ed25519'||(rsa&&material.asymmetricKeyDetails?.modulusLength>=2048),
+    'Unsupported or insufficiently strong numeric signing key');
+  envelope.signature=sign(rsa?'RSA-SHA256':null,attestationBytes(NUMERIC_DOMAIN,envelope.payload),material).toString('base64');
   return envelope;
 }
 
