@@ -12,7 +12,7 @@ For an ordinary website edit: commit reviewed source to `main`, run affected che
 
 ## Private source and credential changes
 
-**Open-contribution activation:** [#303](https://github.com/justinpfisher/Stammtisch/pull/303) is merged and tested but not privately installed. Once the owner project is accessible, update `Production.gs` only, read back the saved file and the unchanged five-minute trigger, advance that same `/exec`, and verify an eligible external text contribution through the existing signed writer and public Pages. Only then change the public Annals invitation from “Members only” to open contributions. No new registration, secret or scheduled job is needed.
+**Open-contribution activation:** [#303](https://github.com/justinpfisher/Stammtisch/pull/303) is merged and tested but not privately installed. Once the owner project is accessible, update **both** `AutoCore.gs` (from `scripts/annals/AutoCore.js`) and `Production.gs`, read back both saved files and the unchanged five-minute trigger, advance that same `/exec`, and verify an eligible external text contribution through the existing signed writer and public Pages. Only then change the public Annals invitation from “Members only” to open contributions. No new registration, secret or scheduled job is needed.
 
 When a genuine private-code change is necessary:
 1. Compare only changed modules with the reviewed `main` baseline; if there is evidence of an incident/drift, expand the comparison. Use `scripts/annals/build-install-package.py` to prepare owner-private reviewed code, never a public kit with private settings.
