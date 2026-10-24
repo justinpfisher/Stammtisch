@@ -4,7 +4,7 @@ import { calculateAwards, awardsMarkup, draftMarkup } from './celebration-awards
 import {readClubState,applyPointsCorrections} from './col-club-state.mjs?v=col-renewal-snapshot-20261021';
 import {loadOperativeSnapshot} from './col-rules-reader.mjs';
 import {verifiedAwardPolicy} from './col-award-policy.mjs?v=col-release-20261020';
-import {loadNumericSiteResults} from './col-numeric-reader.mjs';
+import {migrateBaseline} from './col-prospective.mjs';
 
 export function multiplierFor(pick) {
   return pick.pick === 1 || pick.pick === 50 || ['diamond', 'orange'].includes(pick.marker) ? 2 : 1;
@@ -104,6 +104,14 @@ export function pickMarkup(pick, member, data) {
     </div></details></li>`;
 }
 
+/** The existing Sheet import plus authenticated GitHub corrections is the
+ * sole ordinary publication path. Reuse the deterministic migration without
+ * waiting for an unprovisioned parallel signed-numeric publisher. This preserves
+ * historical awards; future prospective death awards remain separately gated. */
+export function reconciledClubResults(data,clubState) {
+  return clubState?migrateBaseline(data,clubState).corrected:applyPointsCorrections(data,clubState);
+}
+
 export async function mountCelebration() {
   let data;
   try {
@@ -129,17 +137,13 @@ export async function mountCelebration() {
   } catch { /* The imported source remains visible with a clear warning below. */ }
   // Member-authored GitHub corrections take precedence even after a later
   // spreadsheet import. An identity mismatch must NOT silently drop a correction.
-  try { data=applyPointsCorrections(data,clubState); }
+  try { data=reconciledClubResults(data,clubState); }
   catch {
     document.querySelector('#standings').innerHTML='<p>Club score corrections need reconciliation before standings can be shown.</p>';
     document.querySelector('#award-leaders').innerHTML='<p>Club score corrections need reconciliation.</p>';
     document.querySelector('#draft-benefits').innerHTML='<p>Draft scoring is unavailable until the Club register matches its recorded selections.</p>';
     document.querySelector('#member-lists').innerHTML='<p class="load-message">The Club record needs reconciliation.</p>';
     return;
-  }
-  if(clubState){
-    const numericResults=await loadNumericSiteResults({baseline:data,clubState});
-    if(numericResults)data=numericResults;
   }
   const e = escapeHtml;
   const members = rankedMembers(data.members);
