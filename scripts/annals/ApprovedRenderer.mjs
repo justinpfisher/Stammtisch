@@ -193,10 +193,11 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
     allowedKeys(approval, PUBLIC_APPROVAL_KEYS, 'public approval');
     allowedKeys(approval.consents, CONSENT_KEYS, 'consent');
     const automatedText = approval.mode === 'standing-consent-text-v1';
+    const openText = approval.mode === 'open-email-text-v1';
     const automatedImage = approval.mode === 'standing-consent-image-v1';
     const automatedGallery = approval.mode === 'standing-consent-photos-v2';
     const automatedRemark = approval.mode === 'standing-consent-quote-v1';
-    const automated = automatedText || automatedImage || automatedGallery || automatedRemark;
+    const automated = automatedText || openText || automatedImage || automatedGallery || automatedRemark;
     if (approval.mode !== undefined && !automated) return false;
     // A distinct signed mode is required for an identified quotation speaker.
     if (automated && (entry.credit !== 'anonymous' ||
@@ -206,7 +207,8 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
           (entry.photo || entry.photos) || approval.consents.namedAttribution !== true ||
           approval.consents.photoPublication !== false)) ||
         (!automatedRemark && (entry.speakerPortrait || approval.consents.namedAttribution !== !!entry.contributorPortrait)) ||
-        (automatedText && ((entry.photo || entry.photos) || approval.consents.photoPublication !== false)) ||
+        ((automatedText || openText) && ((entry.photo || entry.photos) || approval.consents.photoPublication !== false)) ||
+        (openText && (entry.speakerPortrait || entry.contributorPortrait || approval.consents.namedAttribution !== false)) ||
         (automatedImage && (entry.category === 'quotation' || !entry.photo || entry.photos || approval.consents.photoPublication !== true)) ||
         (automatedGallery && (entry.category === 'quotation' || !entry.photos || entry.photo || approval.consents.photoPublication !== true)))) return false;
     if (approval.entryId !== entry.id || !/^\d{4}-\d{2}-\d{2}T/.test(approval.approvedAt ?? '') ||
