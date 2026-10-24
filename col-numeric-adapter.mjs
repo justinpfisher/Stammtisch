@@ -28,8 +28,9 @@ export function verifyAttestation(envelope,{domain,keyring,purpose,now,maxAgeMs=
     (k.algorithm==='Ed25519'||k.algorithm==='RSA-SHA256'));
   assert(key&&typeof key.publicKey==='string','Trusted purpose-specific public key unavailable');
   const trusted=keyring.keys.filter(k=>k.algorithm==='Ed25519'||k.algorithm==='RSA-SHA256');
-  assert(trusted.every((k,i)=>trusted.findIndex(x=>x.publicKey===k.publicKey)===i),
-    'Trust domains must use distinct signing keys');
+  // Compare actual SPKI key material, not PEM text (RSA permits multiple encodings).
+  const identities=trusted.map(k=>createPublicKey(k.publicKey).export({type:'spki',format:'der'}).toString('base64'));
+  assert(new Set(identities).size===identities.length,'Trust domains must use distinct signing keys');
   const material=createPublicKey(key.publicKey);
   const rsa=key.algorithm==='RSA-SHA256';
   assert(rsa?material.asymmetricKeyType==='rsa'&&material.asymmetricKeyDetails?.modulusLength>=2048:
