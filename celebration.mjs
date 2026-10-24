@@ -4,6 +4,7 @@ import { calculateAwards, awardsMarkup, draftMarkup } from './celebration-awards
 import {readClubState,applyPointsCorrections} from './col-club-state.mjs?v=col-renewal-snapshot-20261021';
 import {loadOperativeSnapshot} from './col-rules-reader.mjs';
 import {verifiedAwardPolicy} from './col-award-policy.mjs?v=col-release-20261020';
+import {loadNumericSiteResults} from './col-numeric-reader.mjs';
 
 export function multiplierFor(pick) {
   return pick.pick === 1 || pick.pick === 50 || ['diamond', 'orange'].includes(pick.marker) ? 2 : 1;
@@ -135,6 +136,10 @@ export async function mountCelebration() {
     document.querySelector('#draft-benefits').innerHTML='<p>Draft scoring is unavailable until the Club register matches its recorded selections.</p>';
     document.querySelector('#member-lists').innerHTML='<p class="load-message">The Club record needs reconciliation.</p>';
     return;
+  }
+  if(clubState){
+    const numericResults=await loadNumericSiteResults({baseline:data,clubState});
+    if(numericResults)data=numericResults;
   }
   const e = escapeHtml;
   const members = rankedMembers(data.members);

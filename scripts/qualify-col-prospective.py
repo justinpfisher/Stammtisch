@@ -58,15 +58,15 @@ def main():
         raise ValueError("Authoritative source changed; preserve baseline")
     # All source cells remain in memory; no raw workbook, event, email or
     # credentials are serialized, logged or made into an artifact.
-    tests = ["tests/col-prospective.test.mjs", "tests/col-club-state.test.mjs",
+    tests = ["tests/col-prospective.test.mjs", "tests/col-club-state.test.mjs", "tests/col-numeric-adapter.test.mjs",
              "tests/col-centenary-policy.test.mjs", "tests/col-award-policy.test.mjs",
              "tests/annals-col-staged.test.mjs"]
     run = subprocess.run(["node", "--test", *tests], cwd=ROOT, capture_output=True, timeout=120)
     if run.returncode:
         raise ValueError("Calculation or release regression failed")
-    protected = ["col-prospective.mjs", "col-club-state.mjs", "celebration-rules.mjs",
+    protected = ["col-prospective.mjs", "col-club-state.mjs", "col-numeric-adapter.mjs", "col-numeric-reader.mjs", "data/col-numeric-trust.json", "celebration.mjs", "celebration-rules.mjs",
                  "scripts/qualify-col-prospective.py", "scripts/import-celebration.py",
-                 "scripts/sync-celebration-sheet.py", ".github/workflows/col-source-observe.yml", *tests]
+                 "scripts/sync-celebration-sheet.py", "scripts/annals/RulesRelease.mjs", ".github/workflows/col-source-observe.yml", *tests]
     hashes = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in protected}
     result = {"kind": "col-prospective-calculation-qualification-v1",
               "implementationCommit": commit, "workflowRunId": os.environ["GITHUB_RUN_ID"],

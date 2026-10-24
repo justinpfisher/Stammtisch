@@ -14,7 +14,7 @@ export const RELEASE_MODE='coordinated-col-implementation-v2';
 // Preserve the operative v3 manifest. A future numerical adapter uses
 // the separate additive digest below, without a private-stage regression.
 export const BEHAVIOR_FILES=['celebration-rules.mjs','celebration-awards.mjs','col-award-policy.mjs','celebration.mjs','scripts/import-celebration.py','scripts/monitor-celebration-sheet.py','scripts/annals/RulesCore.js','scripts/annals/RulesStaged.mjs','scripts/annals/run-staged-col.mjs','scripts/annals/RulesProduction.gs','scripts/annals/Production.gs','scripts/annals/RulesPublisher.mjs','col-rules-reader.mjs','col-rules-version.mjs','col-rules-register.mjs','scripts/annals/RulesRelease.mjs','scripts/observe-col-source.py','.github/workflows/annals-col-rules-v3.yml','col-rules-witness.mjs','scripts/annals/verify-staged-col-hosted.mjs'];
-export const PROSPECTIVE_BEHAVIOR_FILES=Object.freeze([...BEHAVIOR_FILES,'col-prospective.mjs','col-club-state.mjs']);
+export const PROSPECTIVE_BEHAVIOR_FILES=Object.freeze([...BEHAVIOR_FILES,'col-prospective.mjs','col-club-state.mjs','col-numeric-adapter.mjs','col-numeric-reader.mjs','data/col-numeric-trust.json','.github/workflows/col-source-observe.yml','scripts/qualify-col-prospective.py','tests/col-numeric-adapter.test.mjs']);
 async function digestFiles(files){return digest(await Promise.all(files.map(async name=>({name,text:(await readFile(name,'utf8')).replace(/\r\n/g,'\n')}))));}
 export async function behaviorDigest(){return digestFiles(BEHAVIOR_FILES);}
 export async function prospectiveBehaviorDigest(){return digestFiles(PROSPECTIVE_BEHAVIOR_FILES);}
