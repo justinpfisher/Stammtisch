@@ -2,6 +2,7 @@
  * No private Club evidence, provider keys, network requests or live release. */
 import {generateKeyPairSync,sign} from 'node:crypto';
 import {sha256,attestationBytes,NUMERIC_DOMAIN} from '../../col-numeric-adapter.mjs';
+import {numericBaselineProjection} from '../../col-numeric-baseline.mjs';
 
 export function numericReaderFixture(){
   const keys=generateKeyPairSync('rsa',{modulusLength:2048,publicExponent:0x10001});
@@ -17,7 +18,7 @@ export function numericReaderFixture(){
     viewerSourceDigest:'a'.repeat(64),viewerRunId:'123456',
     viewerQualificationDigest:'c'.repeat(64),viewerObservedAt:createdAt,
     activationAt:'2026-10-23T11:00:00.000Z',observedAt:createdAt,createdAt,
-    baselineDigest:sha256(baseline),correctionsDigest:sha256(clubState),
+    baselineDigest:sha256(numericBaselineProjection(baseline)),correctionsDigest:sha256(clubState),
     siteResults,siteResultsDigest:sha256(siteResults),
     consumedPeople:[],actionReplayKeys:[],actionDigest:sha256([]),
     sourceRowDigests:[],calculated:[],previousReleaseDigest:null,
