@@ -32,7 +32,7 @@ const qualification={kind:'col-prospective-calculation-qualification-v1',impleme
   qualification:'source-matched-candidate-calculation-only'};
 const viewerRun={id:123456,head_sha:commit,status:'completed',conclusion:'success',
   repository:{full_name:'justinpfisher/Stammtisch'},event:'push',
-  path:'justinpfisher/Stammtisch/.github/workflows/col-source-observe.yml@refs/heads/main'};
+  path:'.github/workflows/col-source-observe.yml'};
 const freshSource={...sourceObservation,observedAt:'2026-10-23T11:59:00.000Z',workflowRunId:'789123'};
 const activationPayload={schemaVersion:1,activationId:'activation-000001',
   effectiveAt:'2026-10-23T11:56:00.000Z',implementationCommit:commit,
@@ -67,6 +67,9 @@ test('five distinct real-purpose signing anchors are required before any hosted 
 
 test('the Viewer must be the real successful exact-commit main workflow',()=>{
   assert.equal(verifyNumericViewerRun(viewerRun,qualification,{implementationCommit:commit}),true);
+  assert.equal(verifyNumericViewerRun({...viewerRun,
+    path:'justinpfisher/Stammtisch/.github/workflows/col-source-observe.yml@refs/heads/main'},
+    qualification,{implementationCommit:commit}),true);
   assert.throws(()=>verifyNumericViewerRun({...viewerRun,head_sha:'c'.repeat(40)},qualification,
     {implementationCommit:commit}),/Viewer workflow identity/);
   assert.throws(()=>verifyNumericViewerRun({...viewerRun,conclusion:'failure'},qualification,
