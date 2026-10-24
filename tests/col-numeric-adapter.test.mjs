@@ -32,6 +32,9 @@ test('builds source-bound candidate without rewriting historical awards or trust
   assert.equal(result.baselineDigest,sha256(baseline));
   assert.equal(result.correctionsDigest,sha256(clubState));
   assert.deepEqual(result.actionEventIds,[]);
+  // Numerical releases never authorise notifications: only the independent
+  // first-confirmed-passing delivery path may send a death alert.
+  assert.equal(Object.hasOwn(result,'notificationEligibleEvents'),false);
 });
 
 test('requires exact Viewer source, commit, and recent observation',async()=>{

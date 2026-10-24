@@ -112,7 +112,7 @@ export function buildNumericPayload({baseline,clubState,websiteResults=null,even
     historicalTotals:Object.fromEntries(baseline.members.map(m=>[m.id,m.score])),calculated,totals,draft:draft??null,
     siteResults:structuredClone(siteSnapshot),siteResultsDigest:websiteResultsDigest,
     actionEventIds:actions.map(a=>a.eventId),actionDigest:sha256(actions),deathWitnessDigests:deaths.map(e=>e.evidence.digest),
-    createdAt:now.toISOString(),notificationEligibleEvents:calculated.filter(e=>e.status==='calculated'&&e.evidenceDigest).map(e=>e.personKey)};
+    createdAt:now.toISOString()};
 }
 
 export function signNumericRelease(payload,{privateKey,keyId,previousReleaseDigest,expectedPreviousDigest}) {
