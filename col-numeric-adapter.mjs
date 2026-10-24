@@ -103,7 +103,8 @@ export function buildNumericPayload({baseline,clubState,websiteResults=null,even
   const qualificationDigest=sha256(q);
   let activationAt,prior=null;
   if(previousRelease){
-    assert(expectedPreviousDigest===sha256(previousRelease),'Prior numerical release compare-and-swap mismatch');
+    assert(expectedPreviousDigest===sha256(previousRelease)&&keyring?.currentReleaseDigest===expectedPreviousDigest,
+      'Prior numerical release compare-and-swap mismatch');
     prior=verifyAttestation(previousRelease,{domain:NUMERIC_DOMAIN,keyring,purpose:'numeric-release',now,maxAgeMs:365*86400000});
     assert(previousRelease.payload?.kind==='col-numeric-release-payload-v1'&&
       previousRelease.payload.previousReleaseDigest===prior.previousReleaseDigest&&
@@ -117,6 +118,7 @@ export function buildNumericPayload({baseline,clubState,websiteResults=null,even
       'Prior signed release lacks immutable activation boundary');
     activationAt=prior.activationAt;
   } else {
+    assert((keyring?.currentReleaseDigest??null)===null,'Initial activation requires an empty numerical release pointer');
     assert(activationWitness,'Initial signed activation boundary required');
     activationAt=verifyActivationBoundary(activationWitness,{keyring,now,commit:implementationCommit,sourceDigest,
       behaviorDigest,viewerQualificationDigest:qualificationDigest});
@@ -137,6 +139,8 @@ export function buildNumericPayload({baseline,clubState,websiteResults=null,even
       'Passing does not match independent witness');
     return {...event,discoveredOn:sourceRow.reportedOn,sourceRowDigest:sourceRow.sourceRowDigest,evidence};
   });
+  const rowDigests=[...(prior?.sourceRowDigests??[]),...deaths.map(e=>e.sourceRowDigest)];
+  assert(new Set(rowDigests).size===rowDigests.length,'Viewer source row replay detected');
   const consumedPeople=[...new Set([...migration.consumedPeople,...(prior?.consumedPeople??[])])];
   const calculatedNew=deaths.map(e=>calculatePassing({members:baseline.members,event:e,clubState,effectiveAt:activationAt,
     observedAt:now.toISOString(),consumedPeople}));
@@ -167,7 +171,7 @@ export function buildNumericPayload({baseline,clubState,websiteResults=null,even
     viewerQualificationDigest:sha256(q),baselineDigest,correctionsDigest,keyringDigest:sha256(trustProjection(keyring)),
     historicalTotals:Object.fromEntries(baseline.members.map(m=>[m.id,m.score])),calculated,totals,draft:draft??null,
     siteResults:structuredClone(siteSnapshot),siteResultsDigest:sha256(siteSnapshot),
-    sourceRowDigests:[...(prior?.sourceRowDigests??[]),...deaths.map(e=>e.sourceRowDigest)],
+    sourceRowDigests:rowDigests,
     actionEventIds:[...(prior?.actionEventIds??[]),...actions.map(a=>a.eventId)],actionDigest:sha256([...seen]),deathWitnessDigests:[...(prior?.deathWitnessDigests??[]),...deaths.map(e=>e.evidence.digest)],
     createdAt:now.toISOString()};
 }
@@ -187,6 +191,9 @@ export function verifyNumericRelease(envelope,{keyring,expectedPreviousDigest,no
     payload.implementationCommit===commit&&payload.behaviorDigest===behaviorDigest,'Numeric release chain or source mismatch');
   assert(ISO.test(payload.activationAt||'')&&ISO.test(payload.observedAt||'')&&Date.parse(payload.observedAt)>=Date.parse(payload.activationAt),
     'Invalid activation or observation clock');
+  assert(HEX.test(payload.activationBoundaryDigest||'')&&
+    (payload.previousReleaseDigest===null||HEX.test(payload.previousReleaseDigest||'')),
+    'Signed activation boundary or prior release digest missing');
   assert(Array.isArray(payload.consumedPeople)&&new Set(payload.consumedPeople).size===payload.consumedPeople.length&&
     Array.isArray(payload.actionReplayKeys)&&new Set(payload.actionReplayKeys).size===payload.actionReplayKeys.length,
     'Cumulative replay and consumed identity state required');

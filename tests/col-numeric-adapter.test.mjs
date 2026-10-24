@@ -41,7 +41,7 @@ function fictionalPassing(observed=observation,day='2026-10-23',avoidId=null){
     evidenceDigest:'d'.repeat(64),verificationRecordDigest:'e'.repeat(64),verifiedAt:`${day}T11:40:00.000Z`,issuedAt:`${day}T11:45:00.000Z`};
   event.deathWitness=attest(DEATH_DOMAIN,'test-death-verifier',witness);
   event.viewerRowWitness=attest(VIEWER_ROW_DOMAIN,'test-viewer-row',{schemaVersion:1,sourceDigest:observed.sourceDigest,
-    viewerRunId:observed.workflowRunId,sourceRowDigest:'9'.repeat(64),personKey:witness.personKey,reportedOn:day,
+    viewerRunId:observed.workflowRunId,sourceRowDigest:sha256(witness.personKey),personKey:witness.personKey,reportedOn:day,
     observedAt:observed.observedAt,issuedAt:observed.observedAt});
   return {event,holder,pick,points:basePoints(ageAt(event.born,event.diedOn))};
 }
@@ -52,9 +52,9 @@ function siteWithPassing(source,points){
   result.members.find(m=>m.id===source.holder.id).score+=points;
   return result;
 }
-async function payload(overrides={}) {return buildNumericPayload({baseline,clubState,events:[],actionEnvelopes:[],draft:null,
+async function payload(overrides={}) {const useKeyring=overrides.keyring??{...keyring,currentReleaseDigest:overrides.previousRelease?sha256(overrides.previousRelease):null};return buildNumericPayload({baseline,clubState,events:[],actionEnvelopes:[],draft:null,
   viewerQualification:qualification,sourceDigest:observation.sourceDigest,implementationCommit:observation.implementationCommit,
-  behaviorDigest:activationPayload.behaviorDigest,keyring,activationWitness,now,...overrides});}
+  behaviorDigest:activationPayload.behaviorDigest,keyring:useKeyring,activationWitness,now,...overrides});}
 
 test('builds source-bound candidate without rewriting historical awards or trusting draft summaries',async()=>{
   const result=await payload();
@@ -103,10 +103,10 @@ test('carries awards and consumed identities across releases and rejects a repla
   assert(second.siteResults.members.find(m=>m.id===firstPassing.holder.id).picks.find(p=>p.id===firstPassing.pick.id).counted);
   const replayEvent=structuredClone(firstPassing.event);
   replayEvent.viewerRowWitness=attest(VIEWER_ROW_DOMAIN,'test-viewer-row',{schemaVersion:1,sourceDigest:nextObservation.sourceDigest,
-    viewerRunId:nextObservation.workflowRunId,sourceRowDigest:'9'.repeat(64),personKey:celebrityKey(replayEvent.name,replayEvent.born),
+    viewerRunId:nextObservation.workflowRunId,sourceRowDigest:sha256(celebrityKey(replayEvent.name,replayEvent.born)),personKey:celebrityKey(replayEvent.name,replayEvent.born),
     reportedOn:'2026-10-23',observedAt:nextObservation.observedAt,issuedAt:nextObservation.observedAt});
   await assert.rejects(payload({previousRelease:firstEnvelope,expectedPreviousDigest:sha256(firstEnvelope),events:[replayEvent],
-    viewerQualification:nextQualification,sourceDigest:nextObservation.sourceDigest,now:new Date('2026-10-24T12:00:00.000Z')}),/held|already counted/i);
+    viewerQualification:nextQualification,sourceDigest:nextObservation.sourceDigest,now:new Date('2026-10-24T12:00:00.000Z')}),/held|already counted|source row replay/i);
   const erased=structuredClone(previousSite);erased.members.find(m=>m.id===firstPassing.holder.id).picks.find(p=>p.id===firstPassing.pick.id).counted=false;
   await assert.rejects(payload({previousRelease:firstEnvelope,expectedPreviousDigest:sha256(firstEnvelope),
     viewerQualification:nextQualification,sourceDigest:nextObservation.sourceDigest,websiteResults:erased,events:[secondPassing.event],
