@@ -1,10 +1,32 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ageAt, basePoints, multiplierFor, selectionValue, rankedMembers, matchesPick, groupedCommemorations, escapeHtml, pickMarkup, mountCelebration } from '../celebration.mjs';
+import { ageAt, basePoints, multiplierFor, selectionValue, rankedMembers, matchesPick, groupedCommemorations, escapeHtml, pickMarkup, mountCelebration, reconciledClubResults } from '../celebration.mjs';
 import { awardEvents } from '../celebration-awards.mjs';
 
 const data = JSON.parse(readFileSync(new URL('../data/celebration.json', import.meta.url), 'utf8'));
+
+const clubState = JSON.parse(readFileSync(new URL('../data/col-club-state.json', import.meta.url), 'utf8'));
+
+test('ordinary source path reconciles all historical points without a second publisher', () => {
+  const originalScores = Object.fromEntries(data.members.map(m => [m.id,m.score]));
+  const reconciled = reconciledClubResults(data,clubState);
+  assert.equal(reconciled.members.reduce((n,m)=>n+m.picks.length,0),301);
+  assert.equal(reconciled.members.reduce((n,m)=>n+m.picks.filter(p=>p.counted).length,0),14);
+  assert.deepEqual(Object.fromEntries(reconciled.members.map(m=>[m.id,m.score])),originalScores);
+  const correction=structuredClone(clubState);
+  const recipient=data.members.find(m=>m.picks.some(p=>p.counted));
+  const pick=recipient.picks.find(p=>p.counted);
+  correction.pointsCorrections.push({seasonYear:data.year,memberId:recipient.id,pickId:pick.id,
+    name:pick.name,born:pick.born,points:pick.points+1});
+  const revised=reconciledClubResults(data,correction);
+  assert.equal(revised.members.find(m=>m.id===recipient.id).score,recipient.score+1);
+  assert.equal(data.members.find(m=>m.id===recipient.id).score,recipient.score,
+    'The committed historical source must never be overwritten');
+  assert.equal(reconciledClubResults(data,null),data,
+    'An unavailable optional Club record must not hide the existing register');
+});
+
 
 test('scoring handles the centenary exception and later penalties', () => {
   assert.equal(basePoints(80), 20);
