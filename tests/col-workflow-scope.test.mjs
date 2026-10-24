@@ -24,7 +24,7 @@ test('signed numerical publication is disabled until private authorities are qua
   assert.match(wf,/col-numeric-live-witness\.mjs/);
   // GitHub expression syntax must remain unescaped: a literal backslash
   // can invalidate token, Viewer credentials or temporary artifact paths.
-  assert.equal(wf.includes('\\\\'+'\u0024{{'),false);
+  assert.equal(wf.includes(String.fromCharCode(92)+'\u0024{{'),false);
   assert.equal(wf.split('\u0024{{').length-1,8);
   for(const expression of ['github.token','github.event.action',
     'secrets.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON','runner.temp']) {
