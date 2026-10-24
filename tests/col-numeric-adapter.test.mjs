@@ -9,6 +9,7 @@ import {verifyNumericSiteRelease} from '../col-numeric-reader.mjs';
 import {celebrityKey} from '../col-club-state.mjs';
 import {ageAt,basePoints} from '../celebration-rules.mjs';
 import {migrateBaseline} from '../col-prospective.mjs';
+import {numericBaselineProjection} from '../col-numeric-baseline.mjs';
 
 const memberKeys=generateKeyPairSync('ed25519'),deathKeys=generateKeyPairSync('ed25519'),activationKeys=generateKeyPairSync('ed25519'),viewerKeys=generateKeyPairSync('ed25519'),numericKeys=generateKeyPairSync('ed25519');
 const keyring={keys:[{id:'test-member-authority',purpose:'authenticated-member-action',algorithm:'Ed25519',publicKey:memberKeys.publicKey.export({type:'spki',format:'pem'})},
@@ -60,7 +61,7 @@ test('builds source-bound candidate without rewriting historical awards or trust
   const result=await payload();
   assert.equal(result.kind,'col-numeric-release-payload-v1');
   assert.equal(result.historicalTotals.matt,baseline.members.find(m=>m.id==='matt').score);
-  assert.equal(result.baselineDigest,sha256(baseline));
+  assert.equal(result.baselineDigest,sha256(numericBaselineProjection(baseline)));
   assert.equal(result.correctionsDigest,sha256(clubState));
   assert.equal(result.activationAt,activationPayload.effectiveAt);
   assert.equal(result.observedAt,now.toISOString());
@@ -69,6 +70,33 @@ test('builds source-bound candidate without rewriting historical awards or trust
   // Numerical releases never authorise notifications: only the independent
   // first-confirmed-passing delivery path may send a death alert.
   assert.equal(Object.hasOwn(result,'notificationEligibleEvents'),false);
+});
+
+test('signed baseline survives daily display-only Sheet refresh but still rejects award drift',async()=>{
+  const original=await payload();
+  const signed=signNumericRelease(original,{privateKey:numericKeys.privateKey,keyId:'test-numeric-release',
+    previousReleaseDigest:null,expectedPreviousDigest:null});
+  const refreshed=structuredClone(baseline);
+  refreshed.capturedAt='2026-10-25T05:53:33.000000Z';
+  refreshed.asOf='2026-10-25';
+  for(const member of refreshed.members)for(const pick of member.picks)
+    pick.ageText=pick.ageText?'Refreshed age display':'New age display';
+  assert.equal(sha256(numericBaselineProjection(refreshed)),original.baselineDigest);
+  const active={...keyring,previousReleaseDigest:null,currentReleaseDigest:sha256(signed)};
+  assert.deepEqual(await verifyNumericSiteRelease({release:signed,keyring:active,
+    baseline:refreshed,clubState,now:now.getTime()}),original.siteResults);
+  const later=await payload({baseline:refreshed,previousRelease:signed,
+    expectedPreviousDigest:sha256(signed),now:new Date('2026-10-23T12:05:00.000Z')});
+  assert.equal(later.baselineDigest,original.baselineDigest);
+  assert.equal(later.activationAt,original.activationAt);
+  const changed=structuredClone(refreshed);
+  changed.members.find(m=>m.id==='matt').picks.find(p=>p.counted).points+=1;
+  assert.notEqual(sha256(numericBaselineProjection(changed)),original.baselineDigest);
+  assert.equal(await verifyNumericSiteRelease({release:signed,keyring:active,
+    baseline:changed,clubState,now:now.getTime()}),null);
+  await assert.rejects(payload({baseline:changed,previousRelease:signed,
+    expectedPreviousDigest:sha256(signed),now:new Date('2026-10-23T12:05:00.000Z')}),
+    /Prior release baseline mismatch/);
 });
 
 test('no-events release rejects fabricated counted rows, date changes and score-neutral mutations',async()=>{

@@ -91,7 +91,7 @@ const server=createServer(async(req,res)=>{
   if(/^\/assets\/annals\/[ab]{64}\.jpg$/.test(pathname)){res.setHeader('Content-Type','image/jpeg');res.end(tinyBytes);return;}
   if(documents.has(pathname)){res.setHeader('Content-Type','text/html; charset=utf-8');res.end(documents.get(pathname));return;}
   // Public stylesheet and public brand assets only. Never serve source/data files.
-  if(['/styles.css','/annals.css','/annals-browse.mjs','/monthly.mjs','/assembly.mjs','/celebration.css','/history.css','/annals-photos.css','/annals-photos.mjs','/col-rules-reader.mjs','/col-rules-witness.mjs','/col-rules-register.mjs','/col-numeric-reader.mjs'].includes(pathname)||pathname.startsWith('/assets/')&&!pathname.includes('..')){
+  if(['/styles.css','/annals.css','/annals-browse.mjs','/monthly.mjs','/assembly.mjs','/celebration.css','/history.css','/annals-photos.css','/annals-photos.mjs','/col-rules-reader.mjs','/col-rules-witness.mjs','/col-rules-register.mjs','/col-numeric-reader.mjs','/col-numeric-baseline.mjs'].includes(pathname)||pathname.startsWith('/assets/')&&!pathname.includes('..')){
     try{const bytes=await readFile(path.join(root,pathname));res.setHeader('Content-Type',pathname.endsWith('.css')?'text/css':pathname.endsWith('.mjs')?'text/javascript':'application/octet-stream');res.end(bytes);return;}catch{}
   }
   res.writeHead(404).end();

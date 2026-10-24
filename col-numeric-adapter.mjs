@@ -5,6 +5,7 @@ import {createHash, createPrivateKey, createPublicKey, sign, verify} from 'node:
 import {migrateBaseline, calculatePassing, prospectiveTotals, annualRights,
   beginDraft, applyDraftAction, MEMBERS} from './col-prospective.mjs';
 import {readClubState, celebrityKey} from './col-club-state.mjs';
+import {numericBaselineProjection} from './col-numeric-baseline.mjs';
 
 export const NUMERIC_DOMAIN='Stammtisch-CoL-Numeric-Release-v1';
 export const ACTION_DOMAIN='Stammtisch-CoL-Authenticated-Member-Action-v1';
@@ -121,7 +122,7 @@ export function buildNumericPayload({baseline,clubState,websiteResults=null,even
       previousRelease.payload.siteResultsDigest===sha256(previousRelease.payload.siteResults),
       'Prior numerical release chain is malformed');
     assert(previousRelease.payload?.kind==='col-numeric-release-payload-v1'&&
-      previousRelease.payload.baselineDigest===sha256(baseline),'Prior release baseline mismatch');
+      previousRelease.payload.baselineDigest===sha256(numericBaselineProjection(baseline)),'Prior release baseline mismatch');
     assert(previousRelease.payload.correctionsDigest===sha256(clubState),
       'Authorised GitHub correction changed; requalify the correction before release');
     assert(HEX.test(prior.activationBoundaryDigest||'')&&ISO.test(prior.activationAt||''),
@@ -135,7 +136,7 @@ export function buildNumericPayload({baseline,clubState,websiteResults=null,even
       viewerObservedAt:q.sourceObservation.observedAt});
   }
   readClubState(clubState);
-  const baselineDigest=sha256(baseline),correctionsDigest=sha256(clubState);
+  const baselineDigest=sha256(numericBaselineProjection(baseline)),correctionsDigest=sha256(clubState);
   const migration=migrateBaseline(baseline,clubState),siteSnapshot=structuredClone(websiteResults??prior?.siteResults??migration.corrected);
   assert(siteSnapshot&&Array.isArray(siteSnapshot.members)&&siteSnapshot.members.length===6,'Complete website results required');
   for(const member of baseline.members){const current=siteSnapshot.members.find(m=>m.id===member.id);assert(current,'Website member set mismatch');
