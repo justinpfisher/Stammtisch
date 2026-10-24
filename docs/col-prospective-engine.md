@@ -111,10 +111,31 @@ death witness. Public output retains only the Viewer row digest.
 
 Fictional regression coverage exercises the initial boundary, a later cumulative
 release, unchanged activation time, current observation time, replay, deleted
-awards, source-row binding, distinct signing keys and CAS. The repository does
-**not** yet provide the production Viewer row signer, Apps Script authorities,
-hosted numerical publisher or public stable key anchors. The January hold remains
-active; no signed numerical snapshot is operative.
+awards, source-row binding, distinct signing keys and CAS. The repository now has an independently qualified, **default-disabled**
+GitHub-hosted numerical publisher (PR #289) and source-only Apps Script RSA/dispatch
+primitives (PR #290). They are not owner-only private installation, authenticated
+member/death/Viewer-row signing, public trust anchors or operative publication.
+The January hold remains active; no signed numerical snapshot is operative.
+
+### Historical-baseline stability and new-event release scope — 24 October
+
+The monitor continues to refresh presentation dates and living-age text without
+necessarily changing a historical allocation. `numericBaselineProjection()` is
+shared between Node and the browser: for baseline hashing alone it excludes
+`capturedAt`, `asOf` and each selection's `ageText`. All other source identity,
+selection, recorded death/report date, point, score and historical allocation
+fields remain bound. A routine age-only refresh therefore cannot invalidate a
+previously signed numerical release or force replay of its consumed awards.
+The signed results snapshot itself is not rewritten; its visible `asOf` remains
+truthful to that signed snapshot. A substantive change to source facts or a Club
+correction still requires an independently qualified numerical release.
+
+A verified new passing cannot be used to publish arbitrary unrelated changes:
+for a death-only release the adapter checks that every other member/selection
+record remains the same, apart from age-display text, and allows only the
+verified person's original selection updates or source-bound Birthday Buffet
+entries. Annual authenticated drafts retain their separate draft reducer.
+Neither this guard nor the existence of test signers is live activation.
 
 ### Native Apps Script signing compatibility (unqualified production option)
 
