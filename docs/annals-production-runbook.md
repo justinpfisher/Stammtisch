@@ -6,11 +6,13 @@ This is the **current** short operating path, not a request to repeat historical
 
 An authenticated message to `annals@stammtischbrewery.com` enters the existing dedicated Gmail and owner-only Drive/Apps Script intake; eligible signed material is processed under **recorded scoped standing permissions**, not a fresh owner approval. Screening must preserve actual speaker attribution, member recipe quantities and syrup steps, source photography and withdrawal/revocation checks. A held image does **not** hold otherwise safe eligible text. Confirm published state only from signed repository data **and the actual live Pages derivative**; a dispatch acceptance alone is not live success.
 
-The 22 October verified installation is **one five-minute `runAnnalsProductionIntake` trigger** and owner-only Apps Script **Version 58**, on the original restricted `/exec`. All five reviewed modules were saved and read back; scheduled runs at 10:41:06 and 10:46:06 p.m. Toronto completed. Do not repeat installation or the cadence helper. Existing publisher workflows request Pages deployment. Verify a natural eligible receipt through the live derivative before claiming email-to-live latency.
+The original restricted `/exec` deployment was last privately verified at **Version 59** (23 October), with exactly **one five-minute `runAnnalsProductionIntake` trigger**. Do not rerun the cadence helper, recreate the project or disturb saved member grants, cursors, signing keys and replay evidence. Existing publisher workflows request Pages deployment. The earlier natural member-email publication witness is recorded in [current state](current-state.md); it is one sample, not a latency guarantee.
 
 For an ordinary website edit: commit reviewed source to `main`, run affected checks, let Pages deploy and verify the affected public URL. **Do not enter Apps Script or perform a signing/consent exercise for copy/layout.**
 
 ## Private source and credential changes
+
+**Open-contribution activation:** [#303](https://github.com/justinpfisher/Stammtisch/pull/303) is merged and tested but not privately installed. Once the owner project is accessible, update `Production.gs` only, read back the saved file and the unchanged five-minute trigger, advance that same `/exec`, and verify an eligible external text contribution through the existing signed writer and public Pages. Only then change the public Annals invitation from “Members only” to open contributions. No new registration, secret or scheduled job is needed.
 
 When a genuine private-code change is necessary:
 1. Compare only changed modules with the reviewed `main` baseline; if there is evidence of an incident/drift, expand the comparison. Use `scripts/annals/build-install-package.py` to prepare owner-private reviewed code, never a public kit with private settings.
