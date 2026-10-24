@@ -79,8 +79,8 @@ export function verifyNumericViewerRun(run,qualification,{implementationCommit}=
   assert(run&&qualification&&String(run.id)===qualification.workflowRunId&&
     run.status==='completed'&&run.conclusion==='success'&&
     run.head_sha===implementationCommit&&run.repository?.full_name===REPO&&
-    typeof run.path==='string'&&
-    run.path.endsWith('/.github/workflows/col-source-observe.yml@refs/heads/main')&&
+    (run.path==='.github/workflows/col-source-observe.yml'||
+     run.path==='justinpfisher/Stammtisch/.github/workflows/col-source-observe.yml@refs/heads/main')&&
     ['push','workflow_dispatch'].includes(run.event),
     'Independent exact-commit Viewer workflow identity unverified');
   assert(qualification.implementationCommit===implementationCommit&&
