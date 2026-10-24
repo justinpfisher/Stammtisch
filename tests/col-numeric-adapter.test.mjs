@@ -114,6 +114,32 @@ test('no-events release rejects fabricated counted rows, date changes and score-
     now:new Date('2026-10-23T12:05:00.000Z')}),/Unsigned site change without new death or draft authority/);
 });
 
+test('a qualified new death cannot smuggle unrelated rows or score-neutral awards',async()=>{
+  const source=fictionalPassing(),legitimate=siteWithPassing(source,source.points);
+  assert.equal((await payload({events:[source.event],websiteResults:legitimate})).calculated.length,1);
+  const changed=structuredClone(legitimate);
+  const unrelated=changed.members.find(m=>m.id===source.holder.id).picks.find(p=>
+    p.id!==source.pick.id&&!p.counted&&typeof p.pick==='number');
+  assert(unrelated,'Unrelated numbered selection required');
+  unrelated.counted=true;unrelated.points=0;
+  await assert.rejects(payload({events:[source.event],websiteResults:changed}),
+    /Unrelated selection changed in death release/);
+  const changedIdentity=structuredClone(legitimate);
+  changedIdentity.members.find(m=>m.id===source.holder.id).avatar='unapproved.jpg';
+  await assert.rejects(payload({events:[source.event],websiteResults:changedIdentity}),
+    /Unrelated member identity changed in death release/);
+  const newRow=structuredClone(legitimate);
+  newRow.members.find(m=>m.id==='matt').picks.push({id:'matt-999',pick:'BB',
+    name:'Unverified addition',born:'1950-01-01',counted:false,points:0});
+  await assert.rejects(payload({events:[source.event],websiteResults:newRow}),
+    /Unauthorised new selection in death release/);
+  // Presentation-age refreshes are harmless and cannot affect sourced awards.
+  const freshDisplay=structuredClone(legitimate);
+  for(const member of freshDisplay.members)for(const pick of member.picks)
+    pick.ageText='Daily age display only';
+  assert.equal((await payload({events:[source.event],websiteResults:freshDisplay})).calculated.length,1);
+});
+
 test('requires a separately signed initial boundary and preserves it across later releases',async()=>{
   await assert.rejects(payload({activationWitness:null}),/activation boundary/i);
   const first=await payload();

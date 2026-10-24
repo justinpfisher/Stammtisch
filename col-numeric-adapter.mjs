@@ -169,6 +169,37 @@ export function buildNumericPayload({baseline,clubState,websiteResults=null,even
     'Website snapshot totals do not match protected calculation');
   draft=prior?structuredClone(prior.draft):draft;
   const draftActions=actions.filter(a=>a.action?.kind==='draft');
+  // A genuine new death authorises a change to that person's recorded rows,
+  // not arbitrary unrelated rows, names or score-neutral extra awards. Strip
+  // only ephemeral age-display text when comparing existing source rows.
+  // Authenticated annual draft changes use their separate reducer below.
+  if(calculatedNew.length&&!draftActions.length) {
+    const previousSite=prior?.siteResults??migration.corrected;
+    const authorisedPeople=new Set(calculatedNew.map(e=>e.personKey));
+    const unchangedPick=p=>{const {ageText,...stable}=p;return stable;};
+    for(const beforeMember of previousSite.members) {
+      const afterMember=siteSnapshot.members.find(m=>m.id===beforeMember.id);
+      assert(afterMember,'Existing member missing from death release');
+      const {score:oldScore,picks:oldPicks,...oldIdentity}=beforeMember;
+      const {score:newScore,picks:newPicks,...newIdentity}=afterMember;
+      assert(sha256(oldIdentity)===sha256(newIdentity),'Unrelated member identity changed in death release');
+      const previousIds=new Set(beforeMember.picks.map(p=>p.id));
+      for(const pick of beforeMember.picks) {
+        const actual=afterMember.picks.find(p=>p.id===pick.id);
+        assert(actual,'Existing selection disappeared in death release');
+        if(authorisedPeople.has(celebrityKey(pick.name,pick.born))) {
+          assert(actual.name===pick.name&&actual.born===pick.born&&actual.pick===pick.pick&&
+            actual.sourceRow===pick.sourceRow&&actual.sourceName===pick.sourceName,
+            'Independently verified death cannot replace a selection identity');
+        } else assert(sha256(unchangedPick(actual))===sha256(unchangedPick(pick)),
+          'Unrelated selection changed in death release');
+      }
+      for(const pick of afterMember.picks)if(!previousIds.has(pick.id)) {
+        assert(pick.pick==='BB'&&authorisedPeople.has(celebrityKey(pick.name,pick.born)),
+          'Unauthorised new selection in death release');
+      }
+    }
+  }
   // Without a newly verified passing or authenticated draft action, a release
   // may only retain the exact previous signed site (or the corrected historical
   // baseline for first activation). Matching totals alone cannot substantiate
