@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {MEMBERS,migrateBaseline,calculatePassing,prospectiveTotals,annualRights,beginDraft,applyDraftAction,jettisonPenalty,validateSelections} from '../col-prospective.mjs';
 import {celebrityKey} from '../col-club-state.mjs';
-import {BEHAVIOR_FILES,PROSPECTIVE_BEHAVIOR_FILES,behaviorDigest,prospectiveBehaviorDigest,prospectiveBehaviorContent} from '../scripts/annals/RulesRelease.mjs';
+import {BEHAVIOR_FILES,PROSPECTIVE_BEHAVIOR_FILES,behaviorDigest,prospectiveBehaviorDigest,prospectiveBehaviorContent,normalizeBehaviorContent} from '../scripts/annals/RulesRelease.mjs';
 const read=p=>JSON.parse(readFileSync(new URL(p,import.meta.url),'utf8'));
 const club=()=>read('../data/col-club-state.json');
 const person=(name='Fictional One',more={})=>({name,born:'1950-01-01',pick:2,...more});
@@ -34,6 +34,7 @@ test('prospective behaviour digest excludes only the mutable release pointer fro
   assert.equal(before,after,'The pointer to the signed release must not make its own code digest circular');
   const changedKey=prospectiveBehaviorContent('data/col-numeric-trust.json',JSON.stringify({...registry,keys:[{...registry.keys[0],publicKey:'different-public-key'}],currentReleaseDigest:null}));
   assert.notEqual(before,changedKey,'Changing a trust key must still change the prospective behaviour digest');
+  assert.equal(normalizeBehaviorContent('anything.mjs','source\r\nbytes'),'source\nbytes','The existing digest path must retain normalized source contents');
   assert.equal(prospectiveBehaviorContent('col-prospective.mjs','a\r\nb'),'a\nb','Source line endings are canonicalized');
 });
 test('migration preserves all 301 actual rows, 14 signed allocations and all six totals',()=>{

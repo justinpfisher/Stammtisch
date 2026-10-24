@@ -26,7 +26,8 @@ export function prospectiveBehaviorContent(name,text){
   if(registry?.schemaVersion!==1||!Array.isArray(registry.keys))throw Error('Invalid numeric trust registry');
   return JSON.stringify(canonical({schemaVersion:registry.schemaVersion,keys:registry.keys}));
 }
-async function digestFiles(files,normalize=name=>name){return digest(await Promise.all(files.map(async name=>({name,text:normalize(name,await readFile(name,'utf8'))}))));}
+export const normalizeBehaviorContent=(_name,text)=>String(text).replace(/\r\n/g,'\n');
+async function digestFiles(files,normalize=normalizeBehaviorContent){return digest(await Promise.all(files.map(async name=>({name,text:normalize(name,await readFile(name,'utf8'))}))));}
 export async function behaviorDigest(){return digestFiles(BEHAVIOR_FILES);}
 export async function prospectiveBehaviorDigest(){return digestFiles(PROSPECTIVE_BEHAVIOR_FILES,prospectiveBehaviorContent);}
 function exact(v,keys){if(!v||Object.keys(v).sort().join(',')!==keys.slice().sort().join(','))throw Error('Unexpected release shape');}
