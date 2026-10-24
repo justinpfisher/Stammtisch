@@ -2,7 +2,7 @@
  * Missing/invalid trust material returns null so the prior display is retained. */
 const canonical=v=>Array.isArray(v)?`[${v.map(canonical).join(',')}]`:v&&typeof v==='object'?`{${Object.keys(v).sort().map(k=>`${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`:JSON.stringify(v);
 const bytes=s=>new TextEncoder().encode(s);
-const ISO=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{3})?(?:Z|[+-]\d\d:\d\d)$/;
+const ISO=/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,6})?(?:Z|[+-]\d\d:\d\d)$/;
 async function digest(value){const hash=await crypto.subtle.digest('SHA-256',bytes(canonical(value)));return [...new Uint8Array(hash)].map(x=>x.toString(16).padStart(2,'0')).join('');}
 function fromBase64(value){return Uint8Array.from(atob(value),c=>c.charCodeAt(0));}
 function pemBytes(pem){return fromBase64(String(pem).replace(/-----[^-]+-----/g,'').replace(/\s/g,''));}
