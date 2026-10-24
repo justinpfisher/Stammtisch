@@ -59,12 +59,13 @@ export function verifyMemberAction(envelope,keyring,now,seen=new Set()) {
   return structuredClone(p);
 }
 
-function verifyActivationBoundary(envelope,{keyring,now,commit,sourceDigest,behaviorDigest,viewerQualificationDigest}) {
-  const p=verifyAttestation(envelope,{domain:ACTIVATION_DOMAIN,keyring,purpose:'numeric-activation-boundary',now,maxAgeMs:365*86400000});
+function verifyActivationBoundary(envelope,{keyring,now,commit,sourceDigest,behaviorDigest,viewerQualificationDigest,viewerObservedAt}) {
+  const p=verifyAttestation(envelope,{domain:ACTIVATION_DOMAIN,keyring,purpose:'numeric-activation-boundary',now,maxAgeMs:30*60*1000});
   assert(exact(p,['schemaVersion','activationId','effectiveAt','implementationCommit','sourceDigest','behaviorDigest','viewerQualificationDigest','issuedAt'])&&
     p.schemaVersion===1&&/^[a-z0-9-]{12,80}$/.test(p.activationId||'')&&ISO.test(p.effectiveAt||'')&&
     p.implementationCommit===commit&&p.sourceDigest===sourceDigest&&p.behaviorDigest===behaviorDigest&&
-    p.viewerQualificationDigest===viewerQualificationDigest&&Date.parse(p.effectiveAt)<=Date.parse(p.issuedAt),
+    p.viewerQualificationDigest===viewerQualificationDigest&&p.effectiveAt===p.issuedAt&&
+    ISO.test(viewerObservedAt||'')&&Date.parse(p.effectiveAt)>=Date.parse(viewerObservedAt),
     'Independently signed initial activation boundary required');
   return p.effectiveAt;
 }
@@ -130,7 +131,8 @@ export function buildNumericPayload({baseline,clubState,websiteResults=null,even
     assert((keyring?.currentReleaseDigest??null)===null,'Initial activation requires an empty numerical release pointer');
     assert(activationWitness,'Initial signed activation boundary required');
     activationAt=verifyActivationBoundary(activationWitness,{keyring,now,commit:implementationCommit,sourceDigest,
-      behaviorDigest,viewerQualificationDigest:qualificationDigest});
+      behaviorDigest,viewerQualificationDigest:qualificationDigest,
+      viewerObservedAt:q.sourceObservation.observedAt});
   }
   readClubState(clubState);
   const baselineDigest=sha256(baseline),correctionsDigest=sha256(clubState);
