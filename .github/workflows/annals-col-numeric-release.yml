@@ -1,0 +1,95 @@
+name: Publish protected numerical CoL snapshot
+
+on:
+  repository_dispatch:
+    types: [annals-col-numeric-release-v1]
+
+permissions:
+  actions: read
+  contents: write
+  pages: write
+
+# Serialize with Annals and rules writers; the independent Sheet monitor still
+# races through ordinary branch-head CAS and will fail closed on source drift.
+concurrency:
+  group: annals-approved-publication
+  cancel-in-progress: false
+
+jobs:
+  numeric:
+    # No production keys, witnesses or signing rights are provisioned by source.
+    # The disabled default is essential until owner-only signers are installed.
+    if: vars.ANNALS_NUMERIC_RELEASE_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Resolve only the claimed numeric Viewer run identifier
+        run: |
+          node --input-type=module -e '
+          import {readFileSync,appendFileSync} from "node:fs";
+          const e=JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH,"utf8"));
+          const id=e.client_payload?.release?.payload?.viewerRunId;
+          if(typeof id!=="string"||!/^[0-9]{1,24}$/.test(id))process.exit(1);
+          appendFileSync(process.env.GITHUB_ENV,"NUMERIC_VIEWER_RUN_ID="+id+"\n");'
+      - name: Independently obtain actual successful Viewer run and artifact
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          gh api "repos/justinpfisher/Stammtisch/actions/runs/$NUMERIC_VIEWER_RUN_ID" \
+            > "$RUNNER_TEMP/col-numeric-viewer-run.json"
+          mkdir "$RUNNER_TEMP/numeric-viewer"
+          gh run download "$NUMERIC_VIEWER_RUN_ID" -R justinpfisher/Stammtisch \
+            -n col-source-readonly-observation -D "$RUNNER_TEMP/numeric-viewer"
+          test -s "$RUNNER_TEMP/numeric-viewer/col-source-observation.json"
+      - name: Install existing pinned read-only Viewer dependencies
+        run: python -m pip install google-auth==2.35.0 requests==2.32.3
+      - name: Observe current authoritative source independently
+        env:
+          GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON: \${{ secrets.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON }}
+        run: |
+          GITHUB_SHA="$(git rev-parse HEAD)" \
+            python scripts/observe-col-source.py > "$RUNNER_TEMP/col-numeric-current-source.json"
+      - name: Reconstruct and verify the signed complete numeric release
+        env:
+          COL_NUMERIC_RELEASE_ENABLED: 'true'
+          GITHUB_EVENT_ACTION: \${{ github.event.action }}
+          COL_NUMERIC_VIEWER_PATH: \${{ runner.temp }}/numeric-viewer/col-source-observation.json
+          COL_NUMERIC_VIEWER_RUN_PATH: \${{ runner.temp }}/col-numeric-viewer-run.json
+          COL_NUMERIC_SOURCE_PATH: \${{ runner.temp }}/col-numeric-current-source.json
+        run: node scripts/col-numeric-publication.mjs
+      - name: Final independent source read before immutable publication
+        env:
+          GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON: \${{ secrets.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON }}
+        run: |
+          GITHUB_SHA="$(git rev-parse HEAD)" \
+            python scripts/observe-col-source.py > "$RUNNER_TEMP/col-numeric-final-source.json"
+          node --input-type=module -e '
+          import {readFileSync} from "node:fs";
+          const q=JSON.parse(readFileSync(process.env.RUNNER_TEMP+"/col-numeric-current-source.json"));
+          const r=JSON.parse(readFileSync(process.env.RUNNER_TEMP+"/col-numeric-final-source.json"));
+          if(r.sourceDigest!==q.sourceDigest||r.implementationCommit!==q.implementationCommit)process.exit(1);'
+      - name: Commit immutable proof and exact signed snapshot with branch CAS
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- data/col-numeric-trust.json data/col-numeric-release.json data/col-numeric-releases/
+          git diff --cached --quiet && exit 1
+          git commit -m "Publish independently qualified signed CoL numeric snapshot"
+          # Non-force fast-forward push; a concurrent source/code/asset update
+          # holds the attempt for exact readback, never silent reset or re-sign.
+          git push origin HEAD:refs/heads/main
+      - name: Request existing GitHub Pages deployment
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: gh api --method POST repos/justinpfisher/Stammtisch/pages/builds
+      - name: Read back complete public bytes and browser-verified numeric results
+        run: node scripts/col-numeric-live-witness.mjs
