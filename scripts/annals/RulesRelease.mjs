@@ -15,9 +15,20 @@ export const RELEASE_MODE='coordinated-col-implementation-v2';
 // the separate additive digest below, without a private-stage regression.
 export const BEHAVIOR_FILES=['celebration-rules.mjs','celebration-awards.mjs','col-award-policy.mjs','celebration.mjs','scripts/import-celebration.py','scripts/monitor-celebration-sheet.py','scripts/annals/RulesCore.js','scripts/annals/RulesStaged.mjs','scripts/annals/run-staged-col.mjs','scripts/annals/RulesProduction.gs','scripts/annals/Production.gs','scripts/annals/RulesPublisher.mjs','col-rules-reader.mjs','col-rules-version.mjs','col-rules-register.mjs','scripts/annals/RulesRelease.mjs','scripts/observe-col-source.py','.github/workflows/annals-col-rules-v3.yml','col-rules-witness.mjs','scripts/annals/verify-staged-col-hosted.mjs'];
 export const PROSPECTIVE_BEHAVIOR_FILES=Object.freeze([...BEHAVIOR_FILES,'col-prospective.mjs','col-club-state.mjs','col-numeric-adapter.mjs','col-numeric-reader.mjs','data/col-numeric-trust.json','.github/workflows/col-source-observe.yml','scripts/qualify-col-prospective.py','tests/col-numeric-adapter.test.mjs']);
-async function digestFiles(files){return digest(await Promise.all(files.map(async name=>({name,text:(await readFile(name,'utf8')).replace(/\r\n/g,'\n')}))));}
+const TRUST_FILE='data/col-numeric-trust.json';
+/** Hash stable trust configuration, never the mutable pointer to the release
+ * whose signature itself depends on this behaviour digest. The release reader
+ * separately checks currentReleaseDigest against the exact signed envelope. */
+export function prospectiveBehaviorContent(name,text){
+  const normalized=String(text).replace(/\r\n/g,'\n');
+  if(name!==TRUST_FILE)return normalized;
+  const registry=JSON.parse(normalized);
+  if(registry?.schemaVersion!==1||!Array.isArray(registry.keys))throw Error('Invalid numeric trust registry');
+  return JSON.stringify(canonical({schemaVersion:registry.schemaVersion,keys:registry.keys}));
+}
+async function digestFiles(files,normalize=name=>name){return digest(await Promise.all(files.map(async name=>({name,text:normalize(name,await readFile(name,'utf8'))}))));}
 export async function behaviorDigest(){return digestFiles(BEHAVIOR_FILES);}
-export async function prospectiveBehaviorDigest(){return digestFiles(PROSPECTIVE_BEHAVIOR_FILES);}
+export async function prospectiveBehaviorDigest(){return digestFiles(PROSPECTIVE_BEHAVIOR_FILES,prospectiveBehaviorContent);}
 function exact(v,keys){if(!v||Object.keys(v).sort().join(',')!==keys.slice().sort().join(','))throw Error('Unexpected release shape');}
 function topics(provisions){
   return Object.entries(provisions).map(([heading,text])=>{
