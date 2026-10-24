@@ -186,6 +186,10 @@ test('supports independent 2048-bit RSA-SHA256 signers across all five domains',
   const action={schemaVersion:1,eventId:'event-000000002',nonce:'2'.repeat(32),memberId:'marc',
     action:{kind:'member-decision',type:'note'},expectedDraftDigest:'b'.repeat(64),
     sourceMessageDigest:'c'.repeat(64),authenticatedAt:'2026-10-23T11:50:00.000Z',issuedAt:'2026-10-23T11:51:00.000Z'};
+  const reused=structuredClone(rsaTrust);
+  reused.keys[1].publicKey=signers.get(ACTION_DOMAIN).keys.publicKey.export({type:'pkcs1',format:'pem'});
+  assert.throws(()=>verifyMemberAction(nativeCompatibleAttest(ACTION_DOMAIN,action),
+    reused,now,new Set()),/distinct signing keys/i);
   const candidate=await payload({keyring:rsaTrust,
     activationWitness:nativeCompatibleAttest(ACTIVATION_DOMAIN,activationPayload),
     events:[fictional.event],websiteResults:siteWithPassing(fictional,fictional.points),
