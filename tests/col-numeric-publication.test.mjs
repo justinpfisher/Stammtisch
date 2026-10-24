@@ -23,7 +23,7 @@ const keyring={schemaVersion:1,currentReleaseDigest:null,keys:keys.map(x=>({
   id:x.id,purpose:x.purpose,algorithm:'Ed25519',
   publicKey:x.pair.publicKey.export({type:'spki',format:'pem'})}))};
 const sourceObservation={kind:'col-source-readonly-observation-v1',sourceDigest:source,
-  observedAt:'2026-10-23T11:55:00.000Z',implementationCommit:commit,
+  observedAt:'2026-10-23T11:55:00.925895Z',implementationCommit:commit,
   workflowRunId:'123456',scope:'spreadsheets.readonly'};
 const qualification={kind:'col-prospective-calculation-qualification-v1',implementationCommit:commit,
   workflowRunId:'123456',sourceObservation,sourceAllocationMatch:true,
