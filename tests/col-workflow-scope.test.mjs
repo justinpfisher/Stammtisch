@@ -15,6 +15,16 @@ test('new CoL candidate alone runs whole-code qualification while every phase re
   assert.match(wf,/Commit immutable package and compare-and-swap ledger/);
 });
 
+test('signed numerical publication is disabled until private authorities are qualified and independently checked',()=>{
+  const wf=read('annals-col-numeric-release.yml');
+  assert.match(wf,/ANNALS_NUMERIC_RELEASE_ENABLED == 'true'/);
+  assert.match(wf,/Independently obtain actual successful Viewer run and artifact/);
+  assert.match(wf,/Final independent source read before immutable publication/);
+  assert.match(wf,/git push origin HEAD:refs\/heads\/main/);
+  assert.match(wf,/col-numeric-live-witness\.mjs/);
+  assert.doesNotMatch(wf,/force-with-lease|push -f|\.github\/workflows\/annals-col-rules-v3\.yml/);
+});
+
 test('merged numerical engine changes automatically receive exact-main Viewer qualification',()=>{
   const wf=read('col-source-observe.yml');
   assert.match(wf,/push:\n    branches: \[main\]/);
