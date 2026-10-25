@@ -279,6 +279,44 @@ class FullMappingContractTests(unittest.TestCase):
         self.assertFalse(sync.postyear_changes_only_new_deaths(baseline, proposed,
                        {"schemaVersion":1,"corrections":[]}))
 
+    def test_new_passing_researches_when_prior_record_has_only_one_source(self):
+        sheets = public_as_sheet_cells()
+        member = PUBLIC["members"][0]
+        pick = member["picks"][0]
+        source = sheets[member["id"]]
+        died_on = "2026-10-25"
+        born = dt.date.fromisoformat(pick["born"])
+        died = dt.date.fromisoformat(died_on)
+        age = died.year - born.year - ((died.month, died.day) < (born.month, born.day))
+        points = (10 if age == 100 else 100 - age) * (2 if pick["pick"] in (1, 50) else 1)
+        source["A1"]["value"] = serial(died_on)
+        source[f"D{pick['sourceRow']}"]["value"] = serial(died_on)
+        source[f"E{pick['sourceRow']}"]["value"] = points
+        formula = source["E1"]["formula"].rstrip(")")
+        source["E1"]["formula"] = formula + f",E{pick['sourceRow']})"
+        source["E1"]["value"] = member["score"] + points
+        sheets["LEADERBOARD"][f"{'BCDEFG'[0]}2"]["value"] = member["score"] + points
+        for other in sync.importer.MEMBERS:
+            sheets[other]["A1"]["value"] = serial(died_on)
+        evidence = {"actualDeathDate":died_on, "sourceUrl":"https://example.test/obituary",
+                    "sourceLabel":"Two independently checked reports", "verifiedOn":"2026-10-26",
+                    "evidenceUrls":["https://example.test/obituary", "https://news.example.test/obituary"]}
+        one_source = {"memberId":member["id"], "name":pick["name"], "born":pick["born"],
+                      "actualDeathDate":died_on, "sourceUrl":"https://example.test/obituary",
+                      "sourceLabel":"One report", "verifiedOn":"2026-10-26"}
+        with mock.patch.object(sync.verifier, "research", return_value=evidence) as research, \
+             mock.patch.object(sync, "datetime") as clock:
+            clock.now.return_value = dt.datetime(2026, 10, 26, 12, tzinfo=dt.timezone.utc)
+            result, candidate, combined = sync.prepare(
+                to_api(sheets), PUBLIC, CONFIRMATIONS + [one_source],
+                "2026-10-26T12:00:00Z", allow_research=True
+            )
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["confirmationsAdded"], 1)
+        self.assertEqual(combined[-1]["evidenceUrls"], evidence["evidenceUrls"])
+        self.assertIsNotNone(candidate)
+        research.assert_called_once()
+
     def test_new_draft_fails_as_season_transition_before_old_confirmations(self):
         # A newly drafted member's list need not retain a person whose death
         # was confirmed during 2026. Such changes must report the transition,

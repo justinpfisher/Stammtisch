@@ -71,7 +71,8 @@ def sample(dead=False, confirmed=False):
     if confirmed:
         pick.update(actualDeathDate="2026-10-05", actualDeathSource={
             "sourceUrl":"https://apnews.com/story/example",
-            "sourceLabel":"Reviewed announcement", "verifiedOn":"2026-10-07"})
+            "sourceLabel":"Reviewed announcement", "verifiedOn":"2026-10-07",
+            "evidenceUrls":["https://apnews.com/story/example", "https://reuters.com/story/example"]})
     return {"year":2026, "asOf":"2026-10-07", "capturedAt":"2026-10-07T22:00:00Z",
             "members":[{"id":"matt","score":4 if dead else 0,"picks":[pick]}],
             "distinctions":[]}

@@ -96,9 +96,12 @@ class GitHubAuthorityTests(unittest.TestCase):
             self.assertTrue(status["publish"])
             self.assertEqual(published["members"][0]["score"],7)
             sheet["members"][0]["picks"][0]["name"]="Unauthorised Sheet identity change"
-            with self.assertRaisesRegex(ValueError, "identity changed"):
-                sync.prepare({},previous,[],"2027-01-16T22:00:00Z",
-                             allow_research=False,corrections=ledger())
+            status, unpublished, _ = sync.prepare(
+                {},previous,[],"2027-01-16T22:00:00Z",
+                allow_research=False,corrections=ledger())
+            self.assertEqual(status["status"], "review_required")
+            self.assertFalse(status["publish"])
+            self.assertIsNone(unpublished)
         finally:
             sync.importer.import_data, sync.sheets_api_cells, sync.datetime = original, original_cells, original_clock
 

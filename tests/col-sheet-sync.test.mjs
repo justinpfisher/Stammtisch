@@ -40,6 +40,16 @@ test('one independently verified new passing is calculated and must match the Sh
   assert.throws(()=>qualifySheetSync({before,after:wrong,clubState:club(),checkedAt}),/deterministic prospective calculation/);
 });
 
+test('independent death evidence is read from the existing confirmation record after import',()=>{
+  const before=baseline(),after=addPassing(before);
+  after.members[0].picks[0].dateSource={dateOfPassing:'2026-10-26'};
+  const confirmations=[{name:'Fictional Celebrity',born:'1950-01-01',actualDeathDate:'2026-10-25',
+    sourceUrl:'https://example.test/obituary',sourceLabel:'Independent reports',verifiedOn:'2026-10-26',
+    evidenceUrls:['https://example.test/obituary','https://news.example.test/obituary']}];
+  assert.equal(qualifySheetSync({before,after,clubState:club(),confirmations,checkedAt}).prospectivePassings,1);
+  assert.throws(()=>qualifySheetSync({before,after,clubState:club(),checkedAt}),/two independently checked/);
+});
+
 test('Birthday Buffet follows the first group-report date and an authenticated correction',()=>{
   const before=baseline('2026-03-24'),after=addPassing(before,{diedOn:'2026-03-25',reportedOn:'2026-03-26',recipient:'marc'});
   assert.equal(qualifySheetSync({before,after,clubState:club(),checkedAt:'2026-03-27T00:00:00Z'}).prospectivePassings,1);

@@ -47,6 +47,7 @@ class CoLPushTests(unittest.TestCase):
 
     def event_data(self, points=54, born="1980-01-01", position=2):
         old = copy.deepcopy(DATA)
+        event_date = (dt.date.fromisoformat(DATA["asOf"]) + dt.timedelta(days=1)).isoformat()
         pick = old["members"][0]["picks"][1]
         pick.update(name="Pilot Example", born=born, pick=position, marker=None,
                     counted=False, dateOfPassing=None, needsReview=False)
@@ -54,21 +55,22 @@ class CoLPushTests(unittest.TestCase):
             pick.pop(field, None)
         newer = copy.deepcopy(old)
         pick = newer["members"][0]["picks"][1]
-        pick.update(points=points, counted=True, dateOfPassing="2026-10-08",
-                    actualDeathDate="2026-10-08", actualDeathSource={
+        pick.update(points=points, counted=True, dateOfPassing=event_date,
+                    actualDeathDate=event_date, actualDeathSource={
                         "sourceUrl": "https://example.com/confirmed", "sourceLabel": "Family",
-                        "verifiedOn": "2026-10-08"})
+                        "verifiedOn": event_date,
+                        "evidenceUrls": ["https://example.com/confirmed", "https://news.example.net/confirmed"]})
         newer["members"][0]["score"] += points
-        newer["asOf"] = "2026-10-08"
+        newer["asOf"] = event_date
         return old, newer
 
     def state(self, old):
         return {"version": 2, "mode": "live", "last_digest": sender.digest(old),
                 "last_commit": COMMIT, "pending": None,
-                "seen_events": sender.known_passings(old), "not_before": "2026-10-08"}
+                "seen_events": sender.known_passings(old), "not_before": old["asOf"]}
 
     def events(self, old, new):
-        return sender.event_notifications(old, new, set(sender.known_passings(old)), "2026-10-08")
+        return sender.event_notifications(old, new, set(sender.known_passings(old)), old["asOf"])
 
     def test_new_event_has_actual_signed_points_and_person_link(self):
         old, new = self.event_data()
@@ -115,11 +117,11 @@ class CoLPushTests(unittest.TestCase):
         new["members"][0]["picks"][1]["actualDeathDate"] = "2026-09-01"
         self.assertEqual(self.events(old, new), [])
         old, new = self.event_data()
-        old["members"][0]["picks"][1]["actualDeathDate"] = "2026-10-08"
+        old["members"][0]["picks"][1]["actualDeathDate"] = new["members"][0]["picks"][1]["actualDeathDate"]
         self.assertEqual(self.events(old, new), [])
         old, new = self.event_data()
         seen = {sender.identity(new["members"][0]["picks"][1])}
-        self.assertEqual(sender.event_notifications(old, new, seen, "2026-10-08"), [])
+        self.assertEqual(sender.event_notifications(old, new, seen, old["asOf"]), [])
 
     def test_disabled_site_and_unauthorized_modes_rejected(self):
         disabled = {"schemaVersion": 1, "mode": "off", "oneSignalAppId": "",
