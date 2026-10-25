@@ -7,6 +7,7 @@ on:
       - col-numeric-*.mjs
       - col-prospective.mjs
       - col-club-state.mjs
+      - scripts/qualify-col-sheet-sync.mjs
       - celebration-rules.mjs
       - data/celebration.json
       - data/celebration-confirmations.json
@@ -21,6 +22,8 @@ on:
       - tests/annals-numeric-transport.test.mjs
       - .github/workflows/annals-col-numeric-release.yml
       - tests/col-prospective.test.mjs
+      - tests/col-sheet-sync.test.mjs
+      - .github/workflows/celebration-sheet-monitor.yml
       - .github/workflows/col-source-observe.yml
   workflow_dispatch:
     inputs:

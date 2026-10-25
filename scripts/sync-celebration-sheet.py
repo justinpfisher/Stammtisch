@@ -276,6 +276,37 @@ def newly_reported_deaths(existing, proposed):
             if now_reported and (new_identity or newly_dated or newly_counted):
                 yield member["id"], pick
 
+def postyear_changes_only_new_deaths(existing, proposed, corrections):
+    """After the source's calendar-year label advances, allow only verified death rows.
+
+    The competition season remains open through the third-Friday January handover.
+    This guard keeps the already adopted Sheet input path while refusing unrelated
+    edits to the prior season. The prospective Node calculation checks each event's
+    exact competition year and allocation before the workflow can commit it.
+    """
+    expected = authority.apply_awarded_points(existing, corrections)
+    corrected = authority.apply_awarded_points(proposed, corrections)
+    events = list(newly_reported_deaths(existing, proposed))
+    if not events:
+        return public_material(corrected) == public_material(expected)
+    event_keys = {(verifier.norm(pick["name"]), pick["born"]) for _, pick in events}
+    prior = {pick["id"]: pick for member in expected["members"] for pick in member["picks"]}
+    stripped = copy.deepcopy(corrected)
+    for member in stripped["members"]:
+        kept = []
+        for pick in member["picks"]:
+            if (verifier.norm(pick["name"]), pick["born"]) in event_keys:
+                previous = prior.get(pick["id"])
+                if previous and (verifier.norm(previous["name"]), previous["born"]) == (
+                    verifier.norm(pick["name"]), pick["born"]
+                ):
+                    kept.append(copy.deepcopy(previous))
+            else:
+                kept.append(pick)
+        member["picks"] = kept
+        member["score"] = sum(p["points"] for p in kept if p.get("counted"))
+    return public_material(stripped) == public_material(expected)
+
 def prepare(workbook, existing, confirmations, checked_at, allow_research=True, corrections=None):
     corrections = corrections if corrections is not None else {"schemaVersion": 1, "corrections": []}
     authored = authority.validated_corrections(corrections)
@@ -352,19 +383,6 @@ def prepare(workbook, existing, confirmations, checked_at, allow_research=True, 
                 authored, candidate["year"], member["id"], pick
             ):
                 raise ValueError("Verified passing points disagree with the club's scoring rules")
-    # Until the new January scoring calculation is qualified, Sheet-driven
-    # changes in the post-calendar-year gap remain held. A *GitHub-authorised*
-    # correction to an already awarded score can still publish: first verify
-    # that the Sheet has not independently changed any other material field.
-    if date.fromisoformat(candidate["asOf"]).year > candidate["year"]:
-        corrected = authority.apply_awarded_points(candidate, corrections)
-        expected = authority.apply_awarded_points(existing, corrections)
-        if public_material(corrected) != public_material(expected):
-            raise ValueError("Post-year scoring boundary requires qualified transition")
-        changed = public_material(corrected) != public_material(existing)
-        return {"status": "ready", "pending": 0, "publish": changed,
-                "confirmationsAdded": 0}, (corrected if changed else None), None
-
     known_sources = {}
     for member in candidate["members"]:
         for pick in member["picks"]:
@@ -401,6 +419,15 @@ def prepare(workbook, existing, confirmations, checked_at, allow_research=True, 
     # Always reapply committed GitHub corrections, so later routine Sheet
     # imports cannot restore an older point allocation or leaderboard total.
     candidate = authority.apply_awarded_points(candidate, corrections)
+    # The Sheet's display date can enter January while the adopted scoring
+    # season remains open until the third Friday at 8 p.m. Keep that ordinary
+    # scoring path, but admit only independently checked death-row changes
+    # after the calendar-year label advances. The connected deterministic
+    # prospective check enforces the exact event season and calculation.
+    if date.fromisoformat(candidate["asOf"]).year > candidate["year"] and not postyear_changes_only_new_deaths(
+        existing, candidate, corrections
+    ):
+        raise ValueError("Post-year scoring boundary requires qualified transition")
     changed = public_material(candidate) != public_material(existing)
     return {"status":"ready", "pending":0, "publish":changed,
             "confirmationsAdded":len(to_append)}, (candidate if changed else None), (combined if to_append else None)

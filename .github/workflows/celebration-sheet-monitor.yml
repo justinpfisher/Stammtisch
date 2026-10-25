@@ -19,6 +19,10 @@ on:
       - 'data/col-club-state.json'
       - 'scripts/col-github-authority.py'
       - 'tests/test_col_github_authority.py'
+      - 'col-prospective.mjs'
+      - 'col-club-state.mjs'
+      - 'scripts/qualify-col-sheet-sync.mjs'
+      - 'tests/col-sheet-sync.test.mjs'
   schedule:
     - cron: '17 * * * *'
       timezone: America/Toronto
@@ -53,6 +57,9 @@ jobs:
       SPREADSHEET_ID: 1B8tZFjIa5FsyBaex42Atg7pJ5Y86Lj1vHeJMRhrqrCY
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Install pinned monitor dependencies
         run: python -m pip install google-auth==2.35.0 requests==2.32.3 cryptography==43.0.3
       - name: Restore latest encrypted baseline
@@ -93,8 +100,10 @@ jobs:
         if: success() && inputs.initialize != true
         id: site_sync
         run: |
+          cp data/celebration.json monitor-state/previous-celebration.json
           checked="$(python -c "import json; print(json.load(open('monitor-result.json'))['checkedAt'])")"
           python scripts/sync-celebration-sheet.py --workbook monitor-state/current-workbook.json --checked-at "$checked" --status monitor-state/site-sync-status.json
+          node scripts/qualify-col-sheet-sync.mjs --before monitor-state/previous-celebration.json --after data/celebration.json --club-state data/col-club-state.json --checked-at "$checked" > monitor-state/prospective-check.json
       - name: Detect validated public data changes
         if: success() && steps.site_sync.outcome == 'success'
         id: public_changes

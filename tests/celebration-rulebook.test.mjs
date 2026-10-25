@@ -10,11 +10,11 @@ const editions=readFileSync(new URL('../col-rules-version.html',import.meta.url)
 const start='<!-- Jerome verbatim rules start -->';
 const end='<!-- Jerome verbatim rules end -->';
 const a=page.indexOf(start),b=page.indexOf(end);
-const rendered=page.slice(a+start.length,b).trim();
+const rendered=page.slice(a+start.length,b).replace(/\r\n/g,'\n').trim();
 
 test('official rules display exactly the verified source-renderer output',()=>{
   assert.ok(a>=0&&b>a,'expected one bounded verbatim rules region');
-  assert.equal(rendered,renderRules(source));
+  assert.equal(rendered,renderRules(source).replace(/\r\n/g,'\n'));
   assert.doesNotMatch(rendered,/<pre|jerome-verbatim-text/);
   assert.match(rendered,/<ul class="jerome-bullet-list">/);
   assert.match(rendered,/<ol class="jerome-numbered-list">/);
