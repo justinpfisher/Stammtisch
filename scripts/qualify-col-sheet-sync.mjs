@@ -96,7 +96,7 @@ export function qualifySheetSync({before,after,clubState,confirmations=[],checke
     const previouslyUnawarded=prior.some(({pick})=>pick.actualDeathDate||pick.dateSource?.dateOfPassing) &&
       !prior.some(({pick})=>pick.dateOfPassing||pick.counted);
     const consumedPeople=migration.consumedPeople.filter(key=>key!==personKey||!previouslyUnawarded);
-    const calculatedEvent=calculatePassing({members,event,clubState,effectiveAt:scoringBaseAt,
+    const calculatedEvent=calculatePassing({members,event,clubState,effectiveAt:new Date(scoringBaseAt).toISOString(),
       observedAt:checkedAt,consumedPeople});
     if(calculatedEvent.status!=='calculated')throw Error('New passing requires missing evidence or a qualified correction');
     if(calculatedEvent.seasonYear!==after.year)
