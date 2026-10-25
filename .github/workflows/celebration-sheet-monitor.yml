@@ -103,7 +103,7 @@ jobs:
           cp data/celebration.json monitor-state/previous-celebration.json
           checked="$(python -c "import json; print(json.load(open('monitor-result.json'))['checkedAt'])")"
           python scripts/sync-celebration-sheet.py --workbook monitor-state/current-workbook.json --checked-at "$checked" --status monitor-state/site-sync-status.json
-          node scripts/qualify-col-sheet-sync.mjs --before monitor-state/previous-celebration.json --after data/celebration.json --club-state data/col-club-state.json --checked-at "$checked" > monitor-state/prospective-check.json
+          node scripts/qualify-col-sheet-sync.mjs --before monitor-state/previous-celebration.json --after data/celebration.json --club-state data/col-club-state.json --confirmations data/celebration-confirmations.json --checked-at "$checked" > monitor-state/prospective-check.json
       - name: Detect validated public data changes
         if: success() && steps.site_sync.outcome == 'success'
         id: public_changes

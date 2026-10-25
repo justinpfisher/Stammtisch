@@ -30,7 +30,7 @@ const totals=entries=>{
 };
 const sameTotals=(a,b)=>a.size===b.size&&[...a].every(([id,points])=>b.get(id)===points);
 
-export function qualifySheetSync({before,after,clubState,checkedAt}){
+export function qualifySheetSync({before,after,clubState,confirmations=[],checkedAt}){
   const migration=migrateBaseline(before,clubState);
   migrateBaseline(after,clubState);
   if(before.year!==after.year)throw Error('A new competition year needs its own qualified source transition');
@@ -52,11 +52,15 @@ export function qualifySheetSync({before,after,clubState,checkedAt}){
     if(deathDates.length!==1)throw Error('Independent death evidence is missing or conflicting');
     const {pick,source}=sources[0],diedOn=deathDates[0];
     if(diedOn<=before.asOf)continue; // a historical backfill stays on the silent legacy correction path
-    if(!Array.isArray(pick.dateSource?.evidenceUrls)||pick.dateSource.evidenceUrls.length<2)
+    const confirmation=confirmations.find(c=>celebrityKey(c.name,c.born)===personKey&&
+      c.actualDeathDate===diedOn&&Array.isArray(c.evidenceUrls));
+    const evidenceUrls=source.evidenceUrls??confirmation?.evidenceUrls??pick.dateSource?.evidenceUrls;
+    if(!Array.isArray(evidenceUrls)||new Set(evidenceUrls).size<2||
+      evidenceUrls.some(url=>typeof url!=='string'||!url.startsWith('https://')))
       throw Error('New passing lacks two independently checked source reports');
     const event={name:pick.name,born:pick.born,diedOn,discoveredOn:reportDates[0]};
     const evidenceMaterial={personKey,diedOn,diedAt:event.diedAt??null,
-      sourceUrls:pick.dateSource.evidenceUrls,sourceLabel:source.sourceLabel,verifiedOn:source.verifiedOn};
+      sourceUrls:evidenceUrls,sourceLabel:source.sourceLabel,verifiedOn:source.verifiedOn};
     event.evidence={kind:'independently-verified-death',personKey,diedOn,
       ...(event.diedAt?{diedAt:event.diedAt}:{}),verifiedAt:checkedAt,digest:digest(evidenceMaterial)};
     const members=after.members.map(m=>({id:m.id,name:m.name,score:m.score,
@@ -87,7 +91,8 @@ async function main(){
   for(let i=0;i<args.length;i+=2){if(!args[i]?.startsWith('--')||!args[i+1])throw Error('Invalid arguments');options[args[i].slice(2)]=args[i+1];}
   const read=async name=>JSON.parse(await readFile(options[name],'utf8'));
   const result=qualifySheetSync({before:await read('before'),after:await read('after'),
-    clubState:await read('club-state'),checkedAt:options['checked-at']});
+    clubState:await read('club-state'),confirmations:options.confirmations?await read('confirmations'):[],
+    checkedAt:options['checked-at']});
   process.stdout.write(JSON.stringify(result)+'\n');
 }
 

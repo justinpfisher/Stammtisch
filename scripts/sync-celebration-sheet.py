@@ -254,10 +254,15 @@ def public_material(data):
 def verified_evidence(pick):
     source = pick.get("actualDeathSource") or pick.get("dateSource") or {}
     confirmed_date = pick.get("actualDeathDate") or (pick.get("dateSource") or {}).get("dateOfPassing")
+    evidence_urls = source.get("evidenceUrls") or (pick.get("dateSource") or {}).get("evidenceUrls")
+    independent_sources = (isinstance(evidence_urls, list) and
+                           len({url for url in evidence_urls if isinstance(url, str) and
+                                url.startswith("https://")}) >= 2)
     if (confirmed_date and source.get("sourceUrl", "").startswith("https://")
-            and source.get("sourceLabel") and source.get("verifiedOn")):
+            and source.get("sourceLabel") and source.get("verifiedOn") and independent_sources):
         return {"actualDeathDate":confirmed_date, "sourceUrl":source["sourceUrl"],
-                "sourceLabel":source["sourceLabel"], "verifiedOn":source["verifiedOn"]}
+                "sourceLabel":source["sourceLabel"], "verifiedOn":source["verifiedOn"],
+                "evidenceUrls":list(evidence_urls)}
     return None
 
 def newly_reported_deaths(existing, proposed):
