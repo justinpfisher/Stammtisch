@@ -9,6 +9,10 @@ import {createHash} from 'node:crypto';
 import {migrateBaseline,calculatePassing,annualRights} from '../col-prospective.mjs';
 import {celebrityKey,correctedCompetitionYear,competitionYearForDeathDate} from '../col-club-state.mjs';
 
+// Last source observation before the ordinary prospective Sheet reconciliation
+// was deployed: the established 301-row / 14-award historical baseline.
+// Do not substitute a moving hourly snapshot for this scoring lower bound.
+const PUBLISHED_HISTORICAL_SOURCE_AT='2026-10-24T05:53:33.698881+00:00';
 const identity=p=>celebrityKey(p.name,p.born);
 const reported=p=>Boolean(p.dateOfPassing||p.counted);
 const groups=data=>{
@@ -34,8 +38,13 @@ export function qualifySheetSync({before,after,clubState,confirmations=[],checke
   const migration=migrateBaseline(before,clubState);
   migrateBaseline(after,clubState);
   if(before.year!==after.year)throw Error('A new competition year needs its own qualified source transition');
-  if(!Number.isFinite(Date.parse(checkedAt))||Date.parse(checkedAt)<Date.parse(before.capturedAt))
+  if(!Number.isFinite(Date.parse(checkedAt))||!Number.isFinite(Date.parse(before.capturedAt))||
+    Date.parse(checkedAt)<Date.parse(before.capturedAt))
     throw Error('Source observation time is invalid or regressed');
+  // Older synthetic/source baselines retain their genuine earlier observation;
+  // live snapshots from 24 October onward use the fixed historical cutover.
+  const scoringBaseAt=Date.parse(before.capturedAt)<Date.parse(PUBLISHED_HISTORICAL_SOURCE_AT)
+    ?before.capturedAt:PUBLISHED_HISTORICAL_SOURCE_AT;
   const priorGroups=groups(before),nextGroups=groups(after),calculated=[];
   for(const [personKey,entries] of nextGroups){
     const prior=priorGroups.get(personKey)||[];
@@ -73,7 +82,7 @@ export function qualifySheetSync({before,after,clubState,confirmations=[],checke
       competitionYearForDeathDate(diedOn,diedAt===null?null:Date.parse(diedAt));
     if(season!==after.year)
       throw Error('New passing belongs to a competition year not represented by the active Sheet');
-    if(diedOn<=before.asOf)continue; // a historical backfill stays on the silent legacy correction path
+    if(diedOn<=scoringBaseAt.slice(0,10))continue; // pre-baseline historical backfills stay silent
     const evidenceUrls=source.evidenceUrls??confirmation?.evidenceUrls??pick.dateSource?.evidenceUrls;
     if(!Array.isArray(evidenceUrls)||new Set(evidenceUrls).size<2||
       evidenceUrls.some(url=>typeof url!=='string'||!url.startsWith('https://')))
@@ -87,7 +96,7 @@ export function qualifySheetSync({before,after,clubState,confirmations=[],checke
     const previouslyUnawarded=prior.some(({pick})=>pick.actualDeathDate||pick.dateSource?.dateOfPassing) &&
       !prior.some(({pick})=>pick.dateOfPassing||pick.counted);
     const consumedPeople=migration.consumedPeople.filter(key=>key!==personKey||!previouslyUnawarded);
-    const calculatedEvent=calculatePassing({members,event,clubState,effectiveAt:before.capturedAt,
+    const calculatedEvent=calculatePassing({members,event,clubState,effectiveAt:new Date(scoringBaseAt).toISOString(),
       observedAt:checkedAt,consumedPeople});
     if(calculatedEvent.status!=='calculated')throw Error('New passing requires missing evidence or a qualified correction');
     if(calculatedEvent.seasonYear!==after.year)
