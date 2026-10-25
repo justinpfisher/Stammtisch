@@ -140,6 +140,44 @@ test('subject-only and body-only source content is preserved without inventing r
   assert.equal(empty.requiresClarification,true);
 });
 
+test('only a final unquoted cocktail keywords line is private visual metadata',()=>{
+  const proposal=(body)=>core.privateProposal({sourceId:'a'.repeat(64),from:'test@example.com',
+    subject:'Apple cocktail recipe',body,attachments:[]});
+  const hinted=proposal('1 oz apple syrup\nShake with rum.\n KEYWORDS:  autumn orchard, candlelight  \n');
+  assert.equal(hinted.source.excerpt,'1 oz apple syrup\nShake with rum.');
+  assert.equal(hinted.visualKeywords,'autumn orchard, candlelight');
+  assert.equal(hinted.categorisation,'cocktail');
+  const empty=proposal('1 oz apple syrup\nkeywords:   ');
+  assert.equal(empty.source.excerpt,'1 oz apple syrup');
+  assert.equal(empty.visualKeywords,undefined);
+  const quoted=proposal('1 oz apple syrup\n> keywords: quoted orchard');
+  assert.match(quoted.source.excerpt,/> keywords: quoted orchard/);
+  assert.equal(quoted.visualKeywords,undefined);
+  const oldThread=proposal('1 oz apple syrup\nkeywords: old reply\n\nThanks');
+  assert.match(oldThread.source.excerpt,/keywords: old reply/);
+  assert.equal(oldThread.visualKeywords,undefined);
+  const forwarded=proposal('1 oz apple syrup\n\nOn Friday, someone wrote:\nkeywords: old reply');
+  assert.match(forwarded.source.excerpt,/keywords: old reply/);
+  assert.equal(forwarded.visualKeywords,undefined);
+  const ordinary=proposal('1 oz apple syrup\nServe chilled.');
+  assert.equal(ordinary.source.excerpt,'1 oz apple syrup\nServe chilled.');
+  assert.equal(ordinary.visualKeywords,undefined);
+  const unsafe=proposal('1 oz apple syrup\nkeywords: https://example.test/path');
+  assert.equal(unsafe.source.excerpt,'1 oz apple syrup');
+  assert.equal(unsafe.visualKeywords,undefined);
+  const tooLong=proposal('1 oz apple syrup\nkeywords: '+'orchard '.repeat(30));
+  assert.equal(tooLong.source.excerpt,'1 oz apple syrup');
+  assert.equal(tooLong.visualKeywords,undefined);
+  const nonCocktail=core.privateProposal({sourceId:'b'.repeat(64),from:'test@example.com',
+    subject:'Club history',body:'Monthly meeting\nkeywords: candlelight',attachments:[]});
+  assert.equal(nonCocktail.source.excerpt,'Monthly meeting\nkeywords: candlelight');
+  assert.equal(nonCocktail.visualKeywords,undefined);
+  const keywordCannotClassify=core.privateProposal({sourceId:'c'.repeat(64),from:'test@example.com',
+    subject:'Dinner service',body:'A fictional supper.\nkeywords: cocktail lounge',attachments:[]});
+  assert.equal(keywordCannotClassify.categorisation,'uncategorised');
+  assert.match(keywordCannotClassify.source.excerpt,/keywords: cocktail lounge/);
+});
+
 test('a clipped long subject is explicitly marked and never considered complete',()=>{
   const proposal=core.privateProposal({sourceId:'4'.repeat(64),from:'test@example.com',
     subject:'Q'.repeat(core.MAX_SUBJECT_CHARS+1),body:'',attachments:[]});

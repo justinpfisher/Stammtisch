@@ -15,6 +15,7 @@ var AnnalsPilot = (function () {
   var MAX_ATTACHMENTS = 6;
   var MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
   var MAX_TOTAL_BYTES = 20 * 1024 * 1024;
+  var MAX_VISUAL_KEYWORDS_CHARS = 160;
 
   var EXTENSIONS = Object.freeze({
     'image/jpeg': '.jpg',
@@ -52,6 +53,27 @@ var AnnalsPilot = (function () {
     if (/\b(monthly stam(m)?tisch|third friday|monthly meeting)\b/i.test(text)) return 'club_history';
     if (/\b(annals|history|archive|old photo|remember when)\b/i.test(text)) return 'club_history';
     return 'uncategorised';
+  }
+
+  // Only an unquoted final physical line is metadata. The original message is
+  // retained separately by Production.gs; this returns recipe-safe text and
+  // bounded visual hints for private staging, never instructions or URLs.
+  function extractVisualKeywords(body) {
+    var text = String(body || '');
+    var match = text.match(/(?:^|\r?\n)[ \t]*([>|])[ \t]*keywords[ \t]*:[ \t]*([^\r\n]*)[ \t]*(?:\r?\n[ \t]*)*$/i) ||
+      text.match(/(?:^|\r?\n)[ \t]*keywords[ \t]*:[ \t]*([^\r\n]*)[ \t]*(?:\r?\n[ \t]*)*$/i);
+    if (!match) return { body: text, keywords: '' };
+    if (match.length > 2 && (match[1] === '>' || match[1] === '|')) return { body: text, keywords: '' };
+    var line = (match.length > 2 ? match[2] : match[1]).trim();
+    var before = text.slice(0, match.index);
+    if (/^\s*(?:On .{1,240}wrote:|From:\s|Begin forwarded message:|[-_]{2,}\s*Original Message\s*[-_]{2,})/im.test(before))
+      return { body: text, keywords: '' };
+    var keywords = '';
+    if (line.length <= MAX_VISUAL_KEYWORDS_CHARS &&
+        !/[\u0000-\u001f\u007f]|https?:\/\/|www\.|\b(?:ignore|override|system prompt|credentials?|password|policy)\b/i.test(line)) {
+      keywords = line;
+    }
+    return { body: before.replace(/(?:\r?\n[ \t]*)+$/, ''), keywords: keywords };
   }
 
   function attachmentPolicy(mime, bytes) {
@@ -112,27 +134,31 @@ var AnnalsPilot = (function () {
     var sourceCap = isCoL ? MAX_RULE_SOURCE_CHARS : MAX_SOURCE_CHARS;
     var bodyTruncated = body.length > bodyCap;
     var safeBody = body.slice(0, bodyCap);
+    var candidateVisual = extractVisualKeywords(safeBody);
+    var category = classify(subject, candidateVisual.body);
+    var visual = category === 'cocktail' ? candidateVisual :
+      { body: safeBody, keywords: '' };
     var sourceTruncated = subjectTruncated || bodyTruncated || subject.length + safeBody.length > sourceCap;
     var plan = planAttachments(params.attachments || []);
-    return {
+    var proposal = {
       schemaVersion: SCHEMA_VERSION,
       sourceId: id,
       state: 'private_review_required',
       publicationApproved: false,
       publishable: false,
-      categorisation: classify(subject, safeBody),
+      categorisation: category,
       categorisationIsSuggestion: true,
       source: {
         sender: from, // PRIVATE, never committed to public GitHub.
         subject: subject,
         subjectTruncated: subjectTruncated,
         receivedAt: params.receivedAt || null,
-        excerpt: safeBody,
+        excerpt: visual.body,
         excerptTruncated: bodyTruncated,
         sourceTruncated: sourceTruncated
       },
       attachmentManifest: plan,
-      requiresClarification: sourceTruncated || plan.held || !(subject.trim() || safeBody.trim() || plan.items.length),
+      requiresClarification: sourceTruncated || plan.held || !(subject.trim() || visual.body.trim() || plan.items.length),
       quoteMustStayVerbatim: true,
       eventDateConfirmed: false,
       creditedCreatorConfirmed: false,
@@ -140,6 +166,8 @@ var AnnalsPilot = (function () {
       aiDraftAvailable: false,
       note: 'No automatic publication. Content is unverified private evidence.'
     };
+    if (visual.keywords) proposal.visualKeywords = visual.keywords;
+    return proposal;
   }
 
   function publicationBlocked(/* proposal */) {
@@ -161,6 +189,7 @@ var AnnalsPilot = (function () {
     senderAddress: senderAddress,
     allowedSenders: allowedSenders,
     classify: classify,
+    extractVisualKeywords: extractVisualKeywords,
     attachmentPolicy: attachmentPolicy,
     planAttachments: planAttachments,
     privateProposal: privateProposal,
