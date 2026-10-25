@@ -25,11 +25,22 @@ const addPassing=(data,{diedOn='2026-10-25',reportedOn='2026-10-26',diedAt,recip
 };
 const checkedAt='2026-10-27T00:00:00.000Z';
 
-test('the production check reconciles the complete 301-row historic baseline without rewriting it',()=>{
+test('the production check accepts the current published register without mutating it as its snapshot advances',()=>{
   const data=JSON.parse(readFileSync(new URL('../data/celebration.json',import.meta.url),'utf8'));
-  const before=JSON.stringify(data),result=qualifySheetSync({before:data,after:data,clubState:club(),checkedAt:'2026-10-24T06:00:00Z'});
-  assert.equal(result.historicalEntries,301);assert.equal(result.historicalAwards,14);
-  assert.equal(result.prospectivePassings,0);assert.equal(JSON.stringify(data),before);
+  const before=JSON.stringify(data);
+  const capturedAt=Date.parse(data.capturedAt);
+  assert.ok(Number.isFinite(capturedAt),'Published source capture must be a valid timestamp');
+  // The hourly monitor tests the newly imported snapshot, not a fixed date
+  // from the first historical release. Historical awards and future seasons
+  // may legitimately change after independent source qualification.
+  const checkedAt=new Date(capturedAt+60_000).toISOString();
+  const result=qualifySheetSync({before:data,after:data,clubState:club(),checkedAt});
+  assert.equal(result.historicalEntries,data.members.reduce((n,m)=>n+m.picks.length,0));
+  assert.equal(result.historicalAwards,data.members.reduce((n,m)=>n+m.picks.filter(p=>p.counted).length,0));
+  assert.equal(result.prospectivePassings,0);
+  assert.equal(JSON.stringify(data),before);
+  assert.throws(()=>qualifySheetSync({before:data,after:data,clubState:club(),
+    checkedAt:new Date(capturedAt-60_000).toISOString()}),/invalid or regressed/);
 });
 
 test('one independently verified new passing is calculated and must match the Sheet allocation',()=>{
