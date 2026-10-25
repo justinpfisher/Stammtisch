@@ -68,6 +68,28 @@ test('January handover date-only events default to the prior season and a record
   assert.throws(()=>qualifySheetSync({before,after:dateOnly,clubState:corrected,checkedAt:'2027-01-16T15:00:00Z'}),/active Sheet/);
 });
 
+test('sourced handover time prevents a post-8-p.m. death from entering the old Sheet season',()=>{
+  const before=baseline('2027-01-14');
+  const after=addPassing(before,{diedOn:'2027-01-15',reportedOn:'2027-01-16'});
+  const confirmation=actualDeathAt=>[{name:'Fictional Celebrity',born:'1950-01-01',
+    actualDeathDate:'2027-01-15',actualDeathAt,
+    evidenceUrls:['https://example.test/obituary','https://news.example.test/obituary']}];
+  const observed='2027-01-16T23:30:00Z';
+  assert.throws(()=>qualifySheetSync({before,after,clubState:club(),
+    confirmations:confirmation('2027-01-15T20:05:00-05:00'),checkedAt:observed}),/active Sheet/);
+  assert.equal(qualifySheetSync({before,after,clubState:club(),
+    confirmations:confirmation('2027-01-15T19:55:00-05:00'),checkedAt:observed}).prospectivePassings,1);
+  assert.throws(()=>qualifySheetSync({before,after,clubState:club(),
+    confirmations:confirmation('2027-01-16T19:55:00-05:00'),checkedAt:observed}),/time is invalid/);
+});
+
+test('a delayed report cannot bypass the January season check by matching the prior snapshot date',()=>{
+  const before=baseline('2027-01-16');
+  const after=addPassing(before,{diedOn:'2027-01-16',reportedOn:'2027-01-17'});
+  assert.throws(()=>qualifySheetSync({before,after,clubState:club(),
+    checkedAt:'2027-01-18T00:00:00Z'}),/active Sheet/);
+});
+
 test('shared ownership and conflicting evidence fail closed without mutating either source',()=>{
   const before=baseline(),after=addPassing(before);
   after.members.find(m=>m.id==='marc').picks=[{...after.members[0].picks[0],id:'marc-3',pick:3}];

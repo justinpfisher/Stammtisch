@@ -7,7 +7,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 import {migrateBaseline,calculatePassing,annualRights} from '../col-prospective.mjs';
-import {celebrityKey} from '../col-club-state.mjs';
+import {celebrityKey,correctedCompetitionYear,competitionYearForDeathDate} from '../col-club-state.mjs';
 
 const identity=p=>celebrityKey(p.name,p.born);
 const reported=p=>Boolean(p.dateOfPassing||p.counted);
@@ -51,14 +51,33 @@ export function qualifySheetSync({before,after,clubState,confirmations=[],checke
     const deathDates=[...new Set(sources.map(x=>x.diedOn))];
     if(deathDates.length!==1)throw Error('Independent death evidence is missing or conflicting');
     const {pick,source}=sources[0],diedOn=deathDates[0];
+    const matching=confirmations.filter(c=>celebrityKey(c.name,c.born)===personKey&&
+      c.actualDeathDate===diedOn);
+    const confirmation=matching.find(c=>Array.isArray(c.evidenceUrls));
+    // A Sheet timestamp is not an authenticated death time. Only a matching
+    // independently sourced confirmation may resolve the January 8 p.m. boundary.
+    const sourcedTimes=[...new Set(matching.filter(c=>c.actualDeathAt!=null&&
+      Array.isArray(c.evidenceUrls)&&new Set(c.evidenceUrls).size>=2&&
+      c.evidenceUrls.every(url=>typeof url==='string'&&url.startsWith('https://')))
+      .map(c=>c.actualDeathAt))];
+    if(sourcedTimes.length>1)throw Error('Confirmed death times conflict');
+    const diedAt=sourcedTimes[0]??null;
+    if(diedAt!==null&&(!/^[0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$/.test(diedAt)||
+      diedAt.slice(0,10)!==diedOn||!Number.isFinite(Date.parse(diedAt))))
+      throw Error('Confirmed death time is invalid or conflicts with death date');
+    const event={name:pick.name,born:pick.born,diedOn,discoveredOn:reportDates[0],
+      ...(diedAt===null?{}:{diedAt})};
+    // Even a delayed report classified as a silent backfill must not assign a
+    // post-handover death to the old Sheet season.
+    const season=correctedCompetitionYear(event,clubState)??
+      competitionYearForDeathDate(diedOn,diedAt===null?null:Date.parse(diedAt));
+    if(season!==after.year)
+      throw Error('New passing belongs to a competition year not represented by the active Sheet');
     if(diedOn<=before.asOf)continue; // a historical backfill stays on the silent legacy correction path
-    const confirmation=confirmations.find(c=>celebrityKey(c.name,c.born)===personKey&&
-      c.actualDeathDate===diedOn&&Array.isArray(c.evidenceUrls));
     const evidenceUrls=source.evidenceUrls??confirmation?.evidenceUrls??pick.dateSource?.evidenceUrls;
     if(!Array.isArray(evidenceUrls)||new Set(evidenceUrls).size<2||
       evidenceUrls.some(url=>typeof url!=='string'||!url.startsWith('https://')))
       throw Error('New passing lacks two independently checked source reports');
-    const event={name:pick.name,born:pick.born,diedOn,discoveredOn:reportDates[0]};
     const evidenceMaterial={personKey,diedOn,diedAt:event.diedAt??null,
       sourceUrls:evidenceUrls,sourceLabel:source.sourceLabel,verifiedOn:source.verifiedOn};
     event.evidence={kind:'independently-verified-death',personKey,diedOn,
