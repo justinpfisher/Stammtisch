@@ -1,5 +1,26 @@
 {
   "schemaVersion": 1,
   "artDirection": "moody-atmospheric-v2",
-  "images": []
+  "images": [
+    {
+      "source": "assets/annals/annal-96b5ae266a36793c6a203033.jpg",
+      "sourceSha256": "ee47c45a0d84121fdd761df6fb9f08e04b276a3504ab5922dd040101b2ac8b44",
+      "asset": "assets/annals/annal-96b5ae266a36793c6a203033-editorial-v2.jpg",
+      "editorialSha256": "efa701f64a1b0e15f22390796af991e0d77cfec6a136f74f2475e84cd3a17f6f",
+      "width": 1086,
+      "height": 1448,
+      "alt": "AI-stylized amber-orange cocktail with three apple slices in a textured stemmed glass on wood beside an autumn orchard window; cropped glass foot reconstructed.",
+      "artDirection": "moody-atmospheric-v2",
+      "status": "qualified",
+      "rightsQualified": true,
+      "safetyQualified": true,
+      "visualQualified": true,
+      "generationProvider": "openai-chatgpt",
+      "generationModel": "undisclosed",
+      "generationOperation": "image-edit",
+      "reviewMethod": "owner-visual-assessment",
+      "generatedAt": "2026-10-25T19:37:23Z",
+      "reviewedAt": "2026-10-25T20:38:51Z"
+    }
+  ]
 }
