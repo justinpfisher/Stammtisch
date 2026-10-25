@@ -4,8 +4,8 @@
 
 ## 25 October checkpoint
 
-- Refreshed `main` at `f6dc83f540dbeaaffcf7f4b8df83ab6527dd851c`. The current Chat session has GitHub access only; the original owner-only Apps Script project and authenticated Celebration Sheet are not connected. No private source, deployment, trigger, credential, workbook or member record was read or changed.
-- Open Annals source remains merged in #303/#307, but the original Version 59 installation/readback and authentic outside-text publication are still outstanding. Keep draft #305 unmerged until that live witness exists.
+- Refreshed `main` at `3be7ed6947f09b77acb27d1d6ef377304637ef11`. This continuation had read-only Google Drive access to the authenticated Celebration workbook and inspected its metadata and a limited source range; no workbook writes were made, and no private cell values are reproduced here. The original owner-only Apps Script project remains inaccessible in this session; its installed source, deployment and trigger were not read or changed.
+- Open Annals source remains merged in #303/#307, but the original Version 59 installation/readback and authentic outside-text publication are still outstanding. A mailbox search found no incoming eligible outsider contribution to qualify. Keep draft #305 unmerged until that live witness exists.
 - CoL #311–#313 protections are deployed. Fictional tests cover the 15 January 2027 handover boundary; the actual next-season Sheet/draft transition and any authentic prospective award remain unqualified. Preserve the 2026 baseline and January hold. No test notification or artificial event was sent.
 
 ## In production
