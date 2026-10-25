@@ -40,6 +40,24 @@ test('one independently verified new passing is calculated and must match the Sh
   assert.throws(()=>qualifySheetSync({before,after:wrong,clubState:club(),checkedAt}),/deterministic prospective calculation/);
 });
 
+test('a newly reported death is still checked when its death date precedes the moving Sheet snapshot',()=>{
+  const before=baseline('2026-10-27');
+  const after=addPassing(before,{diedOn:'2026-10-25',reportedOn:'2026-10-28'});
+  const checkedAt='2026-10-29T00:00:00Z';
+  assert.equal(qualifySheetSync({before,after,clubState:club(),checkedAt}).prospectivePassings,1);
+  const wrong=structuredClone(after);
+  wrong.members[0].picks[0].points+=1;wrong.members[0].score+=1;
+  assert.throws(()=>qualifySheetSync({before,after:wrong,clubState:club(),checkedAt}),
+    /deterministic prospective calculation/);
+});
+
+test('an event dated on the prior snapshot day is not silently classified as historical',()=>{
+  const before=baseline('2026-10-25');
+  const after=addPassing(before,{diedOn:'2026-10-25',reportedOn:'2026-10-26'});
+  assert.equal(qualifySheetSync({before,after,clubState:club(),
+    checkedAt:'2026-10-27T00:00:00Z'}).prospectivePassings,1);
+});
+
 test('independent death evidence is read from the existing confirmation record after import',()=>{
   const before=baseline(),after=addPassing(before);
   after.members[0].picks[0].dateSource={dateOfPassing:'2026-10-26'};
