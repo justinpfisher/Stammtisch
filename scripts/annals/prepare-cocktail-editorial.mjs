@@ -10,7 +10,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {verifyPublicApproval} from './ApprovedRenderer.mjs';
 import {
-  verifiedCocktailSource,verifyEditorialPermit,extractUnspentEditorialPermit,stripJpegMetadata,makeSunburstEditRequest,
+  verifiedCocktailSource,privateCocktailVisualKeywords,verifyEditorialPermit,extractUnspentEditorialPermit,stripJpegMetadata,makeSunburstEditRequest,
   requestSunburstEdit,makeVisualReviewRequest,assessSunburstEdit,
   proposedEditorialRecord
 } from './CocktailImageEdit.mjs';
@@ -22,7 +22,7 @@ function args(argv){
   for(let i=0;i<argv.length;i++){
     if(argv[i]==='--execute'){if(result.execute)throw Error('Duplicate execution mode');result.execute=true;continue}
     if(argv[i]==='--check-handoff'){if(result.checkHandoff)throw Error('Duplicate handoff mode');result.checkHandoff=true;continue}
-    if(!['--entry','--reference','--permit','--private-output'].includes(argv[i])||
+    if(!['--entry','--reference','--permit','--private-output','--private-source-record'].includes(argv[i])||
        i+1>=argv.length||argv[i+1].startsWith('--')||result[argv[i].slice(2)])
       throw Error('Unsupported image-edit argument');
     result[argv[i].slice(2)]=argv[++i];
@@ -30,7 +30,7 @@ function args(argv){
   if(!/^[a-z0-9][a-z0-9-]{5,63}$/.test(result.entry||''))throw Error('Invalid entry ID');
   if(result.execute&&result.checkHandoff)throw Error('Choose exactly one protected execution mode');
   if(!result.execute&&!result.checkHandoff&&
-     (result.reference||result.permit||result['private-output']))
+     (result.reference||result.permit||result['private-output']||result['private-source-record']))
     throw Error('Protected inputs require explicit --execute');
   return result;
 }
@@ -90,9 +90,17 @@ async function run(){
     throw Error('Protected publisher, independent permit signer or recovery unavailable');
   if(!verifyPublicApproval(entry,approval,process.env.ANNALS_PUBLISH_SIGNING_KEY))
     throw Error('Signed source publication invalid');
-  const subject=verifiedCocktailSource({entry,approval,
+  let subject=verifiedCocktailSource({entry,approval,
     signingKey:process.env.ANNALS_PUBLISH_SIGNING_KEY,
     sourcePath,sourceBytes});
+  if(options['private-source-record']){
+    const bytes=await privateFile(options['private-source-record']);
+    let record;
+    try{record=JSON.parse(bytes.toString('utf8'))}
+    catch{throw Error('Private cocktail source record invalid')}
+    subject=Object.freeze({...subject,
+      visualKeywords:privateCocktailVisualKeywords(record,subject.entryId)});
+  }
   const referenceBytes=await privateFile(options.reference,
     options.entry==='annal-96b5ae266a36793c6a203033');
   const permitBytes=await privateFile(options.permit);

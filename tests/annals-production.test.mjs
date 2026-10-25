@@ -1799,8 +1799,8 @@ test('owner-only hold notification is safe when a contributor is not authenticat
 });
 
 
-test('ordinary AI drafting sees only independently screened safe remainder; private original and CoL remain exact',()=>{
-  const x=mock(),source={source:{subject:'Fish and Marc — fictional club note',
+test('ordinary AI drafting sees only independently screened safe remainder; visual hints stay out of recipe text and CoL remains exact',()=>{
+  const x=mock(),source={visualKeywords:'autumn orchard, candlelight',source:{subject:'Fish and Marc — fictional club note',
     excerpt:'Marc prepared imaginary drinks. We met at 2400 Example Road. Jamie was diagnosed with a condition. Matt packed imaginary lemons.'}};
   const original=structuredClone(source);
   const ai=x.context.annalsAiSafeSourceText_(source);
@@ -1812,6 +1812,8 @@ test('ordinary AI drafting sees only independently screened safe remainder; priv
   assert.equal(x.context.annalsSafeTextForAutoAi_(ai),true);
   assert.equal(x.context.annalsAiIndependentSafeText_(source),true);
   assert.equal(source.source.excerpt,original.source.excerpt);
+  assert.doesNotMatch(ai,/autumn orchard|candlelight/);
+  assert.doesNotMatch(x.context.annalsAiSourceText_(source),/autumn orchard|candlelight/);
   assert.match(x.context.annalsAiSourceText_(source),/2400 Example Road/);
   const col={source:{subject:'CoL scoring revision',excerpt:'Change the Steal formula in a hypothetical club game.'}};
   assert.equal(x.context.annalsAiSafeSourceText_(col),'','operative rule source must use its dedicated route');

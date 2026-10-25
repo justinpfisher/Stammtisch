@@ -36,7 +36,7 @@ test('even --execute cannot call a paid provider without separate activation and
     assert.doesNotMatch(run.stderr,/deliberate-fake|Bearer |public title|private source/i);
   }finally{await rm(out,{recursive:true,force:true})}
 });
-test('no caller-selected source URL or environment key is supported by the CLI',()=>{
+test('no caller-selected source URL or environment key is supported by the CLI',async()=>{
   for(const args of [
     ['--entry',entry,'--source','http://malicious.example/image.jpg'],
     ['--entry',entry,'--permit','secret.json'],
@@ -47,6 +47,9 @@ test('no caller-selected source URL or environment key is supported by the CLI',
     assert.notEqual(run.status,0);
     assert.doesNotMatch(run.stderr,/private.*(image|key|credential)|OPENAI_API_KEY/i);
   }
+  const source=await readFile(script,'utf8');
+  assert.match(source,/--private-source-record/);
+  assert.match(source,/privateCocktailVisualKeywords\(record,subject\.entryId\)/);
 });
 
 test('private handoff check is non-spending and refuses absent private authority without writes',async()=>{
