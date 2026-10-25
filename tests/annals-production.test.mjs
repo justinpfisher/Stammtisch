@@ -1829,6 +1829,100 @@ test('a separate original photo cannot suppress independent screened text, but p
   assert.equal(x.calls.ai,0);
 });
 
+test('authenticated administrative and bulk messages stop before body, attachment, staging, AI or notices',()=>{
+  const x=mock();x.files.delete('source-private.json');
+  const allowed=['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test');
+  let bodyReads=0, rawReads=0, folderLookups=0;
+  x.context.annalsFolder_=()=>{folderLookups++;throw Error('Administrative message reached private staging');};
+  x.context.GmailApp={sendEmail(){throw Error('Administrative message generated a notice');}};
+  const messages=[
+    {id:'synthetic-admin-sender',from:'drive-shares-noreply@example.test',subject:'Fictional workspace notice',headers:''},
+    {id:'synthetic-auto-submitted',subject:'Fictional test beverage',headers:'Auto-Submitted: auto-generated'},
+    {id:'synthetic-bulk-header',subject:'Fictional test beverage',headers:'Precedence: bulk\nList-Id: synthetic.example.test'},
+    {id:'synthetic-ambiguous-automation',subject:'Fictional test beverage',headers:'Auto-Submitted: no\nAuto-Submitted: auto-generated'},
+    {id:'synthetic-no-reply-sender',from:'no-reply@example.test',subject:'Fictional test beverage',headers:''}
+  ];
+  for(const item of messages){
+    const message={
+      getId:()=>item.id,getFrom:()=>item.from || 'notifier@example.test',
+      getDate:()=>new Date('2026-10-09T00:00:00Z'),getSubject:()=>item.subject,
+      getHeader:name=>item.headers.split(/\r?\n/).filter(line=>line.toLowerCase().startsWith(name.toLowerCase()+':'))
+        .map(line=>line.slice(name.length+1).trim()).join('\n'),
+      getRawContent:()=>{rawReads++;throw Error('Administrative filter should not retrieve complete message content');},
+      getPlainBody:()=>{bodyReads++;throw Error('Administrative body must not be read');},
+      getAttachments:()=>{throw Error('Administrative attachments must not be read');}
+    };
+    assert.equal(x.context.annalsStageProduction_(message,Date.parse('2026-10-08T00:00:00Z'),allowed),'skipped');
+  }
+  assert.equal(bodyReads,0);
+  assert.equal(rawReads,0);
+  assert.equal(folderLookups,0);
+  assert.equal(x.calls.ai,0);
+  assert.equal(x.files.size,0);
+});
+
+test('ordinary Google/security discussion and a human-forwarded contribution are not mistaken for system mail',()=>{
+  const allowed=['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test');
+  const x=mock();x.files.delete('source-private.json');x.context.GmailApp={sendEmail(){}};
+  const member={
+    getId:()=> 'synthetic-member-security-note',getFrom:()=> 'member1@example.test',
+    getDate:()=>new Date('2026-10-09T00:00:00Z'),
+    getSubject:()=> 'Account access restored — please include my story [synthetic]',
+    getPlainBody:()=> 'Synthetic member note only. This mentions a Google security topic and a fictional drink.',
+    getRawContent:()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=example.test\nAuto-Submitted: no\n\nSynthetic fixture only',
+    getHeader:name=>name==='Auto-Submitted'?'no':name==='X-Auto-Response-Suppress'?'All':'',
+    getAttachments:()=>[]
+  };
+  assert.equal(x.context.annalsStageProduction_(member,Date.parse('2026-10-08T00:00:00Z'),allowed),'awaiting_consent');
+  const memberSource=JSON.parse(x.files.get('source-private.json').getBlob().getDataAsString());
+  assert.equal(memberSource.clubMemberAuthenticated,true);
+  assert.equal(memberSource.externalContributionAtReceipt,false);
+
+  const y=mock();y.files.delete('source-private.json');
+  const forwarded={
+    getId:()=> 'synthetic-human-forward',getFrom:()=> 'maker@example.test',
+    getDate:()=>new Date('2026-10-09T00:00:00Z'),getSubject:()=> 'Fwd: Google security alert [synthetic]',
+    getPlainBody:()=> 'Forwarded fictional contribution. 1 oz imaginary syrup and 2 oz test tea.',
+    getRawContent:()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=example.test\nAuto-Submitted: no\n\nSynthetic fixture only',
+    getHeader:name=>name==='Auto-Submitted'?'no':'',
+    getAttachments:()=>[]
+  };
+  assert.equal(y.context.annalsStageProduction_(forwarded,Date.parse('2026-10-08T00:00:00Z'),allowed),'staged');
+  const forwardedSource=JSON.parse(y.files.get('source-private.json').getBlob().getDataAsString());
+  assert.equal(forwardedSource.externalContributionAtReceipt,true);
+  assert.equal(x.calls.ai+y.calls.ai,0);
+});
+
+test('skipped administrative mail increments only skipped and creates no outside-contribution record',()=>{
+  const x=mock(), allowed=['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test');
+  x.files.delete('source-private.json');
+  Object.assign(x.props,{
+    ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_AI_ENABLED:'true',
+    ANNALS_ACTIVATED_AT:'2026-10-08T00:00:00Z',ANNALS_ALLOWED_SENDERS:allowed.join(','),
+    ANNALS_GITHUB_TOKEN:'synthetic-token',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
+    ANNALS_GITHUB_REPOSITORY:'example.test/synthetic',ANNALS_REVIEW_URL:'https://script.google.com/macros/s/synthetic/exec'
+  });
+  const admin={
+    getId:()=> 'synthetic-admin-summary',getFrom:()=> 'notifications@example.test',
+    getDate:()=>new Date('2026-10-09T00:00:00Z'),getSubject:()=> 'Fictional notification sender test',
+    getHeader:()=>'',getRawContent:()=>{throw Error('Automated sender filter should not retrieve complete message content');},
+    getPlainBody:()=>{throw Error('Skipped administration must not read body');},
+    getAttachments:()=>{throw Error('Skipped administration must not read attachments');}
+  };
+  const thread={getId:()=> 'synthetic-admin-thread',getMessages:()=>[admin]};
+  x.context.GmailApp={getInboxThreads:()=>[thread],getThreadById:()=>thread};
+  x.context.annalsResumeConsentedDrafts_=()=>0;
+  x.context.annalsVerifyAutomaticPublications_=()=>0;
+  const summary=x.context.runAnnalsProductionIntake();
+  assert.equal(summary.skipped,1);
+  assert.equal(summary.staged,0);
+  assert.equal(summary.held,0);
+  assert.equal(summary.awaiting_consent,0);
+  assert.equal(x.files.size,0);
+  assert.equal(x.calls.ai,0);
+});
+
+
 test('authenticated outside emails publish only anonymous screened text through the established signed dispatch', async () => {
   const x=mock(), id=x.context.annalsHash_('outside-recipe-message'), sent=[], mail=[];
   x.files.delete('source-private.json');
@@ -1846,7 +1940,7 @@ test('authenticated outside emails publish only anonymous screened text through 
     getDate:()=>new Date('2026-10-09T00:00:00Z'),
     getSubject:()=> 'Fictional Test Cup',
     getPlainBody:()=> 'Fictional Test Cup\n1 oz imaginary syrup\n2 oz invented tea\nStir the imaginary drink.',
-    getRawContent:()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=example.test\n\nGenuine test only',
+    getRawContent:()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=example.test\nAuto-Submitted: no\n\nGenuine test only',
     getAttachments:()=>[]
   };
   const allowed=x.props.ANNALS_ALLOWED_SENDERS.split(',');
