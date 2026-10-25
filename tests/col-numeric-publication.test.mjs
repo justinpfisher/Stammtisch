@@ -134,7 +134,10 @@ test('public live witness verifies every hosted byte and browser-verifier result
   const result=await prepareNumericPublication({...prep(),bundle});
   const files={...result.files,'data/celebration.json':JSON.stringify(baseline),
     'data/col-club-state.json':JSON.stringify(clubState)};
-  const getName=full=>Object.keys(files).find(p=>full.endsWith('/'+p));
+  const getName=full=>{
+    const normalized=full.replaceAll('\\','/');
+    return Object.keys(files).find(p=>normalized.endsWith('/'+p));
+  };
   const readImpl=async p=>files[getName(p)];
   const fetchImpl=async url=>({status:200,redirected:false,text:async()=>files[getName(url)]});
   const observed=await observeNumericSite({fetchImpl,readImpl,now:now.getTime()});

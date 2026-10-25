@@ -259,6 +259,26 @@ class FullMappingContractTests(unittest.TestCase):
             "season_boundary_review"
         )
 
+    def test_january_open_season_allows_only_new_passing_rows_through_existing_sheet(self):
+        baseline = copy.deepcopy(PUBLIC)
+        proposed = copy.deepcopy(PUBLIC)
+        proposed["asOf"] = "2027-01-15"
+        proposed["capturedAt"] = "2027-01-15T23:00:00Z"
+        member = proposed["members"][0]
+        pick = member["picks"][0]
+        pick.update({"dateOfPassing":"2027-01-15", "actualDeathDate":"2027-01-15",
+                     "actualDeathSource":{"sourceUrl":"https://example.test/obituary",
+                                           "sourceLabel":"Independent report",
+                                           "verifiedOn":"2027-01-16"},
+                     "points":1, "counted":True})
+        member["score"] += 1
+        self.assertTrue(sync.postyear_changes_only_new_deaths(baseline, proposed,
+                      {"schemaVersion":1,"corrections":[]}))
+
+        proposed["distinctions"][0]["reason"] = "Unrelated January edit"
+        self.assertFalse(sync.postyear_changes_only_new_deaths(baseline, proposed,
+                       {"schemaVersion":1,"corrections":[]}))
+
     def test_new_draft_fails_as_season_transition_before_old_confirmations(self):
         # A newly drafted member's list need not retain a person whose death
         # was confirmed during 2026. Such changes must report the transition,

@@ -35,7 +35,7 @@ test('signed numerical publication is disabled until private authorities are qua
 
 test('merged numerical engine changes automatically receive exact-main Viewer qualification',()=>{
   const wf=read('col-source-observe.yml');
-  assert.match(wf,/push:\n    branches: \[main\]/);
+  assert.match(wf,/push:\r?\n    branches: \[main\]/);
   assert.match(wf,/col-numeric-\*\.mjs/);
   assert.match(wf,/\.github\/workflows\/col-source-observe\.yml/);
   assert.match(wf,/qualification == 'prospective' \|\| github\.event_name == 'push'/);
@@ -45,6 +45,11 @@ test('merged numerical engine changes automatically receive exact-main Viewer qu
 
 test('Sheet processing tests the affected score/push modules and keeps source verification',()=>{
   const wf=read('celebration-sheet-monitor.yml');
+  const reconcile=wf.split('      - name: Reconcile current Sheet with published website data',2)[1]
+    .split('      - name: Detect validated public data changes',1)[0];
+  assert.match(wf,/actions\/setup-node@v4[\s\S]*?node-version: '22'/);
+  assert.match(reconcile,/cp data\/celebration\.json monitor-state\/previous-celebration\.json/);
+  assert.match(reconcile,/node scripts\/qualify-col-sheet-sync\.mjs/);
   const step=wf.split('      - name: Verify generated site data and award calculations',2)[1]
     .split('      - name: Commit verified website data',1)[0];
   assert.match(step,/steps\.public_changes\.outputs\.changed == 'true'/);
