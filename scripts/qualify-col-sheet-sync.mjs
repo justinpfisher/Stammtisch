@@ -62,7 +62,7 @@ export function qualifySheetSync({before,after,clubState,confirmations=[],checke
       .map(c=>c.actualDeathAt))];
     if(sourcedTimes.length>1)throw Error('Confirmed death times conflict');
     const diedAt=sourcedTimes[0]??null;
-    if(diedAt!==null&&(!/^\\d{4}-\\d{2}-\\d{2}T(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$/.test(diedAt)||
+    if(diedAt!==null&&(!/^[0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$/.test(diedAt)||
       diedAt.slice(0,10)!==diedOn||!Number.isFinite(Date.parse(diedAt))))
       throw Error('Confirmed death time is invalid or conflicts with death date');
     const event={name:pick.name,born:pick.born,diedOn,discoveredOn:reportDates[0],
