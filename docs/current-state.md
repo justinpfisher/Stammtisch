@@ -1,6 +1,12 @@
 # Stammtisch — current production state
 
-**Checked 24 October 2026, America/Toronto.** For binding Club decisions read [AGENTS.md](../AGENTS.md); for genuine exceptions see [Issue #24](https://github.com/justinpfisher/Stammtisch/issues/24). This page describes what actually runs, not a backlog of past proposals. The detailed 23–24 October source qualifications, attempts, signer proposals, acceptance links and run history remain [preserved in Git at the start of this simplified checkpoint](https://github.com/justinpfisher/Stammtisch/blob/1897cf2a22a16c17fdbc62027691839f6bab865e/docs/current-state.md).
+**Checked 25 October 2026, America/Toronto.** For binding Club decisions read [AGENTS.md](../AGENTS.md); for genuine exceptions see [Issue #24](https://github.com/justinpfisher/Stammtisch/issues/24). This page describes what actually runs, not a backlog of past proposals. The detailed 23–24 October source qualifications, attempts, signer proposals, acceptance links and run history remain [preserved in Git at the start of this simplified checkpoint](https://github.com/justinpfisher/Stammtisch/blob/1897cf2a22a16c17fdbc62027691839f6bab865e/docs/current-state.md).
+
+## 25 October checkpoint
+
+- Refreshed `main` at `f6dc83f540dbeaaffcf7f4b8df83ab6527dd851c`. The current Chat session has GitHub access only; the original owner-only Apps Script project and authenticated Celebration Sheet are not connected. No private source, deployment, trigger, credential, workbook or member record was read or changed.
+- Open Annals source remains merged in #303/#307, but the original Version 59 installation/readback and authentic outside-text publication are still outstanding. Keep draft #305 unmerged until that live witness exists.
+- CoL #311–#313 protections are deployed. Fictional tests cover the 15 January 2027 handover boundary; the actual next-season Sheet/draft transition and any authentic prospective award remain unqualified. Preserve the 2026 baseline and January hold. No test notification or artificial event was sent.
 
 ## In production
 
