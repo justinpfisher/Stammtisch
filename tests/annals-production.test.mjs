@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { buildPublishedAnnals, contentDigest, validatePublicTextEntry, verifyApproval, verifyPublicApproval, verifyPublicRemoval } from '../scripts/annals/ApprovedRenderer.mjs';
 import { renderHistory } from '../scripts/annals/HistoryPublisher.mjs';
 import { prepareApprovedBundle } from '../scripts/annals/prepare-publication.mjs';
+import { applyApprovedEntry } from '../scripts/annals/apply-approved-entry.mjs';
 const require = createRequire(import.meta.url);
 const core = require('../scripts/annals/ProductionCore.js');
 const entry = () => ({ id: 'annal-' + 'a'.repeat(24), category: 'cocktail', title: 'Invented test only', summary: 'Synthetic recipe, not club history.',
@@ -1828,7 +1829,7 @@ test('a separate original photo cannot suppress independent screened text, but p
   assert.equal(x.calls.ai,0);
 });
 
-test('authenticated outside emails publish only anonymous screened text through the established signed dispatch', () => {
+test('authenticated outside emails publish only anonymous screened text through the established signed dispatch', async () => {
   const x=mock(), id=x.context.annalsHash_('outside-recipe-message'), sent=[], mail=[];
   x.files.delete('source-private.json');
   Object.assign(x.props,{
@@ -1875,6 +1876,9 @@ test('authenticated outside emails publish only anonymous screened text through 
   const {entry,approval}=sent[0].client_payload;
   assert.equal(approval.mode,'open-email-text-v1');
   assert.equal(verifyPublicApproval(entry,approval,'p'.repeat(40)),true);
+  const publicResult=await applyApprovedEntry({event:{action:'annals-auto-entry',client_payload:sent[0].client_payload},
+    data:{schemaVersion:1,entries:[],approvals:[]},secret:'p'.repeat(40)});
+  assert.equal(publicResult.data.entries[0].id,entry.id,'the exact intake payload reaches the established writer');
   assert.equal(entry.credit,'anonymous');
   assert.equal(entry.speakerPortrait,undefined);
   assert.equal(entry.contributorPortrait,undefined);

@@ -87,12 +87,12 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
     if (event.action === 'annals-auto-entry') {
       if (!entry.photos && ['club_history','monthly_gathering','artefact'].includes(entry.category))
         throw new Error('Living History requires distinct signed revision authority');
-      if ((approval.mode === 'standing-consent-text-v1' && (entry.photo || entry.photos || event.client_payload.imageBase64 !== undefined || event.client_payload.images !== undefined)) ||
+      if ((['standing-consent-text-v1','open-email-text-v1'].includes(approval.mode) && (entry.photo || entry.photos || event.client_payload.imageBase64 !== undefined || event.client_payload.images !== undefined || event.client_payload.imageBlobs !== undefined)) ||
           (['standing-consent-image-v1','standing-consent-photos-v2'].includes(approval.mode) && (!(entry.photo || entry.photos) || entry.photo && event.client_payload.imageBase64 === undefined || entry.photos && event.client_payload.images === undefined && event.client_payload.imageBlobs === undefined)) ||
           (approval.mode === 'standing-consent-quote-v1' &&
             (entry.category !== 'quotation' || !entry.speakerPortrait || entry.photo || entry.photos ||
              event.client_payload.imageBase64 !== undefined)) ||
-          !['standing-consent-text-v1','standing-consent-image-v1','standing-consent-photos-v2','standing-consent-quote-v1'].includes(approval.mode))
+          !['standing-consent-text-v1','open-email-text-v1','standing-consent-image-v1','standing-consent-photos-v2','standing-consent-quote-v1'].includes(approval.mode))
         throw new Error('Automated publication requires signed standing-consent proof and bounded media');
     } else if (approval.mode !== undefined) {
       throw new Error('Standing-consent proof cannot be reused for manual publication or correction');
