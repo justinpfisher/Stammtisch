@@ -12,7 +12,7 @@ After matching an already published, signed cocktail source to its screened orig
   `schema, jobToken, entryId, sourceSha256, photoIndex, name, description, ingredients, keywords`.
 - `schema` is `annals-photo-job-v1`; `jobToken` is a random one-use 128-bit token and must equal the subject suffix. `entryId`, photo index and source SHA-256 are bound to the current signed Annals entry and selected original photo.
 - Name, description, ingredients and optional final-line keywords are bounded descriptive cues only. No raw email, contributor contact, private permission record, internal URL or instruction is included.
-- Store an immutable private job record before sending. A send outcome that is uncertain is never retried automatically. Recheck current rights at result receipt.
+- The private record binds the source hash and style version, expires after seven days, and is reserved before send. A duplicate intake sees the reservation and cannot send again. A failed or uncertain send remains no-retry; no automatic resend occurs.
 
 ## One worker result
 
