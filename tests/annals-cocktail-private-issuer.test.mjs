@@ -629,10 +629,10 @@ test('synthetic source job and worker result flow through the same signed publis
  const width=600,height=900,dataPixels=Buffer.alloc(width*height*4);
  for(let i=0;i<width*height;i++){
   const px=i%width,py=Math.floor(i/width),p=i*4;
-  dataPixels[p]=(px*17+py*3)&255;dataPixels[p+1]=(px*5+py*19)&255;
-  dataPixels[p+2]=(px*11+py*7)&255;dataPixels[p+3]=255;
+  dataPixels[p]=Math.floor(px*255/width);dataPixels[p+1]=Math.floor(py*255/height);
+  dataPixels[p+2]=128;dataPixels[p+3]=255;
  }
- const jpeg=Buffer.from(Media.sanitize(Buffer.from(Jpeg.encode({width,height,data:dataPixels},80).data)).bytes);
+ const jpeg=Buffer.from(Media.sanitize(Buffer.from(Jpeg.encode({width,height,data:dataPixels},50).data)).bytes);
  const publishKey='synthetic-separate-publication-signing-key';
  f.props.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED='true';
  f.props.ANNALS_GITHUB_REPOSITORY='justinpfisher/Stammtisch';
