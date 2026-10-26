@@ -756,6 +756,7 @@ function runAnnalsProductionIntake() {
         processRecentRule();
         summary.drafted = annalsResumeConsentedDrafts_(2);
         summary.verified = annalsVerifyAutomaticPublications_(3);
+        if(typeof annalsVerifyCocktailEditorialResults_==='function')summary.photo_live_verified=annalsVerifyCocktailEditorialResults_(2);
         console.log(JSON.stringify(summary));
         return summary;
       }
