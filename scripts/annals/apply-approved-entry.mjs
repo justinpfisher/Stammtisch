@@ -75,7 +75,7 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
   const approvals = [...data.approvals];
   const assetsToWrite = [], assetsToDelete = [];
   // Refuse to mutate an archive that already contains invalid public approvals.
-  buildPublishedAnnals(entries, approvals, secret, history);
+  buildPublishedAnnals(entries, approvals, secret, history, editorialManifest);
   if(event.action==='annals-editorial-photo-v1'){
     if(photosEnabled!==true||blobTransportEnabled!==true)
       throw Error('Editorial photo publication remains disabled');
@@ -118,7 +118,7 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
       throw Error('Editorial image dimensions or decode mismatch');
     const nextManifest={...editorialManifest,images:[...editorialManifest.images,payload.photo]};
     validateEditorialManifest(nextManifest,entries);
-    const rendered=buildPublishedAnnals(entries,approvals,secret,history);
+    const rendered=buildPublishedAnnals(entries,approvals,secret,history,nextManifest);
     return {data:{...data,entries,approvals},html:rendered.html,
       assetsToWrite:[{path:payload.photo.asset,bytes}],assetsToDelete:[],
       editorialManifest:nextManifest};
@@ -131,7 +131,8 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
     const removed=entries[index];
     entries.splice(index, 1); approvals.splice(approvalIndex, 1);
     retiredIds.push(event.client_payload.entryId);
-    const result = buildPublishedAnnals(entries, approvals, secret, history);
+    const removalManifest=editorialManifest?pruneEditorialManifest(editorialManifest,entries).manifest:undefined;
+    const result = buildPublishedAnnals(entries, approvals, secret, history, removalManifest);
     return { data: { schemaVersion: 1, entries, approvals, retiredIds }, html: result.html,
       assetsToDelete: [{ path: `assets/annals/${event.client_payload.entryId}.jpg` }, {path:`assets/annals/${event.client_payload.entryId}-editorial-v2.jpg`}, ...Photos.photos(removed).filter(p=>!entries.some(e=>Photos.photos(e).some(x=>x.sha256===p.sha256))).flatMap(p=>[{path:`assets/annals/${p.sha256}.jpg`},{path:`assets/annals/${p.sha256}-thumb.jpg`},{path:`assets/annals/${p.sha256}-editorial-v2.jpg`}])], assetsToWrite: [] };
   } else {
@@ -199,7 +200,7 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
     }
     if (imageBytes) assetsToWrite.push({ path: `assets/annals/${entry.id}.jpg`, bytes: imageBytes });
   }
-  const rendered = buildPublishedAnnals(entries, approvals, secret, history);
+  const rendered = buildPublishedAnnals(entries, approvals, secret, history, editorialManifest);
   for(const asset of [...assetsToWrite]){const thumb=photoThumbnail(asset);if(thumb)assetsToWrite.push(thumb);}
   return { data: { schemaVersion: 1, entries, approvals, ...(retiredIds.length ? {retiredIds} : {}) }, html: rendered.html, assetsToWrite, assetsToDelete };
 }
