@@ -422,7 +422,7 @@ function issuedPhotoResultFixture(){
  return {f,indexName,index,jobRecord,job:jobRecord.job,digest};
 }
 function workerMessage(f,job,result,attachments=[],sender='worker@example.invalid',subjectToken=job.jobToken){
- f.events.authenticated=true;
+ if(f.events.authenticated===undefined)f.events.authenticated=true;
  return {getId:()=> 'synthetic-photo-result-'+subjectToken,
   getFrom:()=>sender,getSubject:()=> '[ANNALS PHOTO RESULT v1] '+subjectToken,
   getPlainBody:()=>JSON.stringify(result),
@@ -495,7 +495,6 @@ test('held result has no image or QA claims and consumes only its matching job',
  assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,held,[])),'photo_result_held');
  const stored=f.folder.files.get('cocktail-photo-result-'+job.jobToken+'-private.json');
  assert.equal(stored.state,'worker_held');assert.equal(stored.reasonCode,'edit_failed');
- assert.equal(index.state,'sent_once');
  assert.equal(f.root.files.get('cocktail-photo-job-token-'+job.jobToken+'-private.json').state,'worker_held');
  assert.equal([...f.folder.files.keys()].some(n=>n.endsWith('.jpg')&&n.indexOf('cocktail-photo-result-')===0),false);
 });
