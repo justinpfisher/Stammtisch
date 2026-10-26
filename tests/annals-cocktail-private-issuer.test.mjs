@@ -71,6 +71,7 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
   annalsFile_:(f,name)=>f.files.has(name)?{name:name,setContent:(v)=>f.files.set(name,JSON.parse(v))}:null,
   annalsWriteOnce_:(f,name,v)=>{if(f.files.has(name))throw Error('Immutable record already exists');f.files.set(name,v);return {name}},
   annalsSavePrivate_:(f,name,v)=>{f.files.set(name,v)},
+  annalsJpegDerivativeSafe_:(bytes)=>bytes&&bytes[0]===255&&bytes[1]===216&&bytes[bytes.length-2]===255&&bytes[bytes.length-1]===217,
   annalsPhotoSet_:(id,source)=>events.photoBytes?[{sha256:sha(Buffer.from(events.photoBytes)),base64:Buffer.from(events.photoBytes).toString('base64')}]:[],
   annalsPrivateReceiptValid_:()=>originalReceiptValid,
   annalsImageConsentActive_:()=>true,
