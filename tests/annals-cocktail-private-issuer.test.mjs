@@ -93,7 +93,7 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
   annalsAuthentication_:(message,sender)=>events.authenticated===true&&sender==='worker@example.invalid',
   annalsOwner_:()=>{events.ownerChecks=(events.ownerChecks||0)+1},
   annalsLocked_:(fn)=>fn(),
-  annalsProps_:()=>({getProperty:(key)=>props[key]??''}),
+  annalsProps_:()=>({getProperty:(key)=>props[key]??'',setProperty:(key,value)=>{props[key]=String(value)},deleteProperty:(key)=>{delete props[key]}}),
   annalsFolder_:(id)=>{if(id!==itemId)throw Error('No private item');return folder},
   annalsRead_:(f,name)=>f.files.get(name)||null,
   annalsRoot_:()=>root,
@@ -247,7 +247,9 @@ test('issuer source never lists private properties or sends paid provider reques
  assert.match(moduleSource,/raw\.githubusercontent\.com\/justinpfisher\/Stammtisch\/main\/data\/annals-editorial-photos\.json/);
  assert.match(moduleSource,/stammtischbrewery\.com\/data\/annals-editorial-photos\.json/);
  assert.doesNotMatch(moduleSource,/api\.openai\.com\/v1\/(?:images|responses|chat\/completions)/);
- assert.doesNotMatch(moduleSource,/(?:setProperty|deleteProperty)\s*\(/);
+ assert.equal((moduleSource.match(/\.setProperty\s*\(/g)||[]).length,1);
+ assert.equal((moduleSource.match(/\.deleteProperty\s*\(/g)||[]).length,1);
+ assert.match(moduleSource,/key='ANNALS_EDITORIAL_VERIFY_CURSOR'/);
  assert.match(moduleSource,/ANNALS_EDITORIAL_SECURITY_RECOVERY_VERIFIED/);
  assert.match(moduleSource,/ANNALS_EDITORIAL_PERMIT_SIGNING_KEY/);
 });
@@ -568,6 +570,7 @@ test('uncertain private image write leaves a consume marker and cannot replay',(
 
 test('native result remains private while the dedicated publication gate is disabled',()=>{
  const {f,job}=issuedPhotoResultFixture(),jpeg=editedJpeg();
+ f.props.ANNALS_PHOTO_WORKFLOW_ENABLED='false';
  f.props.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED='true';
  f.props.ANNALS_GITHUB_REPOSITORY='justinpfisher/Stammtisch';
  f.props.ANNALS_GITHUB_TOKEN='synthetic-github-token';
@@ -616,13 +619,13 @@ test('pre-reservation manifest failure can recover on a later bounded pass witho
  const f=fixture(),bytes=sourceJpeg();
  prepareLiveJobFixture(f,bytes);
  f.context.annalsEditorialSourceAlreadyQualified_=()=>null;
- f.context.annalsQueueCocktailPhotoJobs_(f.folder,f.signed.entry);
+ assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).reason,'editorial_manifest_unavailable');
  assert.equal(f.events.sends.length,0);
  assert.equal([...f.folder.files.keys()].some(n=>n.indexOf('cocktail-photo-job-')===0),false);
  f.context.annalsEditorialSourceAlreadyQualified_=()=>false;
- f.context.annalsQueueCocktailPhotoJobs_(f.folder,f.signed.entry);
+ assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'sent_once');
  assert.equal(f.events.sends.length,1);
- f.context.annalsQueueCocktailPhotoJobs_(f.folder,f.signed.entry);
+ assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'already_reserved');
  assert.equal(f.events.sends.length,1);
 });
 
@@ -633,8 +636,8 @@ test('bounded editorial result readback resumes after the first file page',()=>{
  const iterator=(values,start=0)=>{let i=start;return {
   hasNext:()=>i<values.length,next:()=>values[i++],getContinuationToken:()=>String(i)
  }};
- const folder={getId:()=> 'fictional-drive-folder',getName:()=>itemId,
-  getFiles:()=>iterator(items)};
+ const folder={files:new Map(items.map(file=>[file.getName(),file])),
+  getId:()=> 'fictional-drive-folder',getName:()=>itemId,getFiles:()=>iterator(items)};
  const root={getFolders:()=>iterator([folder])};
  f.context.annalsRoot_=()=>root;
  f.context.DriveApp.getFolderById=()=>folder;
@@ -689,6 +692,7 @@ test('photo readback is called on both idle and busy intake passes',()=>{
 
 test('different photo jobs in one entry use independent private publication markers',()=>{
  const f=fixture(),sourceA=sourceJpeg(),sourceB=Buffer.from(sourceJpeg());
+ f.props.ANNALS_PHOTO_WORKFLOW_ENABLED='true';
  sourceB[10]=8;
  const digestA=sha(sourceA),digestB=sha(sourceB);
  delete f.signed.entry.photo;
