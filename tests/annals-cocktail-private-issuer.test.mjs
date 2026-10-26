@@ -407,3 +407,112 @@ test('a failed readiness send is durably held and never retried',()=>{
  assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'already_reserved');
  assert.equal(f.events.sends.length,1);
 });
+
+function editedJpeg(fill=9){
+ const bytes=Buffer.alloc(5001,fill);
+ bytes.set([255,216,255,218,0,2],0);bytes.set([255,217],bytes.length-2);
+ return bytes;
+}
+function issuedPhotoResultFixture(){
+ const f=fixture(),source=sourceJpeg(),digest=prepareLiveJobFixture(f,source);
+ f.props.ANNALS_PHOTO_WORKER_EMAIL='worker@example.invalid';
+ assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'sent_once');
+ const indexName='cocktail-photo-job-token-'+'f'.repeat(32)+'-private.json';
+ const index=f.root.files.get(indexName),jobRecord=f.folder.files.get(index.jobFilename);
+ return {f,indexName,index,jobRecord,job:jobRecord.job,digest};
+}
+function workerMessage(f,job,result,attachments=[],sender='worker@example.invalid',subjectToken=job.jobToken){
+ f.events.authenticated=true;
+ return {getId:()=> 'synthetic-photo-result-'+subjectToken,
+  getFrom:()=>sender,getSubject:()=> '[ANNALS PHOTO RESULT v1] '+subjectToken,
+  getPlainBody:()=>JSON.stringify(result),
+  getAttachments:()=>attachments,getRawContent:()=> 'Authentication-Results: mx.google.com; dkim=pass'};
+}
+function qualifiedResult(job){
+ return {schema:'annals-photo-result-v1',jobToken:job.jobToken,entryId:job.entryId,
+  sourceSha256:job.sourceSha256,status:'qualified',
+  qa:{sameGlass:true,sameDrinkAndGarnish:true,photorealisticSubject:true,
+   plausibleStemOrBase:true,sceneAppropriate:true,noArtifactsOrPrivateDetails:true},
+  alt:'AI-stylized amber cocktail in its original textured glass'};
+}
+test('authenticated exact result is source-bound, privately stored, and not dispatched',()=>{
+ const {f,indexName,job}=issuedPhotoResultFixture(),jpeg=editedJpeg(),
+  blob=f.context.Utilities.newBlob(jpeg,'image/jpeg','ignored.jpg'),
+  message=workerMessage(f,job,qualifiedResult(job),[blob]);
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(message),'photo_result_stored_private');
+ const stored=[...f.folder.files.entries()].find(([name])=>name==='cocktail-photo-result-'+job.jobToken+'-private.json')[1];
+ assert.equal(stored.state,'qualified_held_for_publisher');assert.equal(stored.imageSha256,sha(jpeg));
+ assert.equal(stored.sourceSha256,job.sourceSha256);assert.notEqual(stored.imageSha256,stored.sourceSha256);
+ assert.equal(stored.width,600);assert.equal(stored.height,900);
+ assert.equal(f.root.files.get(indexName).state,'result_received_private');
+ assert.equal(f.folder.files.get('cocktail-photo-consume-'+job.jobToken+'-private.json').state,'result_received_private');
+ assert.equal(f.events.sends.length,1);
+ assert.equal(f.folder.files.has('publication-dispatch-private.json'),false);
+});
+test('wrong sender and forged body authentication cannot consume a job',()=>{
+ const {f,job}=issuedPhotoResultFixture(),jpeg=editedJpeg(),result=qualifiedResult(job),
+  blob=f.context.Utilities.newBlob(jpeg,'image/jpeg','ignored.jpg');
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,result,[blob],
+  'attacker@example.invalid')),'photo_result_held');
+ assert.equal(f.folder.files.has('cocktail-photo-consume-'+job.jobToken+'-private.json'),false);
+ f.events.authenticated=false;
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,result,[blob])),'photo_result_held');
+ assert.equal(f.folder.files.has('cocktail-photo-consume-'+job.jobToken+'-private.json'),false);
+});
+test('result replay, expired jobs, and malformed body fail closed without reprocessing',()=>{
+ const first=issuedPhotoResultFixture(),jpeg=editedJpeg(),blob=first.f.context.Utilities.newBlob(jpeg,'image/jpeg','x');
+ const message=workerMessage(first.f,first.job,qualifiedResult(first.job),[blob]);
+ assert.equal(first.f.context.annalsHandleCocktailPhotoResult_(message),'photo_result_stored_private');
+ assert.equal(first.f.context.annalsHandleCocktailPhotoResult_(message),'photo_result_held');
+ assert.equal([...first.f.folder.files.keys()].filter(n=>n.indexOf('cocktail-photo-result-')===0&&n.endsWith('.jpg')).length,1);
+ const expired=issuedPhotoResultFixture();
+ expired.index.expiresAt='2026-10-01T00:00:00.000Z';
+ expired.f.root.files.set(expired.indexName,expired.index);
+ assert.equal(expired.f.context.annalsHandleCocktailPhotoResult_(workerMessage(expired.f,expired.job,
+  qualifiedResult(expired.job),[expired.f.context.Utilities.newBlob(jpeg,'image/jpeg','x')])),'photo_result_held');
+ assert.equal(expired.f.folder.files.has('cocktail-photo-consume-'+expired.job.jobToken+'-private.json'),false);
+ const malformed=issuedPhotoResultFixture();
+ assert.equal(malformed.f.context.annalsHandleCocktailPhotoResult_(workerMessage(malformed.f,malformed.job,
+  {...qualifiedResult(malformed.job),unexpected:'x'},[malformed.f.context.Utilities.newBlob(jpeg,'image/jpeg','x')])),'photo_result_held');
+ assert.equal(malformed.f.folder.files.has('cocktail-photo-consume-'+malformed.job.jobToken+'-private.json'),false);
+});
+test('changed source and revoked transformation rights terminally hold an otherwise valid result',()=>{
+ for(const changed of [false,true]){
+  const {f,index,job}=issuedPhotoResultFixture(),jpeg=editedJpeg();
+  if(changed)f.signed.entry.photos[0].sha256='e'.repeat(64);
+  else f.member.cocktailEditorialTransformation.status='revoked';
+  const result=workerMessage(f,job,qualifiedResult(job),[f.context.Utilities.newBlob(jpeg,'image/jpeg','x')]);
+  assert.equal(f.context.annalsHandleCocktailPhotoResult_(result),'photo_result_held');
+  assert.equal(f.folder.files.get('cocktail-photo-consume-'+job.jobToken+'-private.json').state,'held');
+  assert.equal(f.root.files.get('cocktail-photo-job-token-'+job.jobToken+'-private.json').state,'held');
+  assert.equal([...f.folder.files.keys()].some(n=>n.endsWith('.jpg')&&n.indexOf('cocktail-photo-result-')===0),false);
+ }
+});
+test('held result has no image or QA claims and consumes only its matching job',()=>{
+ const {f,index,job}=issuedPhotoResultFixture();
+ const held={schema:'annals-photo-result-v1',jobToken:job.jobToken,entryId:job.entryId,
+  sourceSha256:job.sourceSha256,status:'held',reasonCode:'edit_failed'};
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,held,[])),'photo_result_held');
+ const stored=f.folder.files.get('cocktail-photo-result-'+job.jobToken+'-private.json');
+ assert.equal(stored.state,'worker_held');assert.equal(stored.reasonCode,'edit_failed');
+ assert.equal(index.state,'sent_once');
+ assert.equal(f.root.files.get('cocktail-photo-job-token-'+job.jobToken+'-private.json').state,'worker_held');
+ assert.equal([...f.folder.files.keys()].some(n=>n.endsWith('.jpg')&&n.indexOf('cocktail-photo-result-')===0),false);
+});
+test('invalid or oversized JPEG is rejected before consuming the one-shot result',()=>{
+ for(const jpeg of [Buffer.from('not jpeg'),Buffer.alloc(5*1024*1024+1,9)]){
+  const {f,job}=issuedPhotoResultFixture(),result=qualifiedResult(job);
+  assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,result,
+   [f.context.Utilities.newBlob(jpeg,'image/jpeg','x')])),'photo_result_held');
+  assert.equal(f.folder.files.has('cocktail-photo-consume-'+job.jobToken+'-private.json'),false);
+ }
+});
+test('uncertain private image write leaves a consume marker and cannot replay',()=>{
+ const {f,job}=issuedPhotoResultFixture(),jpeg=editedJpeg(),message=workerMessage(f,job,
+  qualifiedResult(job),[f.context.Utilities.newBlob(jpeg,'image/jpeg','x')]);
+ f.folder.createFile=()=>{throw Error('synthetic Drive failure')};
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(message),'photo_result_held');
+ assert.equal(f.folder.files.get('cocktail-photo-consume-'+job.jobToken+'-private.json').state,'result_attempt_reserved');
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(message),'photo_result_held');
+ assert.equal(f.folder.files.has('cocktail-photo-result-'+job.jobToken+'-private.jpg'),false);
+});
