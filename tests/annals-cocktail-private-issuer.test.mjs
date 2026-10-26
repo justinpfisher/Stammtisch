@@ -84,7 +84,7 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
   annalsPublisherDispatchReady_:()=>true,
   annalsPhotosReady_:()=>events.rightsRevokedAtUpload!==true,
   annalsDispatchEvent_:(folder,type,payload,marker)=>{
-    events.dispatches=(events.dispatches||[]);events.dispatches.push({type,payload,marker});
+    events.dispatches=(events.dispatches||[]);events.dispatches.push({type,payload,marker,action:type,client_payload:payload});
     folder.files.set(marker,{state:'accepted',at:new Date().toISOString()});return true;
   },
   AnnalsPilot:{senderAddress:(value)=>String(value||'').trim().toLowerCase()},
@@ -96,7 +96,7 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
   annalsFolder_:(id)=>{if(id!==itemId)throw Error('No private item');return folder},
   annalsRead_:(f,name)=>f.files.get(name)||null,
   annalsRoot_:()=>root,
-  annalsFile_:(f,name)=>f.files.has(name)?{name:name,setContent:(v)=>f.files.set(name,JSON.parse(v))}:null,
+  annalsFile_:(f,name)=>f.files.has(name)?{name:name,setContent:(v)=>f.files.set(name,JSON.parse(v)),getBlob:()=>{const file=f.files.get(name);return file&&typeof file.getBlob==='function'?file.getBlob():null}}:null,
   annalsWriteOnce_:(f,name,v)=>{if(f.files.has(name))throw Error('Immutable record already exists');f.files.set(name,v);return {name}},
   annalsSavePrivate_:(f,name,v)=>{f.files.set(name,v)},
   annalsJpegDerivativeSafe_:(bytes)=>bytes&&bytes[0]===255&&bytes[1]===216&&bytes[bytes.length-2]===255&&bytes[bytes.length-1]===217,
