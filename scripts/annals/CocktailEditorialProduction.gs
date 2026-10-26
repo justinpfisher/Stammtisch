@@ -480,6 +480,19 @@ function annalsPublishCocktailEditorialResult_(itemId,token){
   }
   upload.state='uploaded';upload.gitSha=gitSha;upload.size=bytes.length;
   upload.completedAt=new Date().toISOString();annalsFile_(folder,uploadName).setContent(JSON.stringify(upload));
+  // Network upload is not the rights check. Re-read current consent/source and
+  // the live marker immediately before signing and dispatching the event.
+  try{
+    var finalContext=annalsCocktailEditorialContext_(itemId,job.photoIndex),
+      finalSaved=annalsRead_(folder,'approval-private.json'),
+      finalLive=annalsRead_(folder,'auto-live-verification-private.json');
+    if(!annalsPhotosReady_(itemId)||finalContext.entryId!==job.entryId||
+       finalContext.sourceSha256!==job.sourceSha256||!finalSaved||!finalSaved.receipt||
+       finalSaved.receipt.contentSha256!==saved.receipt.contentSha256||
+       !finalLive||finalLive.state!=='verified_live'||
+       finalLive.contentSha256!==finalSaved.receipt.contentSha256||
+       annalsEditorialSourceAlreadyQualified_(sourcePath)!==false)return false;
+  }catch(ignored){return false;}
   var issuedAt=new Date().toISOString(),blob={gitSha:gitSha,size:bytes.length},
     unsigned={operation:'editorial-photo-v1',photo:row,blob:blob,issuedAt:issuedAt},
     key=props.getProperty('ANNALS_PUBLISH_SIGNING_KEY')||'';
