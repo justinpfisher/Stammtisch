@@ -68,7 +68,7 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
   if (!event || !actions.includes(event.action) || !event.client_payload) throw new Error('Invalid dispatch event');
   if (!data || data.schemaVersion !== 1 || !Array.isArray(data.entries) || !Array.isArray(data.approvals) ||
       Object.keys(data).some(k => !['schemaVersion', 'entries', 'approvals', 'retiredIds'].includes(k))) throw new Error('Invalid public archive');
-  if (now) assertFreshDispatch(event,now);
+  if (now&&event.action!=='annals-editorial-photo-v1') assertFreshDispatch(event,now);
   const retiredIds=[...(data.retiredIds || [])];
   if(!Array.isArray(data.retiredIds || [])||retiredIds.length>5000||new Set(retiredIds).size!==retiredIds.length||retiredIds.some(id=>typeof id!=='string'||!/^[a-z0-9][a-z0-9-]{5,63}$/.test(id)))throw new Error('Invalid withdrawal replay ledger');
   const entries = data.entries.map(validatePublicTextEntry);
