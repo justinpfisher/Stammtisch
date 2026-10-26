@@ -223,11 +223,13 @@ function annalsIssueCocktailPhotoJob_(itemId,photoIndex){
     state:'attempt_reserved',sendOutcome:'unknown_no_retry',resultMessageId:''};
   annalsWriteOnce_(context.folder,filename,record);
   var file=annalsFile_(context.folder,filename);
+  var sendAttempted=false;
   try{
     var bytes=Utilities.base64Decode(image.base64);
     if(bytes.length<4000||bytes.length>5*1024*1024||annalsHash_(bytes)!==photo.sha256||
        !annalsJpegDerivativeSafe_(bytes))throw Error('Screened source image failed integrity checks');
     var attachment=Utilities.newBlob(bytes,'image/jpeg','annals-cocktail-source.jpg');
+    sendAttempted=true;
     GmailApp.sendEmail(recipient,'[ANNALS PHOTO JOB v1] '+token,JSON.stringify(job),{
       attachments:[attachment],name:'Stammtisch Annals'
     });
@@ -235,7 +237,8 @@ function annalsIssueCocktailPhotoJob_(itemId,photoIndex){
     file.setContent(JSON.stringify(record));
     return {state:'sent_once'};
   }catch(ignored){
-    record.state='send_failed_no_retry';record.sendOutcome='failed';
+    record.state=sendAttempted?'unknown_no_retry':'held_no_send';
+    record.sendOutcome=sendAttempted?'unknown_no_retry':'not_attempted';
     record.failedAt=new Date().toISOString();
     file.setContent(JSON.stringify(record));
     return {state:'send_failed_no_retry'};
