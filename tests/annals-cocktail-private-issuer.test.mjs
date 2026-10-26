@@ -612,6 +612,81 @@ test('qualified result is freshly rechecked and signed into the existing publish
   'publisher_dispatch_accepted_unverified');
  assert.equal(f.folder.files.has('publication-dispatch-private.json'),false);
 });
+test('pre-reservation manifest failure can recover on a later bounded pass without retrying attempted jobs',()=>{
+ const f=fixture(),bytes=sourceJpeg();
+ prepareLiveJobFixture(f,bytes);
+ f.context.annalsEditorialSourceAlreadyQualified_=()=>null;
+ f.context.annalsQueueCocktailPhotoJobs_(f.folder,f.signed.entry);
+ assert.equal(f.events.sends.length,0);
+ assert.equal([...f.folder.files.keys()].some(n=>n.indexOf('cocktail-photo-job-')===0),false);
+ f.context.annalsEditorialSourceAlreadyQualified_=()=>false;
+ f.context.annalsQueueCocktailPhotoJobs_(f.folder,f.signed.entry);
+ assert.equal(f.events.sends.length,1);
+ f.context.annalsQueueCocktailPhotoJobs_(f.folder,f.signed.entry);
+ assert.equal(f.events.sends.length,1);
+});
+
+test('bounded editorial result readback resumes after the first file page',()=>{
+ const f=fixture(),cursorStore={},target='a'.repeat(32),items=[];
+ for(let i=0;i<44;i++)items.push({getName:()=> 'unrelated-'+i});
+ items.push({getName:()=> 'cocktail-photo-result-'+target+'-private.json'});
+ const iterator=(values,start=0)=>{let i=start;return {
+  hasNext:()=>i<values.length,next:()=>values[i++],getContinuationToken:()=>String(i)
+ }};
+ const folder={getId:()=> 'fictional-drive-folder',getName:()=>itemId,
+  getFiles:()=>iterator(items)};
+ const root={getFolders:()=>iterator([folder])};
+ f.context.annalsRoot_=()=>root;
+ f.context.DriveApp.getFolderById=()=>folder;
+ f.context.DriveApp.continueFolderIterator=token=>iterator([folder],Number(token));
+ f.context.DriveApp.continueFileIterator=token=>iterator(items,Number(token));
+ f.context.annalsProps_=()=>({
+  getProperty:key=>cursorStore[key]||'',
+  setProperty:(key,value)=>{cursorStore[key]=value},
+  deleteProperty:key=>{delete cursorStore[key]}
+ });
+ const found=[];
+ f.context.annalsVerifyCocktailEditorialResult_=(candidate,id,token)=>{
+  found.push(token);return true;
+ };
+ assert.equal(f.context.annalsVerifyCocktailEditorialResults_(1),0);
+ assert.equal(JSON.parse(cursorStore.ANNALS_EDITORIAL_VERIFY_CURSOR).fileToken,'40');
+ assert.equal(f.context.annalsVerifyCocktailEditorialResults_(1),1);
+ assert.deepEqual(found,[target]);
+ assert.equal(cursorStore.ANNALS_EDITORIAL_VERIFY_CURSOR,undefined);
+});
+
+test('held worker results and stale accepted dispatches send one generic private owner notice',()=>{
+ const {f,job}=issuedPhotoResultFixture();
+ f.props.ANNALS_OWNER_EMAIL='owner@example.invalid';
+ f.props.ANNALS_REVIEW_URL='https://script.google.com/macros/s/fictional-review';
+ f.events.sends.length=0;
+ const held={schema:'annals-photo-result-v1',jobToken:job.jobToken,entryId:job.entryId,
+  sourceSha256:job.sourceSha256,status:'held',reasonCode:'edit_failed'};
+ const message=workerMessage(f,job,held,[]);
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(message),'photo_result_held');
+ assert.equal(f.events.sends.length,1);
+ assert.equal(f.events.sends[0][0],'owner@example.invalid');
+ assert.match(f.events.sends[0][1],/needs review/);
+ assert.doesNotMatch(f.events.sends[0][2],/fictional-model-key|private source|worker@example.invalid/);
+ assert.equal(f.folder.files.get('cocktail-photo-owner-notice-'+job.jobToken+'-private.json').state,
+  'attempted_once');
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(message),'photo_result_held');
+ assert.equal(f.events.sends.length,1);
+ const token='a'.repeat(32);
+ assert.equal(f.context.annalsNotifyCocktailPhotoOwner_(f.folder,itemId,token,
+  'publisher_dispatch_unverified'),true);
+ assert.equal(f.context.annalsNotifyCocktailPhotoOwner_(f.folder,itemId,token,
+  'publisher_dispatch_unverified'),false);
+ assert.equal(f.events.sends.length,2);
+});
+
+test('photo readback is called on both idle and busy intake passes',()=>{
+ const production=readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8');
+ assert.equal((production.match(/annalsVerifyCocktailEditorialResults_\(2\)/g)||[]).length,2);
+ assert.match(production,/livePhotoMarker\.state==='verified_live'[\s\S]*annalsQueueCocktailPhotoJobs_\(folder,livePhotoSaved\.entry\)/);
+});
+
 test('different photo jobs in one entry use independent private publication markers',()=>{
  const f=fixture(),sourceA=sourceJpeg(),sourceB=Buffer.from(sourceJpeg());
  sourceB[10]=8;
