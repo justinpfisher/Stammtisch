@@ -358,18 +358,136 @@ function annalsHandleCocktailPhotoResult_(message){
       jobToken:token,entryId:job.entryId,sourceSha256:job.sourceSha256,
       photoIndex:job.photoIndex,state:'qualified_held_for_publisher',
       imageFilename:imageName,imageSha256:imageSha,width:width,height:height,
-      alt:outcome.alt,qa:result.qa,receivedAt:now.toISOString()});
+      alt:outcome.alt,qa:result.qa,receivedAt:now.toISOString(),
+      generatedAt:outcome.generatedAt,reviewedAt:outcome.reviewedAt,
+      generationProvider:outcome.generationProvider,generationModel:outcome.generationModel});
     jobRecord.state='result_received_private';jobRecord.consumedAt=now.toISOString();
     index.state='result_received_private';index.consumedAt=now.toISOString();
     annalsSavePrivate_(folder,index.jobFilename,jobRecord);
     annalsSavePrivate_(root,indexName,index);
     annalsSavePrivate_(folder,consumeName,{schema:'annals-photo-consume-v1',
       jobToken:token,state:'result_received_private',at:now.toISOString()});
-    return 'photo_result_stored_private';
+    return annalsPublishCocktailEditorialResult_(index.sourceItemId,token)
+      ?'photo_publisher_dispatch_accepted':'photo_result_stored_private';
   }catch(ignored){
     // The durable consume marker prevents uncertain Drive writes from replay.
     return 'photo_result_held';
   }
+}
+function annalsEditorialSourceAlreadyQualified_(sourcePath){
+  try{
+    var url='https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/annals-editorial-photos.json?source-check='+Date.now(),
+      response=UrlFetchApp.fetch(url,{method:'get',muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true});
+    if(response.getResponseCode()!==200)return null;
+    var text=response.getContentText();if(text.length>1000000)return null;
+    var manifest=JSON.parse(text);
+    if(!manifest||manifest.schemaVersion!==1||!Array.isArray(manifest.images)||manifest.images.length>1000)return null;
+    return manifest.images.some(function(row){return row&&row.source===sourcePath;});
+  }catch(ignored){return null;}
+}
+/** Publish only a private, one-use, freshly requalified result through the
+ * existing HMAC-protected repository-dispatch publisher. */
+function annalsPublishCocktailEditorialResult_(itemId,token){
+  var folder=annalsFolder_(itemId),resultName='cocktail-photo-result-'+token+'-private.json',
+    jobFilename='cocktail-photo-job-'+(annalsRead_(folder,'cocktail-photo-job-'+token+'-private.json')||{}).sourceSha256+'-cocktail-cinematic-photoreal-v1-private.json',
+    root=annalsRoot_(),indexName='cocktail-photo-job-token-'+token+'-private.json',
+    index=annalsRead_(root,indexName),result=annalsRead_(folder,resultName),
+    consume=annalsRead_(folder,'cocktail-photo-consume-'+token+'-private.json'),
+    props=annalsProps_(),now=new Date();
+  if(!index||index.jobToken!==token||index.state!=='result_received_private'||
+     !result||result.state!=='qualified_held_for_publisher'||
+     !consume||consume.state!=='result_received_private'||
+     props.getProperty('ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED')!=='true'||
+     props.getProperty('ANNALS_GITHUB_REPOSITORY')!=='justinpfisher/Stammtisch'||
+     !props.getProperty('ANNALS_GITHUB_TOKEN')||
+     !annalsPublisherDispatchReady_()||annalsFile_(folder,'quarantine-private.json')||
+     annalsFile_(folder,'removal-private.json')||
+     annalsFile_(folder,'editorial-photo-dispatch-private.json'))return false;
+  var record=annalsRead_(folder,index.jobFilename),job=record&&record.job;
+  if(!record||record.state!=='result_received_private'||!job||job.jobToken!==token||
+     record.expiresAt!==index.expiresAt||Date.parse(record.expiresAt)<=now.getTime()||
+     job.entryId!==result.entryId||job.sourceSha256!==result.sourceSha256||
+     job.sourceSha256!==index.sourceSha256||job.entryId!==index.entryId||
+     !/^[a-f0-9]{64}$/.test(result.imageSha256||''))return false;
+  var context;
+  try{context=annalsCocktailEditorialContext_(itemId,job.photoIndex);}catch(ignored){return false;}
+  var saved=annalsRead_(folder,'approval-private.json'),
+    live=annalsRead_(folder,'auto-live-verification-private.json'),
+    source=annalsRead_(folder,'source-private.json');
+  if(!saved||!saved.entry||!saved.receipt||!annalsPrivateReceiptValid_(saved.entry,saved.receipt)||
+     AnnalsProduction.serial(saved.entry)!==AnnalsProduction.serial(context.entry)||
+     !live||live.state!=='verified_live'||live.contentSha256!==saved.receipt.contentSha256||
+     context.entryId!==job.entryId||context.sourceSha256!==job.sourceSha256||
+     !saved.receipt.consents||saved.receipt.consents.photoPublication!==true||
+     !source||annalsFile_(folder,'removal-private.json')||annalsFile_(folder,'quarantine-private.json'))return false;
+  var imageName='cocktail-photo-result-'+token+'-private.jpg',imageFile=annalsFile_(folder,imageName);
+  if(!imageFile)return false;
+  var bytes;
+  try{
+    bytes=imageFile.getBlob().getBytes();
+    if(bytes.length<4000||bytes.length>5*1024*1024||annalsHash_(bytes)!==result.imageSha256)return false;
+    var clean=AnnalsMedia.sanitize(bytes,true);
+    if(annalsHash_(clean.bytes)!==result.imageSha256||clean.width!==result.width||clean.height!==result.height)return false;
+  }catch(ignored){return false;}
+  var photo=job.photoIndex<saved.entry.photos.length?saved.entry.photos[job.photoIndex]:null;
+  if(!photo||photo.sha256!==job.sourceSha256||result.imageSha256===photo.sha256)return false;
+  var sourcePath='assets/annals/'+photo.sha256+'.jpg',
+    assetPath=sourcePath.slice(0,-4)+'-editorial-v2.jpg',
+    exists=annalsEditorialSourceAlreadyQualified_(sourcePath);
+  if(exists!==false)return false;
+  var row={source:sourcePath,sourceSha256:photo.sha256,asset:assetPath,
+    editorialSha256:result.imageSha256,width:result.width,height:result.height,alt:result.alt,
+    artDirection:'moody-atmospheric-v2',status:'qualified',
+    rightsQualified:true,safetyQualified:true,visualQualified:true,
+    generationProvider:result.generationProvider,generationModel:result.generationModel,
+    generationOperation:'image-edit',reviewMethod:'ai-visual-assessment',
+    generatedAt:result.generatedAt,reviewedAt:result.reviewedAt};
+  var uploadName='cocktail-photo-editorial-blob-private.json';
+  if(annalsFile_(folder,uploadName))return false;
+  var upload={state:'attempt_reserved',at:now.toISOString(),sourceSha256:job.sourceSha256,
+    editorialSha256:result.imageSha256};
+  annalsWriteOnce_(folder,uploadName,upload);
+  var gitHeader=Utilities.newBlob('blob '+bytes.length+'\\u0000').getBytes(),
+    gitSha=annalsHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_1,gitHeader.concat(Array.from(bytes))));
+  var response;
+  try{
+    response=UrlFetchApp.fetch('https://api.github.com/repos/justinpfisher/Stammtisch/git/blobs',{
+      method:'post',contentType:'application/json',
+      headers:{Authorization:'Bearer '+props.getProperty('ANNALS_GITHUB_TOKEN'),
+        Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},
+      payload:JSON.stringify({content:Utilities.base64Encode(bytes),encoding:'base64'}),
+      muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true});
+    if(response.getResponseCode()!==201||response.getContentText().length>4096||
+       JSON.parse(response.getContentText()).sha!==gitSha){
+      upload.state='rejected_no_retry';upload.completedAt=new Date().toISOString();
+      annalsFile_(folder,uploadName).setContent(JSON.stringify(upload));return false;
+    }
+  }catch(ignored){
+    upload.state='unknown_no_retry';upload.completedAt=new Date().toISOString();
+    annalsFile_(folder,uploadName).setContent(JSON.stringify(upload));return false;
+  }
+  upload.state='uploaded';upload.gitSha=gitSha;upload.size=bytes.length;
+  upload.completedAt=new Date().toISOString();annalsFile_(folder,uploadName).setContent(JSON.stringify(upload));
+  var issuedAt=new Date().toISOString(),blob={gitSha:gitSha,size:bytes.length},
+    unsigned={operation:'editorial-photo-v1',photo:row,blob:blob,issuedAt:issuedAt},
+    key=props.getProperty('ANNALS_PUBLISH_SIGNING_KEY')||'';
+  if(key.length<32||key===props.getProperty('ANNALS_APPROVAL_KEY'))return false;
+  var signature=annalsHex_(Utilities.computeHmacSha256Signature(
+    AnnalsProduction.serial(unsigned),key,Utilities.Charset.UTF_8));
+  var payload={photo:row,blob:blob,issuedAt:issuedAt,signature:signature},
+    accepted=annalsDispatchEvent_(folder,'annals-editorial-photo-v1',payload,
+      'editorial-photo-dispatch-private.json');
+  var dispatch=annalsRead_(folder,'editorial-photo-dispatch-private.json');
+  result.state=accepted?'publisher_dispatch_accepted_unverified':
+    dispatch?'publisher_dispatch_unknown_no_retry':'qualified_held_for_publisher';
+  result.dispatchAt=dispatch&&dispatch.completedAt||new Date().toISOString();
+  annalsSavePrivate_(folder,resultName,result);
+  if(accepted){
+    record.state='editorial_dispatch_accepted_unverified';record.editorialDispatchAt=result.dispatchAt;
+    index.state='editorial_dispatch_accepted_unverified';index.editorialDispatchAt=result.dispatchAt;
+    annalsSavePrivate_(folder,index.jobFilename,record);annalsSavePrivate_(root,indexName,index);
+  }
+  return accepted;
 }
 function annalsPhotoResultTerminalHold_(root,indexName,index,folder,jobRecord,
     consumeName,resultName,token,reason,now){
