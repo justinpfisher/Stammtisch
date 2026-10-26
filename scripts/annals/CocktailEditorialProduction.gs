@@ -187,3 +187,57 @@ function annalsCocktailEditorialPermitInEditor(itemId,photoIndex){
     return {issued:true,providerCalled:false,published:false};
   });
 }
+
+/** Source-only, one-shot producer for the supervised native image worker.
+ * Current source, original-image rights and editorial transformation rights
+ * are re-evaluated before a private job is reserved and sent. */
+function annalsIssueCocktailPhotoJob_(itemId,photoIndex){
+  var context=annalsCocktailEditorialContext_(itemId,photoIndex),
+    source=annalsRead_(context.folder,'source-private.json'),
+    saved=annalsRead_(context.folder,'approval-private.json'),
+    entry=saved&&saved.entry;
+  if(!entry||entry.category!=='cocktail'||entry.id!==context.entryId||
+     !saved.receipt.consents||saved.receipt.consents.photoPublication!==true)
+    return {state:'held',reason:'source_not_eligible'};
+  var photos=entry.photos||(entry.photo?[entry.photo]:[]),photo=photos[photoIndex];
+  if(!photo||photo.sha256!==context.sourceSha256)return {state:'held',reason:'source_changed'};
+  var set=annalsPhotoSet_(itemId,source,false),image=set.filter(function(x){return x.sha256===photo.sha256})[0];
+  if(!image||typeof image.base64!=='string')return {state:'held',reason:'screened_source_unavailable'};
+  var props=annalsProps_(),recipient=String(props.getProperty('ANNALS_PHOTO_WORKER_EMAIL')||'').trim().toLowerCase();
+  if(!/^[^@\s<>]+@[^@\s]+\.[^@\s]+$/.test(recipient))
+    return {state:'held',reason:'worker_address_unconfigured'};
+  var styleVersion='cocktail-cinematic-photoreal-v1',
+    filename='cocktail-photo-job-'+context.sourceSha256+'-'+styleVersion+'-private.json';
+  if(annalsFile_(context.folder,filename))return {state:'already_reserved'};
+  var token=Utilities.getUuid().replace(/-/g,'').toLowerCase();
+  var job=AnnalsCocktailEditorial.photoJob({
+    entryId:context.entryId,sourceSha256:context.sourceSha256,
+    photoIndex:photoIndex,jobToken:token,name:entry.title,
+    description:entry.summary,
+    ingredients:entry.recipe&&entry.recipe.drinkIngredients,
+    keywords:source.visualKeywords||source.source&&source.source.visualKeywords||''
+  });
+  var now=new Date(),record={schema:'annals-photo-job-private-v1',job:job,
+    sourceItemId:itemId,styleVersion:styleVersion,
+    createdAt:now.toISOString(),expiresAt:new Date(now.getTime()+7*24*60*60*1000).toISOString(),
+    state:'attempt_reserved',sendOutcome:'unknown_no_retry',resultMessageId:''};
+  annalsWriteOnce_(context.folder,filename,record);
+  var file=annalsFile_(context.folder,filename);
+  try{
+    var bytes=Utilities.base64Decode(image.base64);
+    if(bytes.length<4000||bytes.length>5*1024*1024||annalsHash_(bytes)!==photo.sha256||
+       !annalsJpegDerivativeSafe_(bytes))throw Error('Screened source image failed integrity checks');
+    var attachment=Utilities.newBlob(bytes,'image/jpeg','annals-cocktail-source.jpg');
+    GmailApp.sendEmail(recipient,'[ANNALS PHOTO JOB v1] '+token,JSON.stringify(job),{
+      attachments:[attachment],name:'Stammtisch Annals'
+    });
+    record.state='sent_once';record.sendOutcome='sent';record.sentAt=new Date().toISOString();
+    file.setContent(JSON.stringify(record));
+    return {state:'sent_once'};
+  }catch(ignored){
+    record.state='send_failed_no_retry';record.sendOutcome='failed';
+    record.failedAt=new Date().toISOString();
+    file.setContent(JSON.stringify(record));
+    return {state:'send_failed_no_retry'};
+  }
+}
