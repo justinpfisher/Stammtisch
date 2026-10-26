@@ -135,12 +135,12 @@ var AnnalsCocktailEditorial = (function () {
        RESULT_QA.some(function(k){return result.qa[k]!==true}))
       throw Error('Photo result did not pass every visual check');
     if(typeof result.alt!=='string'||result.alt.length<20||result.alt.length>240||
-       !/^AI-stylized\\b/.test(result.alt)||/[\\u0000-\\u001f\\u007f]|https?:\\/\\//i.test(result.alt))
+       !/^AI-stylized\b/.test(result.alt)||/[\u0000-\u001f\u007f]|https?:\/\//i.test(result.alt))
       throw Error('Invalid editorial alt description');
     if(result.generationProvider!=='openai-chatgpt'||
        result.generationModel!=='undisclosed'||
        ![result.generatedAt,result.reviewedAt].every(function(v){
-         return typeof v==='string'&&/^\\d{4}-\\d{2}-\\d{2}T/.test(v)&&Number.isFinite(Date.parse(v));
+         return typeof v==='string'&&/^\d{4}-\d{2}-\d{2}T/.test(v)&&Number.isFinite(Date.parse(v));
        })||Date.parse(result.reviewedAt)<Date.parse(result.generatedAt))
       throw Error('Invalid generation provenance');
     if(!(now instanceof Date)||!Number.isFinite(now.getTime()))throw Error('Valid receipt time required');
