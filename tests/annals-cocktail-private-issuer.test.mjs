@@ -449,13 +449,35 @@ test('revoked rights and a changed screened source create no readiness message',
  assert.equal(changed.state,'held');assert.equal(changed.reason,'screened_source_unavailable');
  assert.equal(f.events.sends.length,0);
 });
-test('a failed readiness send is durably held and never retried',()=>{
- const f=fixture(),bytes=sourceJpeg(),digest=prepareLiveJobFixture(f,sourceJpeg());f.events.failMail=true;
+test('uncertain readiness send notifies owner once and never retries the worker message',()=>{
+ const f=fixture(),bytes=sourceJpeg();prepareLiveJobFixture(f,bytes);
+ f.props.ANNALS_OWNER_EMAIL='owner@example.invalid';
+ f.props.ANNALS_REVIEW_URL='https://script.google.com/macros/s/fictional-review';
+ f.events.failMail=true;
  assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'unknown_no_retry');
  const record=[...f.folder.files.entries()].find(([name])=>name.indexOf('cocktail-photo-job-')===0)[1];
  assert.equal(record.state,'unknown_no_retry');assert.equal(record.sendOutcome,'unknown_no_retry');
+ const marker='cocktail-photo-owner-notice-'+record.job.jobToken+'-private.json';
+ assert.equal(f.folder.files.get(marker).state,'attempted_once');
  assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'already_reserved');
+ assert.equal(f.events.sends.length,2,'worker send and one owner notice attempt only');
+ assert.equal(f.events.sends[1][0],'owner@example.invalid');
+ assert.doesNotMatch(f.events.sends[1][2],/fictional-model-key|private source|worker@example.invalid|synthetic send failure/);
+});
+test('pre-send readiness failure notifies owner once and remains reserved without retry',()=>{
+ const f=fixture(),bytes=sourceJpeg();prepareLiveJobFixture(f,bytes);
+ f.props.ANNALS_OWNER_EMAIL='owner@example.invalid';
+ f.props.ANNALS_REVIEW_URL='https://script.google.com/macros/s/fictional-review';
+ f.context.annalsJpegDerivativeSafe_=()=>false;
+ assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'held_no_send');
+ const record=[...f.folder.files.entries()].find(([name])=>name.indexOf('cocktail-photo-job-')===0)[1];
+ assert.equal(record.state,'held_no_send');assert.equal(record.sendOutcome,'not_attempted');
+ assert.equal(f.folder.files.get('cocktail-photo-owner-notice-'+record.job.jobToken+'-private.json').state,
+  'attempted_once');
  assert.equal(f.events.sends.length,1);
+ assert.equal(f.events.sends[0][0],'owner@example.invalid');
+ assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'already_reserved');
+ assert.equal(f.events.sends.length,1,'reserved readiness and notice are not retried');
 });
 
 function editedJpeg(fill=9){
@@ -558,13 +580,21 @@ test('invalid or oversized JPEG is rejected before consuming the one-shot result
   assert.equal(f.folder.files.has('cocktail-photo-consume-'+job.jobToken+'-private.json'),false);
  }
 });
-test('uncertain private image write leaves a consume marker and cannot replay',()=>{
+test('uncertain private image write notifies owner once and cannot replay',()=>{
  const {f,job}=issuedPhotoResultFixture(),jpeg=editedJpeg(),message=workerMessage(f,job,
   qualifiedResult(job),[f.context.Utilities.newBlob(jpeg,'image/jpeg','x')]);
+ f.props.ANNALS_OWNER_EMAIL='owner@example.invalid';
+ f.props.ANNALS_REVIEW_URL='https://script.google.com/macros/s/fictional-review';
+ f.events.sends.length=0;
  f.folder.createFile=()=>{throw Error('synthetic Drive failure')};
  assert.equal(f.context.annalsHandleCocktailPhotoResult_(message),'photo_result_held');
  assert.equal(f.folder.files.get('cocktail-photo-consume-'+job.jobToken+'-private.json').state,'result_attempt_reserved');
+ assert.equal(f.folder.files.get('cocktail-photo-owner-notice-'+job.jobToken+'-private.json').state,'attempted_once');
+ assert.equal(f.events.sends.length,1);
+ assert.equal(f.events.sends[0][0],'owner@example.invalid');
+ assert.doesNotMatch(f.events.sends[0][2],/synthetic Drive failure|fictional-model-key|worker@example.invalid/);
  assert.equal(f.context.annalsHandleCocktailPhotoResult_(message),'photo_result_held');
+ assert.equal(f.events.sends.length,1,'the consume and notice markers make repeat handling a no-op');
  assert.equal(f.folder.files.has('cocktail-photo-result-'+job.jobToken+'-private.jpg'),false);
 });
 
