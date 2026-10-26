@@ -57,7 +57,7 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
   ['source-private.json',submission],
   ['approval-private.json',signed]
  ])};
- const log=[],events={};
+ const log=[],events={photoBytes:null,sends:[]};
  const context={
   // Keep dates in one realm for the pure Node/App Script policy fixture.
   Date:Date,Intl:Intl,
