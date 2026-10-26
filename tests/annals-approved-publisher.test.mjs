@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, createHmac } from 'node:crypto';
 import { applyApprovedEntry } from '../scripts/annals/apply-approved-entry.mjs';
-import { gitBlobHash } from '../scripts/annals/PhotoTransport.mjs';
+import { gitBlobHash,fetchEditorialBlob } from '../scripts/annals/PhotoTransport.mjs';
 import Jpeg from '../scripts/annals/JpegCodec.js';
 import { validateEditorialManifest } from '../scripts/annals/EditorialPhotoManifest.mjs';
 import { contentDigest, verifyPublicApproval } from '../scripts/annals/ApprovedRenderer.mjs';
@@ -162,6 +162,14 @@ const editorialRow=(sourceSha,bytes,now='2026-10-26T12:00:00.000Z')=>({
   safetyQualified:true,visualQualified:true,generationProvider:'openai-chatgpt',
   generationModel:'undisclosed',generationOperation:'image-edit',
   reviewMethod:'ai-visual-assessment',generatedAt:now,reviewedAt:now
+});
+test('editorial Git blob transport verifies the exact bounded JPEG bytes',async()=>{
+  const bytes=editorialJpeg(),ref={gitSha:gitBlobHash(bytes),size:bytes.length,
+    sha256:createHash('sha256').update(bytes).digest('hex'),width:480,height:480};
+  const fetchImpl=async()=>new Response(bytes,{status:200,headers:{'content-length':String(bytes.length)}});
+  assert.deepEqual(await fetchEditorialBlob(ref,{fetchImpl}),bytes);
+  await assert.rejects(fetchEditorialBlob({...ref,sha256:'e'.repeat(64)},{fetchImpl}),/digest/i);
+  await assert.rejects(fetchEditorialBlob({...ref,size:5*1024*1024+1},{fetchImpl}),/Invalid bounded/);
 });
 test('signed editorial event updates only the derivative and matching manifest row',async()=>{
   const {data,sourceSha}=photoArchive(),bytes=editorialJpeg(),now=new Date('2026-10-26T12:01:00.000Z');
