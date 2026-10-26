@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { createHash, createHmac } from 'node:crypto';
 import { applyApprovedEntry } from '../scripts/annals/apply-approved-entry.mjs';
 import { gitBlobHash } from '../scripts/annals/PhotoTransport.mjs';
+import Jpeg from '../scripts/annals/JpegCodec.js';
 import { validateEditorialManifest } from '../scripts/annals/EditorialPhotoManifest.mjs';
 import { contentDigest, verifyPublicApproval } from '../scripts/annals/ApprovedRenderer.mjs';
 import { readFile } from 'node:fs/promises';
@@ -128,14 +129,13 @@ test('a consented exact cocktail photo is digest-checked and staged only after s
 });
 
 const editorialJpeg=()=>{
-  const head=Buffer.from([
-    0xff,0xd8,
-    0xff,0xc0,0x00,0x11,0x08,0x03,0x84,0x02,0x58,0x03,
-    0x01,0x11,0x00,0x02,0x11,0x00,0x03,0x11,0x00,
-    0xff,0xdb,0x00,0x02,
-    0xff,0xda,0x00,0x02
-  ]);
-  return Buffer.concat([head,Buffer.alloc(5000,0x11),Buffer.from([0xff,0xd9])]);
+  const width=480,height=480,data=Buffer.alloc(width*height*4);
+  for(let i=0;i<width*height;i++){
+    const x=i%width,y=Math.floor(i/width),p=i*4;
+    data[p]=(x*17+y*3)&255;data[p+1]=(x*5+y*19)&255;data[p+2]=(x*11+y*7)&255;data[p+3]=255;
+  }
+  const encoded=Jpeg.encode({width,height,data},80).data;
+  return Buffer.from(Media.sanitize(Buffer.from(encoded)).bytes);
 };
 const editorialEvent=(photo,bytes,issuedAt,overrides={})=>{
   const blob={gitSha:gitBlobHash(bytes),size:bytes.length};
@@ -157,7 +157,7 @@ const editorialRow=(sourceSha,bytes,now='2026-10-26T12:00:00.000Z')=>({
   source:'assets/annals/'+sourceSha+'.jpg',sourceSha256:sourceSha,
   asset:'assets/annals/'+sourceSha+'-editorial-v2.jpg',
   editorialSha256:createHash('sha256').update(bytes).digest('hex'),
-  width:600,height:900,alt:'AI-stylized amber cocktail in its original textured glass',
+  width:480,height:480,alt:'AI-stylized amber cocktail in its original textured glass',
   artDirection:'moody-atmospheric-v2',status:'qualified',rightsQualified:true,
   safetyQualified:true,visualQualified:true,generationProvider:'openai-chatgpt',
   generationModel:'undisclosed',generationOperation:'image-edit',
@@ -169,7 +169,7 @@ test('signed editorial event updates only the derivative and matching manifest r
   const originalManifest={schemaVersion:1,artDirection:'moody-atmospheric-v2',images:[]};
   const result=await applyApprovedEntry({event,data,secret,now,photosEnabled:true,blobTransportEnabled:true,
     editorialManifest:originalManifest,fetchEditorialBytes:async ref=>{
-      assert.equal(ref.sha256,photo.editorialSha256);assert.equal(ref.width,600);return bytes;
+      assert.equal(ref.sha256,photo.editorialSha256);assert.equal(ref.width,480);return bytes;
     }});
   assert.deepEqual(result.data,data);
   assert.equal(result.assetsToWrite.length,1);assert.equal(result.assetsToWrite[0].path,photo.asset);
