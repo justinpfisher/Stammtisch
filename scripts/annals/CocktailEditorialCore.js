@@ -92,10 +92,10 @@ var AnnalsCocktailEditorial = (function () {
   var JOB_TOKEN=/^[0-9a-f]{32}$/;
   function boundedVisualText(value,limit){
     if(typeof value!=='string')return '';
-    var text=value.replace(/[\\u0000-\\u001f\\u007f]/g,' ')
-      .replace(/https?:\\/\\/\\S+|www\\.\\S+/gi,' ')
-      .replace(/\\s+/g,' ').trim();
-    if(text.length>limit||/\\b(?:ignore|override|system prompt|credential|password|policy)\\b/i.test(text))return '';
+    var text=value.replace(/[\u0000-\u001f\u007f]/g,' ')
+      .replace(/https?:\/\/\S+|www\.\S+/gi,' ')
+      .replace(/\s+/g,' ').trim();
+    if(text.length>limit||/\b(?:ignore|override|system prompt|credential|password|policy)\b/i.test(text))return '';
     return text;
   }
   function photoJob(input){
@@ -128,7 +128,7 @@ var AnnalsCocktailEditorial = (function () {
        RESULT_QA.some(function(k){return result.qa[k]!==true}))
       throw Error('Photo result did not pass every visual check');
     if(typeof result.alt!=='string'||result.alt.length<20||result.alt.length>400||
-       !/^AI-stylized\\b/.test(result.alt)||/[\\u0000-\\u001f\\u007f]|https?:\\/\\//i.test(result.alt))
+       !/^AI-stylized\b/.test(result.alt)||/[\u0000-\u001f\u007f]|https?:\/\//i.test(result.alt))
       throw Error('Invalid editorial alt description');
     if(!(now instanceof Date)||!Number.isFinite(now.getTime()))throw Error('Valid receipt time required');
     return {qualified:true,receivedAt:now.toISOString(),alt:result.alt};
