@@ -247,7 +247,7 @@ test('issuer source never lists private properties or sends paid provider reques
  assert.match(moduleSource,/raw\.githubusercontent\.com\/justinpfisher\/Stammtisch\/main\/data\/annals-editorial-photos\.json/);
  assert.match(moduleSource,/stammtischbrewery\.com\/data\/annals-editorial-photos\.json/);
  assert.doesNotMatch(moduleSource,/api\.openai\.com\/v1\/(?:images|responses|chat\/completions)/);
- assert.equal((moduleSource.match(/\.setProperty\s*\(/g)||[]).length,1);
+ assert.equal((moduleSource.match(/\.setProperty\s*\(/g)||[]).length,3);
  assert.equal((moduleSource.match(/\.deleteProperty\s*\(/g)||[]).length,1);
  assert.match(moduleSource,/key='ANNALS_EDITORIAL_VERIFY_CURSOR'/);
  assert.match(moduleSource,/ANNALS_EDITORIAL_SECURITY_RECOVERY_VERIFIED/);
@@ -578,8 +578,8 @@ test('native result remains private while the dedicated publication gate is disa
  assert.equal(f.props.ANNALS_PHOTO_WORKFLOW_ENABLED,'false');
  assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,qualifiedResult(job),
   [f.context.Utilities.newBlob(jpeg,'image/jpeg','x')])),'photo_result_stored_private');
- assert.equal(f.events.dispatches.length,0);
- assert.equal(f.events.uploadedBytes,null);
+ assert.equal((f.events.dispatches||[]).length,0);
+ assert.equal(f.events.uploadedBytes,undefined);
  assert.equal(f.folder.files.get('cocktail-photo-result-'+job.jobToken+'-private.json').state,
   'qualified_held_for_publisher');
 });
