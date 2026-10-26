@@ -1519,14 +1519,16 @@ function annalsApproveReview(nonce, id, expectedHash, consents, evidenceNote, un
     var approvalFile = annalsFile_(f, 'approval-private.json');
     approvalFile.setContent(JSON.stringify(saved));
     return { approved: true, dispatchAccepted: sent, published: false };
-    if(sent)annalsQueueCocktailPhotoJobs_(f,entry);
   }); });
 }
 function annalsQueueCocktailPhotoJobs_(folder,entry){
-  if(!entry||entry.category!=='cocktail'||!(entry.photos||entry.photo)||
-     typeof annalsIssueCocktailPhotoJob_!=='function')return;
-  var photos=entry.photos||(entry.photo?[entry.photo]:[]);
-  for(var i=0;i<photos.length;i++){
+  var saved=annalsRead_(folder,'approval-private.json'),
+    live=annalsRead_(folder,'auto-live-verification-private.json');
+  if(!entry||entry.category!=='cocktail'||!Array.isArray(entry.photos)||
+     typeof annalsIssueCocktailPhotoJob_!=='function'||!saved||!saved.receipt||
+     !live||live.state!=='verified_live'||live.contentSha256!==saved.receipt.contentSha256||
+     AnnalsProduction.serial(saved.entry)!==AnnalsProduction.serial(entry))return;
+  for(var i=0;i<entry.photos.length;i++){
     try{annalsIssueCocktailPhotoJob_(folder.getName(),i);}catch(ignored){}
   }
 }
@@ -1645,7 +1647,6 @@ function annalsPublishApproved(nonce, id) {
     saved.publicationState = accepted ? 'dispatch_accepted' : 'dispatch_not_configured_or_held';
     annalsFile_(folder, 'approval-private.json').setContent(JSON.stringify(saved));
     return { dispatchAccepted: accepted, retryAllowed: false };
-    if(accepted)annalsQueueCocktailPhotoJobs_(folder,saved.entry);
   }); });
 }
 function annalsSaveCorrection(nonce, id, rawEntry) {
@@ -1834,7 +1835,6 @@ function annalsAutoPublishCandidate_(id, allowHeldRecovery) {
   saved.publicationState = accepted ? 'dispatch_accepted' : 'dispatch_not_configured_or_held';
   annalsFile_(folder, 'approval-private.json').setContent(JSON.stringify(saved));
   return accepted;
-  if(accepted)annalsQueueCocktailPhotoJobs_(folder,entry);
 }
 /** One-shot exception recovery for any previously held, source-grounded
  * recipe after a deterministic matching fix. No AI call, journal reset,
@@ -2160,6 +2160,8 @@ function annalsVerifyAutomaticPublications_(limit) {
       if(entry.photos&&!annalsVerifyPhotoAssets_(entry,archive,query))continue;
       annalsWriteOnce_(folder, 'auto-live-verification-private.json', {
         state: 'verified_live', contentSha256: saved.receipt.contentSha256, verifiedAt: new Date().toISOString() });
+      if(entry.category==='cocktail'&&entry.photos)
+        annalsQueueCocktailPhotoJobs_(folder,entry);
       verified++;
       // One delivery attempt only: never repeat mail on uncertain outcomes.
       var source = annalsRead_(folder, 'source-private.json');
