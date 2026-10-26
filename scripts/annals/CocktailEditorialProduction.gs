@@ -192,6 +192,8 @@ function annalsCocktailEditorialPermitInEditor(itemId,photoIndex){
  * Current source, original-image rights and editorial transformation rights
  * are re-evaluated before a private job is reserved and sent. */
 function annalsIssueCocktailPhotoJob_(itemId,photoIndex){
+  if(annalsProps_().getProperty('ANNALS_PHOTO_WORKFLOW_ENABLED')!=='true')
+    return {state:'held',reason:'native_photo_workflow_disabled'};
   var context=annalsCocktailEditorialContext_(itemId,photoIndex),
     source=annalsRead_(context.folder,'source-private.json'),
     saved=annalsRead_(context.folder,'approval-private.json'),
@@ -401,7 +403,7 @@ function annalsPublishCocktailEditorialResult_(itemId,token){
     index=annalsRead_(root,indexName),result=annalsRead_(folder,resultName),
     consume=annalsRead_(folder,'cocktail-photo-consume-'+token+'-private.json'),
     props=annalsProps_(),now=new Date();
-  if(props.getProperty('ANNALS_PHOTO_PUBLICATION_ENABLED')!=='true'||
+  if(props.getProperty('ANNALS_PHOTO_WORKFLOW_ENABLED')!=='true'||
      !index||index.jobToken!==token||index.state!=='result_received_private'||
      !result||result.state!=='qualified_held_for_publisher'||
      !consume||consume.state!=='result_received_private'||
