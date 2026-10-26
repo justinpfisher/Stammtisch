@@ -499,6 +499,8 @@ function annalsPublishCocktailEditorialResult_(itemId,token){
   if(key.length<32||key===props.getProperty('ANNALS_APPROVAL_KEY'))return false;
   var signature=annalsHex_(Utilities.computeHmacSha256Signature(
     AnnalsProduction.serial(unsigned),key,Utilities.Charset.UTF_8));
+  result.editorialRow=row;result.eventIssuedAt=issuedAt;
+  result.state='publisher_attempt_reserved';annalsSavePrivate_(folder,resultName,result);
   var payload={photo:row,blob:blob,issuedAt:issuedAt,signature:signature},
     accepted=annalsDispatchEvent_(folder,'annals-editorial-photo-v1',payload,
       'editorial-photo-dispatch-private.json');
