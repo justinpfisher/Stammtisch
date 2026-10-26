@@ -579,16 +579,57 @@ function annalsVerifyCocktailEditorialResult_(folder,itemId,token){
   }catch(ignored){return false;}
 }
 function annalsVerifyCocktailEditorialResults_(limit){
-  var root=annalsRoot_(),folders=root.getFolders(),checked=0,verified=0;
-  while(folders.hasNext()&&checked++<12&&verified<Math.max(1,limit||1)){
-    var folder=annalsPrivate_(folders.next()),itemId=folder.getName();
-    if(!/^[a-f0-9]{64}$/.test(itemId))continue;
-    var files=folder.getFiles(),scanned=0;
-    while(files.hasNext()&&scanned++<40&&verified<Math.max(1,limit||1)){
-      var file=files.next(),match=/^cocktail-photo-result-([a-f0-9]{32})-private\.json$/.exec(file.getName());
-      if(match&&annalsVerifyCocktailEditorialResult_(folder,itemId,match[1]))verified++;
+  var root=annalsRoot_(),props=annalsProps_(),key='ANNALS_EDITORIAL_VERIFY_CURSOR',
+    cursor=null,folders,activeFolder=null,activeItemId='',files=null;
+  try{
+    cursor=JSON.parse(props.getProperty(key)||'null');
+    if(cursor&&(!cursor.folderToken||typeof cursor.folderToken!=='string'||
+       cursor.folderToken.length>10000||
+       (cursor.fileToken!==null&&cursor.fileToken!==undefined&&
+        (typeof cursor.fileToken!=='string'||cursor.fileToken.length>10000))||
+       (cursor.itemId&&!/^[a-f0-9]{64}$/.test(cursor.itemId))||
+       (cursor.folderId&&typeof cursor.folderId!=='string')))
+      cursor=null;
+  }catch(ignored){cursor=null;}
+  try{
+    folders=cursor&&cursor.folderToken?DriveApp.continueFolderIterator(cursor.folderToken):root.getFolders();
+    if(cursor&&cursor.fileToken){
+      activeFolder=annalsPrivate_(DriveApp.getFolderById(cursor.folderId));
+      activeItemId=activeFolder.getName();
+      if(activeItemId!==cursor.itemId||!/^[a-f0-9]{64}$/.test(activeItemId))throw Error('Stale editorial cursor');
+      files=DriveApp.continueFileIterator(cursor.fileToken);
     }
+  }catch(ignored){
+    cursor=null;activeFolder=null;activeItemId='';files=null;folders=root.getFolders();
   }
+  var checked=0,scanned=0,verified=0,target=Math.max(1,limit||1);
+  while(verified<target&&checked<12&&scanned<40){
+    if(!files){
+      if(!folders.hasNext())break;
+      activeFolder=annalsPrivate_(folders.next());activeItemId=activeFolder.getName();
+      checked++;
+      if(!/^[a-f0-9]{64}$/.test(activeItemId)){activeFolder=null;continue;}
+      files=activeFolder.getFiles();
+    }
+    while(files.hasNext()&&scanned<40&&verified<target){
+      var file=files.next(),match=/^cocktail-photo-result-([a-f0-9]{32})-private\.json$/.exec(file.getName());
+      scanned++;
+      if(match&&annalsVerifyCocktailEditorialResult_(activeFolder,activeItemId,match[1]))verified++;
+    }
+    if(files.hasNext()){
+      props.setProperty(key,JSON.stringify({folderToken:folders.getContinuationToken(),
+        fileToken:files.getContinuationToken(),folderId:activeFolder.getId(),itemId:activeItemId}));
+      return verified;
+    }
+    files=null;activeFolder=null;activeItemId='';
+  }
+  if(files&&files.hasNext()&&activeFolder){
+    props.setProperty(key,JSON.stringify({folderToken:folders.getContinuationToken(),
+      fileToken:files.getContinuationToken(),folderId:activeFolder.getId(),itemId:activeItemId}));
+  }else if(folders.hasNext()){
+    props.setProperty(key,JSON.stringify({folderToken:folders.getContinuationToken(),
+      fileToken:null,folderId:null,itemId:null}));
+  }else props.deleteProperty(key);
   return verified;
 }
 
