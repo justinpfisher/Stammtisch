@@ -57,11 +57,20 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
   ['source-private.json',submission],
   ['approval-private.json',signed]
  ])};
- const log=[],events={photoBytes:null,sends:[]};
+ folder.createFile=(blob)=>{
+  const name=blob.name,file={getName:()=>name,setName:(v)=>{file.name=v},
+   getSharingAccess:()=> 'PRIVATE',getEditors:()=>[],getViewers:()=>[],
+   getOwner:()=>({getEmail:()=> 'owner@example.invalid'}),getBlob:()=>blob};
+  folder.files.set(name,file);return file;
+ };
+ const log=[],events={photoBytes:null,sends:[],authenticated:true};
  const context={
   // Keep dates in one realm for the pure Node/App Script policy fixture.
   Date:Date,Intl:Intl,
   AnnalsCocktailEditorial:Policy,
+  AnnalsPilot:{senderAddress:(value)=>String(value||'').trim().toLowerCase()},
+  AnnalsMedia:{sanitize:(bytes)=>({bytes:Array.from(bytes),width:600,height:900})},
+  annalsAuthentication_:(message,sender)=>events.authenticated===true&&sender==='worker@example.invalid',
   annalsOwner_:()=>{events.ownerChecks=(events.ownerChecks||0)+1},
   annalsLocked_:(fn)=>fn(),
   annalsProps_:()=>({getProperty:(key)=>props[key]??''}),
@@ -88,7 +97,8 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
    Charset:{UTF_8:'UTF-8'},
    getUuid:()=> 'ffffffff-ffff-ffff-ffff-ffffffffffff',
    base64Decode:(v)=>Array.from(Buffer.from(v,'base64')),
-   newBlob:(bytes,mime,name)=>({bytes:Buffer.from(bytes),mime,name}),
+   newBlob:(bytes,mime,name)=>{const data=Buffer.from(bytes);return {bytes:data,mime,name,
+    getBytes:()=>Array.from(data),getContentType:()=>mime,getDataAsString:()=>data.toString('utf8')};},
    computeHmacSha256Signature:(raw,key)=>Array.from(createHmac('sha256',key).update(raw).digest())
   },
   UrlFetchApp:{fetch:(url,options)=>{
