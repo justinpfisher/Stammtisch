@@ -68,9 +68,10 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
   annalsFolder_:(id)=>{if(id!==itemId)throw Error('No private item');return folder},
   annalsRead_:(f,name)=>f.files.get(name)||null,
   annalsRoot_:()=>root,
-  annalsFile_:(f,name)=>f.files.has(name)?{name:name}:null,
+  annalsFile_:(f,name)=>f.files.has(name)?{name:name,setContent:(v)=>f.files.set(name,JSON.parse(v))}:null,
   annalsWriteOnce_:(f,name,v)=>{if(f.files.has(name))throw Error('Immutable record already exists');f.files.set(name,v);return {name}},
   annalsSavePrivate_:(f,name,v)=>{f.files.set(name,v)},
+  annalsPhotoSet_:(id,source)=>events.photoBytes?[{sha256:sha(Buffer.from(events.photoBytes)),base64:Buffer.from(events.photoBytes).toString('base64')}]:[],
   annalsPrivateReceiptValid_:()=>originalReceiptValid,
   annalsImageConsentActive_:()=>true,
   annalsPhotoEvidence_:()=>({originalRights:true}),
@@ -85,6 +86,8 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
   Utilities:{
    Charset:{UTF_8:'UTF-8'},
    getUuid:()=> 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+   base64Decode:(v)=>Array.from(Buffer.from(v,'base64')),
+   newBlob:(bytes,mime,name)=>({bytes:Buffer.from(bytes),mime,name}),
    computeHmacSha256Signature:(raw,key)=>Array.from(createHmac('sha256',key).update(raw).digest())
   },
   UrlFetchApp:{fetch:(url,options)=>{
@@ -95,6 +98,7 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
     if(events.rejectModelRequest)throw Error('fictional network failure');
     return {getResponseCode:()=>events.modelResponseCode??200};
   }},
+  GmailApp:{sendEmail:(...args)=>{events.sends.push(args);if(events.failMail)throw Error('synthetic send failure')}},
   console:{log:(...args)=>log.push(args)}
  };
  vm.createContext(context);
@@ -325,4 +329,53 @@ test('native photo job and result v1 bind the exact source and fail closed',()=>
  assert.throws(()=>Policy.validatePhotoResult({...result,qa:{...result.qa,sameGlass:false}},job,true,new Date()),/visual check/);
  assert.throws(()=>Policy.validatePhotoResult({...result,privateEmail:'private'},job,true,new Date()),/Invalid photo result/);
  assert.equal(Policy.validatePhotoResult({...result,status:'held'},job,true,new Date()).qualified,false);
+});
+
+function sourceJpeg(){
+ const bytes=Buffer.alloc(5001,7);
+ bytes.set([255,216,255,218,0,2],0);bytes.set([255,217],bytes.length-2);
+ return bytes;
+}
+test('readiness reserves and sends at most one exact source/style job after live rights checks',()=>{
+ const f=fixture(),bytes=sourceJpeg(),digest=sha(bytes);
+ f.signed.entry.photo.sha256=digest;f.events.photoBytes=bytes;
+ f.props.ANNALS_PHOTO_WORKER_EMAIL='worker@example.invalid';
+ const first=f.context.annalsIssueCocktailPhotoJob_(itemId,0);
+ assert.equal(first.state,'sent_once');
+ const names=[...f.folder.files.keys()].filter(n=>n.indexOf('cocktail-photo-job-')===0);
+ assert.equal(names.length,1);
+ const record=f.folder.files.get(names[0]);
+ assert.equal(record.state,'sent_once');assert.equal(record.styleVersion,'cocktail-cinematic-photoreal-v1');
+ assert.equal(record.job.sourceSha256,digest);assert.equal(record.job.entryId,entryId);
+ assert.equal(Date.parse(record.expiresAt)-Date.parse(record.createdAt),7*24*60*60*1000);
+ assert.equal(f.events.sends.length,1);
+ assert.equal(f.events.sends[0][0],'worker@example.invalid');
+ assert.match(f.events.sends[0][1],/^\\[ANNALS PHOTO JOB v1\\] [a-f0-9]{32}$/);
+ assert.equal(f.events.sends[0][3].attachments.length,1);
+ assert.equal(f.events.sends[0][3].attachments[0].mime,'image/jpeg');
+ assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'already_reserved');
+ assert.equal(f.events.sends.length,1);
+});
+test('revoked rights and a changed screened source create no readiness message',()=>{
+ const f=fixture(),bytes=sourceJpeg(),digest=sha(bytes);
+ f.signed.entry.photo.sha256=digest;f.events.photoBytes=bytes;
+ f.props.ANNALS_PHOTO_WORKER_EMAIL='worker@example.invalid';
+ f.member.cocktailEditorialTransformation.status='revoked';
+ assert.throws(()=>f.context.annalsIssueCocktailPhotoJob_(itemId,0),/editorial_transformation_permission_not_current/);
+ assert.equal(f.events.sends.length,0);
+ f.member.cocktailEditorialTransformation.status='active';
+ f.signed.entry.photo.sha256='e'.repeat(64);
+ const changed=f.context.annalsIssueCocktailPhotoJob_(itemId,0);
+ assert.equal(changed.state,'held');assert.equal(changed.reason,'screened_source_unavailable');
+ assert.equal(f.events.sends.length,0);
+});
+test('a failed readiness send is durably held and never retried',()=>{
+ const f=fixture(),bytes=sourceJpeg(),digest=sha(bytes);
+ f.signed.entry.photo.sha256=digest;f.events.photoBytes=bytes;
+ f.props.ANNALS_PHOTO_WORKER_EMAIL='worker@example.invalid';f.events.failMail=true;
+ assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'send_failed_no_retry');
+ const record=[...f.folder.files.entries()].find(([name])=>name.indexOf('cocktail-photo-job-')===0)[1];
+ assert.equal(record.state,'send_failed_no_retry');assert.equal(record.sendOutcome,'failed');
+ assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'already_reserved');
+ assert.equal(f.events.sends.length,1);
 });
