@@ -7,6 +7,8 @@ import {readFileSync} from 'node:fs';
 import {createHash,createHmac} from 'node:crypto';
 import vm from 'node:vm';
 import Policy from '../scripts/annals/CocktailEditorialCore.js';
+import {applyApprovedEntry} from '../scripts/annals/apply-approved-entry.mjs';
+import {contentDigest} from '../scripts/annals/ApprovedRenderer.mjs';
 import {verifyEditorialPermit,extractUnspentEditorialPermit} from '../scripts/annals/CocktailImageEdit.mjs';
 
 const moduleSource=readFileSync(new URL('../scripts/annals/CocktailEditorialProduction.gs',import.meta.url),'utf8');
@@ -618,4 +620,41 @@ test('accepted dispatch remains unverified until hosted manifest, derivative and
  assert.equal(f.folder.files.get('cocktail-photo-live-'+job.jobToken+'-private.json').state,'verified_live');
  assert.equal(f.root.files.get('cocktail-photo-job-token-'+job.jobToken+'-private.json').state,
   'editorial_live_verified');
+});
+
+test('synthetic source job and worker result flow through the same signed publisher validation',async()=>{
+ const {f,job}=issuedPhotoResultFixture(),jpeg=editedJpeg();
+ const publishKey='synthetic-separate-publication-signing-key';
+ f.props.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED='true';
+ f.props.ANNALS_GITHUB_REPOSITORY='justinpfisher/Stammtisch';
+ f.props.ANNALS_GITHUB_TOKEN='synthetic-github-token';
+ f.props.ANNALS_PUBLISH_SIGNING_KEY=publishKey;
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,qualifiedResult(job),
+  [f.context.Utilities.newBlob(jpeg,'image/jpeg','x')])),'photo_publisher_dispatch_accepted');
+ const event=f.events.dispatches[0],entry={id:job.entryId,category:'cocktail',
+  title:'Synthetic round-trip cocktail',summary:'Fictional source-only publisher fixture.',
+  year:2026,dateLabel:'',sortDate:'',credit:'anonymous',quoteVerbatim:'',
+  recipe:{drinkIngredients:['imaginary syrup'],syrupIngredients:[],steps:['Synthetic only.']},
+  photos:[{sha256:job.sourceSha256,alt:'Fictional original source photo',width:600,height:900}]};
+ const unsigned={entryId:entry.id,approvedAt:new Date().toISOString(),mode:'standing-consent-photos-v2',
+  consents:{publication:true,quotePublication:false,recipeVerified:true,namedAttribution:false,photoPublication:true},
+  contentSha256:contentDigest(entry)};
+ const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'
+  ?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
+ const approval={...unsigned,signature:createHmac('sha256',publishKey)
+  .update(JSON.stringify(canonical({entry,approval:unsigned}))).digest('hex')};
+ const archive={schemaVersion:1,entries:[entry],approvals:[approval]};
+ const result=await applyApprovedEntry({event,data:archive,secret:publishKey,
+  now:new Date(),photosEnabled:true,blobTransportEnabled:true,
+  editorialManifest:{schemaVersion:1,artDirection:'moody-atmospheric-v2',images:[]},
+  fetchEditorialBytes:async ref=>{
+    assert.equal(ref.gitSha,event.client_payload.blob.gitSha);
+    return f.events.uploadedBytes;
+  }});
+ assert.deepEqual(result.data,archive);
+ assert.deepEqual(result.assetsToWrite.map(a=>a.path),[event.client_payload.photo.asset]);
+ assert.ok(result.html.includes('srcset="'+event.client_payload.photo.asset+'"'));
+ assert.ok(result.html.includes('href="'+event.client_payload.photo.source+'"'));
+ assert.equal(f.folder.files.get('cocktail-photo-result-'+job.jobToken+'-private.json').state,
+  'publisher_dispatch_accepted_unverified');
 });
