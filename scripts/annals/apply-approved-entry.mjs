@@ -1,6 +1,6 @@
 import Media from './MediaCore.js';
 import Photos from './PhotoContracts.js';
-import {resolvePhotoBlobs} from './PhotoTransport.mjs';
+import {resolvePhotoBlobs,fetchEditorialBlob} from './PhotoTransport.mjs';
 import {photoThumbnail} from './PhotoThumbnail.mjs';
 import {EDITORIAL_MANIFEST_PATH,validateEditorialManifest,pruneEditorialManifest} from './EditorialPhotoManifest.mjs';
 
@@ -10,7 +10,7 @@ export function photoReleaseAllowed({photosEnabled,guardedJpegEnabled=false,secu
 }
 import {writePhotoIndex} from './PhotoIndex.mjs';
 import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildPublishedAnnals, contentDigest, validatePublicTextEntry, verifyPublicApproval, verifyPublicRemoval } from './ApprovedRenderer.mjs';
@@ -53,8 +53,18 @@ export function assertFreshDispatch(event, now) {
     throw new Error('Expired or future publication approval');
 }
 
-export async function applyApprovedEntry({ event, data, secret, history = emptyHistory(), now, photosEnabled=false, blobTransportEnabled=false, fetchBlob }) {
-  const actions = ['annals-approved-entry', 'annals-auto-entry', 'annals-correct-entry', 'annals-remove-entry'];
+function canonicalEditorial(value){
+  if(Array.isArray(value))return value.map(canonicalEditorial);
+  if(value&&typeof value==='object'){
+    const result={};
+    for(const key of Object.keys(value).sort())result[key]=canonicalEditorial(value[key]);
+    return result;
+  }
+  return value;
+}
+
+export async function applyApprovedEntry({ event, data, secret, history = emptyHistory(), now, photosEnabled=false, blobTransportEnabled=false, fetchBlob, fetchEditorialBytes=fetchEditorialBlob, editorialManifest }) {
+  const actions = ['annals-approved-entry', 'annals-auto-entry', 'annals-correct-entry', 'annals-remove-entry', 'annals-editorial-photo-v1'];
   if (!event || !actions.includes(event.action) || !event.client_payload) throw new Error('Invalid dispatch event');
   if (!data || data.schemaVersion !== 1 || !Array.isArray(data.entries) || !Array.isArray(data.approvals) ||
       Object.keys(data).some(k => !['schemaVersion', 'entries', 'approvals', 'retiredIds'].includes(k))) throw new Error('Invalid public archive');
@@ -66,6 +76,51 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
   const assetsToWrite = [], assetsToDelete = [];
   // Refuse to mutate an archive that already contains invalid public approvals.
   buildPublishedAnnals(entries, approvals, secret, history);
+  if(event.action==='annals-editorial-photo-v1'){
+    if(photosEnabled!==true||blobTransportEnabled!==true)
+      throw Error('Editorial photo publication remains disabled');
+    const payload=event.client_payload;
+    if(Object.keys(payload).sort().join(',')!=='blob,issuedAt,photo,signature')
+      throw Error('Invalid editorial photo event payload');
+    const issued=Date.parse(payload.issuedAt);
+    if(!now||!Number.isFinite(now.getTime())||!Number.isFinite(issued)||
+       issued>now.getTime()+30000||now.getTime()-issued>5*60*1000)
+      throw Error('Stale editorial photo event');
+    if(typeof secret!=='string'||secret.length<32||typeof payload.signature!=='string'||
+       !/^[a-f0-9]{64}$/.test(payload.signature))
+      throw Error('Invalid editorial event signature');
+    const signed=JSON.stringify(canonicalEditorial({
+      operation:'editorial-photo-v1',photo:payload.photo,blob:payload.blob,issuedAt:payload.issuedAt
+    }));
+    const expected=createHmac('sha256',secret).update(signed).digest();
+    const supplied=Buffer.from(payload.signature,'hex');
+    if(supplied.length!==expected.length||!timingSafeEqual(expected,supplied))
+      throw Error('Invalid editorial event signature');
+    if(!editorialManifest)throw Error('Editorial manifest unavailable');
+    validateEditorialManifest(editorialManifest,entries);
+    validateEditorialManifest({schemaVersion:1,artDirection:'moody-atmospheric-v2',images:[payload.photo]},entries);
+    if(editorialManifest.images.some(row=>row.source===payload.photo.source))
+      throw Error('An editorial photo already exists for this source');
+    if(!payload.blob||Object.keys(payload.blob).sort().join(',')!=='gitSha,size'||
+       !/^[a-f0-9]{40}$/.test(payload.blob.gitSha||'')||
+       !Number.isInteger(payload.blob.size)||payload.blob.size<4000||payload.blob.size>5*1024*1024)
+      throw Error('Invalid editorial blob reference');
+    const ref={gitSha:payload.blob.gitSha,size:payload.blob.size,
+      sha256:payload.photo.editorialSha256,width:payload.photo.width,height:payload.photo.height};
+    const bytes=await fetchEditorialBytes(ref);
+    if(!Buffer.isBuffer(bytes)||bytes.length!==payload.blob.size||
+       createHash('sha256').update(bytes).digest('hex')!==payload.photo.editorialSha256)
+      throw Error('Editorial image digest mismatch');
+    const dimensions=metadataFreeJpegDimensions(bytes);
+    if(dimensions.width!==payload.photo.width||dimensions.height!==payload.photo.height)
+      throw Error('Editorial image dimensions mismatch');
+    const nextManifest={...editorialManifest,images:[...editorialManifest.images,payload.photo]};
+    validateEditorialManifest(nextManifest,entries);
+    const rendered=buildPublishedAnnals(entries,approvals,secret,history);
+    return {data:{...data,entries,approvals},html:rendered.html,
+      assetsToWrite:[{path:payload.photo.asset,bytes}],assetsToDelete:[],
+      editorialManifest:nextManifest};
+  }
   if (event.action === 'annals-remove-entry') {
     if (Object.keys(event.client_payload).sort().join(',') !== 'approval,entryId') throw new Error('Invalid removal payload');
     const index = entries.findIndex(item => item.id === event.client_payload.entryId);
@@ -158,11 +213,12 @@ async function main() {
     securityVerified:process.env.ANNALS_SIGNING_REMEDIATION_VERIFIED==='true'
   });
   if(Buffer.byteLength(JSON.stringify({event_type:event.action,client_payload:event.client_payload}))>60000)throw Error('Dispatch envelope exceeds bound');
-  const result = await applyApprovedEntry({ event, data, secret: process.env.ANNALS_PUBLISH_SIGNING_KEY, history, now, photosEnabled,
-    blobTransportEnabled:process.env.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED==='true' });
   const originalManifest=JSON.parse(await readFile(EDITORIAL_MANIFEST_PATH,'utf8'));
   validateEditorialManifest(originalManifest,data.entries);
-  const pruned=pruneEditorialManifest(originalManifest,result.data.entries);
+  const result = await applyApprovedEntry({ event, data, secret: process.env.ANNALS_PUBLISH_SIGNING_KEY, history, now, photosEnabled,
+    blobTransportEnabled:process.env.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED==='true',
+    editorialManifest:originalManifest }); 
+  const pruned=pruneEditorialManifest(result.editorialManifest||originalManifest,result.data.entries);
   for(const asset of pruned.removedAssets)result.assetsToDelete.push({path:asset});
   for (const item of result.assetsToDelete) await rm(item.path, { force: true });
   for (const item of result.assetsToWrite) { await mkdir(path.dirname(item.path), { recursive: true }); await writeFile(item.path, item.bytes); }
