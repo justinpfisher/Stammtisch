@@ -374,9 +374,9 @@ test('a failed readiness send is durably held and never retried',()=>{
  const f=fixture(),bytes=sourceJpeg(),digest=sha(bytes);
  f.signed.entry.photo.sha256=digest;f.events.photoBytes=bytes;
  f.props.ANNALS_PHOTO_WORKER_EMAIL='worker@example.invalid';f.events.failMail=true;
- assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'send_failed_no_retry');
+ assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'unknown_no_retry');
  const record=[...f.folder.files.entries()].find(([name])=>name.indexOf('cocktail-photo-job-')===0)[1];
- assert.equal(record.state,'send_failed_no_retry');assert.equal(record.sendOutcome,'failed');
+ assert.equal(record.state,'unknown_no_retry');assert.equal(record.sendOutcome,'unknown_no_retry');
  assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'already_reserved');
  assert.equal(f.events.sends.length,1);
 });
