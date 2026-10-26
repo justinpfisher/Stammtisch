@@ -68,6 +68,17 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
   // Keep dates in one realm for the pure Node/App Script policy fixture.
   Date:Date,Intl:Intl,
   AnnalsCocktailEditorial:Policy,
+  AnnalsProduction:{serial:(v)=>JSON.stringify((function canonical(v){
+    if(Array.isArray(v))return v.map(canonical);
+    if(v&&typeof v==='object'){const o={};for(const k of Object.keys(v).sort())o[k]=canonical(v[k]);return o;}
+    return v;
+  })(v))},
+  annalsPublisherDispatchReady_:()=>true,
+  annalsPhotosReady_:()=>true,
+  annalsDispatchEvent_:(folder,type,payload,marker)=>{
+    events.dispatches=(events.dispatches||[]);events.dispatches.push({type,payload,marker});
+    folder.files.set(marker,{state:'accepted',at:new Date().toISOString()});return true;
+  },
   AnnalsPilot:{senderAddress:(value)=>String(value||'').trim().toLowerCase()},
   AnnalsMedia:{sanitize:(bytes)=>({bytes:Array.from(bytes),width:600,height:900})},
   annalsAuthentication_:(message,sender)=>events.authenticated===true&&sender==='worker@example.invalid',
@@ -94,7 +105,9 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
   annalsHash_:(bytes)=>sha(Buffer.from(bytes)),
   annalsHex_:(b)=>Buffer.from(b).toString('hex'),
   Utilities:{
-   Charset:{UTF_8:'UTF-8'},
+   Charset:{UTF_8:'UTF-8'},DigestAlgorithm:{SHA_1:'SHA-1'},
+   computeDigest:(algorithm,bytes)=>Array.from(createHash('sha1').update(Buffer.from(bytes)).digest()),
+   base64Encode:(bytes)=>Buffer.from(bytes).toString('base64'),
    getUuid:()=> 'ffffffff-ffff-ffff-ffff-ffffffffffff',
    base64Decode:(v)=>Array.from(Buffer.from(v,'base64')),
    newBlob:(bytes,mime,name)=>{const data=Buffer.from(bytes);return {bytes:data,mime,name,
@@ -105,6 +118,12 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
     if(String(url).indexOf('annals-editorial-photos.json')>=0){
       return {getResponseCode:()=>200,getContentText:()=>JSON.stringify(events.publicEditorialManifest||
         {schemaVersion:1,artDirection:'moody-atmospheric-v2',images:[]})};
+    }
+    if(String(url).indexOf('/git/blobs')>=0&&options.method==='post'){
+      const decoded=Buffer.from(JSON.parse(options.payload).content,'base64');
+      events.uploadedBytes=decoded;
+      const gitSha=createHash('sha1').update(Buffer.from('blob '+decoded.length+'\\u0000')).update(decoded).digest('hex');
+      return {getResponseCode:()=>201,getContentText:()=>JSON.stringify({sha:gitSha})};
     }
     if(String(url).indexOf('api.openai.com')>=0){
       events.modelRequests=(events.modelRequests||0)+1;
