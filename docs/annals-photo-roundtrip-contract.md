@@ -21,12 +21,22 @@ The included native image worker replies to the Annals account:
 - Subject: `[ANNALS PHOTO RESULT v1] <the same token>`
 - Exactly one `image/jpeg` attachment, at most 5 MiB. The receiver independently verifies and sanitizes it, rejects metadata and enforces bounded baseline JPEG dimensions.
 - UTF-8 body: one JSON object, at most 2 KiB, with exactly these fields:
-  `schema, jobToken, entryId, sourceSha256, status, qa, alt`.
+  `schema, jobToken, entryId, sourceSha256, status, qa, alt, generatedAt, reviewedAt, generationProvider, generationModel`.
 - `schema` is `annals-photo-result-v1`. A `qualified` result has exactly the common fields plus `qa` and `alt`; it requires exactly six true booleans: `sameGlass`, `sameDrinkAndGarnish`, `photorealisticSubject`, `plausibleStemOrBase`, `sceneAppropriate`, `noArtifactsOrPrivateDetails`. The MIME message must include exactly one JPEG for this variant. Any false/missing flag holds the result.
 - A `held` result has exactly the common fields plus one `reasonCode`, from `source_unreadable`, `identity_uncertain`, `edit_failed`, `visual_qa_failed`, or `attachment_unavailable`. It has no image attachment, no `qa`, no `alt`, and no free-text error. This variant reports failure without implying an image or successful checks exists.
-- `alt` is a bounded accessible description beginning `AI-stylized`. It must identify a cropped stem/base as an editorial reconstruction when extended. It must not claim reconstructed details were present in the original.
+- `alt` is a bounded accessible description (20–240 characters) beginning `AI-stylized`. It must identify a cropped stem/base as an editorial reconstruction when extended. It must not claim reconstructed details were present in the original. The qualified variant also includes ISO timestamps for generation and visual review, `generationProvider: openai-chatgpt`, and `generationModel: undisclosed`; the receiver checks that these times follow the job send and do not claim a future review.
 - The random token is only a correlation/replay identifier, not a bearer credential or rights grant. Sender authentication is verified from the received message's authentication evidence and exact qualified address; a From header, body, token or subject alone never authenticates a result. The token must match one unexpired, unused private job. Entry ID and source hash must match that job and the currently signed source.
 
+## Typed signed publisher event
+
+A fully qualified private result may be handed to the existing publisher only after a second private source, live-marker, original-photo-permission and transformation-rights check. The existing publisher receives a `repository_dispatch` event with action `annals-editorial-photo-v1` and exactly these client-payload fields:
+
+- `photo`: one complete existing editorial-manifest row, source-bound to the existing signed cocktail photo.
+- `blob`: `{ gitSha, size }` for the metadata-free derivative Git blob.
+- `issuedAt`: an ISO timestamp, accepted for at most five minutes.
+- `signature`: HMAC-SHA256 using the existing separate `ANNALS_PUBLISH_SIGNING_KEY`, over the canonical `{ operation: "editorial-photo-v1", photo, blob, issuedAt }` object.
+
+The publisher accepts this event only when the existing photo-release and blob-transport controls are enabled, the signature and timestamp validate, the source is present in the current signed archive, and the source has no existing editorial row. It fetches the Git blob by its fixed GitHub blob ID, verifies Git SHA, SHA-256, bounded size, metadata-free JPEG format and dimensions, then writes only the derivative asset and matching manifest row. A replay fails because the source already has a row. Archive entries, approvals, recipe, original photo and other entries are unchanged. The Pages action and existing private readback still distinguish dispatch acceptance from confirmed live publication.
 ## Publication boundary
 
 A qualified result is not an approval by itself. Immediately before publication, the existing private Apps Script rechecks current transformation rights, source signature/digest, photo permission, revocation, quarantine/removal and replay state. It sends only an HMAC-signed, source-bound editorial-manifest update through the existing Annals publisher. That event updates the derivative and its manifest row only; it cannot change recipe text, signed approval, original photo or another entry. The existing publisher verifies the signature, source approval, exact blob reference, Git blob SHA, SHA-256, JPEG validity and manifest contract. Any invalid, expired, duplicate, held, uncertain or revoked case stops without public mutation.
