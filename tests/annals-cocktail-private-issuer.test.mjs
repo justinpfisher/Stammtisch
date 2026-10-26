@@ -54,7 +54,7 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
   ANNALS_PUBLISH_SIGNING_KEY:publicKey,
   ANNALS_APPROVAL_KEY:fakeApprovalKey,
   ANNALS_EDITORIAL_IMAGE_API_KEY:'fictional-model-key-not-real',
-  ANNALS_PHOTO_PUBLICATION_ENABLED:'false',
+  ANNALS_PHOTO_WORKFLOW_ENABLED:'false',
   ANNALS_EDITORIAL_REFERENCE_FILE_ID:referenceId
  };
  const root={files:new Map()};
@@ -398,6 +398,7 @@ function sourceJpeg(){
  return bytes;
 }
 function prepareLiveJobFixture(f,bytes){
+ f.props.ANNALS_PHOTO_WORKFLOW_ENABLED='true';
  const digest=sha(bytes);
  delete f.signed.entry.photo;
  f.signed.entry.photos=[{sha256:digest,width:600,height:900}];
@@ -409,6 +410,7 @@ function prepareLiveJobFixture(f,bytes){
 }
 test('readiness refuses an accepted dispatch until source is positively live-reconciled',()=>{
  const f=fixture(),bytes=sourceJpeg(),digest=sha(bytes);
+ f.props.ANNALS_PHOTO_WORKFLOW_ENABLED='true';
  delete f.signed.entry.photo;f.signed.entry.photos=[{sha256:digest,width:600,height:900}];
  f.events.photoBytes=bytes;f.props.ANNALS_PHOTO_WORKER_EMAIL='worker@example.invalid';
  const result=f.context.annalsIssueCocktailPhotoJob_(itemId,0);
@@ -570,7 +572,7 @@ test('native result remains private while the dedicated publication gate is disa
  f.props.ANNALS_GITHUB_REPOSITORY='justinpfisher/Stammtisch';
  f.props.ANNALS_GITHUB_TOKEN='synthetic-github-token';
  f.props.ANNALS_PUBLISH_SIGNING_KEY='synthetic-separate-publication-signing-key';
- assert.equal(f.props.ANNALS_PHOTO_PUBLICATION_ENABLED,'false');
+ assert.equal(f.props.ANNALS_PHOTO_WORKFLOW_ENABLED,'false');
  assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,qualifiedResult(job),
   [f.context.Utilities.newBlob(jpeg,'image/jpeg','x')])),'photo_result_stored_private');
  assert.equal(f.events.dispatches.length,0);
@@ -582,7 +584,7 @@ test('native result remains private while the dedicated publication gate is disa
 test('qualified result is freshly rechecked and signed into the existing publisher event',()=>{
  const {f,job}=issuedPhotoResultFixture(),jpeg=editedJpeg();
  f.props.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED='true';
- f.props.ANNALS_PHOTO_PUBLICATION_ENABLED='true';
+ f.props.ANNALS_PHOTO_WORKFLOW_ENABLED='true';
  f.props.ANNALS_GITHUB_REPOSITORY='justinpfisher/Stammtisch';
  f.props.ANNALS_GITHUB_TOKEN='synthetic-github-token';
  f.props.ANNALS_PUBLISH_SIGNING_KEY='synthetic-separate-publication-signing-key';
