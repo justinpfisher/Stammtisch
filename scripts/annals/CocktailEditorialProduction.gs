@@ -241,6 +241,6 @@ function annalsIssueCocktailPhotoJob_(itemId,photoIndex){
     record.sendOutcome=sendAttempted?'unknown_no_retry':'not_attempted';
     record.failedAt=new Date().toISOString();
     file.setContent(JSON.stringify(record));
-    return {state:'send_failed_no_retry'};
+    return {state:record.state};
   }
 }
