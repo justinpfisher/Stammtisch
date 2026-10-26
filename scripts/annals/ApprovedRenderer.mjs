@@ -8,6 +8,7 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { escapeHtml } from './PrivatePreview.mjs';
 import { displayDate, editorialHtml, recipeIntroduction, EDITORIAL_NOTICE, siteHeader, siteFooter } from './EditorialDisplay.mjs';
 import { emptyHistory, validateHistory } from './HistoryPublisher.mjs';
+import {validateEditorialManifest} from './EditorialPhotoManifest.mjs';
 
 const TYPES = Object.freeze({
   cocktail: 'The Cocktail Register',
@@ -265,7 +266,7 @@ function photoMarkup(entry,editorialManifest) {
     const sourcePath=asset,editorial=editorialManifest&&editorialManifest.images.find(row=>row.source===sourcePath);
     const displayAsset=editorial?editorial.asset:asset;
     const responsive=entry.photos&&Math.max(p.width,p.height)>=800&&!editorial;
-    const thumb=responsive?asset.replace(/\\.jpg$/,'-thumb.jpg'):asset;
+    const thumb=responsive?asset.replace(/\.jpg$/,'-thumb.jpg'):asset;
     const thumbWidth=responsive?Math.round(p.width*400/Math.max(p.width,p.height)):p.width;
     const image=editorial
       ? '<picture><source type="image/jpeg" srcset="'+escapeHtml(displayAsset)+'"><img src="'+escapeHtml(asset)+'" '+
@@ -352,11 +353,11 @@ export function buildApprovedAnnals(entries, receipts, secret) {
   return buildAnnals(entries, receipts, (entry, receipt) => verifyApproval(entry, receipt, secret));
 }
 
-export function buildPublishedAnnals(entries, approvals, secret, history = emptyHistory()) {
+export function buildPublishedAnnals(entries, approvals, secret, history = emptyHistory(), editorialManifest) {
   validateHistory(history);
-  return buildAnnals(entries, approvals, (entry, approval) => verifyPublicApproval(entry, approval, secret), history);
+  if(editorialManifest)validateEditorialManifest(editorialManifest,entries);
+  return buildAnnals(entries, approvals, (entry, approval) => verifyPublicApproval(entry, approval, secret), history, editorialManifest);
 }
-
 function buildAnnals(entries, receipts, verifyReceipt, history = emptyHistory(), editorialManifest) {
   if (!Array.isArray(entries) || !Array.isArray(receipts) || entries.length !== receipts.length ||
       entries.length > 10000) throw new Error('Invalid publication batch');
