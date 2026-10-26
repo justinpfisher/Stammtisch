@@ -1588,7 +1588,7 @@ function annalsDispatchEvent_(folder, eventType, clientPayload, markerName) {
   if (!token || (p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') || '').length < 32 ||
       p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') === p.getProperty('ANNALS_APPROVAL_KEY') ||
       !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo || '') ||
-      ['annals-approved-entry','annals-auto-entry','annals-correct-entry','annals-remove-entry','annals-history-revision','annals-col-rule-release','annals-col-rule-status','annals-col-candidate-v3','annals-col-activation-v3','annals-col-confirm-v3','annals-col-cancel-v3','annals-col-seal-v3'].indexOf(eventType) < 0 || annalsFile_(folder, markerName)) return false;
+      ['annals-approved-entry','annals-auto-entry','annals-correct-entry','annals-remove-entry','annals-history-revision','annals-col-rule-release','annals-col-rule-status','annals-col-candidate-v3','annals-col-activation-v3','annals-col-confirm-v3','annals-col-cancel-v3','annals-col-seal-v3','annals-editorial-photo-v1'].indexOf(eventType) < 0 || annalsFile_(folder, markerName)) return false;
   if(['annals-col-rule-release','annals-col-rule-status'].indexOf(eventType)>=0&&!annalsRulesReady_())return false;
   if(/^annals-col-(?:candidate|activation|confirm|cancel|seal)-v3$/.test(eventType)&&
     (typeof annalsRuleV3DispatchReady_!=='function'||!annalsRuleV3DispatchReady_(folder,eventType,clientPayload)))return false;
