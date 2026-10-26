@@ -89,7 +89,51 @@ var AnnalsCocktailEditorial = (function () {
       nonce:input.nonce,issuedAt:input.now.toISOString(),
       expiresAt:new Date(input.now.getTime()+120*60*1000).toISOString()};
   }
-  return Object.freeze({evaluate:evaluate,unsignedPermit:unsignedPermit,
+  var JOB_TOKEN=/^[0-9a-f]{32}$/;
+  function boundedVisualText(value,limit){
+    if(typeof value!=='string')return '';
+    var text=value.replace(/[\\u0000-\\u001f\\u007f]/g,' ')
+      .replace(/https?:\\/\\/\\S+|www\\.\\S+/gi,' ')
+      .replace(/\\s+/g,' ').trim();
+    if(text.length>limit||/\\b(?:ignore|override|system prompt|credential|password|policy)\\b/i.test(text))return '';
+    return text;
+  }
+  function photoJob(input){
+    if(!input||!ID.test(input.entryId||'')||!SHA.test(input.sourceSha256||'')||
+       !JOB_TOKEN.test(input.jobToken||'')||!Number.isInteger(input.photoIndex)||
+       input.photoIndex<0||input.photoIndex>2)
+      throw Error('Exact source-bound photo job required');
+    var ingredients=Array.isArray(input.ingredients)?input.ingredients.slice(0,12)
+      .map(function(v){return boundedVisualText(v,100)}).filter(Boolean):[];
+    return {schema:'annals-photo-job-v1',jobToken:input.jobToken,
+      entryId:input.entryId,sourceSha256:input.sourceSha256,photoIndex:input.photoIndex,
+      name:boundedVisualText(input.name,120),
+      description:boundedVisualText(input.description,400),
+      ingredients:ingredients,
+      keywords:boundedVisualText(input.keywords,160)};
+  }
+  var RESULT_QA=['sameGlass','sameDrinkAndGarnish','photorealisticSubject',
+    'plausibleStemOrBase','sceneAppropriate','noArtifactsOrPrivateDetails'];
+  function validatePhotoResult(result,job,authenticatedSender,now){
+    if(authenticatedSender!==true)throw Error('Authenticated worker sender required');
+    if(!result||!job||result.schema!=='annals-photo-result-v1'||
+       Object.keys(result).sort().join(',')!==
+       'alt,entryId,jobToken,qa,schema,sourceSha256,status')
+      throw Error('Invalid photo result contract');
+    if(result.jobToken!==job.jobToken||result.entryId!==job.entryId||
+       result.sourceSha256!==job.sourceSha256)throw Error('Photo result source mismatch');
+    if(result.status==='held')return {qualified:false,reason:'worker_held'};
+    if(result.status!=='qualified'||!result.qa||Array.isArray(result.qa)||
+       Object.keys(result.qa).sort().join(',')!==RESULT_QA.slice().sort().join(',')||
+       RESULT_QA.some(function(k){return result.qa[k]!==true}))
+      throw Error('Photo result did not pass every visual check');
+    if(typeof result.alt!=='string'||result.alt.length<20||result.alt.length>400||
+       !/^AI-stylized\\b/.test(result.alt)||/[\\u0000-\\u001f\\u007f]|https?:\\/\\//i.test(result.alt))
+      throw Error('Invalid editorial alt description');
+    if(!(now instanceof Date)||!Number.isFinite(now.getTime()))throw Error('Valid receipt time required');
+    return {qualified:true,receivedAt:now.toISOString(),alt:result.alt};
+  }
+  return Object.freeze({evaluate:evaluate,unsignedPermit:unsignedPermit,photoJob:photoJob,validatePhotoResult:validatePhotoResult,
     canonical:canonical,serial:serial,PERMIT_SCOPE:PERMIT_SCOPE,
     MEMBER_SCOPE:MEMBER_SCOPE});
 })();
