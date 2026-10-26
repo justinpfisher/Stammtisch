@@ -19,7 +19,7 @@ const fakeApprovalKey='fictional-private-approval-key-'+'a'.repeat(40);
 function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=false}={}){
  const signed={
   entry:{id:entryId,category:'cocktail',photo:{sha256:sourceSha,alt:'Fictional amber drink'}},
-  receipt:{consents:{photoPublication:true}},
+  receipt:{consents:{photoPublication:true},contentSha256:'f'.repeat(64)},
   publicationState:'dispatch_accepted',uncertaintiesReviewed:true
  };
  const submission={
@@ -341,10 +341,27 @@ function sourceJpeg(){
  bytes.set([255,216,255,218,0,2],0);bytes.set([255,217],bytes.length-2);
  return bytes;
 }
-test('readiness reserves and sends at most one exact source/style job after live rights checks',()=>{
- const f=fixture(),bytes=sourceJpeg(),digest=sha(bytes);
- f.signed.entry.photo.sha256=digest;f.events.photoBytes=bytes;
+function prepareLiveJobFixture(f,bytes){
+ const digest=sha(bytes);
+ delete f.signed.entry.photo;
+ f.signed.entry.photos=[{sha256:digest,width:600,height:900}];
+ f.events.photoBytes=bytes;
+ f.folder.files.set('auto-live-verification-private.json',
+   {state:'verified_live',contentSha256:f.signed.receipt.contentSha256});
  f.props.ANNALS_PHOTO_WORKER_EMAIL='worker@example.invalid';
+ return digest;
+}
+test('readiness refuses an accepted dispatch until source is positively live-reconciled',()=>{
+ const f=fixture(),bytes=sourceJpeg(),digest=sha(bytes);
+ delete f.signed.entry.photo;f.signed.entry.photos=[{sha256:digest,width:600,height:900}];
+ f.events.photoBytes=bytes;f.props.ANNALS_PHOTO_WORKER_EMAIL='worker@example.invalid';
+ const result=f.context.annalsIssueCocktailPhotoJob_(itemId,0);
+ assert.equal(result.state,'held');assert.equal(result.reason,'source_not_live_reconciled');
+ assert.equal(f.events.sends.length,0);
+ assert.equal([...f.folder.files.keys()].some(n=>n.indexOf('cocktail-photo-job-')===0),false);
+});
+test('readiness reserves and sends at most one exact source/style job after live rights checks',()=>{
+ const f=fixture(),bytes=sourceJpeg(),digest=prepareLiveJobFixture(f,sourceJpeg());
  const first=f.context.annalsIssueCocktailPhotoJob_(itemId,0);
  assert.equal(first.state,'sent_once');
  const names=[...f.folder.files.keys()].filter(n=>n.indexOf('cocktail-photo-job-')===0);
@@ -362,22 +379,18 @@ test('readiness reserves and sends at most one exact source/style job after live
  assert.equal(f.events.sends.length,1);
 });
 test('revoked rights and a changed screened source create no readiness message',()=>{
- const f=fixture(),bytes=sourceJpeg(),digest=sha(bytes);
- f.signed.entry.photo.sha256=digest;f.events.photoBytes=bytes;
- f.props.ANNALS_PHOTO_WORKER_EMAIL='worker@example.invalid';
+ const f=fixture(),bytes=sourceJpeg(),digest=prepareLiveJobFixture(f,sourceJpeg());
  f.member.cocktailEditorialTransformation.status='revoked';
  assert.throws(()=>f.context.annalsIssueCocktailPhotoJob_(itemId,0),/editorial_transformation_permission_not_current/);
  assert.equal(f.events.sends.length,0);
  f.member.cocktailEditorialTransformation.status='active';
- f.signed.entry.photo.sha256='e'.repeat(64);
+ f.signed.entry.photos[0].sha256='e'.repeat(64);
  const changed=f.context.annalsIssueCocktailPhotoJob_(itemId,0);
  assert.equal(changed.state,'held');assert.equal(changed.reason,'screened_source_unavailable');
  assert.equal(f.events.sends.length,0);
 });
 test('a failed readiness send is durably held and never retried',()=>{
- const f=fixture(),bytes=sourceJpeg(),digest=sha(bytes);
- f.signed.entry.photo.sha256=digest;f.events.photoBytes=bytes;
- f.props.ANNALS_PHOTO_WORKER_EMAIL='worker@example.invalid';f.events.failMail=true;
+ const f=fixture(),bytes=sourceJpeg(),digest=prepareLiveJobFixture(f,sourceJpeg());f.events.failMail=true;
  assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'unknown_no_retry');
  const record=[...f.folder.files.entries()].find(([name])=>name.indexOf('cocktail-photo-job-')===0)[1];
  assert.equal(record.state,'unknown_no_retry');assert.equal(record.sendOutcome,'unknown_no_retry');
