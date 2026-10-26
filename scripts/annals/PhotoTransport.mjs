@@ -56,7 +56,7 @@ export async function fetchEditorialBlob(ref,{fetchImpl=fetch}={}){
     redirect:'error',signal:AbortSignal.timeout(15000)});
   if(response.status!==200||response.redirected||!response.body)throw Error('Editorial blob unavailable');
   const length=response.headers.get('content-length');
-  if(length!==null&&(!/^\\d+$/.test(length)||Number(length)!==ref.size)){
+  if(length!==null&&(!/^\d+$/.test(length)||Number(length)!==ref.size)){
     await response.body.cancel();throw Error('Editorial response size mismatch');
   }
   const reader=response.body.getReader(),chunks=[];let size=0;
