@@ -682,6 +682,11 @@ test('held worker results and stale accepted dispatches send one generic private
  assert.equal(f.context.annalsNotifyCocktailPhotoOwner_(f.folder,itemId,token,
   'publisher_dispatch_unverified'),false);
  assert.equal(f.events.sends.length,2);
+ f.events.failMail=true;
+ const failedToken='b'.repeat(32);
+ assert.equal(f.context.annalsNotifyCocktailPhotoOwner_(f.folder,itemId,failedToken,'photo_result_held'),true);
+ assert.equal(f.context.annalsNotifyCocktailPhotoOwner_(f.folder,itemId,failedToken,'photo_result_held'),false);
+ assert.equal(f.events.sends.length,3,'uncertain owner notice send is not retried');
 });
 
 test('photo readback is called on both idle and busy intake passes',()=>{
