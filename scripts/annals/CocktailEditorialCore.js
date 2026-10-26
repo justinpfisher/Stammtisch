@@ -116,14 +116,21 @@ var AnnalsCocktailEditorial = (function () {
     'plausibleStemOrBase','sceneAppropriate','noArtifactsOrPrivateDetails'];
   function validatePhotoResult(result,job,authenticatedSender,now){
     if(authenticatedSender!==true)throw Error('Authenticated worker sender required');
-    if(!result||!job||result.schema!=='annals-photo-result-v1'||
-       Object.keys(result).sort().join(',')!==
-       'alt,entryId,jobToken,qa,schema,sourceSha256,status')
+    if(!result||!job||result.schema!=='annals-photo-result-v1')
       throw Error('Invalid photo result contract');
     if(result.jobToken!==job.jobToken||result.entryId!==job.entryId||
        result.sourceSha256!==job.sourceSha256)throw Error('Photo result source mismatch');
-    if(result.status==='held')return {qualified:false,reason:'worker_held'};
-    if(result.status!=='qualified'||!result.qa||Array.isArray(result.qa)||
+    if(result.status==='held'){
+      if(Object.keys(result).sort().join(',')!==
+         'entryId,jobToken,reasonCode,schema,sourceSha256,status'||
+         ['source_unreadable','identity_uncertain','edit_failed',
+          'visual_qa_failed','attachment_unavailable'].indexOf(result.reasonCode)<0)
+        throw Error('Invalid held photo result');
+      return {qualified:false,reason:result.reasonCode};
+    }
+    if(Object.keys(result).sort().join(',')!==
+       'alt,entryId,jobToken,qa,schema,sourceSha256,status'||
+       result.status!=='qualified'||!result.qa||Array.isArray(result.qa)||
        Object.keys(result.qa).sort().join(',')!==RESULT_QA.slice().sort().join(',')||
        RESULT_QA.some(function(k){return result.qa[k]!==true}))
       throw Error('Photo result did not pass every visual check');
