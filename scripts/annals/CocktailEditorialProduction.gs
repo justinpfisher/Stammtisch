@@ -583,7 +583,7 @@ function annalsVerifyCocktailEditorialResults_(limit){
     if(!/^[a-f0-9]{64}$/.test(itemId))continue;
     var files=folder.getFiles(),scanned=0;
     while(files.hasNext()&&scanned++<40&&verified<Math.max(1,limit||1)){
-      var file=files.next(),match=/^cocktail-photo-result-([a-f0-9]{32})-private\\.json$/.exec(file.getName());
+      var file=files.next(),match=/^cocktail-photo-result-([a-f0-9]{32})-private\.json$/.exec(file.getName());
       if(match&&annalsVerifyCocktailEditorialResult_(folder,itemId,match[1]))verified++;
     }
   }
