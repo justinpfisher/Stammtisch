@@ -259,13 +259,13 @@ function annalsIssueCocktailPhotoJob_(itemId,photoIndex){
     file.setContent(JSON.stringify(record));
     rootIndex.state=record.state;rootIndex.failedAt=record.failedAt;
     annalsSavePrivate_(root,indexName,rootIndex);
+    annalsNotifyCocktailPhotoOwner_(context.folder,itemId,token,'photo_result_held');
     return {state:record.state};
   }
 }
 
-/** Consume one authenticated worker result into private storage only.
- * This handler never dispatches publication; a later, distinct publisher gate
- * must consume only the fully verified private result record. */
+/** Consume one authenticated worker result privately, then hand a fully
+ * verified qualified result to the existing signed publisher when enabled. */
 function annalsHandleCocktailPhotoResult_(message){
   var subject='';
   try{subject=String(message.getSubject()||'');}catch(ignored){return null;}
