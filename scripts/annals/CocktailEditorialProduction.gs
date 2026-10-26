@@ -196,10 +196,13 @@ function annalsIssueCocktailPhotoJob_(itemId,photoIndex){
     source=annalsRead_(context.folder,'source-private.json'),
     saved=annalsRead_(context.folder,'approval-private.json'),
     entry=saved&&saved.entry;
-  if(!entry||entry.category!=='cocktail'||entry.id!==context.entryId||
+  var live=annalsRead_(context.folder,'auto-live-verification-private.json');
+  if(!live||live.state!=='verified_live'||live.contentSha256!==saved.receipt.contentSha256)
+    return {state:'held',reason:'source_not_live_reconciled'};
+  if(!entry||entry.category!=='cocktail'||entry.id!==context.entryId||!Array.isArray(entry.photos)||
      !saved.receipt.consents||saved.receipt.consents.photoPublication!==true)
     return {state:'held',reason:'source_not_eligible'};
-  var photos=entry.photos||(entry.photo?[entry.photo]:[]),photo=photos[photoIndex];
+  var photos=entry.photos,photo=photos[photoIndex];
   if(!photo||photo.sha256!==context.sourceSha256)return {state:'held',reason:'source_changed'};
   var set=annalsPhotoSet_(itemId,source,false),image=set.filter(function(x){return x.sha256===photo.sha256})[0];
   if(!image||typeof image.base64!=='string')return {state:'held',reason:'screened_source_unavailable'};
