@@ -397,7 +397,6 @@ function annalsEditorialSourceAlreadyQualified_(sourcePath){
  * existing HMAC-protected repository-dispatch publisher. */
 function annalsPublishCocktailEditorialResult_(itemId,token){
   var folder=annalsFolder_(itemId),resultName='cocktail-photo-result-'+token+'-private.json',
-    jobFilename='cocktail-photo-job-'+(annalsRead_(folder,'cocktail-photo-job-'+token+'-private.json')||{}).sourceSha256+'-cocktail-cinematic-photoreal-v1-private.json',
     root=annalsRoot_(),indexName='cocktail-photo-job-token-'+token+'-private.json',
     index=annalsRead_(root,indexName),result=annalsRead_(folder,resultName),
     consume=annalsRead_(folder,'cocktail-photo-consume-'+token+'-private.json'),
