@@ -241,7 +241,11 @@ test('existing historical private source reservations still block duplicate atte
 test('issuer source never lists private properties or sends paid provider requests',()=>{
  assert.doesNotMatch(moduleSource,/getProperties\s*\(/);
  assert.doesNotMatch(moduleSource,/console\.(?:log|warn|error)\s*\(/);
- assert.equal((moduleSource.match(/UrlFetchApp\.fetch\s*\(/g)||[]).length,1);
+ assert.equal((moduleSource.match(/https:\/\/api\.openai\.com\/v1\/models/g)||[]).length,1,
+  'only the non-billed model metadata lookup is present');
+ assert.match(moduleSource,/raw\.githubusercontent\.com\/justinpfisher\/Stammtisch\/main\/data\/annals-editorial-photos\.json/);
+ assert.match(moduleSource,/stammtischbrewery\.com\/data\/annals-editorial-photos\.json/);
+ assert.doesNotMatch(moduleSource,/api\.openai\.com\/v1\/(?:images|responses|chat\/completions)/);
  assert.doesNotMatch(moduleSource,/(?:setProperty|deleteProperty)\s*\(/);
  assert.match(moduleSource,/ANNALS_EDITORIAL_SECURITY_RECOVERY_VERIFIED/);
  assert.match(moduleSource,/ANNALS_EDITORIAL_PERMIT_SIGNING_KEY/);
