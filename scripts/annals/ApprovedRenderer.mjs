@@ -8,6 +8,7 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { escapeHtml } from './PrivatePreview.mjs';
 import { displayDate, editorialHtml, recipeIntroduction, EDITORIAL_NOTICE, siteHeader, siteFooter } from './EditorialDisplay.mjs';
 import { emptyHistory, validateHistory } from './HistoryPublisher.mjs';
+import {validateEditorialManifest} from './EditorialPhotoManifest.mjs';
 
 const TYPES = Object.freeze({
   cocktail: 'The Cocktail Register',
@@ -259,16 +260,23 @@ function contributorCreditMarkup(credit) {
   return '<p class="annal-credit">' + portrait + '<span>Recorded by ' + editorialHtml(credit) + '</span></p>';
 }
 
-function photoMarkup(entry) {
+function photoMarkup(entry,editorialManifest) {
   return Photos.photos(entry).length ? '<div class="annal-gallery">' + Photos.photos(entry).map((p,i) => {
     const asset = 'assets/annals/' + (entry.photos ? p.sha256 : entry.id) + '.jpg';
-    const responsive=entry.photos&&Math.max(p.width,p.height)>=800;
+    const sourcePath=asset,editorial=editorialManifest&&editorialManifest.images.find(row=>row.source===sourcePath);
+    const displayAsset=editorial?editorial.asset:asset;
+    const responsive=entry.photos&&Math.max(p.width,p.height)>=800&&!editorial;
     const thumb=responsive?asset.replace(/\.jpg$/,'-thumb.jpg'):asset;
     const thumbWidth=responsive?Math.round(p.width*400/Math.max(p.width,p.height)):p.width;
-    return '<figure><a data-photo-view data-photo-sha256="'+p.sha256+'" href="'+asset+'"><img src="'+thumb+'" '+(responsive?'srcset="'+thumb+' '+thumbWidth+'w, '+asset+' '+p.width+'w" sizes="(max-width: 560px) 90vw, (max-width: 900px) 45vw, 360px" ':'')+(p.width ? 'width="'+p.width+'" height="'+p.height+'" ' : '')+'alt="'+escapeHtml(p.alt)+'" loading="lazy" decoding="async"></a>'+(p.caption ? '<figcaption>'+editorialHtml(p.caption)+'</figcaption>' : '')+'</figure>';
+    const image=editorial
+      ? '<picture><source type="image/jpeg" srcset="'+escapeHtml(displayAsset)+'"><img src="'+escapeHtml(asset)+'" '+
+        (p.width ? 'width="'+p.width+'" height="'+p.height+'" ' : '')+'alt="'+escapeHtml(editorial.alt)+'" loading="lazy" decoding="async"></picture>'
+      : '<img src="'+thumb+'" '+(responsive?'srcset="'+thumb+' '+thumbWidth+'w, '+asset+' '+p.width+'w" sizes="(max-width: 560px) 90vw, (max-width: 900px) 45vw, 360px" ':'')+
+        (p.width ? 'width="'+p.width+'" height="'+p.height+'" ' : '')+'alt="'+escapeHtml(p.alt)+'" loading="lazy" decoding="async">';
+    return '<figure><a data-photo-view data-photo-sha256="'+p.sha256+'" href="'+asset+'">'+image+'</a>'+(p.caption ? '<figcaption>'+editorialHtml(p.caption)+'</figcaption>' : '')+'</figure>';
   }).join('') + '</div>' : '';
 }
-function approvedEntryMarkup(entry) {
+function approvedEntryMarkup(entry,editorialManifest) {
   const esc = escapeHtml, text = editorialHtml;
   const introduction = recipeIntroduction(entry);
   const section = (label, items) => items.length
@@ -334,7 +342,7 @@ function approvedEntryMarkup(entry) {
     '</div><a class="annal-permalink" href="#' + esc(entry.id) +
     '" aria-label="Direct link to ' + esc(entry.title) + '">↗</a></header>' +
     (entry.category === 'quotation' ? quoteCard
-      : '<div class="annal-overview">' + introductionMarkup + photoMarkup(entry) + '</div>') +
+      : '<div class="annal-overview">' + introductionMarkup + photoMarkup(entry,editorialManifest) + '</div>') +
     recipe +
     '<footer class="annal-entry-foot">' + (contributor || '<span>Stammtisch Social Club</span>') +
     '<a class="annal-entry-link" href="#' + esc(entry.id) + '">Link to entry ↗</a></footer>' +
@@ -345,12 +353,12 @@ export function buildApprovedAnnals(entries, receipts, secret) {
   return buildAnnals(entries, receipts, (entry, receipt) => verifyApproval(entry, receipt, secret));
 }
 
-export function buildPublishedAnnals(entries, approvals, secret, history = emptyHistory()) {
+export function buildPublishedAnnals(entries, approvals, secret, history = emptyHistory(), editorialManifest) {
   validateHistory(history);
-  return buildAnnals(entries, approvals, (entry, approval) => verifyPublicApproval(entry, approval, secret), history);
+  if(editorialManifest)validateEditorialManifest(editorialManifest,entries);
+  return buildAnnals(entries, approvals, (entry, approval) => verifyPublicApproval(entry, approval, secret), history, editorialManifest);
 }
-
-function buildAnnals(entries, receipts, verifyReceipt, history = emptyHistory()) {
+function buildAnnals(entries, receipts, verifyReceipt, history = emptyHistory(), editorialManifest) {
   if (!Array.isArray(entries) || !Array.isArray(receipts) || entries.length !== receipts.length ||
       entries.length > 10000) throw new Error('Invalid publication batch');
   const ids = new Set();
@@ -407,7 +415,7 @@ function buildAnnals(entries, receipts, verifyReceipt, history = emptyHistory())
       ' · Newest first</p></div></div>' : '';
   const stream = accepted.length
     ? '<section class="annal-stream" id="annals-entries" aria-label="Published contributions">' +
-      accepted.map(approvedEntryMarkup).join('') + '</section>' : '';
+      accepted.map(item=>approvedEntryMarkup(item,editorialManifest)).join('') + '</section>' : '';
   const emptyState = accepted.length === 0 && !history.chapters.length
     ? '<p class="annal-empty">The record awaits an approved contribution.</p>' : '';
   const html = `<!doctype html>

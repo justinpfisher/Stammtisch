@@ -3,6 +3,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, createHmac } from 'node:crypto';
 import { applyApprovedEntry } from '../scripts/annals/apply-approved-entry.mjs';
+import { gitBlobHash,fetchEditorialBlob } from '../scripts/annals/PhotoTransport.mjs';
+import Jpeg from '../scripts/annals/JpegCodec.js';
+import { validateEditorialManifest } from '../scripts/annals/EditorialPhotoManifest.mjs';
 import { contentDigest, verifyPublicApproval } from '../scripts/annals/ApprovedRenderer.mjs';
 import { readFile } from 'node:fs/promises';
 
@@ -82,7 +85,7 @@ test('preserves prior approved entries and rejects forged or missing approval si
 
 test('publisher workflow is reachable only through the dedicated repository dispatch and writes only Annals files', async () => {
   const workflow = await readFile(new URL('../.github/workflows/annals-publish.yml', import.meta.url), 'utf8');
-  assert.match(workflow, /repository_dispatch:\s*\n\s*types:\s*\[annals-approved-entry, annals-auto-entry, annals-correct-entry, annals-remove-entry\]/);
+  assert.match(workflow,/annals-editorial-photo-v1/);
   assert.match(workflow, /permissions:\s*\n\s*contents:\s*write/);
   assert.doesNotMatch(workflow, /actions:\s*write|workflow_dispatch|pull_request|schedule:/);
   assert.match(workflow, /git add -A -- annals\.html data\/annals-approved\.json data\/annals-editorial-photos\.json data\/photos assets/);
@@ -98,6 +101,34 @@ test('signed correction replaces only the exact existing entry and preserves the
   assert.equal(result.data.approvals[0].signature,correctionApproval.signature);assert.match(result.html,/Corrected public entry/);
   await assert.rejects(applyApprovedEntry({event,data:emptyArchive(),secret}));
   await assert.rejects(applyApprovedEntry({event:{...event,client_payload:{...event.client_payload,entry:{...corrected,title:'Altered after approval'}}},data:{schemaVersion:1,entries:[previous],approvals:[previousApproval]},secret}));
+});
+
+test('signed correction removes a legacy source photo and prunes its editorial row before rendering',async()=>{
+  const legacy={...entry,id:'annal-cccccccccccccccccccccccc',title:'Legacy photo entry',
+    photo:{sha256:'d'.repeat(64),alt:'Original fictional photo'}};
+  const priorUnsigned={entryId:legacy.id,approvedAt:'2026-10-09T12:00:00.000Z',
+    consents:{publication:true,quotePublication:false,recipeVerified:true,namedAttribution:false,photoPublication:true},
+    contentSha256:contentDigest(legacy)};
+  const priorApproval={...priorUnsigned,signature:createHmac('sha256',secret)
+    .update(JSON.stringify(canonical({entry:legacy,approval:priorUnsigned}))).digest('hex')};
+  const corrected={...legacy,title:'Corrected legacy text',summary:'Correction removes the old photo.'};
+  delete corrected.photo;
+  const correctionApproval=makeApproval(corrected,'2026-10-09T12:00:01.000Z');
+  const bytes=editorialJpeg(),row={...editorialRow(legacy.photo.sha256,bytes),
+    source:'assets/annals/'+legacy.id+'.jpg',
+    asset:'assets/annals/'+legacy.id+'-editorial-v2.jpg'};
+  const manifest={schemaVersion:1,artDirection:'moody-atmospheric-v2',images:[row]};
+  const result=await applyApprovedEntry({
+    event:{action:'annals-correct-entry',client_payload:{entry:corrected,approval:correctionApproval}},
+    data:{schemaVersion:1,entries:[legacy],approvals:[priorApproval]},secret,
+    editorialManifest:manifest
+  });
+  assert.equal(result.data.entries[0].title,'Corrected legacy text');
+  assert.equal(result.data.entries[0].photo,undefined);
+  assert.match(result.html,/Corrected legacy text/);
+  assert.doesNotMatch(result.html,/AI-stylized amber cocktail/);
+  assert.ok(result.assetsToDelete.some(x=>x.path===row.asset));
+  assert.ok(result.assetsToDelete.some(x=>x.path==='assets/annals/'+legacy.id+'.jpg'));
 });
 
 test('signed removal deletes only the requested currently approved entry', async () => {
@@ -123,4 +154,84 @@ test('a consented exact cocktail photo is digest-checked and staged only after s
   const unsignedMetadata={...unsigned,entryId:metadataEntry.id,contentSha256:contentDigest(metadataEntry)};
   const metadataApproval={...unsignedMetadata,signature:createHmac('sha256',secret).update(JSON.stringify(canonical({entry:metadataEntry,approval:unsignedMetadata}))).digest('hex')};
   await assert.rejects(applyApprovedEntry({event:{action:'annals-approved-entry',client_payload:{entry:metadataEntry,approval:metadataApproval,imageBase64:metadataImage.toString('base64')}},data:emptyArchive(),secret}));
+});
+
+const editorialJpeg=()=>{
+  const width=480,height=480,data=Buffer.alloc(width*height*4);
+  for(let i=0;i<width*height;i++){
+    const x=i%width,y=Math.floor(i/width),p=i*4;
+    data[p]=Math.floor(x*255/width);data[p+1]=Math.floor(y*255/height);data[p+2]=128;data[p+3]=255;
+  }
+  const encoded=Jpeg.encode({width,height,data},50).data;
+  return Buffer.from(Media.sanitize(Buffer.from(encoded)).bytes);
+};
+const editorialEvent=(photo,bytes,issuedAt,overrides={})=>{
+  const blob={gitSha:gitBlobHash(bytes),size:bytes.length};
+  const unsigned={operation:'editorial-photo-v1',photo,blob,issuedAt};
+  const signature=createHmac('sha256',secret).update(JSON.stringify(canonical(unsigned))).digest('hex');
+  return {action:'annals-editorial-photo-v1',client_payload:{photo,blob,issuedAt,signature,...overrides}};
+};
+const photoArchive=()=>{
+  const sourceSha='b'.repeat(64);
+  const source={...entry,photos:[{sha256:sourceSha,alt:'Original textured glass',width:600,height:900}]};
+  const unsigned={entryId:source.id,approvedAt:'2026-10-26T11:00:00.000Z',
+    consents:{publication:true,quotePublication:false,recipeVerified:true,namedAttribution:false,photoPublication:true},
+    contentSha256:contentDigest(source)};
+  const approval={...unsigned,signature:createHmac('sha256',secret)
+    .update(JSON.stringify(canonical({entry:source,approval:unsigned}))).digest('hex')};
+  return {source,data:{schemaVersion:1,entries:[source],approvals:[approval]},sourceSha};
+};
+const editorialRow=(sourceSha,bytes,now='2026-10-26T12:00:00.000Z')=>({
+  source:'assets/annals/'+sourceSha+'.jpg',sourceSha256:sourceSha,
+  asset:'assets/annals/'+sourceSha+'-editorial-v2.jpg',
+  editorialSha256:createHash('sha256').update(bytes).digest('hex'),
+  width:480,height:480,alt:'AI-stylized amber cocktail in its original textured glass',
+  artDirection:'moody-atmospheric-v2',status:'qualified',rightsQualified:true,
+  safetyQualified:true,visualQualified:true,generationProvider:'openai-chatgpt',
+  generationModel:'undisclosed',generationOperation:'image-edit',
+  reviewMethod:'ai-visual-assessment',generatedAt:now,reviewedAt:now
+});
+test('editorial Git blob transport verifies the exact bounded JPEG bytes',async()=>{
+  const bytes=editorialJpeg(),ref={gitSha:gitBlobHash(bytes),size:bytes.length,
+    sha256:createHash('sha256').update(bytes).digest('hex'),width:480,height:480};
+  const fetchImpl=async()=>new Response(bytes,{status:200,headers:{'content-length':String(bytes.length)}});
+  assert.deepEqual(await fetchEditorialBlob(ref,{fetchImpl}),bytes);
+  await assert.rejects(fetchEditorialBlob({...ref,sha256:'e'.repeat(64)},{fetchImpl}),/digest/i);
+  await assert.rejects(fetchEditorialBlob({...ref,size:5*1024*1024+1},{fetchImpl}),/Invalid bounded/);
+});
+test('signed editorial event updates only the derivative and matching manifest row',async()=>{
+  const {data,sourceSha}=photoArchive(),bytes=editorialJpeg(),now=new Date('2026-10-26T12:01:00.000Z');
+  const photo=editorialRow(sourceSha,bytes),event=editorialEvent(photo,bytes,now.toISOString());
+  const originalManifest={schemaVersion:1,artDirection:'moody-atmospheric-v2',images:[]};
+  const result=await applyApprovedEntry({event,data,secret,now,photosEnabled:true,blobTransportEnabled:true,
+    editorialManifest:originalManifest,fetchEditorialBytes:async ref=>{
+      assert.equal(ref.sha256,photo.editorialSha256);assert.equal(ref.width,480);return bytes;
+    }});
+  assert.deepEqual(result.data,data);
+  assert.equal(result.assetsToWrite.length,1);assert.equal(result.assetsToWrite[0].path,photo.asset);
+  assert.deepEqual(result.assetsToWrite[0].bytes,bytes);assert.deepEqual(result.assetsToDelete,[]);
+  assert.deepEqual(result.editorialManifest.images,[photo]);
+  validateEditorialManifest(result.editorialManifest,data.entries);
+  assert.ok(result.html.includes('srcset="'+photo.asset+'"'));
+  assert.ok(result.html.includes('href="'+photo.source+'"'));
+  assert.ok(result.html.includes('src="'+photo.source+'"'));
+  assert.ok(result.html.includes('alt="'+photo.alt+'"'));
+});
+test('editorial publisher rejects tampering, stale events, wrong sources and duplicate rows',async()=>{
+  const {data,sourceSha}=photoArchive(),bytes=editorialJpeg(),now=new Date('2026-10-26T12:01:00.000Z');
+  const photo=editorialRow(sourceSha,bytes),manifest={schemaVersion:1,artDirection:'moody-atmospheric-v2',images:[]};
+  const base={data,secret,now,photosEnabled:true,blobTransportEnabled:true,editorialManifest:manifest,
+    fetchEditorialBytes:async()=>bytes};
+  const event=editorialEvent(photo,bytes,now.toISOString());
+  await assert.rejects(applyApprovedEntry({...base,event:{...event,client_payload:{...event.client_payload,signature:'0'.repeat(64)}}}),/signature/i);
+  await assert.rejects(applyApprovedEntry({...base,event:editorialEvent(photo,bytes,'2026-10-26T11:00:00.000Z')}),/Stale/i);
+  await assert.rejects(applyApprovedEntry({...base,event:editorialEvent({...photo,sourceSha256:'c'.repeat(64)},bytes,now.toISOString())}));
+  await assert.rejects(applyApprovedEntry({...base,event,photosEnabled:false}),/disabled/i);
+  await assert.rejects(applyApprovedEntry({...base,event,blobTransportEnabled:false}),/disabled/i);
+  await assert.rejects(applyApprovedEntry({...base,event:{...event,client_payload:{...event.client_payload,unexpected:true}}}),/payload/i);
+  await assert.rejects(applyApprovedEntry({...base,event,editorialManifest:{...manifest,images:[photo]}}),/already exists/i);
+  await assert.rejects(applyApprovedEntry({...base,event,fetchEditorialBytes:async()=>Buffer.from('not jpeg')}));
+  const withMetadata=Buffer.concat([bytes.subarray(0,2),Buffer.from([0xff,0xe1,0x00,0x04,0x01,0x02]),bytes.subarray(2)]);
+  const metadataEvent=editorialEvent(photo,bytes,now.toISOString());
+  await assert.rejects(applyApprovedEntry({...base,event:metadataEvent,fetchEditorialBytes:async()=>withMetadata}));
 });

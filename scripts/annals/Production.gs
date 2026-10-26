@@ -681,7 +681,7 @@ function annalsRecordStagingException_(messageId) {
  * A saved thread/message position is resumed on the next run, then wraps.
  */
 function runAnnalsProductionIntake() {
-  var p = annalsProps_(), summary = { enabled: false, staged: 0, held: 0, duplicates: 0, skipped: 0, unverified: 0, awaiting_consent: 0, consent_activated: 0, consent_revoked: 0, auto_consent_activated: 0, auto_consent_revoked: 0, quote_attribution_revoked: 0, portrait_hidden: 0, portrait_enabled: 0, image_consent_activated: 0, image_consent_revoked: 0, staging_errors: 0, drafted: 0, verified: 0 };
+  var p = annalsProps_(), summary = { enabled: false, photo_results:0, photo_live_verified:0, staged: 0, held: 0, duplicates: 0, skipped: 0, unverified: 0, awaiting_consent: 0, consent_activated: 0, consent_revoked: 0, auto_consent_activated: 0, auto_consent_revoked: 0, quote_attribution_revoked: 0, portrait_hidden: 0, portrait_enabled: 0, image_consent_activated: 0, image_consent_revoked: 0, staging_errors: 0, drafted: 0, verified: 0 };
   if (p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED') !== 'true') return summary;
   try {
     return annalsLocked_(function () {
@@ -713,6 +713,14 @@ function runAnnalsProductionIntake() {
         if (typeof messageId!=='string' || !messageId) { summary.staging_errors++; return; }
         if (Object.prototype.hasOwnProperty.call(seenInRun,messageId)) return;
         seenInRun[messageId]=true;
+        var photoOutcome=null;
+        try{if(typeof annalsHandleCocktailPhotoResult_==='function')photoOutcome=annalsHandleCocktailPhotoResult_(message);}
+        catch(ignored){photoOutcome='photo_result_held';}
+        if(photoOutcome!==null){
+          summary.photo_results++;
+          if(photoOutcome==='photo_result_held')summary.held++;
+          return;
+        }
         var outcome;
         try { outcome=annalsStageProduction_(message,activation,allowed); }
         catch (ignored) {
@@ -748,6 +756,7 @@ function runAnnalsProductionIntake() {
         processRecentRule();
         summary.drafted = annalsResumeConsentedDrafts_(2);
         summary.verified = annalsVerifyAutomaticPublications_(3);
+        if(typeof annalsVerifyCocktailEditorialResults_==='function')summary.photo_live_verified=annalsVerifyCocktailEditorialResults_(2);
         console.log(JSON.stringify(summary));
         return summary;
       }
@@ -763,6 +772,7 @@ function runAnnalsProductionIntake() {
       processRecentRule();
       summary.drafted = annalsResumeConsentedDrafts_(2);
       summary.verified = annalsVerifyAutomaticPublications_(3);
+      if(typeof annalsVerifyCocktailEditorialResults_==='function')summary.photo_live_verified=annalsVerifyCocktailEditorialResults_(2);
       console.log(JSON.stringify(summary)); return summary;
     });
   } catch (e) { throw new Error('Private intake stopped; review account configuration privately'); }
@@ -1521,6 +1531,17 @@ function annalsApproveReview(nonce, id, expectedHash, consents, evidenceNote, un
     return { approved: true, dispatchAccepted: sent, published: false };
   }); });
 }
+function annalsQueueCocktailPhotoJobs_(folder,entry){
+  var saved=annalsRead_(folder,'approval-private.json'),
+    live=annalsRead_(folder,'auto-live-verification-private.json');
+  if(!entry||entry.category!=='cocktail'||!Array.isArray(entry.photos)||
+     typeof annalsIssueCocktailPhotoJob_!=='function'||!saved||!saved.receipt||
+     !live||live.state!=='verified_live'||live.contentSha256!==saved.receipt.contentSha256||
+     AnnalsProduction.serial(saved.entry)!==AnnalsProduction.serial(entry))return;
+  for(var i=0;i<entry.photos.length;i++){
+    try{annalsIssueCocktailPhotoJob_(folder.getName(),i);}catch(ignored){}
+  }
+}
 function annalsPublicApproval_(entry, receipt, key) {
   if (key.length < 32 || key === (annalsProps_().getProperty('ANNALS_APPROVAL_KEY') || '')) return null;
   var proof = { entryId: entry.id, approvedAt: receipt.approvedAt, consents: receipt.consents, contentSha256: receipt.contentSha256 };
@@ -1569,7 +1590,7 @@ function annalsDispatchEvent_(folder, eventType, clientPayload, markerName) {
   if (!token || (p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') || '').length < 32 ||
       p.getProperty('ANNALS_PUBLISH_SIGNING_KEY') === p.getProperty('ANNALS_APPROVAL_KEY') ||
       !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo || '') ||
-      ['annals-approved-entry','annals-auto-entry','annals-correct-entry','annals-remove-entry','annals-history-revision','annals-col-rule-release','annals-col-rule-status','annals-col-candidate-v3','annals-col-activation-v3','annals-col-confirm-v3','annals-col-cancel-v3','annals-col-seal-v3'].indexOf(eventType) < 0 || annalsFile_(folder, markerName)) return false;
+      ['annals-approved-entry','annals-auto-entry','annals-correct-entry','annals-remove-entry','annals-history-revision','annals-col-rule-release','annals-col-rule-status','annals-col-candidate-v3','annals-col-activation-v3','annals-col-confirm-v3','annals-col-cancel-v3','annals-col-seal-v3','annals-editorial-photo-v1'].indexOf(eventType) < 0 || annalsFile_(folder, markerName)) return false;
   if(['annals-col-rule-release','annals-col-rule-status'].indexOf(eventType)>=0&&!annalsRulesReady_())return false;
   if(/^annals-col-(?:candidate|activation|confirm|cancel|seal)-v3$/.test(eventType)&&
     (typeof annalsRuleV3DispatchReady_!=='function'||!annalsRuleV3DispatchReady_(folder,eventType,clientPayload)))return false;
@@ -2113,7 +2134,21 @@ function annalsVerifyAutomaticPublications_(limit) {
       if(typeof annalsVerifyGalleryCorrection_==='function'&&annalsVerifyGalleryCorrection_(folder,id))verified++;
       continue;
     }
-    if(annalsFile_(folder,'auto-live-verification-private.json'))continue;
+    var livePhotoMarker=annalsRead_(folder,'auto-live-verification-private.json');
+    if(livePhotoMarker){
+      // Revisit only not-yet-reserved photo jobs. A pre-reservation transient
+      // check can recover on a later pass; existing per-source reservations
+      // make sent, failed, or uncertain attempts strictly no-retry.
+      var livePhotoSaved=annalsRead_(folder,'approval-private.json');
+      if(livePhotoMarker.state==='verified_live'&&livePhotoSaved&&livePhotoSaved.entry&&
+         livePhotoSaved.receipt&&livePhotoMarker.contentSha256===livePhotoSaved.receipt.contentSha256&&
+         livePhotoSaved.entry.category==='cocktail'&&livePhotoSaved.entry.photos&&
+         livePhotoSaved.receipt.consents&&livePhotoSaved.receipt.consents.photoPublication===true&&
+         typeof annalsQueueCocktailPhotoJobs_==='function'){
+        try{annalsQueueCocktailPhotoJobs_(folder,livePhotoSaved.entry);}catch(ignored){}
+      }
+      continue;
+    }
     var saved = annalsRead_(folder, 'approval-private.json');
     if (!saved || [AnnalsAuto.MODE,AnnalsAuto.OPEN_MODE,AnnalsAuto.QUOTE_MODE,AnnalsMediaPolicy.MODE,'standing-consent-photos-v2'].indexOf(saved.approvalMode) < 0 || saved.publicationState !== 'dispatch_accepted') continue;
     // A queued/failed Pages run must not remain invisible indefinitely.
@@ -2149,6 +2184,8 @@ function annalsVerifyAutomaticPublications_(limit) {
       if(entry.photos&&!annalsVerifyPhotoAssets_(entry,archive,query))continue;
       annalsWriteOnce_(folder, 'auto-live-verification-private.json', {
         state: 'verified_live', contentSha256: saved.receipt.contentSha256, verifiedAt: new Date().toISOString() });
+      if(entry.category==='cocktail'&&entry.photos)
+        annalsQueueCocktailPhotoJobs_(folder,entry);
       verified++;
       // One delivery attempt only: never repeat mail on uncertain outcomes.
       var source = annalsRead_(folder, 'source-private.json');

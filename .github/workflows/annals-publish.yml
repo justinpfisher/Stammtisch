@@ -2,7 +2,7 @@ name: Publish signed and consented Annals entry
 
 on:
   repository_dispatch:
-    types: [annals-approved-entry, annals-auto-entry, annals-correct-entry, annals-remove-entry]
+    types: [annals-approved-entry, annals-auto-entry, annals-correct-entry, annals-remove-entry, annals-editorial-photo-v1]
 
 permissions:
   contents: write
