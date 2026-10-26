@@ -409,7 +409,7 @@ function annalsPublishCocktailEditorialResult_(itemId,token){
      !props.getProperty('ANNALS_GITHUB_TOKEN')||
      !annalsPublisherDispatchReady_()||annalsFile_(folder,'quarantine-private.json')||
      annalsFile_(folder,'removal-private.json')||
-     annalsFile_(folder,'editorial-photo-dispatch-private.json'))return false;
+     annalsFile_(folder,'editorial-photo-dispatch-'+token+'-private.json'))return false;
   var record=annalsRead_(folder,index.jobFilename),job=record&&record.job;
   if(!record||record.state!=='result_received_private'||!job||job.jobToken!==token||
      record.expiresAt!==index.expiresAt||Date.parse(record.expiresAt)<=now.getTime()||
@@ -453,7 +453,7 @@ function annalsPublishCocktailEditorialResult_(itemId,token){
     generationProvider:result.generationProvider,generationModel:result.generationModel,
     generationOperation:'image-edit',reviewMethod:'ai-visual-assessment',
     generatedAt:result.generatedAt,reviewedAt:result.reviewedAt};
-  var uploadName='cocktail-photo-editorial-blob-private.json';
+  var uploadName='cocktail-photo-editorial-blob-'+token+'-private.json';
   if(annalsFile_(folder,uploadName))return false;
   var upload={state:'attempt_reserved',at:now.toISOString(),sourceSha256:job.sourceSha256,
     editorialSha256:result.imageSha256};
@@ -502,8 +502,8 @@ function annalsPublishCocktailEditorialResult_(itemId,token){
   result.state='publisher_attempt_reserved';annalsSavePrivate_(folder,resultName,result);
   var payload={photo:row,blob:blob,issuedAt:issuedAt,signature:signature},
     accepted=annalsDispatchEvent_(folder,'annals-editorial-photo-v1',payload,
-      'editorial-photo-dispatch-private.json');
-  var dispatch=annalsRead_(folder,'editorial-photo-dispatch-private.json');
+      'editorial-photo-dispatch-'+token+'-private.json');
+  var dispatch=annalsRead_(folder,'editorial-photo-dispatch-'+token+'-private.json');
   result.state=accepted?'publisher_dispatch_accepted_unverified':
     dispatch?'publisher_dispatch_unknown_no_retry':'qualified_held_for_publisher';
   result.dispatchAt=dispatch&&dispatch.completedAt||new Date().toISOString();
@@ -517,7 +517,7 @@ function annalsPublishCocktailEditorialResult_(itemId,token){
 }
 function annalsVerifyCocktailEditorialResult_(folder,itemId,token){
   var resultName='cocktail-photo-result-'+token+'-private.json',
-    result=annalsRead_(folder,resultName),dispatch=annalsRead_(folder,'editorial-photo-dispatch-private.json'),
+    result=annalsRead_(folder,resultName),dispatch=annalsRead_(folder,'editorial-photo-dispatch-'+token+'-private.json'),
     markerName='cocktail-photo-live-'+token+'-private.json';
   if(!result||result.state!=='publisher_dispatch_accepted_unverified'||
      !dispatch||dispatch.state!=='accepted'||annalsFile_(folder,markerName)||
