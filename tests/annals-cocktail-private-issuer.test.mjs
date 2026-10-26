@@ -585,7 +585,7 @@ test('rights revoked during blob upload blocks the signed publication event',()=
  f.events.revokeAtUpload=true;
  assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,qualifiedResult(job),
   [f.context.Utilities.newBlob(jpeg,'image/jpeg','x')])),'photo_result_stored_private');
- assert.equal(f.events.dispatches||[].length,0);
+ assert.equal((f.events.dispatches||[]).length,0);
  assert.equal(f.folder.files.get('cocktail-photo-result-'+job.jobToken+'-private.json').state,
   'qualified_held_for_publisher');
 });
