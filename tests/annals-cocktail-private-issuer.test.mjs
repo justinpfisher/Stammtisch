@@ -74,7 +74,7 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
     return v;
   })(v))},
   annalsPublisherDispatchReady_:()=>true,
-  annalsPhotosReady_:()=>true,
+  annalsPhotosReady_:()=>events.rightsRevokedAtUpload!==true,
   annalsDispatchEvent_:(folder,type,payload,marker)=>{
     events.dispatches=(events.dispatches||[]);events.dispatches.push({type,payload,marker});
     folder.files.set(marker,{state:'accepted',at:new Date().toISOString()});return true;
@@ -122,7 +122,8 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
     if(String(url).indexOf('/git/blobs')>=0&&options.method==='post'){
       const decoded=Buffer.from(JSON.parse(options.payload).content,'base64');
       events.uploadedBytes=decoded;
-      const gitSha=createHash('sha1').update(Buffer.from('blob '+decoded.length+'\\u0000')).update(decoded).digest('hex');
+      if(events.revokeAtUpload)events.rightsRevokedAtUpload=true;
+      const gitSha=createHash('sha1').update(Buffer.from('blob '+decoded.length+'\u0000')).update(decoded).digest('hex');
       return {getResponseCode:()=>201,getContentText:()=>JSON.stringify({sha:gitSha})};
     }
     if(String(url).indexOf('api.openai.com')>=0){
@@ -543,4 +544,48 @@ test('uncertain private image write leaves a consume marker and cannot replay',(
  assert.equal(f.folder.files.get('cocktail-photo-consume-'+job.jobToken+'-private.json').state,'result_attempt_reserved');
  assert.equal(f.context.annalsHandleCocktailPhotoResult_(message),'photo_result_held');
  assert.equal(f.folder.files.has('cocktail-photo-result-'+job.jobToken+'-private.jpg'),false);
+});
+
+test('qualified result is freshly rechecked and signed into the existing publisher event',()=>{
+ const {f,job}=issuedPhotoResultFixture(),jpeg=editedJpeg();
+ f.props.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED='true';
+ f.props.ANNALS_GITHUB_REPOSITORY='justinpfisher/Stammtisch';
+ f.props.ANNALS_GITHUB_TOKEN='synthetic-github-token';
+ f.props.ANNALS_PUBLISH_SIGNING_KEY='synthetic-separate-publication-signing-key';
+ const message=workerMessage(f,job,qualifiedResult(job),[f.context.Utilities.newBlob(jpeg,'image/jpeg','x')]);
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(message),'photo_publisher_dispatch_accepted');
+ assert.equal(f.events.dispatches.length,1);
+ const dispatch=f.events.dispatches[0];
+ assert.equal(dispatch.type,'annals-editorial-photo-v1');
+ assert.equal(dispatch.marker,'editorial-photo-dispatch-private.json');
+ assert.equal(f.events.uploadedBytes.toString('hex'),jpeg.toString('hex'));
+ assert.equal(dispatch.payload.photo.sourceSha256,job.sourceSha256);
+ assert.equal(dispatch.payload.photo.editorialSha256,sha(jpeg));
+ assert.equal(dispatch.payload.photo.asset,'assets/annals/'+job.sourceSha256+'-editorial-v2.jpg');
+ assert.equal(dispatch.payload.photo.status,'qualified');
+ assert.equal(dispatch.payload.photo.rightsQualified,true);
+ assert.equal(dispatch.payload.photo.visualQualified,true);
+ const unsigned={operation:'editorial-photo-v1',photo:dispatch.payload.photo,
+  blob:dispatch.payload.blob,issuedAt:dispatch.payload.issuedAt};
+ const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'
+  ?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
+ const expected=createHmac('sha256',f.props.ANNALS_PUBLISH_SIGNING_KEY)
+  .update(JSON.stringify(canonical(unsigned))).digest('hex');
+ assert.equal(dispatch.payload.signature,expected);
+ assert.equal(f.folder.files.get('cocktail-photo-result-'+job.jobToken+'-private.json').state,
+  'publisher_dispatch_accepted_unverified');
+ assert.equal(f.folder.files.has('publication-dispatch-private.json'),false);
+});
+test('rights revoked during blob upload blocks the signed publication event',()=>{
+ const {f,job}=issuedPhotoResultFixture(),jpeg=editedJpeg();
+ f.props.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED='true';
+ f.props.ANNALS_GITHUB_REPOSITORY='justinpfisher/Stammtisch';
+ f.props.ANNALS_GITHUB_TOKEN='synthetic-github-token';
+ f.props.ANNALS_PUBLISH_SIGNING_KEY='synthetic-separate-publication-signing-key';
+ f.events.revokeAtUpload=true;
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,qualifiedResult(job),
+  [f.context.Utilities.newBlob(jpeg,'image/jpeg','x')])),'photo_result_stored_private');
+ assert.equal(f.events.dispatches||[].length,0);
+ assert.equal(f.folder.files.get('cocktail-photo-result-'+job.jobToken+'-private.json').state,
+  'qualified_held_for_publisher');
 });
