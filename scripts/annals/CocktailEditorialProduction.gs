@@ -401,7 +401,8 @@ function annalsPublishCocktailEditorialResult_(itemId,token){
     index=annalsRead_(root,indexName),result=annalsRead_(folder,resultName),
     consume=annalsRead_(folder,'cocktail-photo-consume-'+token+'-private.json'),
     props=annalsProps_(),now=new Date();
-  if(!index||index.jobToken!==token||index.state!=='result_received_private'||
+  if(props.getProperty('ANNALS_PHOTO_PUBLICATION_ENABLED')!=='true'||
+     !index||index.jobToken!==token||index.state!=='result_received_private'||
      !result||result.state!=='qualified_held_for_publisher'||
      !consume||consume.state!=='result_received_private'||
      props.getProperty('ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED')!=='true'||
