@@ -1,6 +1,6 @@
 # Annals native cocktail-photo round trip (v1)
 
-This contract describes a bounded message exchange through the existing private Annals intake and signed publisher. It does not itself activate Gmail events or native image processing.
+This contract describes a bounded message exchange through the existing private Annals intake and signed publisher. It does not itself activate Gmail events or native image processing. The native lane is disabled unless the dedicated `ANNALS_PHOTO_WORKFLOW_ENABLED` property is explicitly `true`; it defaults off and gates both readiness mail and result-to-publisher dispatch. This control does not disable existing photo publication routes. Source tests do not activate the private Apps Script workflow or Gmail event filters.
 
 ## One readiness notice
 
