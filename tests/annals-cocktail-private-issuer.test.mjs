@@ -100,7 +100,7 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
   annalsWriteOnce_:(f,name,v)=>{if(f.files.has(name))throw Error('Immutable record already exists');f.files.set(name,v);return {name}},
   annalsSavePrivate_:(f,name,v)=>{f.files.set(name,v)},
   annalsJpegDerivativeSafe_:(bytes)=>bytes&&bytes[0]===255&&bytes[1]===216&&bytes[bytes.length-2]===255&&bytes[bytes.length-1]===217,
-  annalsPhotoSet_:(id,source)=>events.photoBytes?[{sha256:sha(Buffer.from(events.photoBytes)),base64:Buffer.from(events.photoBytes).toString('base64')}]:[],
+  annalsPhotoSet_:(id,source)=>Array.isArray(events.photoBytes)?events.photoBytes.map(bytes=>({sha256:sha(Buffer.from(bytes)),base64:Buffer.from(bytes).toString('base64')})):events.photoBytes?[{sha256:sha(Buffer.from(events.photoBytes)),base64:Buffer.from(events.photoBytes).toString('base64')}]:[],
   annalsPrivateReceiptValid_:()=>originalReceiptValid,
   annalsImageConsentActive_:()=>true,
   annalsPhotoEvidence_:()=>({originalRights:true}),
@@ -574,7 +574,7 @@ test('qualified result is freshly rechecked and signed into the existing publish
  assert.equal(f.events.dispatches.length,1);
  const dispatch=f.events.dispatches[0];
  assert.equal(dispatch.type,'annals-editorial-photo-v1');
- assert.equal(dispatch.marker,'editorial-photo-dispatch-private.json');
+ assert.equal(dispatch.marker,'editorial-photo-dispatch-'+job.jobToken+'-private.json');
  assert.equal(f.events.uploadedBytes.toString('hex'),jpeg.toString('hex'));
  assert.equal(dispatch.payload.photo.sourceSha256,job.sourceSha256);
  assert.equal(dispatch.payload.photo.editorialSha256,sha(jpeg));
@@ -593,6 +593,45 @@ test('qualified result is freshly rechecked and signed into the existing publish
   'publisher_dispatch_accepted_unverified');
  assert.equal(f.folder.files.has('publication-dispatch-private.json'),false);
 });
+test('different photo jobs in one entry use independent private publication markers',()=>{
+ const f=fixture(),sourceA=sourceJpeg(),sourceB=Buffer.from(sourceJpeg());
+ sourceB[10]=8;
+ const digestA=sha(sourceA),digestB=sha(sourceB);
+ delete f.signed.entry.photo;
+ f.signed.entry.photos=[{sha256:digestA,width:600,height:900},{sha256:digestB,width:600,height:900}];
+ f.events.photoBytes=[sourceA,sourceB];
+ f.folder.files.set('auto-live-verification-private.json',
+   {state:'verified_live',contentSha256:f.signed.receipt.contentSha256});
+ f.props.ANNALS_PHOTO_WORKER_EMAIL='worker@example.invalid';
+ assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'sent_once');
+ const tokenA='f'.repeat(32),tokenB='e'.repeat(32);
+ f.context.Utilities.getUuid=()=>tokenB;
+ assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,1).state,'sent_once');
+ const jobA=f.folder.files.get('cocktail-photo-job-'+digestA+'-cocktail-cinematic-photoreal-v1-private.json').job;
+ const jobB=f.folder.files.get('cocktail-photo-job-'+digestB+'-cocktail-cinematic-photoreal-v1-private.json').job;
+ assert.equal(jobA.jobToken,tokenA);assert.equal(jobB.jobToken,tokenB);
+ f.props.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED='true';
+ f.props.ANNALS_GITHUB_REPOSITORY='justinpfisher/Stammtisch';
+ f.props.ANNALS_GITHUB_TOKEN='synthetic-github-token';
+ f.props.ANNALS_PUBLISH_SIGNING_KEY='synthetic-separate-publication-signing-key';
+ for(const [job,fill] of [[jobA,9],[jobB,10]]){
+  const jpeg=editedJpeg(fill),message=workerMessage(f,job,qualifiedResult(job),
+   [f.context.Utilities.newBlob(jpeg,'image/jpeg','x')]);
+  assert.equal(f.context.annalsHandleCocktailPhotoResult_(message),'photo_publisher_dispatch_accepted');
+ }
+ assert.equal(f.events.dispatches.length,2);
+ assert.deepEqual(f.events.dispatches.map(d=>d.marker).sort(),[
+  'editorial-photo-dispatch-'+tokenA+'-private.json',
+  'editorial-photo-dispatch-'+tokenB+'-private.json'
+ ].sort());
+ assert.ok(f.folder.files.has('cocktail-photo-editorial-blob-'+tokenA+'-private.json'));
+ assert.ok(f.folder.files.has('cocktail-photo-editorial-blob-'+tokenB+'-private.json'));
+ assert.equal(f.folder.files.get('cocktail-photo-result-'+tokenA+'-private.json').state,
+  'publisher_dispatch_accepted_unverified');
+ assert.equal(f.folder.files.get('cocktail-photo-result-'+tokenB+'-private.json').state,
+  'publisher_dispatch_accepted_unverified');
+});
+
 test('rights revoked during blob upload blocks the signed publication event',()=>{
  const {f,job}=issuedPhotoResultFixture(),jpeg=editedJpeg();
  f.props.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED='true';
