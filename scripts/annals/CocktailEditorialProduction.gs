@@ -224,8 +224,14 @@ function annalsIssueCocktailPhotoJob_(itemId,photoIndex){
     sourceItemId:itemId,styleVersion:styleVersion,
     createdAt:now.toISOString(),expiresAt:new Date(now.getTime()+7*24*60*60*1000).toISOString(),
     state:'attempt_reserved',sendOutcome:'unknown_no_retry',resultMessageId:''};
+  var indexName='cocktail-photo-job-token-'+token+'-private.json',
+    rootIndex={schema:'annals-photo-job-index-v1',sourceItemId:itemId,
+      jobFilename:filename,jobToken:token,entryId:context.entryId,
+      sourceSha256:context.sourceSha256,expiresAt:record.expiresAt,
+      state:'attempt_reserved'};
+  annalsWriteOnce_(annalsRoot_(),indexName,rootIndex);
   annalsWriteOnce_(context.folder,filename,record);
-  var file=annalsFile_(context.folder,filename);
+  var file=annalsFile_(context.folder,filename),root=annalsRoot_();
   var sendAttempted=false;
   try{
     var bytes=Utilities.base64Decode(image.base64);
@@ -238,12 +244,16 @@ function annalsIssueCocktailPhotoJob_(itemId,photoIndex){
     });
     record.state='sent_once';record.sendOutcome='sent';record.sentAt=new Date().toISOString();
     file.setContent(JSON.stringify(record));
+    rootIndex.state='sent_once';rootIndex.sentAt=record.sentAt;
+    annalsSavePrivate_(root,indexName,rootIndex);
     return {state:'sent_once'};
   }catch(ignored){
     record.state=sendAttempted?'unknown_no_retry':'held_no_send';
     record.sendOutcome=sendAttempted?'unknown_no_retry':'not_attempted';
     record.failedAt=new Date().toISOString();
     file.setContent(JSON.stringify(record));
+    rootIndex.state=record.state;rootIndex.failedAt=record.failedAt;
+    annalsSavePrivate_(root,indexName,rootIndex);
     return {state:record.state};
   }
 }
