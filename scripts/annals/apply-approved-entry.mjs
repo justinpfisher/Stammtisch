@@ -200,7 +200,12 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
     }
     if (imageBytes) assetsToWrite.push({ path: `assets/annals/${entry.id}.jpg`, bytes: imageBytes });
   }
-  const rendered = buildPublishedAnnals(entries, approvals, secret, history, editorialManifest);
+  // A signed text correction may remove a legacy photo. Prune its optional
+  // derivative before rendering so the old row cannot invalidate the corrected
+  // entry; main() still compares the returned archive and deletes stale assets.
+  const renderManifest=event.action==='annals-correct-entry'&&editorialManifest
+    ?pruneEditorialManifest(editorialManifest,entries).manifest:editorialManifest;
+  const rendered = buildPublishedAnnals(entries, approvals, secret, history, renderManifest);
   for(const asset of [...assetsToWrite]){const thumb=photoThumbnail(asset);if(thumb)assetsToWrite.push(thumb);}
   return { data: { schemaVersion: 1, entries, approvals, ...(retiredIds.length ? {retiredIds} : {}) }, html: rendered.html, assetsToWrite, assetsToDelete };
 }
