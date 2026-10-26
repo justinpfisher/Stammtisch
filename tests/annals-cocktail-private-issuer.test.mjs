@@ -54,6 +54,7 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
   ANNALS_PUBLISH_SIGNING_KEY:publicKey,
   ANNALS_APPROVAL_KEY:fakeApprovalKey,
   ANNALS_EDITORIAL_IMAGE_API_KEY:'fictional-model-key-not-real',
+  ANNALS_PHOTO_PUBLICATION_ENABLED:'false',
   ANNALS_EDITORIAL_REFERENCE_FILE_ID:referenceId
  };
  const root={files:new Map()};
@@ -563,9 +564,25 @@ test('uncertain private image write leaves a consume marker and cannot replay',(
  assert.equal(f.folder.files.has('cocktail-photo-result-'+job.jobToken+'-private.jpg'),false);
 });
 
+test('native result remains private while the dedicated publication gate is disabled',()=>{
+ const {f,job}=issuedPhotoResultFixture(),jpeg=editedJpeg();
+ f.props.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED='true';
+ f.props.ANNALS_GITHUB_REPOSITORY='justinpfisher/Stammtisch';
+ f.props.ANNALS_GITHUB_TOKEN='synthetic-github-token';
+ f.props.ANNALS_PUBLISH_SIGNING_KEY='synthetic-separate-publication-signing-key';
+ assert.equal(f.props.ANNALS_PHOTO_PUBLICATION_ENABLED,'false');
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,qualifiedResult(job),
+  [f.context.Utilities.newBlob(jpeg,'image/jpeg','x')])),'photo_result_stored_private');
+ assert.equal(f.events.dispatches.length,0);
+ assert.equal(f.events.uploadedBytes,null);
+ assert.equal(f.folder.files.get('cocktail-photo-result-'+job.jobToken+'-private.json').state,
+  'qualified_held_for_publisher');
+});
+
 test('qualified result is freshly rechecked and signed into the existing publisher event',()=>{
  const {f,job}=issuedPhotoResultFixture(),jpeg=editedJpeg();
  f.props.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED='true';
+ f.props.ANNALS_PHOTO_PUBLICATION_ENABLED='true';
  f.props.ANNALS_GITHUB_REPOSITORY='justinpfisher/Stammtisch';
  f.props.ANNALS_GITHUB_TOKEN='synthetic-github-token';
  f.props.ANNALS_PUBLISH_SIGNING_KEY='synthetic-separate-publication-signing-key';
