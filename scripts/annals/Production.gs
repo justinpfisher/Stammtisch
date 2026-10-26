@@ -756,7 +756,6 @@ function runAnnalsProductionIntake() {
         processRecentRule();
         summary.drafted = annalsResumeConsentedDrafts_(2);
         summary.verified = annalsVerifyAutomaticPublications_(3);
-        if(typeof annalsVerifyCocktailEditorialResults_==='function')summary.photo_live_verified=annalsVerifyCocktailEditorialResults_(2);
         console.log(JSON.stringify(summary));
         return summary;
       }
@@ -772,6 +771,7 @@ function runAnnalsProductionIntake() {
       processRecentRule();
       summary.drafted = annalsResumeConsentedDrafts_(2);
       summary.verified = annalsVerifyAutomaticPublications_(3);
+      if(typeof annalsVerifyCocktailEditorialResults_==='function')summary.photo_live_verified=annalsVerifyCocktailEditorialResults_(2);
       console.log(JSON.stringify(summary)); return summary;
     });
   } catch (e) { throw new Error('Private intake stopped; review account configuration privately'); }
@@ -2133,7 +2133,21 @@ function annalsVerifyAutomaticPublications_(limit) {
       if(typeof annalsVerifyGalleryCorrection_==='function'&&annalsVerifyGalleryCorrection_(folder,id))verified++;
       continue;
     }
-    if(annalsFile_(folder,'auto-live-verification-private.json'))continue;
+    var livePhotoMarker=annalsRead_(folder,'auto-live-verification-private.json');
+    if(livePhotoMarker){
+      // Revisit only not-yet-reserved photo jobs. A pre-reservation transient
+      // check can recover on a later pass; existing per-source reservations
+      // make sent, failed, or uncertain attempts strictly no-retry.
+      var livePhotoSaved=annalsRead_(folder,'approval-private.json');
+      if(livePhotoMarker.state==='verified_live'&&livePhotoSaved&&livePhotoSaved.entry&&
+         livePhotoSaved.receipt&&livePhotoMarker.contentSha256===livePhotoSaved.receipt.contentSha256&&
+         livePhotoSaved.entry.category==='cocktail'&&livePhotoSaved.entry.photos&&
+         livePhotoSaved.receipt.consents&&livePhotoSaved.receipt.consents.photoPublication===true&&
+         typeof annalsQueueCocktailPhotoJobs_==='function'){
+        try{annalsQueueCocktailPhotoJobs_(folder,livePhotoSaved.entry);}catch(ignored){}
+      }
+      continue;
+    }
     var saved = annalsRead_(folder, 'approval-private.json');
     if (!saved || [AnnalsAuto.MODE,AnnalsAuto.OPEN_MODE,AnnalsAuto.QUOTE_MODE,AnnalsMediaPolicy.MODE,'standing-consent-photos-v2'].indexOf(saved.approvalMode) < 0 || saved.publicationState !== 'dispatch_accepted') continue;
     // A queued/failed Pages run must not remain invisible indefinitely.
