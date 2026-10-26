@@ -132,9 +132,9 @@ const editorialJpeg=()=>{
   const width=480,height=480,data=Buffer.alloc(width*height*4);
   for(let i=0;i<width*height;i++){
     const x=i%width,y=Math.floor(i/width),p=i*4;
-    data[p]=(x*17+y*3)&255;data[p+1]=(x*5+y*19)&255;data[p+2]=(x*11+y*7)&255;data[p+3]=255;
+    data[p]=Math.floor(x*255/width);data[p+1]=Math.floor(y*255/height);data[p+2]=128;data[p+3]=255;
   }
-  const encoded=Jpeg.encode({width,height,data},80).data;
+  const encoded=Jpeg.encode({width,height,data},50).data;
   return Buffer.from(Media.sanitize(Buffer.from(encoded)).bytes);
 };
 const editorialEvent=(photo,bytes,issuedAt,overrides={})=>{
