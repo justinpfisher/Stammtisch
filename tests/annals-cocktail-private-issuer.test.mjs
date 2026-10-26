@@ -102,11 +102,17 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
    computeHmacSha256Signature:(raw,key)=>Array.from(createHmac('sha256',key).update(raw).digest())
   },
   UrlFetchApp:{fetch:(url,options)=>{
-    events.modelRequests=(events.modelRequests||0)+1;
-    events.modelRequestShape={url,method:options.method,
-      followRedirects:options.followRedirects,
-      muteHttpExceptions:options.muteHttpExceptions};
-    if(events.rejectModelRequest)throw Error('fictional network failure');
+    if(String(url).indexOf('annals-editorial-photos.json')>=0){
+      return {getResponseCode:()=>200,getContentText:()=>JSON.stringify(events.publicEditorialManifest||
+        {schemaVersion:1,artDirection:'moody-atmospheric-v2',images:[]})};
+    }
+    if(String(url).indexOf('api.openai.com')>=0){
+      events.modelRequests=(events.modelRequests||0)+1;
+      events.modelRequestShape={url,method:options.method,
+        followRedirects:options.followRedirects,
+        muteHttpExceptions:options.muteHttpExceptions};
+      if(events.rejectModelRequest)throw Error('fictional network failure');
+    }
     return {getResponseCode:()=>events.modelResponseCode??200};
   }},
   GmailApp:{sendEmail:(...args)=>{events.sends.push(args);if(events.failMail)throw Error('synthetic send failure')}},
