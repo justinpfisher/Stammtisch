@@ -1518,8 +1518,8 @@ function annalsApproveReview(nonce, id, expectedHash, consents, evidenceNote, un
     saved.publicationState = sent ? 'dispatch_accepted' : 'dispatch_not_configured_or_held';
     var approvalFile = annalsFile_(f, 'approval-private.json');
     approvalFile.setContent(JSON.stringify(saved));
-    if(sent)annalsQueueCocktailPhotoJobs_(f,entry);
     return { approved: true, dispatchAccepted: sent, published: false };
+    if(sent)annalsQueueCocktailPhotoJobs_(f,entry);
   }); });
 }
 function annalsQueueCocktailPhotoJobs_(folder,entry){
@@ -1644,8 +1644,8 @@ function annalsPublishApproved(nonce, id) {
     var accepted = annalsDispatchApproved_(folder, saved.entry, publication, 'annals-approved-entry', 'publication-dispatch-private.json');
     saved.publicationState = accepted ? 'dispatch_accepted' : 'dispatch_not_configured_or_held';
     annalsFile_(folder, 'approval-private.json').setContent(JSON.stringify(saved));
-    if(accepted)annalsQueueCocktailPhotoJobs_(folder,saved.entry);
     return { dispatchAccepted: accepted, retryAllowed: false };
+    if(accepted)annalsQueueCocktailPhotoJobs_(folder,saved.entry);
   }); });
 }
 function annalsSaveCorrection(nonce, id, rawEntry) {
@@ -1833,8 +1833,8 @@ function annalsAutoPublishCandidate_(id, allowHeldRecovery) {
   var accepted = annalsDispatchApproved_(folder, entry, publication, 'annals-auto-entry', 'publication-dispatch-private.json');
   saved.publicationState = accepted ? 'dispatch_accepted' : 'dispatch_not_configured_or_held';
   annalsFile_(folder, 'approval-private.json').setContent(JSON.stringify(saved));
-  if(accepted)annalsQueueCocktailPhotoJobs_(folder,entry);
   return accepted;
+  if(accepted)annalsQueueCocktailPhotoJobs_(folder,entry);
 }
 /** One-shot exception recovery for any previously held, source-grounded
  * recipe after a deterministic matching fix. No AI call, journal reset,
