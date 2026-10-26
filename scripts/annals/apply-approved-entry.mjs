@@ -2,7 +2,7 @@ import Media from './MediaCore.js';
 import Photos from './PhotoContracts.js';
 import {resolvePhotoBlobs,fetchEditorialBlob} from './PhotoTransport.mjs';
 import {photoThumbnail} from './PhotoThumbnail.mjs';
-import {EDITORIAL_MANIFEST_PATH,validateEditorialManifest,pruneEditorialManifest} from './EditorialPhotoManifest.mjs';
+import {EDITORIAL_MANIFEST_PATH,validateEditorialManifest,pruneEditorialManifest,metadataFreeJpegDimensions} from './EditorialPhotoManifest.mjs';
 
 // Trusted deployment configuration only. An email/payload cannot arm this lane.
 export function photoReleaseAllowed({photosEnabled,guardedJpegEnabled=false,securityVerified}){
