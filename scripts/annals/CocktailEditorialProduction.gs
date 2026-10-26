@@ -384,6 +384,8 @@ function annalsHandleCocktailPhotoResult_(message){
     return published?'photo_publisher_dispatch_accepted':'photo_result_stored_private';
   }catch(ignored){
     // The durable consume marker prevents uncertain Drive writes from replay.
+    // Surface uncertain private writes once, without exposing provider details.
+    annalsNotifyCocktailPhotoOwner_(folder,index.sourceItemId,token,'photo_result_held');
     return 'photo_result_held';
   }
 }
