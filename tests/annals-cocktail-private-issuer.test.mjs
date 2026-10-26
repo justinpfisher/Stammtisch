@@ -9,6 +9,8 @@ import vm from 'node:vm';
 import Policy from '../scripts/annals/CocktailEditorialCore.js';
 import {applyApprovedEntry} from '../scripts/annals/apply-approved-entry.mjs';
 import {contentDigest} from '../scripts/annals/ApprovedRenderer.mjs';
+import Media from '../scripts/annals/MediaCore.js';
+import Jpeg from '../scripts/annals/JpegCodec.js';
 import {verifyEditorialPermit,extractUnspentEditorialPermit} from '../scripts/annals/CocktailImageEdit.mjs';
 
 const moduleSource=readFileSync(new URL('../scripts/annals/CocktailEditorialProduction.gs',import.meta.url),'utf8');
@@ -623,7 +625,14 @@ test('accepted dispatch remains unverified until hosted manifest, derivative and
 });
 
 test('synthetic source job and worker result flow through the same signed publisher validation',async()=>{
- const {f,job}=issuedPhotoResultFixture(),jpeg=editedJpeg();
+ const {f,job}=issuedPhotoResultFixture();
+ const width=600,height=900,dataPixels=Buffer.alloc(width*height*4);
+ for(let i=0;i<width*height;i++){
+  const px=i%width,py=Math.floor(i/width),p=i*4;
+  dataPixels[p]=(px*17+py*3)&255;dataPixels[p+1]=(px*5+py*19)&255;
+  dataPixels[p+2]=(px*11+py*7)&255;dataPixels[p+3]=255;
+ }
+ const jpeg=Buffer.from(Media.sanitize(Buffer.from(Jpeg.encode({width,height,data:dataPixels},80).data)).bytes);
  const publishKey='synthetic-separate-publication-signing-key';
  f.props.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED='true';
  f.props.ANNALS_GITHUB_REPOSITORY='justinpfisher/Stammtisch';
