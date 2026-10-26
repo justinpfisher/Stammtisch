@@ -103,6 +103,34 @@ test('signed correction replaces only the exact existing entry and preserves the
   await assert.rejects(applyApprovedEntry({event:{...event,client_payload:{...event.client_payload,entry:{...corrected,title:'Altered after approval'}}},data:{schemaVersion:1,entries:[previous],approvals:[previousApproval]},secret}));
 });
 
+test('signed correction removes a legacy source photo and prunes its editorial row before rendering',async()=>{
+  const legacy={...entry,id:'annal-cccccccccccccccccccccccc',title:'Legacy photo entry',
+    photo:{sha256:'d'.repeat(64),alt:'Original fictional photo'}};
+  const priorUnsigned={entryId:legacy.id,approvedAt:'2026-10-09T12:00:00.000Z',
+    consents:{publication:true,quotePublication:false,recipeVerified:true,namedAttribution:false,photoPublication:true},
+    contentSha256:contentDigest(legacy)};
+  const priorApproval={...priorUnsigned,signature:createHmac('sha256',secret)
+    .update(JSON.stringify(canonical({entry:legacy,approval:priorUnsigned}))).digest('hex')};
+  const corrected={...legacy,title:'Corrected legacy text',summary:'Correction removes the old photo.'};
+  delete corrected.photo;
+  const correctionApproval=makeApproval(corrected,'2026-10-09T12:00:01.000Z');
+  const bytes=editorialJpeg(),row={...editorialRow(legacy.photo.sha256,bytes),
+    source:'assets/annals/'+legacy.id+'.jpg',
+    asset:'assets/annals/'+legacy.id+'-editorial-v2.jpg'};
+  const manifest={schemaVersion:1,artDirection:'moody-atmospheric-v2',images:[row]};
+  const result=await applyApprovedEntry({
+    event:{action:'annals-correct-entry',client_payload:{entry:corrected,approval:correctionApproval}},
+    data:{schemaVersion:1,entries:[legacy],approvals:[priorApproval]},secret,
+    editorialManifest:manifest
+  });
+  assert.equal(result.data.entries[0].title,'Corrected legacy text');
+  assert.equal(result.data.entries[0].photo,undefined);
+  assert.match(result.html,/Corrected legacy text/);
+  assert.doesNotMatch(result.html,/AI-stylized amber cocktail/);
+  assert.ok(result.assetsToDelete.some(x=>x.path===row.asset));
+  assert.ok(result.assetsToDelete.some(x=>x.path==='assets/annals/'+legacy.id+'.jpg'));
+});
+
 test('signed removal deletes only the requested currently approved entry', async () => {
   const previous={...entry,id:'annal-bbbbbbbbbbbbbbbbbbbbbbbb',title:'Entry for removal'}, approval=makeApproval(previous);
   const event={action:'annals-remove-entry',client_payload:{entryId:previous.id,approval:makeRemoval(previous)}};
