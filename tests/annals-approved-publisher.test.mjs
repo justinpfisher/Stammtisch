@@ -176,6 +176,10 @@ test('signed editorial event updates only the derivative and matching manifest r
   assert.deepEqual(result.assetsToWrite[0].bytes,bytes);assert.deepEqual(result.assetsToDelete,[]);
   assert.deepEqual(result.editorialManifest.images,[photo]);
   validateEditorialManifest(result.editorialManifest,data.entries);
+  assert.ok(result.html.includes('srcset="'+photo.asset+'"'));
+  assert.ok(result.html.includes('href="'+photo.source+'"'));
+  assert.ok(result.html.includes('src="'+photo.source+'"'));
+  assert.ok(result.html.includes('alt="'+photo.alt+'"'));
 });
 test('editorial publisher rejects tampering, stale events, wrong sources and duplicate rows',async()=>{
   const {data,sourceSha}=photoArchive(),bytes=editorialJpeg(),now=new Date('2026-10-26T12:01:00.000Z');
@@ -191,4 +195,7 @@ test('editorial publisher rejects tampering, stale events, wrong sources and dup
   await assert.rejects(applyApprovedEntry({...base,event:{...event,client_payload:{...event.client_payload,unexpected:true}}}),/payload/i);
   await assert.rejects(applyApprovedEntry({...base,event,editorialManifest:{...manifest,images:[photo]}}),/already exists/i);
   await assert.rejects(applyApprovedEntry({...base,event,fetchEditorialBytes:async()=>Buffer.from('not jpeg')}));
+  const withMetadata=Buffer.concat([bytes.subarray(0,2),Buffer.from([0xff,0xe1,0x00,0x04,0x01,0x02]),bytes.subarray(2)]);
+  const metadataEvent=editorialEvent(photo,bytes,now.toISOString());
+  await assert.rejects(applyApprovedEntry({...base,event:metadataEvent,fetchEditorialBytes:async()=>withMetadata}));
 });
