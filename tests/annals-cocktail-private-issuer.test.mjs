@@ -351,7 +351,7 @@ test('readiness reserves and sends at most one exact source/style job after live
  assert.equal(Date.parse(record.expiresAt)-Date.parse(record.createdAt),7*24*60*60*1000);
  assert.equal(f.events.sends.length,1);
  assert.equal(f.events.sends[0][0],'worker@example.invalid');
- assert.match(f.events.sends[0][1],/^\\[ANNALS PHOTO JOB v1\\] [a-f0-9]{32}$/);
+ assert.match(f.events.sends[0][1],/^\[ANNALS PHOTO JOB v1\] [a-f0-9]{32}$/);
  assert.equal(f.events.sends[0][3].attachments.length,1);
  assert.equal(f.events.sends[0][3].attachments[0].mime,'image/jpeg');
  assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'already_reserved');
