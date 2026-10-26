@@ -53,10 +53,14 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
   ANNALS_EDITORIAL_REFERENCE_FILE_ID:referenceId
  };
  const root={files:new Map()};
+ const iterator=items=>{let i=0;return {hasNext:()=>i<items.length,next:()=>items[i++]}};
+ root.getFolders=()=>iterator([folder]);
  const folder={files:new Map([
   ['source-private.json',submission],
   ['approval-private.json',signed]
  ])};
+ folder.getName=()=>itemId;
+ folder.getFiles=()=>iterator([...folder.files.keys()].map(name=>({getName:()=>name})));
  folder.createFile=(blob)=>{
   const name=blob.name,file={getName:()=>name,setName:(v)=>{file.name=v},
    getSharingAccess:()=> 'PRIVATE',getEditors:()=>[],getViewers:()=>[],
@@ -118,6 +122,11 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
     if(String(url).indexOf('annals-editorial-photos.json')>=0){
       return {getResponseCode:()=>200,getContentText:()=>JSON.stringify(events.publicEditorialManifest||
         {schemaVersion:1,artDirection:'moody-atmospheric-v2',images:[]})};
+    }
+    if(String(url).indexOf('stammtischbrewery.com/assets/annals/')>=0){
+      const bytes=String(url).indexOf(events.publicEditorialAsset||'__none__')>=0
+        ?events.publicEditorialBytes:events.photoBytes;
+      return {getResponseCode:()=>bytes?200:404,getBlob:()=>({getBytes:()=>Array.from(bytes||[])})};
     }
     if(String(url).indexOf('/git/blobs')>=0&&options.method==='post'){
       const decoded=Buffer.from(JSON.parse(options.payload).content,'base64');
@@ -588,4 +597,25 @@ test('rights revoked during blob upload blocks the signed publication event',()=
  assert.equal((f.events.dispatches||[]).length,0);
  assert.equal(f.folder.files.get('cocktail-photo-result-'+job.jobToken+'-private.json').state,
   'qualified_held_for_publisher');
+});
+
+test('accepted dispatch remains unverified until hosted manifest, derivative and original all read back',()=>{
+ const {f,job}=issuedPhotoResultFixture(),jpeg=editedJpeg();
+ f.props.ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED='true';
+ f.props.ANNALS_GITHUB_REPOSITORY='justinpfisher/Stammtisch';
+ f.props.ANNALS_GITHUB_TOKEN='synthetic-github-token';
+ f.props.ANNALS_PUBLISH_SIGNING_KEY='synthetic-separate-publication-signing-key';
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,qualifiedResult(job),
+  [f.context.Utilities.newBlob(jpeg,'image/jpeg','x')])),'photo_publisher_dispatch_accepted');
+ const dispatch=f.events.dispatches[0],photo=dispatch.payload.photo;
+ assert.equal(f.folder.files.get('cocktail-photo-result-'+job.jobToken+'-private.json').state,
+  'publisher_dispatch_accepted_unverified');
+ f.events.publicEditorialManifest={schemaVersion:1,artDirection:'moody-atmospheric-v2',images:[photo]};
+ f.events.publicEditorialAsset=photo.asset;f.events.publicEditorialBytes=f.events.uploadedBytes;
+ assert.equal(f.context.annalsVerifyCocktailEditorialResults_(2),1);
+ assert.equal(f.folder.files.get('cocktail-photo-result-'+job.jobToken+'-private.json').state,
+  'editorial_live_verified');
+ assert.equal(f.folder.files.get('cocktail-photo-live-'+job.jobToken+'-private.json').state,'verified_live');
+ assert.equal(f.root.files.get('cocktail-photo-job-token-'+job.jobToken+'-private.json').state,
+  'editorial_live_verified');
 });
