@@ -429,7 +429,11 @@ function annalsPublishCocktailEditorialResult_(itemId,token){
     var clean=AnnalsMedia.sanitize(bytes,true);
     if(annalsHash_(clean.bytes)!==result.imageSha256||clean.width!==result.width||clean.height!==result.height)return false;
   }catch(ignored){return false;}
-  var photo=job.photoIndex<saved.entry.photos.length?saved.entry.photos[job.photoIndex]:null;
+  var photos=saved.entry.photos||(saved.entry.photo?[saved.entry.photo]:[]),
+    sentAt=Date.parse(record.sentAt),generatedAt=Date.parse(result.generatedAt),reviewedAt=Date.parse(result.reviewedAt),
+    photo=Array.isArray(photos)&&job.photoIndex<photos.length?photos[job.photoIndex]:null;
+  if(!Number.isFinite(sentAt)||!Number.isFinite(generatedAt)||!Number.isFinite(reviewedAt)||
+     generatedAt<sentAt-30000||reviewedAt<generatedAt||reviewedAt>now.getTime()+30000)return false;
   if(!photo||photo.sha256!==job.sourceSha256||result.imageSha256===photo.sha256)return false;
   var sourcePath='assets/annals/'+photo.sha256+'.jpg',
     assetPath=sourcePath.slice(0,-4)+'-editorial-v2.jpg',
