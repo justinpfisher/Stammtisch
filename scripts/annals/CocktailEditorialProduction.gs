@@ -48,7 +48,7 @@ function annalsCocktailEditorialContext_(itemId,photoIndex){
     noUnconsentedPeopleOrPrivateDetails:saved.uncertaintiesReviewed===true
   });
   if(permission.eligible!==true)throw Error(permission.reason);
-  return {folder:folder,entryId:saved.entry.id,sourceSha256:photo.sha256};
+  return {folder:folder,entry:saved.entry,entryId:saved.entry.id,sourceSha256:photo.sha256};
 }
 function annalsCocktailEditorialReference_(){
   var value=annalsProps_().getProperty('ANNALS_EDITORIAL_REFERENCE_FILE_ID');
