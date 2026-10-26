@@ -204,6 +204,9 @@ function annalsIssueCocktailPhotoJob_(itemId,photoIndex){
     return {state:'held',reason:'source_not_eligible'};
   var photos=entry.photos,photo=photos[photoIndex];
   if(!photo||photo.sha256!==context.sourceSha256)return {state:'held',reason:'source_changed'};
+  var existingEditorial=annalsEditorialSourceAlreadyQualified_('assets/annals/'+photo.sha256+'.jpg');
+  if(existingEditorial!==false)return {state:existingEditorial===true?'already_editorialized':'held',
+    reason:existingEditorial===true?'':'editorial_manifest_unavailable'};
   var set=annalsPhotoSet_(itemId,source,false),image=set.filter(function(x){return x.sha256===photo.sha256})[0];
   if(!image||typeof image.base64!=='string')return {state:'held',reason:'screened_source_unavailable'};
   var props=annalsProps_(),recipient=String(props.getProperty('ANNALS_PHOTO_WORKER_EMAIL')||'').trim().toLowerCase();
@@ -296,6 +299,11 @@ function annalsHandleCocktailPhotoResult_(message){
   var outcome;
   try{outcome=AnnalsCocktailEditorial.validatePhotoResult(result,job,true,now);}
   catch(ignored){return 'photo_result_held';}
+  if(outcome.qualified){
+    var sentAt=Date.parse(jobRecord.sentAt),generatedAt=Date.parse(result.generatedAt),reviewedAt=Date.parse(result.reviewedAt);
+    if(!Number.isFinite(sentAt)||generatedAt<sentAt-30000||reviewedAt<generatedAt||
+       reviewedAt>now.getTime()+30000)return 'photo_result_held';
+  }
   var attachments;
   try{attachments=message.getAttachments({includeInlineImages:false,includeAttachments:true});}
   catch(ignored){return 'photo_result_held';}
