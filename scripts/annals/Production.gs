@@ -681,7 +681,7 @@ function annalsRecordStagingException_(messageId) {
  * A saved thread/message position is resumed on the next run, then wraps.
  */
 function runAnnalsProductionIntake() {
-  var p = annalsProps_(), summary = { enabled: false, staged: 0, held: 0, duplicates: 0, skipped: 0, unverified: 0, awaiting_consent: 0, consent_activated: 0, consent_revoked: 0, auto_consent_activated: 0, auto_consent_revoked: 0, quote_attribution_revoked: 0, portrait_hidden: 0, portrait_enabled: 0, image_consent_activated: 0, image_consent_revoked: 0, staging_errors: 0, drafted: 0, verified: 0 };
+  var p = annalsProps_(), summary = { enabled: false, photo_results:0, staged: 0, held: 0, duplicates: 0, skipped: 0, unverified: 0, awaiting_consent: 0, consent_activated: 0, consent_revoked: 0, auto_consent_activated: 0, auto_consent_revoked: 0, quote_attribution_revoked: 0, portrait_hidden: 0, portrait_enabled: 0, image_consent_activated: 0, image_consent_revoked: 0, staging_errors: 0, drafted: 0, verified: 0 };
   if (p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED') !== 'true') return summary;
   try {
     return annalsLocked_(function () {
@@ -713,6 +713,14 @@ function runAnnalsProductionIntake() {
         if (typeof messageId!=='string' || !messageId) { summary.staging_errors++; return; }
         if (Object.prototype.hasOwnProperty.call(seenInRun,messageId)) return;
         seenInRun[messageId]=true;
+        var photoOutcome=null;
+        try{if(typeof annalsHandleCocktailPhotoResult_==='function')photoOutcome=annalsHandleCocktailPhotoResult_(message);}
+        catch(ignored){photoOutcome='photo_result_held';}
+        if(photoOutcome!==null){
+          summary.photo_results++;
+          if(photoOutcome==='photo_result_held')summary.held++;
+          return;
+        }
         var outcome;
         try { outcome=annalsStageProduction_(message,activation,allowed); }
         catch (ignored) {
