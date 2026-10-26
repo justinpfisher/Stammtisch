@@ -1518,8 +1518,17 @@ function annalsApproveReview(nonce, id, expectedHash, consents, evidenceNote, un
     saved.publicationState = sent ? 'dispatch_accepted' : 'dispatch_not_configured_or_held';
     var approvalFile = annalsFile_(f, 'approval-private.json');
     approvalFile.setContent(JSON.stringify(saved));
+    if(sent)annalsQueueCocktailPhotoJobs_(f,entry);
     return { approved: true, dispatchAccepted: sent, published: false };
   }); });
+}
+function annalsQueueCocktailPhotoJobs_(folder,entry){
+  if(!entry||entry.category!=='cocktail'||!(entry.photos||entry.photo)||
+     typeof annalsIssueCocktailPhotoJob_!=='function')return;
+  var photos=entry.photos||(entry.photo?[entry.photo]:[]);
+  for(var i=0;i<photos.length;i++){
+    try{annalsIssueCocktailPhotoJob_(folder.getName(),i);}catch(ignored){}
+  }
 }
 function annalsPublicApproval_(entry, receipt, key) {
   if (key.length < 32 || key === (annalsProps_().getProperty('ANNALS_APPROVAL_KEY') || '')) return null;
@@ -1635,6 +1644,7 @@ function annalsPublishApproved(nonce, id) {
     var accepted = annalsDispatchApproved_(folder, saved.entry, publication, 'annals-approved-entry', 'publication-dispatch-private.json');
     saved.publicationState = accepted ? 'dispatch_accepted' : 'dispatch_not_configured_or_held';
     annalsFile_(folder, 'approval-private.json').setContent(JSON.stringify(saved));
+    if(accepted)annalsQueueCocktailPhotoJobs_(folder,saved.entry);
     return { dispatchAccepted: accepted, retryAllowed: false };
   }); });
 }
@@ -1823,6 +1833,7 @@ function annalsAutoPublishCandidate_(id, allowHeldRecovery) {
   var accepted = annalsDispatchApproved_(folder, entry, publication, 'annals-auto-entry', 'publication-dispatch-private.json');
   saved.publicationState = accepted ? 'dispatch_accepted' : 'dispatch_not_configured_or_held';
   annalsFile_(folder, 'approval-private.json').setContent(JSON.stringify(saved));
+  if(accepted)annalsQueueCocktailPhotoJobs_(folder,entry);
   return accepted;
 }
 /** One-shot exception recovery for any previously held, source-grounded
