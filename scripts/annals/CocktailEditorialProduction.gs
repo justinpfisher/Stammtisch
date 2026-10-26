@@ -358,6 +358,7 @@ function annalsHandleCocktailPhotoResult_(message){
     annalsSavePrivate_(root,indexName,index);
     annalsSavePrivate_(folder,consumeName,{schema:'annals-photo-consume-v1',
       jobToken:token,state:'worker_held',at:now.toISOString()});
+    annalsNotifyCocktailPhotoOwner_(folder,index.sourceItemId,token,'photo_result_held');
     return 'photo_result_held';
   }
   try{
@@ -377,8 +378,10 @@ function annalsHandleCocktailPhotoResult_(message){
     annalsSavePrivate_(root,indexName,index);
     annalsSavePrivate_(folder,consumeName,{schema:'annals-photo-consume-v1',
       jobToken:token,state:'result_received_private',at:now.toISOString()});
-    return annalsPublishCocktailEditorialResult_(index.sourceItemId,token)
-      ?'photo_publisher_dispatch_accepted':'photo_result_stored_private';
+    var published=annalsPublishCocktailEditorialResult_(index.sourceItemId,token);
+    if(!published&&annalsProps_().getProperty('ANNALS_PHOTO_WORKFLOW_ENABLED')==='true')
+      annalsNotifyCocktailPhotoOwner_(folder,index.sourceItemId,token,'photo_result_held');
+    return published?'photo_publisher_dispatch_accepted':'photo_result_stored_private';
   }catch(ignored){
     // The durable consume marker prevents uncertain Drive writes from replay.
     return 'photo_result_held';
@@ -614,7 +617,15 @@ function annalsVerifyCocktailEditorialResults_(limit){
     while(files.hasNext()&&scanned<40&&verified<target){
       var file=files.next(),match=/^cocktail-photo-result-([a-f0-9]{32})-private\.json$/.exec(file.getName());
       scanned++;
-      if(match&&annalsVerifyCocktailEditorialResult_(activeFolder,activeItemId,match[1]))verified++;
+      if(match){
+        var pending=annalsRead_(activeFolder,'cocktail-photo-result-'+match[1]+'-private.json');
+        if(pending&&pending.state==='publisher_dispatch_accepted_unverified'&&
+           Number.isFinite(Date.parse(pending.dispatchAt||''))&&
+           Date.now()-Date.parse(pending.dispatchAt)>24*60*60*1000&&
+           !annalsFile_(activeFolder,'cocktail-photo-live-'+match[1]+'-private.json'))
+          annalsNotifyCocktailPhotoOwner_(activeFolder,activeItemId,match[1],'publisher_dispatch_unverified');
+        if(annalsVerifyCocktailEditorialResult_(activeFolder,activeItemId,match[1]))verified++;
+      }
     }
     if(files.hasNext()){
       props.setProperty(key,JSON.stringify({folderToken:folders.getContinuationToken(),
@@ -633,6 +644,23 @@ function annalsVerifyCocktailEditorialResults_(limit){
   return verified;
 }
 
+function annalsNotifyCocktailPhotoOwner_(folder,itemId,token,kind){
+  if(!/^[a-f0-9]{64}$/.test(itemId||'')||!/^[a-f0-9]{32}$/.test(token||'')||
+     !['photo_result_held','publisher_dispatch_unverified'].includes(kind))return false;
+  var marker='cocktail-photo-owner-notice-'+token+'-private.json';
+  if(annalsFile_(folder,marker))return false;
+  var props=annalsProps_(),owner=String(props.getProperty('ANNALS_OWNER_EMAIL')||'').trim(),
+    review=String(props.getProperty('ANNALS_REVIEW_URL')||'');
+  if(!owner||!/^https:\/\/script\.google\.com\/macros\/s\//.test(review))return false;
+  annalsWriteOnce_(folder,marker,{schema:'annals-photo-owner-notice-v1',
+    jobToken:token,state:'attempted_once',kind:kind,at:new Date().toISOString()});
+  try{
+    GmailApp.sendEmail(owner,'Stammtisch Annals — cocktail photo needs review',
+      'A private cocktail photo job is held or its publication could not be confirmed. No automatic retry was made. Review the owner-only item: '+
+      review+'?item='+encodeURIComponent(itemId));
+  }catch(ignored){}
+  return true;
+}
 function annalsPhotoResultTerminalHold_(root,indexName,index,folder,jobRecord,
     consumeName,resultName,token,reason,now){
   if(annalsFile_(folder,consumeName))return 'photo_result_held';
@@ -648,5 +676,6 @@ function annalsPhotoResultTerminalHold_(root,indexName,index,folder,jobRecord,
   annalsSavePrivate_(root,indexName,index);
   annalsSavePrivate_(folder,consumeName,{schema:'annals-photo-consume-v1',
     jobToken:token,state:'held',at:now.toISOString()});
+  annalsNotifyCocktailPhotoOwner_(folder,index.sourceItemId,token,'photo_result_held');
   return 'photo_result_held';
 }
