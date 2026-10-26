@@ -329,7 +329,11 @@ test('native photo job and result v1 bind the exact source and fail closed',()=>
  assert.throws(()=>Policy.validatePhotoResult({...result,jobToken:'d'.repeat(32)},job,true,new Date()),/source mismatch/);
  assert.throws(()=>Policy.validatePhotoResult({...result,qa:{...result.qa,sameGlass:false}},job,true,new Date()),/visual check/);
  assert.throws(()=>Policy.validatePhotoResult({...result,privateEmail:'private'},job,true,new Date()),/Invalid photo result/);
- assert.equal(Policy.validatePhotoResult({...result,status:'held'},job,true,new Date()).qualified,false);
+ const held={schema:'annals-photo-result-v1',jobToken:job.jobToken,entryId:job.entryId,
+   sourceSha256:job.sourceSha256,status:'held',reasonCode:'edit_failed'};
+ assert.equal(Policy.validatePhotoResult(held,job,true,new Date()).qualified,false);
+ assert.throws(()=>Policy.validatePhotoResult({...held,reasonCode:'private error text'},job,true,new Date()),/Invalid held/);
+ assert.throws(()=>Policy.validatePhotoResult({...held,qa:result.qa},job,true,new Date()),/Invalid held/);
 });
 
 function sourceJpeg(){
