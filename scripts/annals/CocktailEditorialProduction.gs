@@ -451,7 +451,7 @@ function annalsPublishCocktailEditorialResult_(itemId,token){
   var upload={state:'attempt_reserved',at:now.toISOString(),sourceSha256:job.sourceSha256,
     editorialSha256:result.imageSha256};
   annalsWriteOnce_(folder,uploadName,upload);
-  var gitHeader=Utilities.newBlob('blob '+bytes.length+'\\u0000').getBytes(),
+  var gitHeader=Utilities.newBlob('blob '+bytes.length+'\u0000').getBytes(),
     gitSha=annalsHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_1,gitHeader.concat(Array.from(bytes))));
   var response;
   try{
