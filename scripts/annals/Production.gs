@@ -681,7 +681,7 @@ function annalsRecordStagingException_(messageId) {
  * A saved thread/message position is resumed on the next run, then wraps.
  */
 function runAnnalsProductionIntake() {
-  var p = annalsProps_(), summary = { enabled: false, photo_results:0, staged: 0, held: 0, duplicates: 0, skipped: 0, unverified: 0, awaiting_consent: 0, consent_activated: 0, consent_revoked: 0, auto_consent_activated: 0, auto_consent_revoked: 0, quote_attribution_revoked: 0, portrait_hidden: 0, portrait_enabled: 0, image_consent_activated: 0, image_consent_revoked: 0, staging_errors: 0, drafted: 0, verified: 0 };
+  var p = annalsProps_(), summary = { enabled: false, photo_results:0, photo_live_verified:0, staged: 0, held: 0, duplicates: 0, skipped: 0, unverified: 0, awaiting_consent: 0, consent_activated: 0, consent_revoked: 0, auto_consent_activated: 0, auto_consent_revoked: 0, quote_attribution_revoked: 0, portrait_hidden: 0, portrait_enabled: 0, image_consent_activated: 0, image_consent_revoked: 0, staging_errors: 0, drafted: 0, verified: 0 };
   if (p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED') !== 'true') return summary;
   try {
     return annalsLocked_(function () {
@@ -756,6 +756,7 @@ function runAnnalsProductionIntake() {
         processRecentRule();
         summary.drafted = annalsResumeConsentedDrafts_(2);
         summary.verified = annalsVerifyAutomaticPublications_(3);
+        if(typeof annalsVerifyCocktailEditorialResults_==='function')summary.photo_live_verified=annalsVerifyCocktailEditorialResults_(2);
         console.log(JSON.stringify(summary));
         return summary;
       }
