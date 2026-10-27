@@ -284,7 +284,8 @@ class FullMappingContractTests(unittest.TestCase):
         member = PUBLIC["members"][0]
         pick = member["picks"][0]
         source = sheets[member["id"]]
-        died_on = "2026-10-25"
+        died_on = (dt.date.fromisoformat(PUBLIC["asOf"]) + dt.timedelta(days=1)).isoformat()
+        verified_on = (dt.date.fromisoformat(died_on) + dt.timedelta(days=1)).isoformat()
         born = dt.date.fromisoformat(pick["born"])
         died = dt.date.fromisoformat(died_on)
         age = died.year - born.year - ((died.month, died.day) < (born.month, born.day))
@@ -299,17 +300,19 @@ class FullMappingContractTests(unittest.TestCase):
         for other in sync.importer.MEMBERS:
             sheets[other]["A1"]["value"] = serial(died_on)
         evidence = {"actualDeathDate":died_on, "sourceUrl":"https://example.test/obituary",
-                    "sourceLabel":"Two independently checked reports", "verifiedOn":"2026-10-26",
+                    "sourceLabel":"Two independently checked reports", "verifiedOn":verified_on,
                     "evidenceUrls":["https://example.test/obituary", "https://news.example.test/obituary"]}
         one_source = {"memberId":member["id"], "name":pick["name"], "born":pick["born"],
                       "actualDeathDate":died_on, "sourceUrl":"https://example.test/obituary",
-                      "sourceLabel":"One report", "verifiedOn":"2026-10-26"}
+                      "sourceLabel":"One report", "verifiedOn":verified_on}
         with mock.patch.object(sync.verifier, "research", return_value=evidence) as research, \
              mock.patch.object(sync, "datetime") as clock:
-            clock.now.return_value = dt.datetime(2026, 10, 26, 12, tzinfo=dt.timezone.utc)
+            clock.now.return_value = dt.datetime.combine(
+                dt.date.fromisoformat(verified_on), dt.time(12, tzinfo=dt.timezone.utc)
+            )
             result, candidate, combined = sync.prepare(
                 to_api(sheets), PUBLIC, CONFIRMATIONS + [one_source],
-                "2026-10-26T12:00:00Z", allow_research=True
+                verified_on + "T12:00:00Z", allow_research=True
             )
         self.assertEqual(result["status"], "ready")
         self.assertEqual(result["confirmationsAdded"], 1)
