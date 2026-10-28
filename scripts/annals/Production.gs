@@ -541,8 +541,7 @@ function annalsResolveAllowedSender_(sender, allowed) {
  * ordinary text drafting or publication. Legacy outsider receipts fail closed.
  */
 function annalsOrdinaryAiAllowed_(source) {
-  if (!source || !source.source || source.senderAuthenticated !== true ||
-      source.externalContributionAtReceipt === true || source.aiConsentActive !== true) return false;
+  if (!annalsOrdinaryMemberSource_(source) || source.aiConsentActive !== true) return false;
   return annalsConsentActive_(source.source.sender);
 }
 function annalsOrdinaryPublicationAllowed_(source) {
@@ -1389,7 +1388,8 @@ function annalsNotifyContributorHeld_(folder,noticeKind) {
   var source=annalsRead_(folder,'source-private.json'),p=annalsProps_(),
     sender=source&&source.source&&String(source.source.sender||'').toLowerCase();
   var allowed = AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '');
-  if (!source || source.senderAuthenticated !== true || source.externalContributionAtReceipt === true ||
+  if (!source || source.senderAuthenticated !== true || source.clubMemberAuthenticated !== true ||
+      source.externalContributionAtReceipt === true || allowed.length !== 6 ||
       annalsResolveAllowedSender_(sender, allowed) !== sender ||
       annalsFile_(folder,'contributor-hold-notice-private.json'))return false;
   // Only the authenticated submitter receives a status. No private content,
@@ -1660,6 +1660,7 @@ function annalsSaveCorrection(nonce, id, rawEntry) {
     var folder = annalsFolder_(id), original = annalsRead_(folder, 'approval-private.json');
     if (!original || original.publicationState !== 'dispatch_accepted' || annalsFile_(folder, 'removal-private.json') ||
         annalsFile_(folder, 'correction-approval-private.json') || !annalsPrivateReceiptValid_(original.entry, original.receipt)) throw new Error('Only a verified published entry can be corrected');
+    annalsOrdinarySourceGate_(annalsRead_(folder, 'source-private.json'));
     var corrected = Object.assign({},rawEntry);
     if(original.entry.photos){
       if(!annalsStandingGalleryCorrectionAllowed_(annalsRead_(folder,'source-private.json'),original.entry,folder) || corrected.photo ||
@@ -1692,6 +1693,7 @@ function annalsApproveCorrection(nonce, id, expectedHash, consents, evidenceNote
         annalsFile_(folder, 'correction-approval-private.json') || annalsFile_(folder, 'removal-private.json') ||
         uncertaintiesReviewed !== true || typeof evidenceNote !== 'string' || evidenceNote.trim().length < 10 || evidenceNote.length > 2000 ||
         !annalsPrivateReceiptValid_(original.entry, original.receipt)) throw new Error('Exact correction review and private evidence required');
+    annalsOrdinarySourceGate_(annalsRead_(folder, 'source-private.json'));
     if(original.entry.photos && !annalsStandingGalleryCorrectionAllowed_(annalsRead_(folder,'source-private.json'),original.entry,folder))throw new Error('Gallery permission is no longer active');
     if(original.entry.photos)consents=Object.assign({},consents,{photoPublication:true});
     var entry = AnnalsProduction.publicEntry(review.entry), key = annalsProps_().getProperty('ANNALS_APPROVAL_KEY') || '';
