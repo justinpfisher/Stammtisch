@@ -2039,7 +2039,7 @@ test('synthetic and retained non-member sources fail closed across manual draft,
   }
 });
 test('ineligible legacy history sources may be withdrawn but cannot be republished',()=>{
-  const x=mock(),id='e'.repeat(64),statement='A fictional detail from 2021 for withdrawal testing.';
+  const x=mock(),id='e'.repeat(64),statement='The blue ledger appeared in 2021.';
   const source={senderAuthenticated:true,clubMemberAuthenticated:false,externalContributionAtReceipt:true,
     aiConsentActive:true,autoConsentAtReceipt:true,
     source:{sender:'outside@example.test',subject:'Legacy recollection',excerpt:statement,receivedAt:'2026-10-09T00:00:00Z'}};
