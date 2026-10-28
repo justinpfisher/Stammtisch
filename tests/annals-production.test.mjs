@@ -23,7 +23,7 @@ function mock() {
   const owner = 'owner@example.test', files = new Map(), calls = { ai: 0 }, logs = [],
     props = { ANNALS_OWNER_EMAIL: owner, ANNALS_PRODUCTION_FOLDER_ID: 'PRIVATE-ID', ANNALS_AI_ENABLED: 'true',
       ANNALS_OPENAI_API_KEY: 'PRIVATE-TEST-KEY', ANNALS_APPROVAL_KEY: 's'.repeat(40),
-      ANNALS_ALLOWED_SENDERS: 'member1@example.test,member2@example.test,member3@example.test,member4@example.test,member5@example.test,member6@example.test',
+      ANNALS_ALLOWED_SENDERS: 'member@example.test,member1@example.test,member2@example.test,member3@example.test,member4@example.test,member5@example.test',
       ANNALS_BUDGET_LEDGER: JSON.stringify({ schemaVersion: 1, month: '2026-10', reservedCents: 0 }) };
   const privateMethods = { getUrl: () => 'https://drive.google.com/drive/folders/synthetic-private', getSharingAccess: () => 'PRIVATE', getEditors: () => [], getViewers: () => [], getOwner: () => ({ getEmail: () => owner }) };
   const folder = { ...privateMethods,
@@ -723,8 +723,9 @@ test('stale unverified publication privately alerts once and never re-dispatches
   x.context.UrlFetchApp.fetch=()=>({getResponseCode:()=>404});
   assert.equal(x.context.annalsVerifyAutomaticPublications_(3),0);
   assert.equal(x.context.annalsVerifyAutomaticPublications_(3),0);
-  assert.equal(sent.length,1);
+  assert.equal(sent.length,2);
   assert.equal(sent[0][0],'owner@example.test');
+  assert.equal(sent[1][0],'member1@example.test');
   assert.equal(JSON.parse(x.files.get('auto-publication-delay-private.json').getBlob().getDataAsString()).state,
     'unverified_after_24h');
 });
@@ -1081,7 +1082,7 @@ test('invalid provider output is retained privately once, never logged, publishe
   const { context, folder, files, props, calls, logs } = mock(), id = 'b'.repeat(64);
   const privateOutput = JSON.stringify({ status:'completed', output:[{type:'message',content:[{type:'output_text',text:'PRIVATE SYNTHETIC INVALID OUTPUT'}]}] });
   context.UrlFetchApp.fetch = () => {calls.ai++; return {getResponseCode:()=>200,getContentText:()=>privateOutput};};
-  folder.createFile('source-private.json', JSON.stringify({source:{subject:'Offline fixture',excerpt:'Source evidence only.'},attachmentManifest:{items:[]}}));
+  folder.createFile('source-private.json', JSON.stringify({senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,source:{sender:'member1@example.test',subject:'Offline fixture',excerpt:'Source evidence only.',receivedAt:'2026-10-09T00:00:00Z'},attachmentManifest:{items:[]}}));
   assert.throws(()=>context.annalsPrepareDraft('valid',id,'Synthetic test only.',[],true));
   const evidence = files.get('ai-response-private.json').getBlob().getDataAsString();
   assert.equal(JSON.parse(evidence).responseText, privateOutput);
@@ -1320,7 +1321,7 @@ test('owner review pages bound folder work and preserve complete continuation wi
 
 function boundedScanFixture(){
   const x=mock(),ids=Array.from({length:27},(_,i)=>(i+1).toString(16).padStart(64,'0'));
-  const stores=ids.map(()=>new Map([['source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,source:{sender:'owner@example.test',subject:'Invented scan fixture',excerpt:'An invented non-identifying object.'},attachmentManifest:{items:[]}})]]));
+  const stores=ids.map(()=>new Map([['source-private.json',JSON.stringify({senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,source:{sender:'member1@example.test',subject:'Invented scan fixture',excerpt:'An invented non-identifying object.'},attachmentManifest:{items:[]}})]]));
   const folders=ids.map((id,index)=>{const records=stores[index];
     const file=name=>({...x.folder,getBlob:()=>({getDataAsString:()=>records.get(name)}),setContent:v=>records.set(name,v)});
     return {...x.folder,getName:()=>id,getFilesByName:name=>iter(records.has(name)?[file(name)]:[]),createFile:(name,data)=>{records.set(name,data);return file(name);}};
