@@ -15,7 +15,7 @@ FILES = (
     "production-appsscript.json", "PhotoContracts.js", "PhotoProduction.gs",
     "RulesCore.js", "RulesProduction.gs", "JpegCodec.js", "PhotoDerivative.js", "GuardedRelease.gs",
     "CocktailEditorialCore.js", "CocktailEditorialProduction.gs",
-    "IntakeCadence.gs",
+    "IntakeCadence.gs", "PhotoQualification.gs",
 )
 
 
@@ -126,3 +126,4 @@ if __name__ == "__main__":
                         help="Package only the named existing public modules (omit private manifest)")
     args = parser.parse_args()
     print(json.dumps(build_package(args.ref, args.output, only=args.only)))
+
