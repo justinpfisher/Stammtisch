@@ -640,13 +640,18 @@ function annalsCreateSyntheticCheckItem() {
     var id = annalsHash_(messageId), existing = root.getFoldersByName(id);
     if (existing.hasNext()) throw new Error('Synthetic integration item already exists; do not recreate it');
     var sender = 'synthetic@invalid.example', received = new Date();
-    var message = { getId: function () { return messageId; }, getFrom: function () { return sender; },
-      getSubject: function () { return 'Synthetic production integration check — not club history'; },
-      getDate: function () { return received; },
-      getPlainBody: function () { return 'Fictional test only. Imaginary recipe: 1/2 oz imaginary syrup and 1 oz test juice. This is not a real contribution and has no publication permission.'; },
-      getAttachments: function () { return []; } };
-    var result = annalsStageProduction_(message, received.getTime() - 1000, [sender]);
-    if (result !== 'unverified') throw new Error('Synthetic integration item could not be held privately');
+    var folder = annalsFolder_(id, true), receivedAt = received.toISOString();
+    // This fixed owner-only fixture is created directly; it never passes as inbox mail.
+    annalsWriteOnce_(folder, 'source-private.json', {
+      schemaVersion: 1, sourceId: id, senderAuthenticated: false,
+      externalContributionAtReceipt: false, clubMemberAuthenticated: false,
+      aiConsentActive: false, autoConsentAtReceipt: false, imageConsentAtReceipt: false,
+      syntheticFixture: true,
+      source: { sender: sender, subject: 'Synthetic production integration check — not club history',
+        excerpt: 'Fictional test only. Imaginary recipe: 1/2 oz imaginary syrup and 1 oz test juice. This is not a real contribution and has no publication permission.',
+        receivedAt: receivedAt, sourceTruncated: false, subjectTruncated: false, excerptTruncated: false },
+      attachmentManifest: { held: false, items: [] }
+    });
     return { created: true, automaticAi: false, publishesAnything: false };
   });
 }
