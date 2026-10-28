@@ -7,7 +7,6 @@ var AnnalsAuto = (function () {
   'use strict';
   var MODE = 'standing-consent-text-v1';
   var QUOTE_MODE = 'standing-consent-quote-v1';
-  var OPEN_MODE = 'open-email-text-v1';
   var NOTICE = 'The Editorial Committee reserves the right to replace particularly spirited language with conspicuous euphemisms. Historical accuracy is otherwise maintained. The Editorial Committee is actually just AI we tried to train.';
   var CATEGORIES = ['cocktail', 'quotation', 'monthly_gathering', 'assembly', 'club_history', 'artefact'];
   // Independent of the AI category. Conservative private routing also covers
@@ -237,7 +236,7 @@ var AnnalsAuto = (function () {
     if (legacy) delete evidence.field;
     return evidence;
   }
-  function proposeRemark(s, source, full, candidate, id, speakerPermission, outsideContributor) {
+  function proposeRemark(s, source, full, candidate, id, speakerPermission) {
     var evidence = quotationEvidence(s.subject, s.excerpt, candidate.quoteVerbatim, candidate.interpretation);
     if (!evidence) return held(candidate.interpretation && candidate.interpretation.intent !== 'direct_quote' ?
       'not_a_direct_quotation' : 'quotation_not_verbatim_or_speaker_unknown');
@@ -273,7 +272,7 @@ var AnnalsAuto = (function () {
       sortDate:'',quoteVerbatim:censor(evidence.quote),
       recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]},credit:'anonymous' };
     if (granted) entry.speakerPortrait = granted;
-    return {eligible:true,entry:entry,mode:granted ? QUOTE_MODE : outsideContributor ? OPEN_MODE : MODE};
+    return {eligible:true,entry:entry,mode:granted ? QUOTE_MODE : MODE};
   }
   function reasonableCategory(category, source) {
     // The AI picks the best existing category. Uncertainty over which of two
@@ -353,8 +352,7 @@ var AnnalsAuto = (function () {
       if (!privateSource.attachmentManifest ||
           !Array.isArray(privateSource.attachmentManifest.items) ||
           privateSource.attachmentManifest.items.length) return held('quotation_requires_text_only');
-      return proposeRemark(s, source, full, candidate, id, speakerPermission,
-        privateSource.externalContributionAtReceipt === true);
+      return proposeRemark(s, source, full, candidate, id, speakerPermission);
     }
     // Publish only the independently safe remainder. This uses a derived
     // representation, not an edited private source or a model's assertion
@@ -421,8 +419,8 @@ var AnnalsAuto = (function () {
         ...(candidate.category === 'cocktail' && !recipe.steps.length ? { suggestedSteps: suggestedMethod(recipe, source) } : {}) },
       credit: 'anonymous' };
     return { eligible: true, entry: entry,
-      mode: privateSource.externalContributionAtReceipt === true ? OPEN_MODE : MODE };
+      mode: MODE };
   }
-  return Object.freeze({ MODE: MODE, QUOTE_MODE: QUOTE_MODE, OPEN_MODE: OPEN_MODE, NOTICE: NOTICE, sensitiveText: protectedText, protectedRoute: protectedRoute, censor: censor, cleanText: cleanText, safeSource: safeSource, quotationEvidence: quotationEvidence, independentText: independentText, suggestedMethod: suggestedMethod, propose: propose });
+  return Object.freeze({ MODE: MODE, QUOTE_MODE: QUOTE_MODE, NOTICE: NOTICE, sensitiveText: protectedText, protectedRoute: protectedRoute, censor: censor, cleanText: cleanText, safeSource: safeSource, quotationEvidence: quotationEvidence, independentText: independentText, suggestedMethod: suggestedMethod, propose: propose });
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = AnnalsAuto;
