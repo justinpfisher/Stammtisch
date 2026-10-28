@@ -560,8 +560,9 @@ test('old and unknown messages are skipped before body reads and production inta
   const m={getId:()=> 'invented',getFrom:()=> 'unknown@example.test',getDate:()=>new Date('2026-10-08T23:30:00Z'),getSubject:()=> 'Synthetic recipe',getPlainBody:()=>{bodyReads++;return 'Invented 1/2 oz syrup'},getAttachments:()=>[0,1,2].map(()=>({getContentType:()=> 'image/jpeg',getSize:()=>8388608,copyBlob:()=>{copies++;throw new Error('Must not copy')}}))};
   const activation=Date.parse('2026-10-08T23:00:00Z');
   assert.equal(x.context.annalsStageProduction_(m,activation,['sender@example.test']),'skipped');assert.equal(bodyReads,0);
-  m.getFrom=()=> 'sender@example.test';assert.equal(x.context.annalsStageProduction_(m,Date.parse('2026-10-09T00:00:00Z'),['sender@example.test']),'skipped');assert.equal(bodyReads,0);
-  assert.equal(x.context.annalsStageProduction_(m,activation,['sender@example.test']),'skipped');assert.equal(copies,0);
+  m.getFrom=()=> 'sender@example.test';m.getRawContent=()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=example.test\nAuto-Submitted: no\n\nSynthetic fixture only';
+  assert.equal(x.context.annalsStageProduction_(m,Date.parse('2026-10-09T00:00:00Z'),['sender@example.test']),'awaiting_consent');assert.equal(bodyReads,1);
+  assert.equal(copies,0,'aggregate-oversize attachments are never copied');
   assert.equal(x.context.annalsStageProduction_(m,activation,['sender@example.test']),'duplicates');assert.equal(bodyReads,1);
 });
 test('schedule installation is idempotent and stopping touches only the production intake handler', () => {
@@ -676,7 +677,7 @@ test('empty inbox still resumes one private AI draft with no nested script-lock 
     ANNALS_GITHUB_TOKEN:'dummy',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
     ANNALS_GITHUB_REPOSITORY:'justinpfisher/Stammtisch',
     ANNALS_REVIEW_URL:'https://script.google.com/macros/s/invented/exec',
-    ANNALS_ALLOWED_SENDERS:sender,ANNALS_ACTIVATED_AT:'2026-10-08T00:00:00Z'});
+    ANNALS_ALLOWED_SENDERS:'member@example.test,member2@example.test,member3@example.test,member4@example.test,member5@example.test,member6@example.test',ANNALS_ACTIVATED_AT:'2026-10-08T00:00:00Z'});
   x.context.GmailApp={getInboxThreads:()=>[]};x.folder.getName=()=>id;x.root.getFolders=()=>iter([x.folder]);
   x.context.GmailApp={...(x.context.GmailApp||{}),sendEmail(){}};
   x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{
