@@ -1,8 +1,5 @@
 /* Added to the EXISTING owner-only deployment; no installation or trigger reset. */
-function annalsOrdinarySourceGate_(source) {
-  if (!source || !source.source || source.protectiveRoute==='col_proposal' || source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated || AnnalsAuto.protectedRoute(source.source.subject,source.source.excerpt) !== 'annals')
-    throw new Error('Potential CoL amendment remains private');
-}
+/* Member eligibility is centralized in Production.gs. */
 /** Read-only rotation check using an existing private signed record. Never
  * returns keys, signatures, source text or identifiers; never re-signs a record.
  * GitHub's replacement secret still needs separate hosted verification. */
@@ -100,7 +97,7 @@ function annalsSaveHistoryClaim(nonce,id,raw,operation,reason){
     var f=annalsFolder_(id),source=annalsRead_(f,'source-private.json');
     if(!source || annalsFile_(f,'quarantine-private.json') || operation!=='withdraw'&&(!annalsConsentActive_(source.source.sender)||
       !annalsStandingPublicationActive_(source.source.sender,source.source.receivedAt)))throw new Error('Current and receipt-time consent required');
-    annalsOrdinarySourceGate_(source);
+    if(operation!=='withdraw')annalsOrdinarySourceGate_(source);
     if(['add','correct','withdraw'].indexOf(operation)<0||typeof reason!=='string'||reason.trim().length<10||reason.length>1000)throw new Error('Explicit private evidence required');
     var ledger=annalsHistoryLedger_(),next,at=new Date().toISOString();
     if(operation==='withdraw')next=AnnalsHistory.withdraw(ledger,id,at,reason);
@@ -135,7 +132,7 @@ function annalsApproveHistoryRevision(nonce,id,expectedHash,confirmed){
       if(!original||!annalsConsentActive_(original.source.sender)||!annalsStandingPublicationActive_(original.source.sender,original.source.receivedAt))throw new Error('Active history claim permission revoked');
       if(AnnalsProduction.serial(AnnalsHistory.claim(original,c))!==AnnalsProduction.serial(c))throw new Error('History claim no longer matches immutable original');
     });
-    annalsOrdinarySourceGate_(source);
+    if(review.operation!=='withdraw')annalsOrdinarySourceGate_(source);
     if(p.getProperty('ANNALS_HISTORY_PUBLICATION_ENABLED')!=='true'||!Number.isFinite(Date.parse(p.getProperty('ANNALS_SIGNING_REMEDIATED_AT'))))throw new Error('History publication awaits signing remediation and hosted qualification');
     var key=p.getProperty('ANNALS_HISTORY_SIGNING_KEY')||'';
     if(key.length<32||key===p.getProperty('ANNALS_APPROVAL_KEY')||key===p.getProperty('ANNALS_PUBLISH_SIGNING_KEY'))throw new Error('Distinct history authority required');

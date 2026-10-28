@@ -23,7 +23,7 @@ function intakeFixture(threads, offset = 0) {
     ANNALS_GITHUB_REPOSITORY: 'justinpfisher/Stammtisch',
     ANNALS_REVIEW_URL: 'https://example.test/private',
     ANNALS_ACTIVATED_AT: '2026-10-01T00:00:00Z',
-    ANNALS_ALLOWED_SENDERS: 'fictional@example.test',
+    ANNALS_ALLOWED_SENDERS: 'fictional@example.test,member@example.test,member2@example.test,member3@example.test,member4@example.test,member5@example.test',
     ANNALS_INBOX_CURSOR: JSON.stringify({offset, message: 0, threadId: null})
   };
   const seen = new Set(), calls = [];

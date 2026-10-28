@@ -7,7 +7,7 @@ import {readFileSync} from 'node:fs';
 const script=readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8');
 const id='e'.repeat(64),sender='invented.member@example.test';
 function fixture({eligible=true,consent=true,dispatch=false}={}){
-  const source={sourceId:id,senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,
+  const source={sourceId:id,senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,autoConsentAtReceipt:true,
     source:{sender,subject:'Fictional Spice Glass',excerpt:'1 oz invented liquid. Stir.',
       receivedAt:'2026-10-18T17:00:00Z',sourceTruncated:false,subjectTruncated:false,excerptTruncated:false}};
   const records=new Map([
@@ -19,7 +19,7 @@ function fixture({eligible=true,consent=true,dispatch=false}={}){
   if(dispatch)records.set('publication-dispatch-private.json',{state:'accepted'});
   const calls=[],overrides={
     annalsUiCall_:(_nonce,fn)=>fn(),annalsLocked_:fn=>fn(),annalsOwner_:()=>sender,
-    annalsProps_:()=>({getProperty:k=>({ANNALS_ALLOWED_SENDERS:sender,ANNALS_ACTIVATED_AT:'2026-10-01T00:00:00Z'}[k]||'')}),
+    annalsProps_:()=>({getProperty:k=>({ANNALS_ALLOWED_SENDERS:[sender,'member2@example.test','member3@example.test','member4@example.test','member5@example.test','member6@example.test'].join(','),ANNALS_ACTIVATED_AT:'2026-10-01T00:00:00Z'}[k]||'')}),
     annalsFolder_:()=>({}),
     annalsRead_:(_folder,name)=>records.get(name)||null,
     annalsFile_:(_folder,name)=>records.has(name)?{setContent:s=>records.set(name,JSON.parse(s))}:null,

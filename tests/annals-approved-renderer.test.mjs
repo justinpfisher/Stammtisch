@@ -53,6 +53,14 @@ function signedTestReceipt(entry, consents = {}) {
   };
 }
 
+test('the generated Annals invitation limits contributions to six authenticated members', () => {
+  const { html } = buildApprovedAnnals([], [], TEST_SECRET);
+  assert.match(html, /Members only\./);
+  assert.match(html, /six authenticated Club members/);
+  assert.match(html, /authenticated Club member address/);
+  assert.doesNotMatch(html, /from all quarters|Stories and memories welcome by email|Contribute to the Annals/);
+});
+
 test('a text-only fictional cocktail with explicit review and signed receipt can render', () => {
   const receipt = signedTestReceipt(baseDrink, { recipeVerified: true });
   assert.equal(verifyApproval(baseDrink, receipt, TEST_SECRET), true);

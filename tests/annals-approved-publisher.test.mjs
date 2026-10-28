@@ -41,7 +41,7 @@ test('only a valid exact public approval is added and rendered', async () => {
   assert.doesNotMatch(result.html, /reviewedBy|owner@example|private evidence/);
 });
 
-test('the established publisher accepts only signed anonymous text from the open inbox mode', async () => {
+test('the established publisher rejects the retired outside-contribution signature mode', async () => {
   const outside={...entry,credit:'anonymous'};
   const unsigned={entryId:outside.id,approvedAt:'2026-10-09T12:00:00.000Z',
     mode:'open-email-text-v1',
@@ -50,18 +50,7 @@ test('the established publisher accepts only signed anonymous text from the open
   const approval={...unsigned,signature:createHmac('sha256',secret)
     .update(JSON.stringify(canonical({entry:outside,approval:unsigned}))).digest('hex')};
   const payload={entry:outside,approval};
-  const result=await applyApprovedEntry({event:{action:'annals-auto-entry',client_payload:payload},data:emptyArchive(),secret});
-  assert.equal(result.data.entries.length,1);
-  assert.equal(result.data.approvals[0].mode,'open-email-text-v1');
-  assert.match(result.html,/Synthetic cocktail/);
-  for(const extra of [{imageBase64:'ZmFrZQ=='},{images:[]},{imageBlobs:[]}]) {
-    await assert.rejects(applyApprovedEntry({event:{action:'annals-auto-entry',client_payload:{...payload,...extra}},data:emptyArchive(),secret}));
-  }
-  const identified={...outside,credit:'a club member'};
-  const identifiedUnsigned={...unsigned,contentSha256:contentDigest(identified)};
-  const identifiedApproval={...identifiedUnsigned,signature:createHmac('sha256',secret)
-    .update(JSON.stringify(canonical({entry:identified,approval:identifiedUnsigned}))).digest('hex')};
-  await assert.rejects(applyApprovedEntry({event:{action:'annals-auto-entry',client_payload:{entry:identified,approval:identifiedApproval}},data:emptyArchive(),secret}));
+  await assert.rejects(applyApprovedEntry({event:{action:'annals-auto-entry',client_payload:payload},data:emptyArchive(),secret}));
 });
 
 test('changed text, invalid event, duplicate identity and private fields fail closed', async () => {

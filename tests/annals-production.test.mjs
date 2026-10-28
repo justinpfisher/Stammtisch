@@ -23,6 +23,7 @@ function mock() {
   const owner = 'owner@example.test', files = new Map(), calls = { ai: 0 }, logs = [],
     props = { ANNALS_OWNER_EMAIL: owner, ANNALS_PRODUCTION_FOLDER_ID: 'PRIVATE-ID', ANNALS_AI_ENABLED: 'true',
       ANNALS_OPENAI_API_KEY: 'PRIVATE-TEST-KEY', ANNALS_APPROVAL_KEY: 's'.repeat(40),
+      ANNALS_ALLOWED_SENDERS: 'member@example.test,member1@example.test,member2@example.test,member3@example.test,member4@example.test,member5@example.test',
       ANNALS_BUDGET_LEDGER: JSON.stringify({ schemaVersion: 1, month: '2026-10', reservedCents: 0 }) };
   const privateMethods = { getUrl: () => 'https://drive.google.com/drive/folders/synthetic-private', getSharingAccess: () => 'PRIVATE', getEditors: () => [], getViewers: () => [], getOwner: () => ({ getEmail: () => owner }) };
   const folder = { ...privateMethods,
@@ -59,7 +60,7 @@ function mock() {
   };
   vm.createContext(context);
   vm.runInContext(['PilotCore.js','ProductionCore.js','AutoCore.js','MediaCore.js','MediaPolicy.js','PublicDisplay.js','HistoryCore.js','GovernanceCore.js','HistoryProduction.gs','Production.gs'].map(name=>readFileSync(new URL('../scripts/annals/'+name,import.meta.url),'utf8')).join('\n'),context);
-  folder.createFile('source-private.json', JSON.stringify({source:{subject:'Offline fixture',excerpt:'Source evidence only.',receivedAt:'2026-10-09T00:00:00Z'},attachmentManifest:{items:[]}}));
+  folder.createFile('source-private.json', JSON.stringify({senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,autoConsentAtReceipt:false,source:{sender:'member1@example.test',subject:'Offline fixture',excerpt:'Source evidence only.',receivedAt:'2026-10-09T00:00:00Z'},attachmentManifest:{items:[]}}));
   return { context, props, files, folder, root, calls, logs };
 }
 test('AI and public contracts retain literal fractions and match approved renderer canonical digest', () => {
@@ -548,7 +549,7 @@ test('production intake resumes a long thread and wraps without reading while di
   x.context.GmailApp={getInboxThreads:(offset)=>offset===0?[thread]:[],getThreadById:()=>thread};
   x.context.annalsStageProduction_=m=>{handled.push(m.id);if(seen.has(m.id))return 'duplicates';seen.add(m.id);return 'staged'};
   assert.equal(x.context.runAnnalsProductionIntake().enabled,false);assert.equal(handled.length,0);
-  Object.assign(x.props,{ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_AI_ENABLED:'true',ANNALS_OPENAI_API_KEY:'test',ANNALS_BUDGET_LEDGER:'{}',ANNALS_GITHUB_TOKEN:'test',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'owner/repo',ANNALS_REVIEW_URL:'https://script.google.com/macros/s/test/exec',ANNALS_ALLOWED_SENDERS:'sender@example.test',ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z'});
+  Object.assign(x.props,{ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_AI_ENABLED:'true',ANNALS_OPENAI_API_KEY:'test',ANNALS_BUDGET_LEDGER:'{}',ANNALS_GITHUB_TOKEN:'test',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'owner/repo',ANNALS_REVIEW_URL:'https://script.google.com/macros/s/test/exec',ANNALS_ALLOWED_SENDERS:'member1@example.test,member2@example.test,member3@example.test,member4@example.test,member5@example.test,member6@example.test',ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z'});
   x.root.getFolders=()=>iter([]);
   assert.equal(x.context.runAnnalsProductionIntake().staged,12);
   assert.equal(x.context.runAnnalsProductionIntake().staged,0);
@@ -559,16 +560,19 @@ test('old and unknown messages are skipped before body reads and production inta
   const x=mock();x.files.delete('source-private.json');let bodyReads=0,copies=0;
   const m={getId:()=> 'invented',getFrom:()=> 'unknown@example.test',getDate:()=>new Date('2026-10-08T23:30:00Z'),getSubject:()=> 'Synthetic recipe',getPlainBody:()=>{bodyReads++;return 'Invented 1/2 oz syrup'},getAttachments:()=>[0,1,2].map(()=>({getContentType:()=> 'image/jpeg',getSize:()=>8388608,copyBlob:()=>{copies++;throw new Error('Must not copy')}}))};
   const activation=Date.parse('2026-10-08T23:00:00Z');
-  assert.equal(x.context.annalsStageProduction_(m,activation,['sender@example.test']),'skipped');assert.equal(bodyReads,0);
-  m.getFrom=()=> 'sender@example.test';assert.equal(x.context.annalsStageProduction_(m,Date.parse('2026-10-09T00:00:00Z'),['sender@example.test']),'skipped');assert.equal(bodyReads,0);
-  assert.equal(x.context.annalsStageProduction_(m,activation,['sender@example.test']),'unverified');assert.equal(copies,0);
-  assert.equal(x.context.annalsStageProduction_(m,activation,['sender@example.test']),'duplicates');assert.equal(bodyReads,1);
+  const allowed=['sender','member2','member3','member4','member5','member6'].map(n=>n+'@example.test');
+  assert.equal(x.context.annalsStageProduction_(m,activation,allowed),'skipped');assert.equal(bodyReads,0);
+  m.getFrom=()=> 'sender@example.test';m.getDate=()=>new Date('2026-10-09T00:00:00Z');m.getRawContent=()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=example.test\nAuto-Submitted: no\n\nSynthetic fixture only';m.getHeader=name=>name==='Auto-Submitted'?'no':'';
+  assert.equal(x.context.annalsAuthentication_(m,'sender@example.test'),true);
+  assert.equal(x.context.annalsStageProduction_(m,activation,allowed),'awaiting_consent');assert.equal(bodyReads,1);
+  assert.equal(copies,0,'aggregate-oversize attachments are never copied');
+  assert.equal(x.context.annalsStageProduction_(m,activation,allowed),'duplicates');assert.equal(bodyReads,1);
 });
 test('schedule installation is idempotent and stopping touches only the production intake handler', () => {
   const x=mock(), triggers=[{getHandlerFunction:()=> 'unrelatedHandler'}];
   x.context.ScriptApp={getProjectTriggers:()=>triggers,newTrigger:name=>({timeBased:()=>({everyMinutes:minutes=>({create:()=>{assert.equal(minutes,15);triggers.push({getHandlerFunction:()=>name})}})})}),deleteTrigger:t=>triggers.splice(triggers.indexOf(t),1)};
   assert.throws(()=>x.context.annalsInstallIntakeSchedule());
-  Object.assign(x.props,{ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_AI_ENABLED:'true',ANNALS_OPENAI_API_KEY:'test',ANNALS_BUDGET_LEDGER:'{}',ANNALS_GITHUB_TOKEN:'test',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'owner/repo',ANNALS_REVIEW_URL:'https://script.google.com/macros/s/test/exec',ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z',ANNALS_ALLOWED_SENDERS:'sender@example.test'});
+  Object.assign(x.props,{ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_AI_ENABLED:'true',ANNALS_OPENAI_API_KEY:'test',ANNALS_BUDGET_LEDGER:'{}',ANNALS_GITHUB_TOKEN:'test',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'owner/repo',ANNALS_REVIEW_URL:'https://script.google.com/macros/s/test/exec',ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z',ANNALS_ALLOWED_SENDERS:'member1@example.test,member2@example.test,member3@example.test,member4@example.test,member5@example.test,member6@example.test'});
   x.context.annalsInstallIntakeSchedule();x.context.annalsInstallIntakeSchedule();assert.equal(triggers.length,2);
   x.context.annalsStopProduction();assert.equal(triggers.length,1);assert.equal(triggers[0].getHandlerFunction(),'unrelatedHandler');
   assert.equal(x.props.ANNALS_AI_ENABLED,'false');assert.equal(x.props.ANNALS_PRODUCTION_INTAKE_ENABLED,'false');
@@ -608,7 +612,7 @@ test('only a separate signed standing-consent proof permits unattended text disp
     [sender]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-07T00:00:00Z',
       autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:'2026-10-08T00:00:00Z'}}
   }}));
-  const source={senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,requiresClarification:false,
+  const source={senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,autoConsentAtReceipt:true,requiresClarification:false,
     source:{sender,subject:'Fictional Test Mule',
       excerpt:'Fictional Test Mule\n1 oz invented syrup\n2 oz imaginary juice\nStir the invented liquids.',
       receivedAt:'2026-10-09T00:30:00Z'},attachmentManifest:{held:false,items:[]}};
@@ -646,7 +650,7 @@ test('live reconciliation verifies matching public archive and deployed page wit
   x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{
     [sender]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T00:00:00Z',
       autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:'2026-10-08T01:00:00Z'}}}}));
-  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,
     autoConsentAtReceipt:true,requiresClarification:false,source:{sender,subject:'Test Mule',
       excerpt:'Test Mule\n1 oz syrup\n1 oz juice\nStir.',receivedAt:'2026-10-09T00:30:00Z'},
     attachmentManifest:{items:[],held:false}}));
@@ -676,12 +680,12 @@ test('empty inbox still resumes one private AI draft with no nested script-lock 
     ANNALS_GITHUB_TOKEN:'dummy',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
     ANNALS_GITHUB_REPOSITORY:'justinpfisher/Stammtisch',
     ANNALS_REVIEW_URL:'https://script.google.com/macros/s/invented/exec',
-    ANNALS_ALLOWED_SENDERS:sender,ANNALS_ACTIVATED_AT:'2026-10-08T00:00:00Z'});
+    ANNALS_ALLOWED_SENDERS:'member@example.test,member2@example.test,member3@example.test,member4@example.test,member5@example.test,member6@example.test',ANNALS_ACTIVATED_AT:'2026-10-08T00:00:00Z'});
   x.context.GmailApp={getInboxThreads:()=>[]};x.folder.getName=()=>id;x.root.getFolders=()=>iter([x.folder]);
   x.context.GmailApp={...(x.context.GmailApp||{}),sendEmail(){}};
   x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{
     [sender]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T00:00:00Z'}}}));
-  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,
     autoConsentAtReceipt:false,requiresClarification:false,
     source:{sender,subject:'Fictional recipe',excerpt:'1 oz invented syrup and 1 oz juice.',excerptTruncated:false,receivedAt:'2026-10-09T00:00:00Z'},
     attachmentManifest:{held:false,items:[]}}));
@@ -719,8 +723,9 @@ test('stale unverified publication privately alerts once and never re-dispatches
   x.context.UrlFetchApp.fetch=()=>({getResponseCode:()=>404});
   assert.equal(x.context.annalsVerifyAutomaticPublications_(3),0);
   assert.equal(x.context.annalsVerifyAutomaticPublications_(3),0);
-  assert.equal(sent.length,1);
+  assert.equal(sent.length,2);
   assert.equal(sent[0][0],'owner@example.test');
+  assert.equal(sent[1][0],'member1@example.test');
   assert.equal(JSON.parse(x.files.get('auto-publication-delay-private.json').getBlob().getDataAsString()).state,
     'unverified_after_24h');
 });
@@ -800,7 +805,7 @@ test('Register of Remarks uses the spoken member, not the email submitter, and r
     ...(i===3 ? {quoteAttribution:{status:'active',scope:'future_attributed_member_quotation_publication',consentedAt:'2026-10-09T00:00:00Z'}} : {})
   }]));
   x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members}));
-  const source={senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,
+  const source={senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,autoConsentAtReceipt:true,
     source:{sender:addresses[1],subject:'Register of Remarks',
       excerpt:'Ken said: "We should have brought a map."',
       receivedAt:'2026-10-10T15:00:00Z'},
@@ -846,7 +851,7 @@ test('owner recovery reassesses only the saved held quotation, makes no AI call 
     ...(i===3?{quoteAttribution:{status:'active',scope:'future_attributed_member_quotation_publication',consentedAt:'2026-10-08T00:00:00Z'}}:{})
   }]));
   x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members}));
-  const source={sourceId:id,senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,
+  const source={sourceId:id,senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,autoConsentAtReceipt:true,
     source:{sender:addresses[1],subject:'Register of Remarks',excerpt:'Ken said: “A fictional map is optional.”',
       receivedAt:'2026-10-09T15:00:00Z'},attachmentManifest:{items:[],held:false}};
   const savedDraft={category:'quotation',title:'Register of Remarks',summary:'',eventDate:'',
@@ -898,7 +903,7 @@ test('speaker quote permission can be registered once by owner without activatin
   assert.equal(emails.length,6);
   assert.doesNotMatch(JSON.stringify(emails),/private evidence|@example.test source|code: /i);
   assert.throws(()=>x.context.annalsRecordVerifiedQuotePermissions('valid',true,'Cannot register a second time'),/Operation held/);
-  const s={senderAuthenticated:true,source:{sender:addresses[1],
+  const s={senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,source:{sender:addresses[1],
     receivedAt:'2026-10-10T15:00:00Z',excerpt:'Ken: "This is fictional."'}};
   const d={category:'quotation',quoteVerbatim:'This is fictional.',interpretation:{intent:'direct_quote',speakerId:'ken',evidenceField:'body'}};
 
@@ -917,7 +922,7 @@ test('private source controls reject incorrect member speaker and only allow exa
       autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:'2026-10-07T00:00:00Z'},
       quoteAttribution:{status:'active',scope:'future_attributed_member_quotation_publication',consentedAt:'2026-10-09T00:00:00Z'}}
   }}));
-  const source={senderAuthenticated:true,source:{sender:addresses[1],
+  const source={senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,source:{sender:addresses[1],
     receivedAt:'2026-10-10T15:00:00Z',excerpt:'Ken said: "This is a test."'}};
   const d={category:'quotation',quoteVerbatim:'This is a test.',interpretation:{intent:'direct_quote',speakerId:'ken',evidenceField:'body'}};
 
@@ -947,7 +952,7 @@ test('only a verified allowlisted sender with prior private attribution permissi
     contributorPortraitPublication:{status:'active',scope:'future_illustrated_contributor_identification',
       consentedAt:'2026-10-08T00:00:00Z'}};
   x.folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{[sender]:member}}));
-  const original={senderAuthenticated:true,source:{sender,receivedAt:'2026-10-09T00:30:00Z',
+  const original={senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,source:{sender,receivedAt:'2026-10-09T00:30:00Z',
     excerpt:'1 oz water',subject:'Invented cocktail'}};
   assert.equal(x.context.annalsContributorPortrait_(original),'fish');
   assert.equal(x.context.annalsContributorPortrait_({...original,senderAuthenticated:false}),null);
@@ -983,7 +988,7 @@ test('manual review cannot forge an unrelated contributor likeness',()=>{
     contributorPortraitPublication:{status:'active',scope:'future_illustrated_contributor_identification',
       consentedAt:'2026-10-08T00:00:00Z'}}
   }}));
-  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,
     source:{sender:addresses[0],receivedAt:'2026-10-09T00:30:00Z',
       excerpt:'Invented.',subject:'Test',excerptTruncated:false},
     attachmentManifest:{items:[]}}));
@@ -1077,7 +1082,7 @@ test('invalid provider output is retained privately once, never logged, publishe
   const { context, folder, files, props, calls, logs } = mock(), id = 'b'.repeat(64);
   const privateOutput = JSON.stringify({ status:'completed', output:[{type:'message',content:[{type:'output_text',text:'PRIVATE SYNTHETIC INVALID OUTPUT'}]}] });
   context.UrlFetchApp.fetch = () => {calls.ai++; return {getResponseCode:()=>200,getContentText:()=>privateOutput};};
-  folder.createFile('source-private.json', JSON.stringify({source:{subject:'Offline fixture',excerpt:'Source evidence only.'},attachmentManifest:{items:[]}}));
+  folder.createFile('source-private.json', JSON.stringify({senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,source:{sender:'member1@example.test',subject:'Offline fixture',excerpt:'Source evidence only.',receivedAt:'2026-10-09T00:00:00Z'},attachmentManifest:{items:[]}}));
   assert.throws(()=>context.annalsPrepareDraft('valid',id,'Synthetic test only.',[],true));
   const evidence = files.get('ai-response-private.json').getBlob().getDataAsString();
   assert.equal(JSON.parse(evidence).responseText, privateOutput);
@@ -1117,7 +1122,7 @@ function capturedTextFixture() {
   props.ANNALS_ALLOWED_SENDERS=sender;
   props.ANNALS_ACTIVATED_AT='2026-10-08T00:00:00Z';
   folder.createFile('consent-registry-private.json',JSON.stringify({schemaVersion:1,members:{[sender]:{status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-08T00:00:00Z',autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:'2026-10-08T00:00:00Z'}}}}));
-  const source={sourceId:id,senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,attachmentManifest:{items:[]},source:{sender,subject:'Register of Remarks',excerpt:'My quote: "Synthetic diagnostic only. Not club history."',receivedAt:'2026-10-09T00:00:00Z'}};
+  const source={sourceId:id,senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,autoConsentAtReceipt:true,attachmentManifest:{items:[]},source:{sender,subject:'Register of Remarks',excerpt:'My quote: "Synthetic diagnostic only. Not club history."',receivedAt:'2026-10-09T00:00:00Z'}};
   const raw={category:'quotation',title:'Register of Remarks',summary:'Synthetic diagnostic only.',eventDate:'',quoteVerbatim:'Synthetic diagnostic only. Not club history.',recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]},riskFlags:[],interpretation:{intent:'direct_quote',speakerId:'self',evidenceField:'body'},imageSafety:{kind:'none',safeToPublish:true,altText:''}};
   const responseText=JSON.stringify({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(raw)}]}]});
   folder.createFile('source-private.json',JSON.stringify(source));
@@ -1181,7 +1186,7 @@ test('diagnostic framing retains its subject category without resolving material
   assert.match(req.instructions,/hypothetical commemorative badge belongs to club_history/);
   assert.match(req.text.format.schema.properties.category.description,/independent of whether the account is factual or explicitly fictional/);
   const policy=require('../scripts/annals/AutoCore.js');
-  const source={senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,
+  const source={senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,autoConsentAtReceipt:true,
     source:{subject:'Fictional monthly account',excerpt:fictional,receivedAt:'2026-10-10T15:00:00Z'},
     attachmentManifest:{held:false,items:[]},requiresClarification:false};
   const d={...candidate(),category:'uncategorised',title:'Fictional monthly account',quoteVerbatim:'',
@@ -1316,7 +1321,7 @@ test('owner review pages bound folder work and preserve complete continuation wi
 
 function boundedScanFixture(){
   const x=mock(),ids=Array.from({length:27},(_,i)=>(i+1).toString(16).padStart(64,'0'));
-  const stores=ids.map(()=>new Map([['source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,source:{sender:'owner@example.test',subject:'Invented scan fixture',excerpt:'An invented non-identifying object.'},attachmentManifest:{items:[]}})]]));
+  const stores=ids.map(()=>new Map([['source-private.json',JSON.stringify({senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,source:{sender:'member1@example.test',subject:'Invented scan fixture',excerpt:'An invented non-identifying object.'},attachmentManifest:{items:[]}})]]));
   const folders=ids.map((id,index)=>{const records=stores[index];
     const file=name=>({...x.folder,getBlob:()=>({getDataAsString:()=>records.get(name)}),setContent:v=>records.set(name,v)});
     return {...x.folder,getName:()=>id,getFilesByName:name=>iter(records.has(name)?[file(name)]:[]),createFile:(name,data)=>{records.set(name,data);return file(name);}};
@@ -1523,7 +1528,7 @@ test('independent proposal routing holds complete raw email before AI, preservin
 });
 test('proposal intent cannot bypass private holding through manual review, paid drafting or lower-level ordinary dispatch',()=>{
   const x=mock(),id='c'.repeat(64);
-  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,source:{subject:'A cocktail',excerpt:'Could we change the Diamond provision?'},attachmentManifest:{items:[]}}));
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,source:{subject:'A cocktail',excerpt:'Could we change the Diamond provision?'},attachmentManifest:{items:[]}}));
   assert.throws(()=>x.context.annalsSaveReview('valid',id,entry()));
   assert.throws(()=>x.context.annalsPrepareDraft('valid',id,'Only a cocktail.',[],true));
   assert.throws(()=>x.context.annalsDispatchApproved_(x.folder,entry(),{},'annals-approved-entry','publication-dispatch-private.json'));
@@ -1531,7 +1536,7 @@ test('proposal intent cannot bypass private holding through manual review, paid 
 });
 test('owner-only CoL comparison stores private immutable versions and performs no adoption or publication',()=>{
   const x=mock(),id='c'.repeat(64),rules=readFileSync(new URL('../docs/celebration-of-life-rules.md',import.meta.url),'utf8'),requests=[];
-  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,source:{subject:'Change drafting',excerpt:'Could we change the celebrity draft?',receivedAt:'2026-10-09T00:00:00Z'},attachmentManifest:{items:[]}}));
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,source:{subject:'Change drafting',excerpt:'Could we change the celebrity draft?',receivedAt:'2026-10-09T00:00:00Z'},attachmentManifest:{items:[]}}));
   x.context.UrlFetchApp.fetch=(url)=>{requests.push(url);return {getResponseCode:()=>200,getContentText:()=>rules};};
   assert.throws(()=>x.context.annalsPrepareRuleProposal('invalid',id,'DRAFTING','',''));
   const p=x.context.annalsPrepareRuleProposal('valid',id,'DRAFTING','Suggested exact replacement.','Ask the club; not adopted.');
@@ -1544,7 +1549,7 @@ test('owner-only CoL comparison stores private immutable versions and performs n
 test('history preparation is private and signing remains blocked until explicit remediation and qualification',()=>{
   const x=mock(),id='d'.repeat(64),statement='The blue ledger appeared in 2021.';
   x.context.annalsConsentActive_=()=>true;x.context.annalsStandingPublicationActive_=()=>true;
-  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,source:{subject:'A recollection',excerpt:statement,receivedAt:'2026-10-09T00:00:00Z',sender:'member@example.test'},attachmentManifest:{items:[]}}));
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,autoConsentAtReceipt:true,source:{subject:'A recollection',excerpt:statement,receivedAt:'2026-10-09T00:00:00Z',sender:'member@example.test'},attachmentManifest:{items:[]}}));
   const raw={chapter:'origins',factKey:'ledger-arrival',field:'excerpt',statement,period:'2021',status:'recollection',uncertainty:'',evidenceNote:'Reviewed offline source fixture.',order:100};
   const r=x.context.annalsSaveHistoryClaim('valid',id,raw,'add','Reviewed offline source fixture.');
   assert.match(r.chapters[0].paragraphs[0],/A member recalls/);
@@ -1566,7 +1571,7 @@ test('verified publisher expiry pauses unattended AI before budget reservation o
 test('qualified history dispatch preserves pending evidence, rejects resend, and commits only after exact live reconciliation',()=>{
   const x=mock(),id='d'.repeat(64),statement='The blue ledger appeared in 2021.';
   x.context.annalsConsentActive_=()=>true;x.context.annalsStandingPublicationActive_=()=>true;
-  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,source:{subject:'A recollection',excerpt:statement,receivedAt:'2026-10-09T00:00:00Z',sender:'member@example.test'},attachmentManifest:{items:[]}}));
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,autoConsentAtReceipt:true,source:{subject:'A recollection',excerpt:statement,receivedAt:'2026-10-09T00:00:00Z',sender:'member@example.test'},attachmentManifest:{items:[]}}));
   Object.assign(x.props,{ANNALS_HISTORY_PUBLICATION_ENABLED:'true',ANNALS_SIGNING_REMEDIATED_AT:'2026-10-08T00:00:00Z',ANNALS_HISTORY_SIGNING_KEY:'h'.repeat(40),ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_TOKEN:'offline-token',ANNALS_GITHUB_REPOSITORY:'justinpfisher/Stammtisch'});
   let publicDocument={schemaVersion:1,revision:0,chapters:[],updatedAt:''},dispatches=[];
   x.context.UrlFetchApp.fetch=(url,options)=>{
@@ -1612,7 +1617,7 @@ test('private signing rotation probe rejects old signatures and validates new co
 test('one-shot private CoL assessment uses existing model, input/output bounds and budget, never signing or changing rules',()=>{
   const x=mock(),id='c'.repeat(64),rules=readFileSync(new URL('../docs/celebration-of-life-rules.md',import.meta.url),'utf8');
   x.context.annalsConsentActive_=()=>true;
-  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,source:{subject:'Proposal about drafting',excerpt:'Could we change the January celebrity draft?',sender:'member@example.test',receivedAt:'2026-10-09T00:00:00Z'},attachmentManifest:{items:[]}}));
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,source:{subject:'Proposal about drafting',excerpt:'Could we change the January celebrity draft?',sender:'member@example.test',receivedAt:'2026-10-09T00:00:00Z'},attachmentManifest:{items:[]}}));
   let paid=0;
   const assessment={heading:'DRAFTING',replacement:'Offline proposed replacement only.',scores:'No retrospective change established.',selections:'Pending club decision.',awards:'Unassessed.',drafting:'Proposal only.',annualRollover:'Intervening January remains unresolved.',notifications:'No change authorised.',effectiveDate:'Unresolved.',contradictions:'Needs review.',recommendation:'Private consideration only.'};
   x.context.UrlFetchApp.fetch=(url,options)=>{
@@ -1633,7 +1638,7 @@ test('one-shot private CoL assessment uses existing model, input/output bounds a
 test('uncertain CoL provider delivery never retries or refunds the attempt',()=>{
   const x=mock(),id='c'.repeat(64),rules=readFileSync(new URL('../docs/celebration-of-life-rules.md',import.meta.url),'utf8');
   x.context.annalsConsentActive_=()=>true;
-  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,source:{subject:'Rule proposal',excerpt:'Could we change the draft?',sender:'member@example.test'},attachmentManifest:{items:[]}}));
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,source:{subject:'Rule proposal',excerpt:'Could we change the draft?',sender:'member@example.test'},attachmentManifest:{items:[]}}));
   let paid=0;x.context.UrlFetchApp.fetch=url=>{if(url.includes('raw.githubusercontent'))return {getResponseCode:()=>200,getContentText:()=>rules};paid++;throw Error('PRIVATE provider failure');};
   assert.equal(x.context.annalsPrepareRuleDraftCore_(id),false);assert.equal(x.context.annalsPrepareRuleDraftCore_(id),false);assert.equal(paid,1);
   assert.equal(JSON.parse(x.props.ANNALS_BUDGET_LEDGER).reservedCents,10);assert.ok(!x.files.has('col-proposal-private.json'));
@@ -1681,7 +1686,7 @@ test('history verification can finish after its final status save fails without 
 test('CoL response-read uncertainty is recorded privately and never charged twice',()=>{
   const x=mock(),id='c'.repeat(64),rules=readFileSync(new URL('../docs/celebration-of-life-rules.md',import.meta.url),'utf8');
   x.context.annalsConsentActive_=()=>true;
-  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,aiConsentActive:true,source:{subject:'Rule proposal',excerpt:'Could we change the draft?',sender:'member@example.test'},attachmentManifest:{items:[]}}));
+  x.folder.createFile('source-private.json',JSON.stringify({senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,source:{subject:'Rule proposal',excerpt:'Could we change the draft?',sender:'member@example.test'},attachmentManifest:{items:[]}}));
   let paid=0;x.context.UrlFetchApp.fetch=url=>{if(url.includes('raw.githubusercontent'))return {getResponseCode:()=>200,getContentText:()=>rules};paid++;return {getResponseCode:()=>200,getContentText:()=>{throw Error('Offline response-read interruption');}};};
   assert.equal(x.context.annalsPrepareRuleDraftCore_(id),false);
   assert.equal(x.context.annalsPrepareRuleDraftCore_(id),false);assert.equal(paid,1);
@@ -1701,7 +1706,7 @@ test('interrupted intake refuses changed original evidence instead of replacing 
 });
 test('history signing rechecks every existing active claim against its immutable original',()=>{
   const x=mock(),id='d'.repeat(64),statement='The blue ledger appeared in 2021.';
-  const source={senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,source:{subject:'A recollection',excerpt:statement,receivedAt:'2026-10-09T00:00:00Z',sender:'member@example.test'},attachmentManifest:{items:[]}};
+  const source={senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,autoConsentAtReceipt:true,source:{subject:'A recollection',excerpt:statement,receivedAt:'2026-10-09T00:00:00Z',sender:'member@example.test'},attachmentManifest:{items:[]}};
   x.context.annalsConsentActive_=()=>true;x.context.annalsStandingPublicationActive_=()=>true;
   x.folder.createFile('source-private.json',JSON.stringify(source));
   const raw={id:'a'.repeat(64),sourceId:id,chapter:'origins',factKey:'ledger-arrival',field:'excerpt',statement,period:'2021',status:'recollection',uncertainty:'',evidenceNote:'Reviewed offline evidence only.',order:100};
@@ -1746,7 +1751,7 @@ test('ordinary Annals recollections and keepsakes use signed publication dispatc
 
 test('persistent safe-source pre-draft holds notify owner and authenticated member exactly once without AI or replay',()=>{
   const x=mock(),messages=[],id='d'.repeat(64),oldLedger=x.props.ANNALS_BUDGET_LEDGER;
-  x.props.ANNALS_ALLOWED_SENDERS='member@example.test,other@example.test';
+  x.props.ANNALS_ALLOWED_SENDERS='member@example.test,member2@example.test,member3@example.test,member4@example.test,member5@example.test,member6@example.test';
   x.props.ANNALS_REVIEW_URL='https://script.google.com/macros/s/fictional-owner/exec';
   x.folder.getName=()=>id;
   x.root.getFolders=()=>iter([x.folder]);
@@ -1754,7 +1759,7 @@ test('persistent safe-source pre-draft holds notify owner and authenticated memb
   x.context.annalsStandingPublicationActive_=()=>true;
   x.context.GmailApp={sendEmail:(to,subject,body)=>messages.push({to,subject,body})};
   const original={
-    sourceId:id,senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,
+    sourceId:id,senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,autoConsentAtReceipt:true,
     source:{sender:'member@example.test',subject:'Fictional club account',
       excerpt:'Please contact someone@example.test for a fictional detail.',
       receivedAt:'2026-10-08T23:45:00Z',
@@ -1863,7 +1868,7 @@ test('authenticated administrative and bulk messages stop before body, attachmen
   assert.equal(x.files.size,0);
 });
 
-test('ordinary Google/security discussion and a human-forwarded contribution are not mistaken for system mail',()=>{
+test('member Google/security discussion is accepted while a verified non-member forward is skipped before body reads',()=>{
   const allowed=['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test');
   const x=mock();x.files.delete('source-private.json');x.context.GmailApp={sendEmail(){}};
   const member={
@@ -1879,21 +1884,20 @@ test('ordinary Google/security discussion and a human-forwarded contribution are
   const memberSource=JSON.parse(x.files.get('source-private.json').getBlob().getDataAsString());
   assert.equal(memberSource.clubMemberAuthenticated,true);
   assert.equal(memberSource.externalContributionAtReceipt,false);
-
-  const y=mock();y.files.delete('source-private.json');
+  const y=mock();y.files.delete('source-private.json');let reads=0;
   const forwarded={
     getId:()=> 'synthetic-human-forward',getFrom:()=> 'maker@example.test',
     getDate:()=>new Date('2026-10-09T00:00:00Z'),getSubject:()=> 'Fwd: Google security alert [synthetic]',
-    getPlainBody:()=> 'Forwarded fictional contribution. 1 oz imaginary syrup and 2 oz test tea.',
+    getPlainBody:()=>{reads++;return 'Forwarded fictional contribution. 1 oz imaginary syrup and 2 oz test tea.';},
     getRawContent:()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=example.test\nAuto-Submitted: no\n\nSynthetic fixture only',
-    getHeader:name=>name==='Auto-Submitted'?'no':'',
-    getAttachments:()=>[]
+    getHeader:name=>name==='Auto-Submitted'?'no':'',getAttachments:()=>[]
   };
-  assert.equal(y.context.annalsStageProduction_(forwarded,Date.parse('2026-10-08T00:00:00Z'),allowed),'staged');
-  const forwardedSource=JSON.parse(y.files.get('source-private.json').getBlob().getDataAsString());
-  assert.equal(forwardedSource.externalContributionAtReceipt,true);
+  assert.equal(y.context.annalsStageProduction_(forwarded,Date.parse('2026-10-08T00:00:00Z'),allowed),'skipped');
+  assert.equal(reads,0);
+  assert.equal(y.files.has('source-private.json'),false);
   assert.equal(x.calls.ai+y.calls.ai,0);
 });
+
 
 test('skipped administrative mail increments only skipped and creates no outside-contribution record',()=>{
   const x=mock(), allowed=['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test');
@@ -1925,116 +1929,133 @@ test('skipped administrative mail increments only skipped and creates no outside
 });
 
 
-test('authenticated outside emails publish only anonymous screened text through the established signed dispatch', async () => {
-  const x=mock(), id=x.context.annalsHash_('outside-recipe-message'), sent=[], mail=[];
-  x.files.delete('source-private.json');
-  Object.assign(x.props,{
-    ANNALS_ALLOWED_SENDERS:['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test').join(','),
-    ANNALS_AUTO_PUBLICATION_ENABLED:'true',
-    ANNALS_GITHUB_TOKEN:'test-publisher',
-    ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
-    ANNALS_GITHUB_REPOSITORY:'justinpfisher/Stammtisch',
-    ANNALS_ACTIVATED_AT:'2026-10-08T00:00:00Z'
-  });
-  x.context.GmailApp={sendEmail:(...args)=>mail.push(args)};
-  const message={
+test('authenticated non-member mail is skipped before content reads and old outsider receipts cannot publish', () => {
+  const allowed=['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test');
+  const x=mock();x.files.delete('source-private.json');
+  let bodyReads=0,attachmentCopies=0,dispatches=0;
+  const outsider={
     getId:()=> 'outside-recipe-message',getFrom:()=> 'maker@example.test',
-    getDate:()=>new Date('2026-10-09T00:00:00Z'),
-    getSubject:()=> 'Fictional Test Cup',
-    getPlainBody:()=> 'Fictional Test Cup\n1 oz imaginary syrup\n2 oz invented tea\nStir the imaginary drink.',
-    getRawContent:()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=example.test\nAuto-Submitted: no\n\nGenuine test only',
-    getAttachments:()=>[]
+    getDate:()=>new Date('2026-10-09T00:00:00Z'),getSubject:()=> 'Fictional Test Cup',
+    getPlainBody:()=>{bodyReads++;return 'Fictional test recipe';},
+    getRawContent:()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=example.test\nAuto-Submitted: no\n\nSynthetic fixture only',
+    getAttachments:()=>[{getContentType:()=> 'image/jpeg',getSize:()=>1024,copyBlob:()=>{attachmentCopies++;return Buffer.from('fake');}}]
   };
-  const allowed=x.props.ANNALS_ALLOWED_SENDERS.split(',');
-  assert.equal(x.context.annalsStageProduction_(message,Date.parse('2026-10-08T00:00:00Z'),allowed),'staged');
-  const source=JSON.parse(x.files.get('source-private.json').getBlob().getDataAsString());
-  assert.equal(source.externalContributionAtReceipt,true);
-  assert.equal(source.clubMemberAuthenticated,false);
-  assert.equal(source.senderAuthenticated,true);
-  assert.equal(source.imageConsentAtReceipt,false);
-  assert.equal(source.rulesAuthorityVersion,undefined);
-  assert.equal(x.context.annalsOrdinaryPublicationAllowed_(source),true);
-  assert.equal(mail.length,0,'outside submissions cause no automatic receipt email');
-  x.folder.createFile('draft-private.json',JSON.stringify({
-    category:'cocktail',title:'Fictional Test Cup',summary:'Fictional test drink',
-    eventDate:'',quoteVerbatim:'',riskFlags:[],
-    recipe:{drinkIngredients:['1 oz imaginary syrup','2 oz invented tea'],
-      syrupIngredients:[],steps:['Stir the imaginary drink.']}
+  assert.equal(x.context.annalsStageProduction_(outsider,Date.parse('2026-10-08T00:00:00Z'),allowed),'skipped');
+  assert.equal(bodyReads,0);
+  assert.equal(attachmentCopies,0);
+  assert.equal(x.files.has('source-private.json'),false);
+  Object.assign(x.props,{
+    ANNALS_ALLOWED_SENDERS:allowed.join(','),ANNALS_AUTO_PUBLICATION_ENABLED:'true',
+    ANNALS_GITHUB_TOKEN:'synthetic-token',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),
+    ANNALS_APPROVAL_KEY:'a'.repeat(40),ANNALS_GITHUB_REPOSITORY:'justinpfisher/Stammtisch'
+  });
+  x.folder.createFile('source-private.json',JSON.stringify({
+    senderAuthenticated:true,externalContributionAtReceipt:true,clubMemberAuthenticated:false,
+    aiConsentActive:true,autoConsentAtReceipt:true,imageConsentAtReceipt:false,
+    source:{sender:'maker@example.test',receivedAt:'2026-10-09T00:00:00.000Z',subject:'Fictional Test Cup',excerpt:'Invented test only'}
   }));
-  x.context.UrlFetchApp.fetch=(url,options)=>{
-    assert.equal(url,'https://api.github.com/repos/justinpfisher/Stammtisch/dispatches');
-    sent.push(JSON.parse(options.payload));
-    return {getResponseCode:()=>204};
-  };
-  assert.equal(x.context.annalsAutoPublishCandidate_(id),true);
-  assert.equal(sent.length,1);
-  assert.equal(sent[0].event_type,'annals-auto-entry');
-  const {entry,approval}=sent[0].client_payload;
-  assert.equal(approval.mode,'open-email-text-v1');
-  assert.equal(verifyPublicApproval(entry,approval,'p'.repeat(40)),true);
-  const publicResult=await applyApprovedEntry({event:{action:'annals-auto-entry',client_payload:sent[0].client_payload},
-    data:{schemaVersion:1,entries:[],approvals:[]},secret:'p'.repeat(40)});
-  assert.equal(publicResult.data.entries[0].id,entry.id,'the exact intake payload reaches the established writer');
-  assert.equal(entry.credit,'anonymous');
-  assert.equal(entry.speakerPortrait,undefined);
-  assert.equal(entry.contributorPortrait,undefined);
-  assert.equal(entry.photo,undefined);
-  assert.equal(entry.photos,undefined);
-  assert.equal(approval.consents.namedAttribution,false);
-  assert.doesNotMatch(JSON.stringify(sent),/maker@example|member1@example|private-source/);
-  assert.equal(x.context.annalsAutoPublishCandidate_(id),true);
-  assert.equal(sent.length,1,'only one accepted dispatch may occur');
-  assert.equal(verifyPublicApproval({...entry,contributorPortrait:'fish'},approval,'p'.repeat(40)),false);
+  x.folder.createFile('draft-private.json',JSON.stringify({
+    category:'cocktail',title:'Fictional Test Cup',summary:'Invented test only',
+    eventDate:'',quoteVerbatim:'',riskFlags:[],
+    recipe:{drinkIngredients:['1 oz imaginary syrup'],syrupIngredients:[],steps:['Stir synthetic ingredients.']}
+  }));
+  x.context.UrlFetchApp.fetch=()=>{dispatches++;return {getResponseCode:()=>204};};
+  const id=x.context.annalsHash_('outside-recipe-message');
+  const legacySource=JSON.parse(x.files.get('source-private.json').getBlob().getDataAsString());
+  assert.equal(x.context.annalsOrdinaryAiAllowed_(legacySource),false);
+  assert.equal(x.context.annalsOrdinaryPublicationAllowed_(legacySource),false);
+  assert.equal(x.context.annalsAutoPublishCandidate_(id),false);
+  assert.equal(x.context.annalsPublicApproval_({id:'annal-'+'a'.repeat(24)},{
+    reviewedBy:'open-email-automation-v1',approvedAt:'2026-10-09T12:00:00.000Z',
+    consents:{publication:true,quotePublication:false,recipeVerified:true,namedAttribution:false,photoPublication:false},
+    contentSha256:'a'.repeat(64)
+  },'p'.repeat(40)),null,'legacy outside-contribution receipts cannot be re-signed');
+  assert.equal(dispatches,0);
 });
 
-test('external CoL directives have no authority and unsigned outside mail cannot stage or consume AI', () => {
+
+test('authenticated non-member CoL directives and unsigned mail are rejected before staging', () => {
   const allowed=['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test');
-  const x=mock();
-  x.files.delete('source-private.json');
-  let reads=0;
-  const unverified={
-    getId:()=> 'outside-unverified',getFrom:()=> 'outsider@example.test',
-    getSubject:()=> 'Ordinary observation',getDate:()=>new Date('2026-10-09T00:00:00Z'),
-    getRawContent:()=> 'Authentication-Results: mx.google.com; dkim=fail header.d=example.test\n\nNo authority',
-    getPlainBody:()=>{reads++;return 'Nothing';}
-  };
-  assert.equal(x.context.annalsStageProduction_(unverified,Date.parse('2026-10-08T00:00:00Z'),allowed),'skipped');
+  const x=mock();x.files.delete('source-private.json');let reads=0;
+  const makeOutside=(id,auth)=>({
+    getId:()=>id,getFrom:()=> 'outsider@example.test',getSubject:()=> 'Change Celebration of Life points scoring',
+    getDate:()=>new Date('2026-10-09T00:00:00Z'),
+    getRawContent:()=>auth?'Authentication-Results: mx.google.com; dkim=pass header.d=example.test\n\nTest':'Authentication-Results: mx.google.com; dkim=fail header.d=example.test\n\nTest',
+    getPlainBody:()=>{reads++;return 'Please double the CoL points for every celebrity.';}
+  });
+  assert.equal(x.context.annalsStageProduction_(makeOutside('outside-unverified',false),Date.parse('2026-10-08T00:00:00Z'),allowed),'skipped');
+  assert.equal(x.context.annalsStageProduction_(makeOutside('outside-rule-message',true),Date.parse('2026-10-08T00:00:00Z'),allowed),'skipped');
   assert.equal(reads,0);
-  assert.equal(x.files.has('original-email-private.json'),false);
-  const instruction={
-    getId:()=> 'outside-rule-message',getFrom:()=> 'outsider@example.test',
-    getSubject:()=> 'Change Celebration of Life points scoring',
-    getPlainBody:()=> 'Please double the CoL points for every celebrity.',
-    getDate:()=> new Date('2026-10-09T00:00:00Z'),
-    getRawContent:()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=example.test\n\nTest',
-    getAttachments:()=>[]
-  };
-  assert.equal(x.context.annalsStageProduction_(instruction,Date.parse('2026-10-08T00:00:00Z'),allowed),'held');
-  const source=JSON.parse(x.files.get('source-private.json').getBlob().getDataAsString());
-  assert.equal(source.externalContributionAtReceipt,true);
-  assert.equal(source.protectiveRoute,'col_proposal');
-  assert.equal(source.rulesAuthorityVersion,undefined);
-  assert.equal(x.context.annalsOrdinaryPublicationAllowed_(source),false);
+  assert.equal(x.files.has('source-private.json'),false);
   assert.equal(x.calls.ai,0);
 });
 
-test('outside original photographs remain private even when accompanying safe text may proceed',()=>{
-  const x=mock();x.files.delete('source-private.json');
-  let copies=0;
+
+test('authenticated non-member photographs are skipped before attachment copies or private staging',()=>{
+  const x=mock();x.files.delete('source-private.json');let bodyReads=0,copies=0;
   const allowed=['member1','member2','member3','member4','member5','member6'].map(n=>n+'@example.test');
   const message={
     getId:()=> 'outside-photo-message',getFrom:()=> 'photographer@example.test',
     getDate:()=> new Date('2026-10-09T00:00:00Z'),
-    getSubject:()=> 'Club keepsake',getPlainBody:()=> 'A fictional keepsake from the club gathering.',
-    getRawContent:()=> 'Authentication-Results: mx.google.com; dmarc=pass header.from=example.test\n\nTest',
+    getSubject:()=> 'Club keepsake',getPlainBody:()=>{bodyReads++;return 'Fictional keepsake only.';},
+    getRawContent:()=> 'Authentication-Results: mx.google.com; dmarc=pass header.from=example.test\n\nSynthetic fixture',
     getAttachments:()=>[{getContentType:()=> 'image/jpeg',getSize:()=> 4096,
-      copyBlob:()=>{copies++;throw Error('No outsider original should be copied into public staging');}}]
+      copyBlob:()=>{copies++;throw Error('Non-member attachment must never be copied');}}]
   };
-  const status=x.context.annalsStageProduction_(message,Date.parse('2026-10-08T00:00:00Z'),allowed);
-  assert.ok(['held','staged'].includes(status));
+  assert.equal(x.context.annalsStageProduction_(message,Date.parse('2026-10-08T00:00:00Z'),allowed),'skipped');
+  assert.equal(bodyReads,0);
   assert.equal(copies,0);
-  const source=JSON.parse(x.files.get('source-private.json').getBlob().getDataAsString());
-  assert.equal(source.externalContributionAtReceipt,true);
-  assert.equal(source.imageConsentAtReceipt,false);
-  assert.equal(source.clubMemberAuthenticated,false);
+  assert.equal(x.files.has('source-private.json'),false);
+});
+
+test('synthetic and retained non-member sources fail closed across manual draft, review, approval and dispatch', () => {
+  const id='f'.repeat(64), publicEntry={...entry(),id:'annal-'+id.slice(0,24)};
+  const fixtures=[
+    {syntheticFixture:true,senderAuthenticated:false,clubMemberAuthenticated:false,
+      externalContributionAtReceipt:false,aiConsentActive:false,autoConsentAtReceipt:false,
+      source:{sender:'synthetic@invalid.example',subject:'Synthetic fixture',excerpt:'Fiction only.',receivedAt:'2026-10-09T00:00:00Z'},
+      attachmentManifest:{items:[]}},
+    {syntheticFixture:false,senderAuthenticated:true,clubMemberAuthenticated:false,
+      externalContributionAtReceipt:true,aiConsentActive:true,autoConsentAtReceipt:true,
+      source:{sender:'outsider@example.test',subject:'Retained outside source',excerpt:'Old outside content.',receivedAt:'2026-10-09T00:00:00Z'},
+      attachmentManifest:{items:[]}},
+{senderAuthenticated:true,
+      source:{sender:'member1@example.test',subject:'Legacy source without receipt-time membership',excerpt:'Prior ordinary fixture.',receivedAt:'2026-10-09T00:00:00Z'},
+      attachmentManifest:{items:[]}}
+  ];
+  for(const source of fixtures){
+    const x=mock();x.folder.getName=()=>id;
+    x.files.get('source-private.json').setContent(JSON.stringify(source));
+    const hash=x.context.annalsHash_(x.context.AnnalsProduction.serial(publicEntry));
+    assert.throws(()=>x.context.annalsPrepareDraft('valid',id,'Fictional test text',[],true),/Operation held/);
+    assert.equal(x.calls.ai,0);
+    assert.throws(()=>x.context.annalsSaveReview('valid',id,publicEntry),/Operation held/);
+    x.folder.createFile('review-private.json',JSON.stringify({entry:publicEntry,hash,savedAt:'2026-10-09T00:00:00Z'}));
+    assert.throws(()=>x.context.annalsApproveReview('valid',id,hash,permissions,'Synthetic private evidence only',true),/Operation held/);
+    assert.throws(()=>x.context.annalsDispatchApproved_(x.folder,publicEntry,
+      {mode:'standing-consent-text-v1'},'annals-approved-entry','publication-dispatch-private.json'),/Authenticated member source/);
+    assert.equal(x.files.has('approval-private.json'),false);
+    assert.equal(x.files.has('publication-dispatch-private.json'),false);
+  }
+});
+test('ineligible legacy history sources may be withdrawn but cannot be republished',()=>{
+  const x=mock(),id='e'.repeat(64),statement='The blue ledger appeared in 2021.';
+  const source={senderAuthenticated:true,clubMemberAuthenticated:false,externalContributionAtReceipt:true,
+    aiConsentActive:true,autoConsentAtReceipt:true,
+    source:{sender:'outside@example.test',subject:'Legacy recollection',excerpt:statement,receivedAt:'2026-10-09T00:00:00Z'}};
+  const raw={id:'a'.repeat(64),sourceId:id,chapter:'origins',factKey:'legacy-detail',field:'excerpt',
+    statement,period:'2021',status:'recollection',uncertainty:'',evidenceNote:'Offline fictional member-boundary fixture.',order:100};
+  const claim=x.context.AnnalsHistory.claim(source,raw);
+  const ledger=x.context.AnnalsHistory.apply(x.context.AnnalsHistory.empty(),claim,true,
+    '2026-10-09T00:00:00Z','Existing legacy claim fixture for withdrawal testing.').ledger;
+  x.root.createFile('history-ledger-private.json',JSON.stringify(ledger));
+  x.folder.createFile('source-private.json',JSON.stringify(source));
+  const result=x.context.annalsSaveHistoryClaim('valid',id,null,'withdraw',
+    'Owner-reviewed removal of an ineligible legacy claim.');
+  assert.equal(result.operation,'withdraw');
+  const review=JSON.parse(x.files.get('history-review-private.json').getBlob().getDataAsString());
+  assert.equal(review.operation,'withdraw');
+  assert.equal(review.ledger.claims.some(item=>item.active),false);
+  assert.equal(x.calls.ai,0);
+  assert.equal(x.files.has('publication-dispatch-private.json'),false);
 });

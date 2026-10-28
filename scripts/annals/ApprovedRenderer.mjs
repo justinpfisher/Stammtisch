@@ -194,11 +194,10 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
     allowedKeys(approval, PUBLIC_APPROVAL_KEYS, 'public approval');
     allowedKeys(approval.consents, CONSENT_KEYS, 'consent');
     const automatedText = approval.mode === 'standing-consent-text-v1';
-    const openText = approval.mode === 'open-email-text-v1';
     const automatedImage = approval.mode === 'standing-consent-image-v1';
     const automatedGallery = approval.mode === 'standing-consent-photos-v2';
     const automatedRemark = approval.mode === 'standing-consent-quote-v1';
-    const automated = automatedText || openText || automatedImage || automatedGallery || automatedRemark;
+    const automated = automatedText || automatedImage || automatedGallery || automatedRemark;
     if (approval.mode !== undefined && !automated) return false;
     // A distinct signed mode is required for an identified quotation speaker.
     if (automated && (entry.credit !== 'anonymous' ||
@@ -208,8 +207,7 @@ export function verifyPublicApproval(publicEntry, approval, secret) {
           (entry.photo || entry.photos) || approval.consents.namedAttribution !== true ||
           approval.consents.photoPublication !== false)) ||
         (!automatedRemark && (entry.speakerPortrait || approval.consents.namedAttribution !== !!entry.contributorPortrait)) ||
-        ((automatedText || openText) && ((entry.photo || entry.photos) || approval.consents.photoPublication !== false)) ||
-        (openText && (entry.speakerPortrait || entry.contributorPortrait || approval.consents.namedAttribution !== false)) ||
+        (automatedText && ((entry.photo || entry.photos) || approval.consents.photoPublication !== false)) ||
         (automatedImage && (entry.category === 'quotation' || !entry.photo || entry.photos || approval.consents.photoPublication !== true)) ||
         (automatedGallery && (entry.category === 'quotation' || !entry.photos || entry.photo || approval.consents.photoPublication !== true)))) return false;
     if (approval.entryId !== entry.id || !/^\d{4}-\d{2}-\d{2}T/.test(approval.approvedAt ?? '') ||
@@ -439,12 +437,12 @@ ${siteHeader('annals')}
 <div><p class="eyebrow">The permanent record</p>
 <h1>The <em>Annals of Stammtisch.</em></h1>
 <p class="annal-deck">A considered chronicle of shared occasions, extraordinary refreshments, and matters deemed worthy of posterity.</p></div>
-<div class="annal-action"><a class="annal-contribute" href="mailto:annals@stammtischbrewery.com">Contribute to the Annals <span aria-hidden="true">→</span></a>
-<p class="annal-note">Stories and memories welcome by email.</p></div></div>
+<div class="annal-action"><a class="annal-contribute" href="mailto:annals@stammtischbrewery.com">Members: contribute <span aria-hidden="true">→</span></a>
+<p class="annal-note">Members only.</p></div></div>
 <details class="annal-guidance">
 <summary>On Matters Worth Committing to Posterity <span aria-hidden="true">+</span></summary>
 <div class="annal-guidance-body">
-<p>Contributions to the collected works of six gentlemen are invited from all quarters. Literary merit is welcome; relevance to the company will suffice.</p>
+<p>Contributions from the six authenticated Club members are invited to the collected works of six gentlemen. Literary merit is welcome; relevance to the company will suffice.</p>
 <ul>
 <li><strong>Cocktails &amp; recipes:</strong> For the advancement of the liquid arts. Include ingredients, quantities, and instructions—including any homemade syrups. A photo is welcome, should the spirit move you.</li>
 <li><strong>The Register of Remarks:</strong> A turn of phrase that deserves another turn. Send the exact words, who said them, and any essential context. Quotation publication requires the actual speaker and applicable rights to be supported.</li>
@@ -452,7 +450,7 @@ ${siteHeader('annals')}
 <li><strong>Celebration of Life rules:</strong> Rules and amendments are maintained exclusively on the <a href="celebration.html">Celebration of Life page</a>; authenticated members may propose changes by email.</li>
 </ul>
 <h2>Address the record</h2>
-<p>Email <a href="mailto:annals@stammtischbrewery.com">annals@stammtischbrewery.com</a> with a story, recipe, quotation or correction. Write normally and attach what you have. Eligible text may be published anonymously after screening. Official Club decisions remain members’ business. No forms, categories, or command of the subjunctive required.</p>
+<p>Email <a href="mailto:annals@stammtischbrewery.com">annals@stammtischbrewery.com</a> from your authenticated Club member address with a story, recipe, quotation or correction. Write normally and attach what you have. Eligible text may be published anonymously after screening. Official Club decisions remain members’ business. No forms, categories, or command of the subjunctive required.</p>
 <p>Uncertain dates and details should be identified as such. Memory may take poetic licence; the record should acknowledge it.</p>
 <p><strong>Discretion remains the better part of publication.</strong> The Annals are public. Keep private addresses, confidential matters, and other people’s material out unless permission is in place.</p>
 <p>Corrections are welcome at the same address. The last word need not be the final version.</p>
