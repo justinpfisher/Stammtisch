@@ -1750,7 +1750,7 @@ test('ordinary Annals recollections and keepsakes use signed publication dispatc
 
 test('persistent safe-source pre-draft holds notify owner and authenticated member exactly once without AI or replay',()=>{
   const x=mock(),messages=[],id='d'.repeat(64),oldLedger=x.props.ANNALS_BUDGET_LEDGER;
-  x.props.ANNALS_ALLOWED_SENDERS='member@example.test,other@example.test';
+  x.props.ANNALS_ALLOWED_SENDERS='member@example.test,member2@example.test,member3@example.test,member4@example.test,member5@example.test,member6@example.test';
   x.props.ANNALS_REVIEW_URL='https://script.google.com/macros/s/fictional-owner/exec';
   x.folder.getName=()=>id;
   x.root.getFolders=()=>iter([x.folder]);
@@ -2023,11 +2023,11 @@ test('synthetic and retained non-member sources fail closed across manual draft,
     const x=mock();x.folder.getName=()=>id;
     x.files.get('source-private.json').setContent(JSON.stringify(source));
     const hash=x.context.annalsHash_(x.context.AnnalsProduction.serial(publicEntry));
-    assert.throws(()=>x.context.annalsPrepareDraft('valid',id,'Fictional test text',[],true),/Authenticated member source/);
+    assert.throws(()=>x.context.annalsPrepareDraft('valid',id,'Fictional test text',[],true),/Operation held/);
     assert.equal(x.calls.ai,0);
-    assert.throws(()=>x.context.annalsSaveReview('valid',id,publicEntry),/Authenticated member source/);
+    assert.throws(()=>x.context.annalsSaveReview('valid',id,publicEntry),/Operation held/);
     x.folder.createFile('review-private.json',JSON.stringify({entry:publicEntry,hash,savedAt:'2026-10-09T00:00:00Z'}));
-    assert.throws(()=>x.context.annalsApproveReview('valid',id,hash,permissions,'Synthetic private evidence only',true),/Authenticated member source/);
+    assert.throws(()=>x.context.annalsApproveReview('valid',id,hash,permissions,'Synthetic private evidence only',true),/Operation held/);
     assert.throws(()=>x.context.annalsDispatchApproved_(x.folder,publicEntry,
       {mode:'standing-consent-text-v1'},'annals-approved-entry','publication-dispatch-private.json'),/Authenticated member source/);
     assert.equal(x.files.has('approval-private.json'),false);
