@@ -79,7 +79,7 @@ var AnnalsMedia = (function () {
     // data is readable. Strict, bounded decoding is mandatory before signing.
     var decoded = codec.decode(new Uint8Array(clean.bytes), {
       useTArray: true, formatAsRGBA: false, tolerantDecoding: false,
-      maxResolutionInMP: 7, maxMemoryUsageInMB: 128
+      maxResolutionInMP: 7, maxMemoryUsageInMB: 192
     });
     if (decoded.width !== clean.width || decoded.height !== clean.height ||
         !decoded.data || decoded.data.length !== clean.width * clean.height * 3)

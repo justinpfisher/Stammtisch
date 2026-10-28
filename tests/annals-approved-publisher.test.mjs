@@ -173,7 +173,9 @@ const editorialJpeg=(width=480,height=480,noisy=false)=>{
   const encoded=Buffer.from(Jpeg.encode({width,height,data},noisy?95:50).data);
   // The encoder adds JFIF metadata; simulate the already-screened worker
   // derivative by stripping it without applying the ordinary gallery bounds.
-  return noisy?Buffer.from(Media.sanitize(encoded,true,true).bytes):Buffer.from(Media.sanitize(encoded).bytes);
+  return noisy||Math.max(width,height)>1600
+    ?Buffer.from(Media.sanitize(encoded,true,true).bytes)
+    :Buffer.from(Media.sanitize(encoded).bytes);
 };
 const editorialEvent=(photo,bytes,issuedAt,overrides={})=>{
   const blob={gitSha:gitBlobHash(bytes),size:bytes.length};
@@ -272,4 +274,15 @@ test('corrupted scan pixels fail strict editorial validation even with matching 
     sha256:createHash('sha256').update(corrupt).digest('hex'),width:480,height:480};
   const fetchImpl=async()=>new Response(corrupt,{status:200,headers:{'content-length':String(corrupt.length)}});
   await assert.rejects(fetchEditorialBlob(ref,{fetchImpl}));
+});
+
+test('maximum 2560px square editorial JPEG decodes within the bounded memory allowance',()=>{
+  // The encoder uses 4:4:4 sampling; decoder allocation exceeds 128 MiB at
+  // this legal edge, so a narrower cap silently rejects qualified assets.
+  const bytes=editorialJpeg(2560,2560);
+  assert.ok(bytes.length>=4000&&bytes.length<=5*1024*1024);
+  assert.deepEqual(metadataFreeJpegDimensions(bytes),{width:2560,height:2560});
+  const clean=Media.sanitizeEditorial(bytes,Jpeg);
+  assert.equal(clean.width,2560);assert.equal(clean.height,2560);
+  assert.deepEqual(Buffer.from(clean.bytes),bytes);
 });
