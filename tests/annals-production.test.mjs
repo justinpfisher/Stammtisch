@@ -2041,6 +2041,7 @@ test('synthetic and retained non-member sources fail closed across manual draft,
 test('ineligible legacy history sources may be withdrawn but cannot be republished',()=>{
   const x=mock(),id='e'.repeat(64),statement='A fictional detail for withdrawal testing.';
   const source={senderAuthenticated:true,clubMemberAuthenticated:false,externalContributionAtReceipt:true,
+    aiConsentActive:true,autoConsentAtReceipt:true,
     source:{sender:'outside@example.test',subject:'Legacy recollection',excerpt:statement,receivedAt:'2026-10-09T00:00:00Z'}};
   const raw={id:'a'.repeat(64),sourceId:id,chapter:'origins',factKey:'legacy-detail',field:'excerpt',
     statement,period:'2021',status:'recollection',uncertainty:'',evidenceNote:'Offline fictional member-boundary fixture.',order:100};
