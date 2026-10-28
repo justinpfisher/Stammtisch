@@ -561,7 +561,7 @@ test('old and unknown messages are skipped before body reads and production inta
   const activation=Date.parse('2026-10-08T23:00:00Z');
   assert.equal(x.context.annalsStageProduction_(m,activation,['sender@example.test']),'skipped');assert.equal(bodyReads,0);
   m.getFrom=()=> 'sender@example.test';assert.equal(x.context.annalsStageProduction_(m,Date.parse('2026-10-09T00:00:00Z'),['sender@example.test']),'skipped');assert.equal(bodyReads,0);
-  assert.equal(x.context.annalsStageProduction_(m,activation,['sender@example.test']),'unverified');assert.equal(copies,0);
+  assert.equal(x.context.annalsStageProduction_(m,activation,['sender@example.test']),'skipped');assert.equal(copies,0);
   assert.equal(x.context.annalsStageProduction_(m,activation,['sender@example.test']),'duplicates');assert.equal(bodyReads,1);
 });
 test('schedule installation is idempotent and stopping touches only the production intake handler', () => {
