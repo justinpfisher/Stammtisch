@@ -354,7 +354,9 @@ test('matching hosted pending-status bytes report only pending, with no adoption
 test('private text correction preserves the canonical gallery and dates, marks correction and refuses replacements or revocation',()=>{
   const old={id:'annal-fictional',title:'Fictional original caption',category:'assembly',photos:[{sha256:'a'.repeat(64),width:200,height:200,alt:'Fictional object'}],submittedAt:at,eventPeriod:''};
   const source={senderAuthenticated:true,imageConsentAtReceipt:true,source:{sender:'fictional@example.test',receivedAt:at}},files=new Map([['approval-private.json',{entry:old,receipt:{},publicationState:'dispatch_accepted'}],['source-private.json',source]]);
-  const c=vm.createContext({AnnalsPhotos:Photos,AnnalsProduction:{publicEntry:clone,serial:JSON.stringify}});vm.runInContext(readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8'),c);
+  const fictionalMembers=['fictional@example.test','member2@example.test','member3@example.test','member4@example.test','member5@example.test','member6@example.test'];
+  const c=vm.createContext({AnnalsPhotos:Photos,AnnalsAuto:{protectedRoute:()=> 'annals'},AnnalsPilot:{allowedSenders:()=>fictionalMembers},
+    AnnalsProduction:{publicEntry:clone,serial:JSON.stringify},annalsProps_:()=>({getProperty:()=>fictionalMembers.join(',')})});vm.runInContext(readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8'),c);
   Object.assign(c,{annalsUiCall_:(_,fn)=>fn(),annalsLocked_:fn=>fn(),annalsFolder_:()=> 'folder',annalsRead_:(_,name)=>files.get(name)||null,
     annalsFile_:(_,name)=>files.get(name)||null,annalsPrivateReceiptValid_:()=>true,annalsStandingGalleryCorrectionAllowed_:()=>true,annalsHash_:()=> 'fictional-hash',annalsWriteOnce_:(_,name,value)=>files.set(name,value)});
   const edited={id:old.id,title:'Fictional corrected caption',category:old.category},result=c.annalsSaveCorrection('owner','fictional',edited);
