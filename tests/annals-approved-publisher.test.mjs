@@ -171,7 +171,9 @@ const editorialJpeg=(width=480,height=480,noisy=false)=>{
     data[p+3]=255;
   }
   const encoded=Buffer.from(Jpeg.encode({width,height,data},noisy?95:50).data);
-  return noisy?encoded:Buffer.from(Media.sanitize(encoded).bytes);
+  // The encoder adds JFIF metadata; simulate the already-screened worker
+  // derivative by stripping it without applying the ordinary gallery bounds.
+  return noisy?Buffer.from(Media.sanitize(encoded,true,true).bytes):Buffer.from(Media.sanitize(encoded).bytes);
 };
 const editorialEvent=(photo,bytes,issuedAt,overrides={})=>{
   const blob={gitSha:gitBlobHash(bytes),size:bytes.length};
