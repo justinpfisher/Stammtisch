@@ -548,7 +548,7 @@ test('production intake resumes a long thread and wraps without reading while di
   x.context.GmailApp={getInboxThreads:(offset)=>offset===0?[thread]:[],getThreadById:()=>thread};
   x.context.annalsStageProduction_=m=>{handled.push(m.id);if(seen.has(m.id))return 'duplicates';seen.add(m.id);return 'staged'};
   assert.equal(x.context.runAnnalsProductionIntake().enabled,false);assert.equal(handled.length,0);
-  Object.assign(x.props,{ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_AI_ENABLED:'true',ANNALS_OPENAI_API_KEY:'test',ANNALS_BUDGET_LEDGER:'{}',ANNALS_GITHUB_TOKEN:'test',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'owner/repo',ANNALS_REVIEW_URL:'https://script.google.com/macros/s/test/exec',ANNALS_ALLOWED_SENDERS:'sender@example.test',ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z'});
+  Object.assign(x.props,{ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_AI_ENABLED:'true',ANNALS_OPENAI_API_KEY:'test',ANNALS_BUDGET_LEDGER:'{}',ANNALS_GITHUB_TOKEN:'test',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'owner/repo',ANNALS_REVIEW_URL:'https://script.google.com/macros/s/test/exec',ANNALS_ALLOWED_SENDERS:'member1@example.test,member2@example.test,member3@example.test,member4@example.test,member5@example.test,member6@example.test',ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z'});
   x.root.getFolders=()=>iter([]);
   assert.equal(x.context.runAnnalsProductionIntake().staged,12);
   assert.equal(x.context.runAnnalsProductionIntake().staged,0);
@@ -568,7 +568,7 @@ test('schedule installation is idempotent and stopping touches only the producti
   const x=mock(), triggers=[{getHandlerFunction:()=> 'unrelatedHandler'}];
   x.context.ScriptApp={getProjectTriggers:()=>triggers,newTrigger:name=>({timeBased:()=>({everyMinutes:minutes=>({create:()=>{assert.equal(minutes,15);triggers.push({getHandlerFunction:()=>name})}})})}),deleteTrigger:t=>triggers.splice(triggers.indexOf(t),1)};
   assert.throws(()=>x.context.annalsInstallIntakeSchedule());
-  Object.assign(x.props,{ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_AI_ENABLED:'true',ANNALS_OPENAI_API_KEY:'test',ANNALS_BUDGET_LEDGER:'{}',ANNALS_GITHUB_TOKEN:'test',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'owner/repo',ANNALS_REVIEW_URL:'https://script.google.com/macros/s/test/exec',ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z',ANNALS_ALLOWED_SENDERS:'sender@example.test'});
+  Object.assign(x.props,{ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_AI_ENABLED:'true',ANNALS_OPENAI_API_KEY:'test',ANNALS_BUDGET_LEDGER:'{}',ANNALS_GITHUB_TOKEN:'test',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'owner/repo',ANNALS_REVIEW_URL:'https://script.google.com/macros/s/test/exec',ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z',ANNALS_ALLOWED_SENDERS:'member1@example.test,member2@example.test,member3@example.test,member4@example.test,member5@example.test,member6@example.test'});
   x.context.annalsInstallIntakeSchedule();x.context.annalsInstallIntakeSchedule();assert.equal(triggers.length,2);
   x.context.annalsStopProduction();assert.equal(triggers.length,1);assert.equal(triggers[0].getHandlerFunction(),'unrelatedHandler');
   assert.equal(x.props.ANNALS_AI_ENABLED,'false');assert.equal(x.props.ANNALS_PRODUCTION_INTAKE_ENABLED,'false');
