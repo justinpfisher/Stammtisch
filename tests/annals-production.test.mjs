@@ -559,11 +559,13 @@ test('old and unknown messages are skipped before body reads and production inta
   const x=mock();x.files.delete('source-private.json');let bodyReads=0,copies=0;
   const m={getId:()=> 'invented',getFrom:()=> 'unknown@example.test',getDate:()=>new Date('2026-10-08T23:30:00Z'),getSubject:()=> 'Synthetic recipe',getPlainBody:()=>{bodyReads++;return 'Invented 1/2 oz syrup'},getAttachments:()=>[0,1,2].map(()=>({getContentType:()=> 'image/jpeg',getSize:()=>8388608,copyBlob:()=>{copies++;throw new Error('Must not copy')}}))};
   const activation=Date.parse('2026-10-08T23:00:00Z');
-  assert.equal(x.context.annalsStageProduction_(m,activation,['sender@example.test']),'skipped');assert.equal(bodyReads,0);
-  m.getFrom=()=> 'sender@example.test';m.getRawContent=()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=example.test\nAuto-Submitted: no\n\nSynthetic fixture only';
-  assert.equal(x.context.annalsStageProduction_(m,Date.parse('2026-10-09T00:00:00Z'),['sender@example.test']),'awaiting_consent');assert.equal(bodyReads,1);
+  const allowed=['sender','member2','member3','member4','member5','member6'].map(n=>n+'@example.test');
+  assert.equal(x.context.annalsStageProduction_(m,activation,allowed),'skipped');assert.equal(bodyReads,0);
+  m.getFrom=()=> 'sender@example.test';m.getRawContent=()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=example.test\nAuto-Submitted: no\n\nSynthetic fixture only';m.getHeader=name=>name==='Auto-Submitted'?'no':'';
+  assert.equal(x.context.annalsAuthentication_(m,'sender@example.test'),true);
+  assert.equal(x.context.annalsStageProduction_(m,Date.parse('2026-10-09T00:00:00Z'),allowed),'awaiting_consent');assert.equal(bodyReads,1);
   assert.equal(copies,0,'aggregate-oversize attachments are never copied');
-  assert.equal(x.context.annalsStageProduction_(m,activation,['sender@example.test']),'duplicates');assert.equal(bodyReads,1);
+  assert.equal(x.context.annalsStageProduction_(m,activation,allowed),'duplicates');assert.equal(bodyReads,1);
 });
 test('schedule installation is idempotent and stopping touches only the production intake handler', () => {
   const x=mock(), triggers=[{getHandlerFunction:()=> 'unrelatedHandler'}];
