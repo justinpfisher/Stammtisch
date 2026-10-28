@@ -439,20 +439,20 @@ ${siteHeader('annals')}
 <div><p class="eyebrow">The permanent record</p>
 <h1>The <em>Annals of Stammtisch.</em></h1>
 <p class="annal-deck">A considered chronicle of shared occasions, extraordinary refreshments, and matters deemed worthy of posterity.</p></div>
-<div class="annal-action"><a class="annal-contribute" href="mailto:annals@stammtischbrewery.com">Members: contribute <span aria-hidden="true">→</span></a>
-<p class="annal-note">Members only.</p></div></div>
+<div class="annal-action"><a class="annal-contribute" href="mailto:annals@stammtischbrewery.com">Contribute to the Annals <span aria-hidden="true">→</span></a>
+<p class="annal-note">Stories and memories welcome by email.</p></div></div>
 <details class="annal-guidance">
 <summary>On Matters Worth Committing to Posterity <span aria-hidden="true">+</span></summary>
 <div class="annal-guidance-body">
-<p>Contributions are invited to the collected works of six gentlemen. Literary merit is welcome; relevance to the company will suffice.</p>
+<p>Contributions to the collected works of six gentlemen are invited from all quarters. Literary merit is welcome; relevance to the company will suffice.</p>
 <ul>
 <li><strong>Cocktails &amp; recipes:</strong> For the advancement of the liquid arts. Include ingredients, quantities, and instructions—including any homemade syrups. A photo is welcome, should the spirit move you.</li>
-<li><strong>The Register of Remarks:</strong> A turn of phrase that deserves another turn. Send the exact words, who said them, and any essential context. Wit may be borrowed; attribution must be correct.</li>
+<li><strong>The Register of Remarks:</strong> A turn of phrase that deserves another turn. Send the exact words, who said them, and any essential context. Quotation publication requires the actual speaker and applicable rights to be supported.</li>
 <li><strong>Club History &amp; keepsakes:</strong> The past remains less orderly than the official record would prefer. Send a recollection, the origins of a tradition, or an artefact worth preserving. The Editorial Committee will shape supported contributions into one continuing account; fragments are entirely acceptable.</li>
-<li><strong>Celebration of Life rules:</strong> Rules and amendments are maintained exclusively on the <a href="celebration.html">Celebration of Life page</a>; proposals may still be sent to the member contribution address.</li>
+<li><strong>Celebration of Life rules:</strong> Rules and amendments are maintained exclusively on the <a href="celebration.html">Celebration of Life page</a>; authenticated members may propose changes by email.</li>
 </ul>
 <h2>Address the record</h2>
-<p>Email <a href="mailto:annals@stammtischbrewery.com">annals@stammtischbrewery.com</a> from your recognised member address. Write normally and attach what you have. No forms, categories, or command of the subjunctive required.</p>
+<p>Email <a href="mailto:annals@stammtischbrewery.com">annals@stammtischbrewery.com</a> with a story, recipe, quotation or correction. Write normally and attach what you have. Eligible text may be published anonymously after screening. Official Club decisions remain members’ business. No forms, categories, or command of the subjunctive required.</p>
 <p>Uncertain dates and details should be identified as such. Memory may take poetic licence; the record should acknowledge it.</p>
 <p><strong>Discretion remains the better part of publication.</strong> The Annals are public. Keep private addresses, confidential matters, and other people’s material out unless permission is in place.</p>
 <p>Corrections are welcome at the same address. The last word need not be the final version.</p>

@@ -25,7 +25,13 @@ test('Annals archive is discoverable and matches the approved public index', () 
   const renderedIds = [...annals.matchAll(/<article class="annal-entry[^"\n]*" id="([^"]+)"/g)].map(match => match[1]);
   assert.deepEqual(renderedIds.sort(), data.entries.map(entry => entry.id).sort());
   assert.match(annals, /The Annals of Stammtisch/);
-  assert.match(annals, /Members only\./);
+  assert.match(annals, /Stories and memories welcome by email\./);
+  assert.match(annals, /Contribute to the Annals/);
+  assert.match(annals, /Eligible text may be published anonymously after screening/);
+  assert.match(annals, /Quotation publication requires the actual speaker and applicable rights to be supported/);
+  assert.match(annals, /authenticated members may propose changes by email/);
+  assert.doesNotMatch(annals, /Eligible outside text is published anonymously/);
+  assert.doesNotMatch(annals, /Members only\.|from your recognised member address/);
   if (data.entries.length === 0) {
     assert.match(annals, /The record awaits an approved contribution/);
     assert.doesNotMatch(annals, /class="annal-collections"|class="annal-collection"/);
