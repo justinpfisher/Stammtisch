@@ -540,6 +540,24 @@ function annalsResolveAllowedSender_(sender, allowed) {
 /** Only an authenticated member with the existing active consent may enter
  * ordinary text drafting or publication. Legacy outsider receipts fail closed.
  */
+/** Resolve an immutable ordinary source back to one of the six configured member identities.
+ * Gmail dot aliases are accepted only through the existing ambiguity-safe resolver.
+ * Receipt flags remain required evidence; synthetic and legacy outsider sources fail closed.
+ */
+function annalsOrdinaryMemberSource_(source) {
+  if (!source || !source.source || source.syntheticFixture === true ||
+      source.senderAuthenticated !== true || source.clubMemberAuthenticated === false ||
+      source.externalContributionAtReceipt === true || typeof source.source.sender !== 'string') return false;
+  var sender = source.source.sender.trim().toLowerCase();
+  var allowed = AnnalsPilot.allowedSenders(annalsProps_().getProperty('ANNALS_ALLOWED_SENDERS') || '');
+  return allowed.length === 6 && !!annalsResolveAllowedSender_(sender, allowed);
+}
+function annalsOrdinarySourceGate_(source) {
+  if (!annalsOrdinaryMemberSource_(source) || source.protectiveRoute === 'col_proposal' ||
+      source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated ||
+      AnnalsAuto.protectedRoute(source.source.subject || '', source.source.excerpt || '') !== 'annals')
+    throw new Error('Authenticated member source required for ordinary Annals work');
+}
 function annalsOrdinaryAiAllowed_(source) {
   if (!annalsOrdinaryMemberSource_(source) || source.aiConsentActive !== true) return false;
   return annalsConsentActive_(source.source.sender);
