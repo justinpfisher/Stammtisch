@@ -1282,6 +1282,7 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
     if (annalsFile_(f, 'ai-attempt-private.json')) throw new Error('An attempt already exists; no duplicate spend');
     var source = annalsRead_(f, 'source-private.json');
     if (!source || !Array.isArray(selectedNames) || selectedNames.length > 3 || new Set(selectedNames).size !== selectedNames.length) throw new Error('Invalid sources');
+    annalsOrdinarySourceGate_(source);
     var images = selectedNames.map(function (name) {
       var item = source.attachmentManifest.items.find(function (a) { return a.storageName === name; });
       if (!item || !item.accepted || ['image/jpeg', 'image/png'].indexOf(item.mime) < 0 || item.size > 4 * 1024 * 1024) throw new Error('Unsupported AI attachment');
@@ -1294,7 +1295,6 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
         throw new Error('Invalid automated image selection');
       images = derivedImages;
     }
-    annalsOrdinarySourceGate_(source);
     var request = AnnalsProduction.request(text, images);
     var month = Utilities.formatDate(new Date(), 'America/Toronto', 'yyyy-MM');
     var ledger = AnnalsProduction.reserve(JSON.parse(p.getProperty('ANNALS_BUDGET_LEDGER') || 'null'), month);
