@@ -546,8 +546,8 @@ function annalsResolveAllowedSender_(sender, allowed) {
  */
 function annalsOrdinaryMemberSource_(source) {
   if (!source || !source.source || source.syntheticFixture === true ||
-      source.senderAuthenticated !== true || source.clubMemberAuthenticated === false ||
-      source.externalContributionAtReceipt === true || typeof source.source.sender !== 'string') return false;
+      source.senderAuthenticated !== true || source.clubMemberAuthenticated !== true ||
+      source.externalContributionAtReceipt !== false || typeof source.source.sender !== 'string') return false;
   var sender = source.source.sender.trim().toLowerCase();
   var allowed = AnnalsPilot.allowedSenders(annalsProps_().getProperty('ANNALS_ALLOWED_SENDERS') || '');
   return allowed.length === 6 && !!annalsResolveAllowedSender_(sender, allowed);
