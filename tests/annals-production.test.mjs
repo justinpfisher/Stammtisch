@@ -1759,7 +1759,7 @@ test('persistent safe-source pre-draft holds notify owner and authenticated memb
   x.context.annalsStandingPublicationActive_=()=>true;
   x.context.GmailApp={sendEmail:(to,subject,body)=>messages.push({to,subject,body})};
   const original={
-    sourceId:id,senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,
+    sourceId:id,senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,autoConsentAtReceipt:true,
     source:{sender:'member@example.test',subject:'Fictional club account',
       excerpt:'Please contact someone@example.test for a fictional detail.',
       receivedAt:'2026-10-08T23:45:00Z',
