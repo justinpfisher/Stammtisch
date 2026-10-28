@@ -67,6 +67,24 @@ class AnnalsInstallPackageTests(unittest.TestCase):
                 self.assertNotIn("2026-11-09", instructions)
                 self.assertIn("Do not reset or broadly disable", instructions)
 
+    def test_photo_qualification_helper_can_be_packaged_alone(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / "photo-qualification.zip"
+            result = PACKAGE.build_package("HEAD", out, only=("PhotoQualification.gs",))
+            self.assertEqual(result["files"], 1)
+            self.assertTrue(result["selectedOnly"])
+            with zipfile.ZipFile(out) as archive:
+                self.assertEqual(set(archive.namelist()), {
+                    "install/PhotoQualification.gs", "source-manifest.json", "README.txt"
+                })
+                manifest = json.loads(archive.read("source-manifest.json"))
+                record = manifest["files"][0]
+                self.assertEqual(record["source"], "scripts/annals/PhotoQualification.gs")
+                expected = PACKAGE.git("show", manifest["sourceCommit"] + ":" + record["source"])
+                self.assertEqual(archive.read(record["install"]), expected)
+                self.assertEqual(record["sha256"], hashlib.sha256(expected).hexdigest())
+                self.assertNotIn("install/appsscript.json", archive.namelist())
+
     def test_narrow_package_refuses_unknown_duplicate_or_private_manifest(self):
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory) / "untrusted.zip"
@@ -98,3 +116,4 @@ class AnnalsInstallPackageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
