@@ -1,6 +1,7 @@
 import {createHash} from 'node:crypto';
 import Photos from './PhotoContracts.js';
 import Media from './MediaCore.js';
+import Jpeg from './JpegCodec.js';
 import {metadataFreeJpegDimensions} from './EditorialPhotoManifest.mjs';
 
 export function gitBlobHash(bytes){
@@ -72,7 +73,7 @@ export async function fetchEditorialBlob(ref,{fetchImpl=fetch}={}){
   const bytes=Buffer.concat(chunks,size);
   if(gitBlobHash(bytes)!==ref.gitSha||createHash('sha256').update(bytes).digest('hex')!==ref.sha256)
     throw Error('Editorial blob digest or size mismatch');
-  const dimensions=metadataFreeJpegDimensions(bytes),clean=Media.sanitize(bytes,true);
+  const dimensions=metadataFreeJpegDimensions(bytes),clean=Media.sanitizeEditorial(bytes,Jpeg);
   if(dimensions.width!==ref.width||dimensions.height!==ref.height||
     clean.width!==ref.width||clean.height!==ref.height||!Buffer.from(clean.bytes).equals(bytes))
     throw Error('Editorial blob dimensions or image decode mismatch');

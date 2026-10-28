@@ -5,7 +5,7 @@ import { createHash, createHmac } from 'node:crypto';
 import { applyApprovedEntry } from '../scripts/annals/apply-approved-entry.mjs';
 import { gitBlobHash,fetchEditorialBlob } from '../scripts/annals/PhotoTransport.mjs';
 import Jpeg from '../scripts/annals/JpegCodec.js';
-import { validateEditorialManifest } from '../scripts/annals/EditorialPhotoManifest.mjs';
+import { validateEditorialManifest,metadataFreeJpegDimensions } from '../scripts/annals/EditorialPhotoManifest.mjs';
 import { contentDigest, verifyPublicApproval } from '../scripts/annals/ApprovedRenderer.mjs';
 import { readFile } from 'node:fs/promises';
 
@@ -156,14 +156,26 @@ test('a consented exact cocktail photo is digest-checked and staged only after s
   await assert.rejects(applyApprovedEntry({event:{action:'annals-approved-entry',client_payload:{entry:metadataEntry,approval:metadataApproval,imageBase64:metadataImage.toString('base64')}},data:emptyArchive(),secret}));
 });
 
-const editorialJpeg=()=>{
-  const width=480,height=480,data=Buffer.alloc(width*height*4);
+const editorialJpeg=(width=480,height=480,noisy=false)=>{
+  const data=Buffer.alloc(width*height*4);
+  let seed=0x12345678;
   for(let i=0;i<width*height;i++){
     const x=i%width,y=Math.floor(i/width),p=i*4;
-    data[p]=Math.floor(x*255/width);data[p+1]=Math.floor(y*255/height);data[p+2]=128;data[p+3]=255;
+    if(noisy){
+      seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;data[p]=seed&255;
+      seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;data[p+1]=seed&255;
+      seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;data[p+2]=seed&255;
+    }else{
+      data[p]=Math.floor(x*255/width);data[p+1]=Math.floor(y*255/height);data[p+2]=128;
+    }
+    data[p+3]=255;
   }
-  const encoded=Jpeg.encode({width,height,data},50).data;
-  return Buffer.from(Media.sanitize(Buffer.from(encoded)).bytes);
+  const encoded=Buffer.from(Jpeg.encode({width,height,data},noisy?95:50).data);
+  // The encoder adds JFIF metadata; simulate the already-screened worker
+  // derivative by stripping it without applying the ordinary gallery bounds.
+  return noisy||Math.max(width,height)>1600
+    ?Buffer.from(Media.sanitize(encoded,true,true).bytes)
+    :Buffer.from(Media.sanitize(encoded).bytes);
 };
 const editorialEvent=(photo,bytes,issuedAt,overrides={})=>{
   const blob={gitSha:gitBlobHash(bytes),size:bytes.length};
@@ -212,10 +224,11 @@ test('signed editorial event updates only the derivative and matching manifest r
   assert.deepEqual(result.assetsToWrite[0].bytes,bytes);assert.deepEqual(result.assetsToDelete,[]);
   assert.deepEqual(result.editorialManifest.images,[photo]);
   validateEditorialManifest(result.editorialManifest,data.entries);
-  assert.ok(result.html.includes('srcset="'+photo.asset+'"'));
   assert.ok(result.html.includes('href="'+photo.source+'"'));
   assert.ok(result.html.includes('src="'+photo.source+'"'));
-  assert.ok(result.html.includes('alt="'+photo.alt+'"'));
+  assert.ok(!result.html.includes('<picture>'), 'the original is rendered until the public script probes the derivative');
+  assert.ok(!result.html.includes('<source type="image/jpeg"'), 'a broken source must never override the fallback');
+  assert.ok(result.html.includes('alt="Original textured glass"'));
 });
 test('editorial publisher rejects tampering, stale events, wrong sources and duplicate rows',async()=>{
   const {data,sourceSha}=photoArchive(),bytes=editorialJpeg(),now=new Date('2026-10-26T12:01:00.000Z');
@@ -234,4 +247,42 @@ test('editorial publisher rejects tampering, stale events, wrong sources and dup
   const withMetadata=Buffer.concat([bytes.subarray(0,2),Buffer.from([0xff,0xe1,0x00,0x04,0x01,0x02]),bytes.subarray(2)]);
   const metadataEvent=editorialEvent(photo,bytes,now.toISOString());
   await assert.rejects(applyApprovedEntry({...base,event:metadataEvent,fetchEditorialBytes:async()=>withMetadata}));
+});
+
+test('editorial JPEG boundaries accept 1601px images above 512 KiB without weakening ordinary photo limits',async()=>{
+  const bytes=editorialJpeg(1601,480,true);
+  assert.ok(bytes.length>524288 && bytes.length<5*1024*1024);
+  assert.deepEqual(metadataFreeJpegDimensions(bytes),{width:1601,height:480});
+  assert.throws(()=>Media.sanitize(bytes,true),/thumbnail|dimensions|size/i);
+  const clean=Media.sanitizeEditorial(bytes,Jpeg);
+  assert.equal(clean.width,1601);assert.equal(clean.height,480);
+  assert.deepEqual(Buffer.from(clean.bytes),bytes);
+  const ref={gitSha:gitBlobHash(bytes),size:bytes.length,
+    sha256:createHash('sha256').update(bytes).digest('hex'),width:1601,height:480};
+  const fetchImpl=async()=>new Response(bytes,{status:200,headers:{'content-length':String(bytes.length)}});
+  assert.deepEqual(await fetchEditorialBlob(ref,{fetchImpl}),bytes);
+});
+
+test('corrupted scan pixels fail strict editorial validation even with matching Git and SHA digests',async()=>{
+  const bytes=Buffer.from(editorialJpeg()),start=bytes.indexOf(Buffer.from([0xff,0xda]));
+  assert.ok(start>0);
+  const scanStart=start+2+bytes.readUInt16BE(start+2);
+  const corrupt=Buffer.from(bytes);corrupt.fill(0,scanStart,corrupt.length-2);
+  assert.deepEqual(metadataFreeJpegDimensions(corrupt),{width:480,height:480});
+  assert.throws(()=>Media.sanitizeEditorial(corrupt,Jpeg));
+  const ref={gitSha:gitBlobHash(corrupt),size:corrupt.length,
+    sha256:createHash('sha256').update(corrupt).digest('hex'),width:480,height:480};
+  const fetchImpl=async()=>new Response(corrupt,{status:200,headers:{'content-length':String(corrupt.length)}});
+  await assert.rejects(fetchEditorialBlob(ref,{fetchImpl}));
+});
+
+test('maximum 2560px square editorial JPEG decodes within the bounded memory allowance',()=>{
+  // The encoder uses 4:4:4 sampling; decoder allocation exceeds 128 MiB at
+  // this legal edge, so a narrower cap silently rejects qualified assets.
+  const bytes=editorialJpeg(2560,2560);
+  assert.ok(bytes.length>=4000&&bytes.length<=5*1024*1024);
+  assert.deepEqual(metadataFreeJpegDimensions(bytes),{width:2560,height:2560});
+  const clean=Media.sanitizeEditorial(bytes,Jpeg);
+  assert.equal(clean.width,2560);assert.equal(clean.height,2560);
+  assert.deepEqual(Buffer.from(clean.bytes),bytes);
 });

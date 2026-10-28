@@ -1,4 +1,5 @@
 import Media from './MediaCore.js';
+import Jpeg from './JpegCodec.js';
 import Photos from './PhotoContracts.js';
 import {resolvePhotoBlobs,fetchEditorialBlob} from './PhotoTransport.mjs';
 import {photoThumbnail} from './PhotoThumbnail.mjs';
@@ -111,7 +112,7 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
     if(!Buffer.isBuffer(bytes)||bytes.length!==payload.blob.size||
        createHash('sha256').update(bytes).digest('hex')!==payload.photo.editorialSha256)
       throw Error('Editorial image digest mismatch');
-    const dimensions=metadataFreeJpegDimensions(bytes),clean=Media.sanitize(bytes,true);
+    const dimensions=metadataFreeJpegDimensions(bytes),clean=Media.sanitizeEditorial(bytes,Jpeg);
     if(dimensions.width!==payload.photo.width||dimensions.height!==payload.photo.height||
        clean.width!==payload.photo.width||clean.height!==payload.photo.height||
        !Buffer.from(clean.bytes).equals(bytes))

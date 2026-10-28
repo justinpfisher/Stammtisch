@@ -89,7 +89,11 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
     folder.files.set(marker,{state:'accepted',at:new Date().toISOString()});return true;
   },
   AnnalsPilot:{senderAddress:(value)=>String(value||'').trim().toLowerCase()},
-  AnnalsMedia:{sanitize:(bytes)=>({bytes:Array.from(bytes),width:600,height:900})},
+  AnnalsMedia:{
+    sanitize:(bytes)=>({bytes:Array.from(bytes),width:600,height:900}),
+    sanitizeEditorial:(bytes,codec)=>Media.sanitizeEditorial(bytes,codec)
+  },
+  AnnalsJpegCodec:Jpeg,
   annalsAuthentication_:(message,sender)=>events.authenticated===true&&sender==='worker@example.invalid',
   annalsOwner_:()=>{events.ownerChecks=(events.ownerChecks||0)+1},
   annalsLocked_:(fn)=>fn(),
@@ -480,10 +484,17 @@ test('pre-send readiness failure notifies owner once and remains reserved withou
  assert.equal(f.events.sends.length,1,'reserved readiness and notice are not retried');
 });
 
+const editedCache=new Map();
 function editedJpeg(fill=9){
- const bytes=Buffer.alloc(5001,fill);
- bytes.set([255,216,255,218,0,2],0);bytes.set([255,217],bytes.length-2);
- return bytes;
+ if(editedCache.has(fill))return Buffer.from(editedCache.get(fill));
+ const width=600,height=900,data=Buffer.alloc(width*height*4);
+ for(let i=0;i<width*height;i++){
+  const p=i*4,x=i%width,y=Math.floor(i/width);
+  data[p]=(x+fill*19)%256;data[p+1]=(y+fill*13)%256;
+  data[p+2]=(x+y+fill*11)%256;data[p+3]=255;
+ }
+ const bytes=Buffer.from(Media.sanitize(Buffer.from(Jpeg.encode({width,height,data},50).data),true).bytes);
+ editedCache.set(fill,bytes);return Buffer.from(bytes);
 }
 function issuedPhotoResultFixture(){
  const f=fixture(),source=sourceJpeg(),digest=prepareLiveJobFixture(f,source);
@@ -838,8 +849,20 @@ test('synthetic source job and worker result flow through the same signed publis
   }});
  assert.deepEqual(result.data,archive);
  assert.deepEqual(result.assetsToWrite.map(a=>a.path),[event.client_payload.photo.asset]);
- assert.ok(result.html.includes('srcset="'+event.client_payload.photo.asset+'"'));
+ assert.ok(result.html.includes('src="'+event.client_payload.photo.source+'"'));
+ assert.ok(!result.html.includes('<picture>'),'a failed editorial asset must leave the original in place');
  assert.ok(result.html.includes('href="'+event.client_payload.photo.source+'"'));
  assert.equal(f.folder.files.get('cocktail-photo-result-'+job.jobToken+'-private.json').state,
   'publisher_dispatch_accepted_unverified');
+});
+
+test('private worker receiver rejects a corrupted JPEG scan before publication',()=>{
+ const {f,job}=issuedPhotoResultFixture(),bytes=editedJpeg(),sos=bytes.indexOf(Buffer.from([0xff,0xda]));
+ assert.ok(sos>0);
+ const broken=Buffer.from(bytes);
+ broken.fill(0,sos+2+broken.readUInt16BE(sos+2),broken.length-2);
+ const message=workerMessage(f,job,qualifiedResult(job),
+   [f.context.Utilities.newBlob(broken,'image/jpeg','fictional.jpg')]);
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(message),'photo_result_held');
+ assert.equal((f.events.dispatches||[]).length,0);
 });

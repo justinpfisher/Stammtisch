@@ -319,7 +319,7 @@ function annalsHandleCocktailPhotoResult_(message){
       bytes=blob.getBytes();
       if(!bytes||bytes.length<4000||bytes.length>5*1024*1024||
          !annalsJpegDerivativeSafe_(bytes))return 'photo_result_held';
-      var clean=AnnalsMedia.sanitize(bytes,true);
+      var clean=AnnalsMedia.sanitizeEditorial(bytes,AnnalsJpegCodec);
       if(!clean||!clean.bytes||annalsHash_(clean.bytes)!==annalsHash_(bytes)||
          clean.width<480||clean.height<480||clean.width>2560||clean.height>2560)
         return 'photo_result_held';
@@ -441,7 +441,7 @@ function annalsPublishCocktailEditorialResult_(itemId,token){
   try{
     bytes=imageFile.getBlob().getBytes();
     if(bytes.length<4000||bytes.length>5*1024*1024||annalsHash_(bytes)!==result.imageSha256)return false;
-    var clean=AnnalsMedia.sanitize(bytes,true);
+    var clean=AnnalsMedia.sanitizeEditorial(bytes,AnnalsJpegCodec);
     if(annalsHash_(clean.bytes)!==result.imageSha256||clean.width!==result.width||clean.height!==result.height)return false;
   }catch(ignored){return false;}
   var photos=saved.entry.photos||(saved.entry.photo?[saved.entry.photo]:[]),
@@ -563,7 +563,7 @@ function annalsVerifyCocktailEditorialResult_(folder,itemId,token){
     var bytes=response.getBlob().getBytes();
     if(bytes.length>5*1024*1024||annalsHash_(bytes)!==result.imageSha256||
        annalsHash_(bytes)!==result.editorialRow.editorialSha256)return false;
-    var clean=AnnalsMedia.sanitize(bytes,true);
+    var clean=AnnalsMedia.sanitizeEditorial(bytes,AnnalsJpegCodec);
     if(clean.width!==result.width||clean.height!==result.height||
        clean.width!==result.editorialRow.width||clean.height!==result.editorialRow.height||
        annalsHash_(clean.bytes)!==result.imageSha256)return false;
