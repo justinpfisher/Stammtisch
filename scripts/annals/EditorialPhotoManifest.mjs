@@ -4,6 +4,8 @@
  */
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import Media from './MediaCore.js';
+import Jpeg from './JpegCodec.js';
 import path from 'node:path';
 
 const sha=/^[0-9a-f]{64}$/;
@@ -125,8 +127,12 @@ export function verifyEditorialAssets(manifest,entries,root='.'){
       if(createHash('sha256').update(bytes).digest('hex')!==digest)
         throw Error('Published image digest mismatch');
       const dimensions=metadataFreeJpegDimensions(bytes);
-      if(name===row.asset&&(dimensions.width!==row.width||dimensions.height!==row.height))
-        throw Error('Editorial image dimensions mismatch');
+      if(name===row.asset){
+        const decoded=Media.sanitizeEditorial(bytes,Jpeg);
+        if(dimensions.width!==row.width||dimensions.height!==row.height||
+           decoded.width!==row.width||decoded.height!==row.height)
+          throw Error('Editorial image dimensions mismatch');
+      }
     }
   }
   return {qualified:manifest.images.length,sourceCount:photoSources(entries).size};

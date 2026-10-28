@@ -264,13 +264,12 @@ function photoMarkup(entry,editorialManifest) {
   return Photos.photos(entry).length ? '<div class="annal-gallery">' + Photos.photos(entry).map((p,i) => {
     const asset = 'assets/annals/' + (entry.photos ? p.sha256 : entry.id) + '.jpg';
     const sourcePath=asset,editorial=editorialManifest&&editorialManifest.images.find(row=>row.source===sourcePath);
-    const displayAsset=editorial?editorial.asset:asset;
     const responsive=entry.photos&&Math.max(p.width,p.height)>=800&&!editorial;
     const thumb=responsive?asset.replace(/\.jpg$/,'-thumb.jpg'):asset;
     const thumbWidth=responsive?Math.round(p.width*400/Math.max(p.width,p.height)):p.width;
     const image=editorial
-      ? '<picture><source type="image/jpeg" srcset="'+escapeHtml(displayAsset)+'"><img src="'+escapeHtml(asset)+'" '+
-        (p.width ? 'width="'+p.width+'" height="'+p.height+'" ' : '')+'alt="'+escapeHtml(editorial.alt)+'" loading="lazy" decoding="async"></picture>'
+      ? '<img src="'+escapeHtml(asset)+'" '+
+        (p.width ? 'width="'+p.width+'" height="'+p.height+'" ' : '')+'alt="'+escapeHtml(p.alt)+'" loading="lazy" decoding="async">'
       : '<img src="'+thumb+'" '+(responsive?'srcset="'+thumb+' '+thumbWidth+'w, '+asset+' '+p.width+'w" sizes="(max-width: 560px) 90vw, (max-width: 900px) 45vw, 360px" ':'')+
         (p.width ? 'width="'+p.width+'" height="'+p.height+'" ' : '')+'alt="'+escapeHtml(p.alt)+'" loading="lazy" decoding="async">';
     return '<figure><a data-photo-view data-photo-sha256="'+p.sha256+'" href="'+asset+'">'+image+'</a>'+(p.caption ? '<figcaption>'+editorialHtml(p.caption)+'</figcaption>' : '')+'</figure>';

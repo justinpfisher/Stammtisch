@@ -5,12 +5,14 @@
  */
 var AnnalsMedia = (function () {
   'use strict';
-  function sanitize(raw, gallery) {
-    // Legacy inline publication retains its original bound. Larger derivatives
-    // are allowed only through the separately gated, bounded blob transport.
-    var maxBytes = gallery === true ? 524288 : 32768, maxEdge = gallery === true ? 1600 : 1000;
+  function sanitize(raw, gallery, editorial) {
+    // Existing original-photo limits remain unchanged. The separately signed
+    // editorial lane accepts larger metadata-free derivatives only when asked.
+    var maxBytes = editorial === true ? 5 * 1024 * 1024 : gallery === true ? 524288 : 32768;
+    var maxEdge = editorial === true ? 2560 : gallery === true ? 1600 : 1000;
     if (!raw || typeof raw.length !== 'number' || raw.length < 24 ||
-        raw.length > 1024 * 1024) throw new Error('Invalid private thumbnail');
+        raw.length > (editorial === true ? 5 * 1024 * 1024 : 1024 * 1024))
+      throw new Error('Invalid private thumbnail');
     var bytes = Array.from(raw, function (x) { return x & 255; }), end = bytes.length;
     if (bytes[0] !== 255 || bytes[1] !== 216 || bytes[end - 2] !== 255 || bytes[end - 1] !== 217)
       throw new Error('Thumbnail is not a complete JPEG');
@@ -64,6 +66,26 @@ var AnnalsMedia = (function () {
     if (!foundScan || out.length > maxBytes) throw new Error('No suitably small clean thumbnail');
     return { bytes: out, width: width, height: height };
   }
-  return Object.freeze({sanitize: sanitize});
+  function sanitizeEditorial(raw, codec) {
+    if (!codec || typeof codec.decode !== 'function')
+      throw new Error('Editorial JPEG decoder unavailable');
+    var clean = sanitize(raw, true, true);
+    // Editorial worker results must already be metadata-free; unlike original
+    // photo intake, a changed byte is not silently rewritten after signing.
+    if (raw.length !== clean.bytes.length || clean.bytes.some(function (v, i) {
+      return v !== (raw[i] & 255);
+    })) throw new Error('Editorial JPEG contains metadata or extra bytes');
+    // Structural marker inspection cannot establish that compressed pixel
+    // data is readable. Strict, bounded decoding is mandatory before signing.
+    var decoded = codec.decode(new Uint8Array(clean.bytes), {
+      useTArray: true, formatAsRGBA: false, tolerantDecoding: false,
+      maxResolutionInMP: 7, maxMemoryUsageInMB: 128
+    });
+    if (decoded.width !== clean.width || decoded.height !== clean.height ||
+        !decoded.data || decoded.data.length !== clean.width * clean.height * 3)
+      throw new Error('Editorial JPEG pixels do not match declared dimensions');
+    return clean;
+  }
+  return Object.freeze({sanitize: sanitize, sanitizeEditorial: sanitizeEditorial});
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = AnnalsMedia;
