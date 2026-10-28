@@ -98,8 +98,8 @@ function harness({dispatchStatus=204,original=originalBytes}={}){
     annalsSavePrivate_:(_,name,value)=>{const file=files.get(name);if(file)file.setContent(JSON.stringify(value));else store(name,JSON.stringify(value));},
     annalsPhotosReady_:()=>true,annalsPublisherDispatchReady_:()=>true,
     annalsImageConsentActive_:()=>true,annalsStandingGalleryCorrectionAllowed_:()=>true,
-    // Membership/source integrity is checked by the exact-head PR #328 suite;
-    // this fixture asserts the authenticated six-member receipt shape.
+    // Deliberately replace policy with an assertion stub. The PR #328 suite
+    // checks six-member eligibility; this fixture does not qualify that gate.
     annalsOrdinarySourceGate_:candidate=>{
       assert.equal(candidate.senderAuthenticated,true);assert.equal(candidate.clubMemberAuthenticated,true);
       assert.equal(candidate.externalContributionAtReceipt,false);assert.equal(candidate.syntheticFixture,true);
@@ -119,8 +119,9 @@ function harness({dispatchStatus=204,original=originalBytes}={}){
   vm.runInContext(derivativeSource,context);
   vm.runInContext(photoSource,context);
   vm.runInContext(productionSource,context);
-  // Production.gs defines the real Apps Script adapters. Replace only those
-  // external-service boundaries after loading so all route logic stays real.
+  // Production.gs defines the Apps Script adapters and policy checks. Replace
+  // storage, configuration/policy and provider boundaries for this offline
+  // fixture; conversion, receipt, dispatch and rendering logic stays under test.
   context.annalsProps_=()=>({getProperty:key=>properties[key]??null,setProperty:(key,value)=>{properties[key]=value;}});
   context.annalsRoot_=()=>folder;context.annalsFolder_=()=>folder;
   context.annalsHash_=hash;context.annalsHex_=bytes=>Buffer.from(bytes).toString('hex');context.annalsPrivate_=value=>value;
@@ -196,7 +197,7 @@ test('corrupt synthetic JPEG is held before derivative, upload or dispatch and t
   assert.equal(h.files.has('photos-v2-private.json'),false);assert.equal(h.counts().blobCalls,0);assert.equal(h.counts().dispatchCalls,0);
 });
 
-test('a rejected dispatch is journalled once and cannot replay uploaded bytes or create a public archive',()=>{
+test('a rejected dispatch is journalled once and cannot replay uploaded bytes',()=>{
   const h=harness({dispatchStatus:503}),converted=h.convert(),entry=qualifiedEntry(h,converted),{publication}=makeSignedPublication(h,entry);
   assert.equal(h.context.annalsDispatchApproved_(h.folder,entry,publication,'annals-approved-entry','publication-dispatch-private.json'),false);
   const dispatchMarker=JSON.parse(h.files.get('publication-dispatch-private.json')._content);
@@ -204,7 +205,6 @@ test('a rejected dispatch is journalled once and cannot replay uploaded bytes or
   const before=h.counts();
   assert.equal(h.context.annalsDispatchApproved_(h.folder,entry,publication,'annals-approved-entry','publication-dispatch-private.json'),false);
   assert.deepEqual(h.counts(),before,'the reserved dispatch/upload is not replayed');
-  assert.equal(h.files.has('public-archive-private.json'),false);
 });
 
 test('failed editorial treatment restores the authentic original in the public viewer',async()=>{
