@@ -1,7 +1,18 @@
 /* Added to the EXISTING owner-only deployment; no installation or trigger reset. */
+function annalsOrdinaryMemberSource_(source) {
+  if (!source || !source.source || source.syntheticFixture === true ||
+      source.senderAuthenticated !== true || source.clubMemberAuthenticated !== true ||
+      source.externalContributionAtReceipt === true || typeof source.source.sender !== 'string')
+    return false;
+  var sender = source.source.sender.trim().toLowerCase();
+  var allowed = AnnalsPilot.allowedSenders(annalsProps_().getProperty('ANNALS_ALLOWED_SENDERS') || '');
+  return allowed.length === 6 && annalsResolveAllowedSender_(sender, allowed) === sender;
+}
 function annalsOrdinarySourceGate_(source) {
-  if (!source || !source.source || source.protectiveRoute==='col_proposal' || source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated || AnnalsAuto.protectedRoute(source.source.subject,source.source.excerpt) !== 'annals')
-    throw new Error('Potential CoL amendment remains private');
+  if (!annalsOrdinaryMemberSource_(source) || source.protectiveRoute==='col_proposal' ||
+      source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated ||
+      AnnalsAuto.protectedRoute(source.source.subject,source.source.excerpt) !== 'annals')
+    throw new Error('Authenticated member source required for ordinary Annals work');
 }
 /** Read-only rotation check using an existing private signed record. Never
  * returns keys, signatures, source text or identifiers; never re-signs a record.
