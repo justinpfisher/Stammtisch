@@ -2006,3 +2006,31 @@ test('authenticated non-member photographs are skipped before attachment copies 
   assert.equal(copies,0);
   assert.equal(x.files.has('source-private.json'),false);
 });
+
+test('synthetic and retained non-member sources fail closed across manual draft, review, approval and dispatch', () => {
+  const id='f'.repeat(64), publicEntry={...entry(),id:'annal-'+id.slice(0,24)};
+  const fixtures=[
+    {syntheticFixture:true,senderAuthenticated:false,clubMemberAuthenticated:false,
+      externalContributionAtReceipt:false,aiConsentActive:false,autoConsentAtReceipt:false,
+      source:{sender:'synthetic@invalid.example',subject:'Synthetic fixture',excerpt:'Fiction only.',receivedAt:'2026-10-09T00:00:00Z'},
+      attachmentManifest:{items:[]}},
+    {syntheticFixture:false,senderAuthenticated:true,clubMemberAuthenticated:false,
+      externalContributionAtReceipt:true,aiConsentActive:true,autoConsentAtReceipt:true,
+      source:{sender:'outsider@example.test',subject:'Retained outside source',excerpt:'Old outside content.',receivedAt:'2026-10-09T00:00:00Z'},
+      attachmentManifest:{items:[]}}
+  ];
+  for(const source of fixtures){
+    const x=mock();x.folder.getName=()=>id;
+    x.files.get('source-private.json').setContent(JSON.stringify(source));
+    const hash=x.context.annalsHash_(x.context.AnnalsProduction.serial(publicEntry));
+    assert.throws(()=>x.context.annalsPrepareDraft('valid',id,'Fictional test text',[],true),/Authenticated member source/);
+    assert.equal(x.calls.ai,0);
+    assert.throws(()=>x.context.annalsSaveReview('valid',id,publicEntry),/Authenticated member source/);
+    x.folder.createFile('review-private.json',JSON.stringify({entry:publicEntry,hash,savedAt:'2026-10-09T00:00:00Z'}));
+    assert.throws(()=>x.context.annalsApproveReview('valid',id,hash,permissions,'Synthetic private evidence only',true),/Authenticated member source/);
+    assert.throws(()=>x.context.annalsDispatchApproved_(x.folder,publicEntry,
+      {mode:'standing-consent-text-v1'},'annals-approved-entry','publication-dispatch-private.json'),/Authenticated member source/);
+    assert.equal(x.files.has('approval-private.json'),false);
+    assert.equal(x.files.has('publication-dispatch-private.json'),false);
+  }
+});
