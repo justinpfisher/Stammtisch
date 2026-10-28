@@ -2018,6 +2018,9 @@ test('synthetic and retained non-member sources fail closed across manual draft,
     {syntheticFixture:false,senderAuthenticated:true,clubMemberAuthenticated:false,
       externalContributionAtReceipt:true,aiConsentActive:true,autoConsentAtReceipt:true,
       source:{sender:'outsider@example.test',subject:'Retained outside source',excerpt:'Old outside content.',receivedAt:'2026-10-09T00:00:00Z'},
+      attachmentManifest:{items:[]}},
+{senderAuthenticated:true,
+      source:{sender:'member1@example.test',subject:'Legacy source without receipt-time membership',excerpt:'Prior ordinary fixture.',receivedAt:'2026-10-09T00:00:00Z'},
       attachmentManifest:{items:[]}}
   ];
   for(const source of fixtures){
@@ -2034,4 +2037,24 @@ test('synthetic and retained non-member sources fail closed across manual draft,
     assert.equal(x.files.has('approval-private.json'),false);
     assert.equal(x.files.has('publication-dispatch-private.json'),false);
   }
+});
+test('ineligible legacy history sources may be withdrawn but cannot be republished',()=>{
+  const x=mock(),id='e'.repeat(64),statement='A fictional detail for withdrawal testing.';
+  const source={senderAuthenticated:true,clubMemberAuthenticated:false,externalContributionAtReceipt:true,
+    source:{sender:'outside@example.test',subject:'Legacy recollection',excerpt:statement,receivedAt:'2026-10-09T00:00:00Z'}};
+  const raw={id:'a'.repeat(64),sourceId:id,chapter:'origins',factKey:'legacy-detail',field:'excerpt',
+    statement,period:'2021',status:'recollection',uncertainty:'',evidenceNote:'Offline fictional member-boundary fixture.',order:100};
+  const claim=x.context.AnnalsHistory.claim(source,raw);
+  const ledger=x.context.AnnalsHistory.apply(x.context.AnnalsHistory.empty(),claim,true,
+    '2026-10-09T00:00:00Z','Existing legacy claim fixture for withdrawal testing.').ledger;
+  x.root.createFile('history-ledger-private.json',JSON.stringify(ledger));
+  x.folder.createFile('source-private.json',JSON.stringify(source));
+  const result=x.context.annalsSaveHistoryClaim('valid',id,null,'withdraw',
+    'Owner-reviewed removal of an ineligible legacy claim.');
+  assert.equal(result.operation,'withdraw');
+  const review=JSON.parse(x.files.get('history-review-private.json').getBlob().getDataAsString());
+  assert.equal(review.operation,'withdraw');
+  assert.equal(review.ledger.claims.some(item=>item.active),false);
+  assert.equal(x.calls.ai,0);
+  assert.equal(x.files.has('publication-dispatch-private.json'),false);
 });
