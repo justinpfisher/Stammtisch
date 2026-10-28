@@ -23,6 +23,7 @@ function mock() {
   const owner = 'owner@example.test', files = new Map(), calls = { ai: 0 }, logs = [],
     props = { ANNALS_OWNER_EMAIL: owner, ANNALS_PRODUCTION_FOLDER_ID: 'PRIVATE-ID', ANNALS_AI_ENABLED: 'true',
       ANNALS_OPENAI_API_KEY: 'PRIVATE-TEST-KEY', ANNALS_APPROVAL_KEY: 's'.repeat(40),
+      ANNALS_ALLOWED_SENDERS: 'member1@example.test,member2@example.test,member3@example.test,member4@example.test,member5@example.test,member6@example.test',
       ANNALS_BUDGET_LEDGER: JSON.stringify({ schemaVersion: 1, month: '2026-10', reservedCents: 0 }) };
   const privateMethods = { getUrl: () => 'https://drive.google.com/drive/folders/synthetic-private', getSharingAccess: () => 'PRIVATE', getEditors: () => [], getViewers: () => [], getOwner: () => ({ getEmail: () => owner }) };
   const folder = { ...privateMethods,
@@ -59,7 +60,7 @@ function mock() {
   };
   vm.createContext(context);
   vm.runInContext(['PilotCore.js','ProductionCore.js','AutoCore.js','MediaCore.js','MediaPolicy.js','PublicDisplay.js','HistoryCore.js','GovernanceCore.js','HistoryProduction.gs','Production.gs'].map(name=>readFileSync(new URL('../scripts/annals/'+name,import.meta.url),'utf8')).join('\n'),context);
-  folder.createFile('source-private.json', JSON.stringify({source:{subject:'Offline fixture',excerpt:'Source evidence only.',receivedAt:'2026-10-09T00:00:00Z'},attachmentManifest:{items:[]}}));
+  folder.createFile('source-private.json', JSON.stringify({senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,aiConsentActive:true,autoConsentAtReceipt:false,source:{sender:'member1@example.test',subject:'Offline fixture',excerpt:'Source evidence only.',receivedAt:'2026-10-09T00:00:00Z'},attachmentManifest:{items:[]}}));
   return { context, props, files, folder, root, calls, logs };
 }
 test('AI and public contracts retain literal fractions and match approved renderer canonical digest', () => {
