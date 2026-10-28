@@ -688,8 +688,7 @@ function runAnnalsProductionIntake() {
           !p.getProperty('ANNALS_GITHUB_REPOSITORY') || !p.getProperty('ANNALS_REVIEW_URL')) throw new Error('Production automation configuration incomplete');
       var activation = Date.parse(p.getProperty('ANNALS_ACTIVATED_AT'));
       var allowed = AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '');
-      if (!Number.isFinite(activation) || activation > Date.now() || !allowed.length ||
-          (p.getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') === 'true' && allowed.length !== 6)) throw new Error('Intake configuration incomplete');
+      if (!Number.isFinite(activation) || activation > Date.now() || allowed.length !== 6) throw new Error('Intake configuration incomplete');
       annalsRoot_();
       var cursor = JSON.parse(p.getProperty('ANNALS_INBOX_CURSOR') || '{"offset":0,"message":0,"threadId":null}');
       if (!Number.isSafeInteger(cursor.offset) || cursor.offset < 0 || !Number.isSafeInteger(cursor.message) || cursor.message < 0) throw new Error('Invalid cursor');
