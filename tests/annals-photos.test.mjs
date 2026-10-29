@@ -11,5 +11,5 @@ test('photo archive count uses singular and plural wording correctly', () => {
 
 test('photo page versions its module URL when the module changes', () => {
   const html = readFileSync(new URL('../photos.html', import.meta.url), 'utf8');
-  assert.match(html, /<script type="module" src="annals-photos\\.mjs\\?v=[a-f0-9]+"><\\/script>/);
+  assert.match(html, /<script type="module" src="annals-photos\.mjs\?v=[a-f0-9]+"><\/script>/);
 });
