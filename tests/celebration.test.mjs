@@ -183,6 +183,53 @@ test('post-snapshot confirmed death can become recorded without duplicate points
   assert.equal(awardEvents(copy).filter(x => x.name === 'Eva Marie Saint').length, 1);
 });
 
+function fakeCelebrationDocument() {
+  const nodes = new Map();
+  const node = () => ({ innerHTML: '', textContent: '', hidden: true, value: '', dataset: {},
+    addEventListener() {}, querySelectorAll() { return []; }, setAttribute() {}, focus() {}, scrollIntoView() {} });
+  return {
+    nodes,
+    document: {
+      querySelector(selector) {
+        if (!nodes.has(selector)) nodes.set(selector, node());
+        return nodes.get(selector);
+      },
+      getElementById() { return null; },
+      addEventListener() {}
+    }
+  };
+}
+
+test('register status announces loading then success through the real mount script', async () => {
+  const previousDocument = globalThis.document;
+  const previousFetch = globalThis.fetch;
+  const previousWindow = globalThis.window;
+  const fixture = fakeCelebrationDocument();
+  globalThis.document = fixture.document;
+  globalThis.window = { location: { hash: '' } };
+  fixture.document.querySelector('#register-load-status').textContent = 'Loading the Celebration register.';
+  let finishRegisterFetch;
+  globalThis.fetch = url => {
+    if (url === 'data/celebration.json') return new Promise(resolve => { finishRegisterFetch = resolve; });
+    if (url === 'data/col-club-state.json') return Promise.resolve({ ok: true, json: async () => structuredClone(clubState) });
+    return Promise.resolve({ ok: false, status: 404 });
+  };
+  try {
+    const mounted = mountCelebration();
+    assert.equal(fixture.nodes.get('#register-load-status').textContent, 'Loading the Celebration register.');
+    finishRegisterFetch({ ok: true, json: async () => structuredClone(data) });
+    await mounted;
+    assert.equal(fixture.nodes.get('#register-load-status').textContent, 'The Celebration register has loaded.');
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+});
+
 test('failed register fetch renders fallback rather than crashing', async () => {
   const previousDocument = globalThis.document;
   const previousFetch = globalThis.fetch;
