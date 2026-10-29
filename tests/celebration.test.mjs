@@ -186,8 +186,10 @@ test('post-snapshot confirmed death can become recorded without duplicate points
 test('failed register fetch renders fallback rather than crashing', async () => {
   const previousDocument = globalThis.document;
   const previousFetch = globalThis.fetch;
+  const html = readFileSync(new URL('../celebration.html', import.meta.url), 'utf8');
+  assert.match(html, /id="register-load-status"[^>]*role="status"[^>]*aria-live="polite"/);
   const selectors = ['#award-leaders', '#draft-benefits', '#standings', '#member-lists', '#commemoration-list'];
-  const nodes = Object.fromEntries(selectors.map(s => [s, { innerHTML: '' }]));
+  const nodes = Object.fromEntries([...selectors, '#register-load-status'].map(s => [s, { innerHTML: '', textContent: '' }]));
   globalThis.document = { querySelector: s => {
     if (!(s in nodes)) throw new Error('Unexpected fallback selector: ' + s);
     return nodes[s];
@@ -199,6 +201,7 @@ test('failed register fetch renders fallback rather than crashing', async () => 
     assert.equal(request[0], 'data/celebration.json');
     assert.equal(request[1]?.cache, 'no-store');
     for (const selector of selectors) assert.ok(nodes[selector].innerHTML.length, selector);
+    assert.match(nodes['#register-load-status'].textContent, /temporarily unavailable.*reload/i);
     assert.match(nodes['#commemoration-list'].innerHTML, /reload the page/i);
   } finally {
     if (previousDocument === undefined) delete globalThis.document;
