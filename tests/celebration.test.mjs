@@ -183,11 +183,60 @@ test('post-snapshot confirmed death can become recorded without duplicate points
   assert.equal(awardEvents(copy).filter(x => x.name === 'Eva Marie Saint').length, 1);
 });
 
+function fakeCelebrationDocument() {
+  const nodes = new Map();
+  const node = () => ({ innerHTML: '', textContent: '', hidden: true, value: '', dataset: {},
+    addEventListener() {}, querySelectorAll() { return []; }, setAttribute() {}, focus() {}, scrollIntoView() {} });
+  return {
+    nodes,
+    document: {
+      querySelector(selector) {
+        if (!nodes.has(selector)) nodes.set(selector, node());
+        return nodes.get(selector);
+      },
+      getElementById() { return null; },
+      addEventListener() {}
+    }
+  };
+}
+
+test('register status announces loading then success through the real mount script', async () => {
+  const previousDocument = globalThis.document;
+  const previousFetch = globalThis.fetch;
+  const previousWindow = globalThis.window;
+  const fixture = fakeCelebrationDocument();
+  globalThis.document = fixture.document;
+  globalThis.window = { location: { hash: '' } };
+  fixture.document.querySelector('#register-load-status').textContent = 'Loading the Celebration register.';
+  let finishRegisterFetch;
+  globalThis.fetch = url => {
+    if (url === 'data/celebration.json') return new Promise(resolve => { finishRegisterFetch = resolve; });
+    if (url === 'data/col-club-state.json') return Promise.resolve({ ok: true, json: async () => structuredClone(clubState) });
+    return Promise.resolve({ ok: false, status: 404 });
+  };
+  try {
+    const mounted = mountCelebration();
+    assert.equal(fixture.nodes.get('#register-load-status').textContent, 'Loading the Celebration register.');
+    finishRegisterFetch({ ok: true, json: async () => structuredClone(data) });
+    await mounted;
+    assert.equal(fixture.nodes.get('#register-load-status').textContent, 'The Celebration register has loaded.');
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+    if (previousFetch === undefined) delete globalThis.fetch;
+    else globalThis.fetch = previousFetch;
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+});
+
 test('failed register fetch renders fallback rather than crashing', async () => {
   const previousDocument = globalThis.document;
   const previousFetch = globalThis.fetch;
+  const html = readFileSync(new URL('../celebration.html', import.meta.url), 'utf8');
+  assert.match(html, /id="register-load-status"[^>]*role="status"[^>]*aria-live="polite"/);
   const selectors = ['#award-leaders', '#draft-benefits', '#standings', '#member-lists', '#commemoration-list'];
-  const nodes = Object.fromEntries(selectors.map(s => [s, { innerHTML: '' }]));
+  const nodes = Object.fromEntries([...selectors, '#register-load-status'].map(s => [s, { innerHTML: '', textContent: '' }]));
   globalThis.document = { querySelector: s => {
     if (!(s in nodes)) throw new Error('Unexpected fallback selector: ' + s);
     return nodes[s];
@@ -199,6 +248,7 @@ test('failed register fetch renders fallback rather than crashing', async () => 
     assert.equal(request[0], 'data/celebration.json');
     assert.equal(request[1]?.cache, 'no-store');
     for (const selector of selectors) assert.ok(nodes[selector].innerHTML.length, selector);
+    assert.match(nodes['#register-load-status'].textContent, /temporarily unavailable.*reload/i);
     assert.match(nodes['#commemoration-list'].innerHTML, /reload the page/i);
   } finally {
     if (previousDocument === undefined) delete globalThis.document;
