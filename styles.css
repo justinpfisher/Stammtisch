@@ -1,5 +1,5 @@
 @charset "UTF-8";
-:root { --paper:#f6f2e9; --paper-deep:#eae5d8; --ink:#203e33; --forest:#193d32; --muted:#64685e; --brass:#846329; --gold:#d5b777; --line:#d4d3c4; --serif:Georgia,"Times New Roman",serif; --sans:"Segoe UI",Arial,sans-serif; }
+:root { --paper:#f6f2e9; --paper-deep:#eae5d8; --ink:#203e33; --forest:#193d32; --muted:#64685e; --brass:#7c5d26; --gold:#d5b777; --line:#d4d3c4; --serif:Georgia,"Times New Roman",serif; --sans:"Segoe UI",Arial,sans-serif; }
 * { box-sizing:border-box; }
 html { scroll-behavior:smooth; scroll-padding-top:30px; }
 body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.65 var(--sans); -webkit-font-smoothing:antialiased; }
