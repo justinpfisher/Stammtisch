@@ -265,7 +265,7 @@ try{
         assert.match(await status.innerText(),/0 entries shown.*Search incomplete.*older entries/);
         assert.doesNotMatch(await status.innerText(),/No eligible photographs match/);
         for(const covered of [48,72,96,97]){await more.click();await page.waitForFunction(n=>document.querySelector('#photo-status').textContent.includes('Searched '+n+' of 97'),covered);}
-        assert.match(await status.innerText(),/1 entries shown.*Search complete/);assert.equal(await more.isVisible(),false);
+        assert.match(await status.innerText(),/1 entry shown.*Search complete/);assert.equal(await more.isVisible(),false);
         assert.equal(await page.locator('.photos-card').count(),1);await noOverflow(page);
       });
       if(profile.name==='desktop-chromium')await check(browser,profile,'a failed stale photo request cannot rewind a newer filter',async page=>{
