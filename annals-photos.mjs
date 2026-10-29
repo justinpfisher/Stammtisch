@@ -1,4 +1,5 @@
 // Public approved derivatives only. No identities, tracking or external service.
+export function entriesLabel(count){return count+' '+(count===1?'entry':'entries');}
 export function installViewer(root=document){
   let dialog,previous,links=[],index=0;
   function show(i){
@@ -148,7 +149,7 @@ export async function installIndex(){
           card.append(gallery);results.append(card);styleCocktailPreviews(card);count++;
         }
       }
-      status.textContent=count+' entries shown. Searched '+examined+' of '+total+' entries in the selected year and collection.'+(cursor<pages.length?' Search incomplete: use Load more to search older entries.':' Search complete.'+(count?'':' No eligible photographs match these filters.'));
+      status.textContent=entriesLabel(count)+' shown. Searched '+examined+' of '+total+' entries in the selected year and collection.'+(cursor<pages.length?' Search incomplete: use Load more to search older entries.':' Search complete.'+(count?'':' No eligible photographs match these filters.'));
       more.hidden=cursor>=pages.length;
     }catch{if(current!==generation)return;status.textContent='The photo archive is temporarily unavailable. Please try again. Search coverage: '+examined+' of '+total+' entries.';more.hidden=false;}
     finally{if(current===generation){busy=false;more.disabled=false;}}
