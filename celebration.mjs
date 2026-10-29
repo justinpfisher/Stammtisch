@@ -113,6 +113,7 @@ export function reconciledClubResults(data,clubState) {
 }
 
 export async function mountCelebration() {
+  const loadStatus = document.querySelector('#register-load-status');
   let data;
   try {
     const response = await fetch('data/celebration.json', { cache: 'no-store' });
@@ -120,6 +121,7 @@ export async function mountCelebration() {
     data = await response.json();
     if (!Array.isArray(data.members) || !data.members.length) throw new Error('The register is empty.');
   } catch (error) {
+    loadStatus.textContent = 'The Celebration register is temporarily unavailable. Please reload the page.';
     document.querySelector('#award-leaders').innerHTML = '<p>Award progress is unavailable until the register loads.</p>';
     document.querySelector('#draft-benefits').innerHTML = '<p>Please reload the page to see the draft preview.</p>';
     document.querySelector('#standings').innerHTML = '<p>The standings could not be loaded.</p>';
@@ -139,6 +141,7 @@ export async function mountCelebration() {
   // spreadsheet import. An identity mismatch must NOT silently drop a correction.
   try { data=reconciledClubResults(data,clubState); }
   catch {
+    loadStatus.textContent = 'Club corrections could not be reconciled. Standings and draft projections are unavailable.';
     document.querySelector('#standings').innerHTML='<p>Club score corrections need reconciliation before standings can be shown.</p>';
     document.querySelector('#award-leaders').innerHTML='<p>Club score corrections need reconciliation.</p>';
     document.querySelector('#draft-benefits').innerHTML='<p>Draft scoring is unavailable until the Club register matches its recorded selections.</p>';
@@ -234,6 +237,9 @@ export async function mountCelebration() {
     target?.focus({ preventScroll: true });
   }
   document.querySelector('#distinctions').innerHTML = data.distinctions.map(item => `<article><h3>${e(readableSentence(item.name))}</h3><p>${e(readableSentence(distinctionReason(item)))}</p>${item.imageIdea ? `<details><summary>Button illustration idea <span aria-hidden="true">+</span></summary><p>${e(readableSentence(item.imageIdea))}</p></details>` : ''}</article>`).join('');
+  loadStatus.textContent = clubState
+    ? 'The Celebration register has loaded.'
+    : 'The Celebration register has loaded, but the Club correction record is unavailable.';
 }
 
 if (typeof document !== 'undefined') mountCelebration();
