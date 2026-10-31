@@ -79,7 +79,7 @@ export function torontoDayKey(now = new Date()) {
  * recorded date with a visible qualification when the actual date is unknown. */
 export function latestPassingInterval(members, todayKey = torontoDayKey()) {
   const utcDay = value => {
-    if (typeof value !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return null;
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
     const milliseconds = Date.parse(`${value}T00:00:00Z`);
     return Number.isFinite(milliseconds) && new Date(milliseconds).toISOString().slice(0, 10) === value
       ? milliseconds : null;
