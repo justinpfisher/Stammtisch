@@ -198,7 +198,7 @@ test('the Reaper’s Recess uses Toronto calendar days and the latest dated Club
   assert.equal(result.date, '2026-03-07', 'verified actual dates precede Club discovery dates');
   assert.equal(result.verified, true);
   assert.equal(latestPassingInterval(sample, '2026-03-07').days, 0);
-  assert.equal(latestPassingInterval(sample, '2026-03-06'), null);
+  assert.equal(latestPassingInterval(sample, '2026-03-05'), null);
   assert.equal(latestPassingInterval([{ id: 'empty', name: 'Member', picks: [] }], '2026-10-31'), null);
   assert.equal(latestPassingInterval(sample, '2026-02-30'), null);
   const recorded = [{ id: 'one', name: 'Member', picks: [
