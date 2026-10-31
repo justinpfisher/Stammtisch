@@ -23,16 +23,20 @@
 .standing-cta { font-size:10px; color:#d3dbd0; margin-top:14px; }
 .standing-cta>span { margin-left:15px; color:var(--gold); }
 
-/* Compact, display-only intermission: below standings, never another scorecard. */
-.passing-recess { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,.72fr); align-items:center; gap:16px 26px; margin-top:25px; padding-top:18px; border-top:1px solid #62745b; }
+/* Three display-only interval measures; not the Rainmaker/Droughtmaker award. */
+.passing-recess { margin-top:25px; padding-top:18px; border-top:1px solid #62745b; }
 .passing-recess[hidden] { display:none; }
-.passing-recess-copy { margin:0; }
-.passing-recess-copy .eyebrow { display:block; color:var(--gold); }
-.passing-recess-copy>span:last-child { display:block; margin-top:6px; font-size:12px; line-height:1.5; color:#d3dbd0; }
-.passing-recess-count { margin:0; white-space:nowrap; color:var(--paper); font:13px var(--sans); }
+.passing-recess-heading { margin:0; font:600 11px/1.5 var(--sans); text-transform:uppercase; letter-spacing:.13em; color:var(--gold); }
+.passing-recess-heading span { margin-left:12px; font-weight:400; color:#d3dbd0; }
+.passing-recess-stats { display:grid; grid-template-columns:1.15fr 1fr 1fr; margin-top:16px; }
+.passing-recess-stat { min-width:0; padding:0 18px; border-left:1px solid #62745b; }
+.passing-recess-stat:first-child { padding-left:0; border-left:0; }
+.passing-recess-label { margin:0; font:600 12px/1.5 var(--sans); color:var(--paper); }
+.passing-recess-count { margin:8px 0 0; white-space:nowrap; color:var(--paper); font:13px/1.5 var(--sans); }
 .passing-recess-count strong { font:43px/1 var(--serif); font-variant-numeric:tabular-nums; }
-.passing-recess-detail { margin:0; text-align:right; font-size:11px; line-height:1.6; color:#d3dbd0; }
+.passing-recess-detail { margin:9px 0 0; text-align:left; font-size:11px; line-height:1.65; color:#d3dbd0; overflow-wrap:break-word; }
 .passing-recess-detail a { display:block; color:var(--gold); text-underline-offset:4px; }
+.passing-recess-note { max-width:900px; margin:18px 0 0; font-size:11px; line-height:1.65; color:#d3dbd0; }
 .register-nav-wrap { border-bottom:1px solid var(--line); }
 .register-nav { justify-content:flex-start; gap:43px; min-height:67px; }
 .register-nav a { font-size:12px; gap:16px; }
@@ -150,10 +154,13 @@ details[open]>summary>.disclosure-icon { transform:rotate(45deg)!important; }
   .standings-heading>p { max-width:120px; padding-top:5px; font-size:10px; }
   .standings-heading h2 { font-size:29px; }
   .standings-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
-  .passing-recess { grid-template-columns:minmax(0,1fr) auto; gap:12px; margin-top:19px; padding-top:16px; }
-  .passing-recess-copy>span:last-child { font-size:11px; }
+  .passing-recess { margin-top:19px; padding-top:16px; }
+  .passing-recess-stats { grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 0; }
+  .passing-recess-stat { padding-inline:14px 0; }
+  .passing-recess-stat:first-child { grid-column:1/-1; padding:0 0 12px; border-bottom:1px solid #62745b; }
+  .passing-recess-stat:nth-child(2) { padding-left:0; border-left:0; }
   .passing-recess-count strong { font-size:36px; }
-  .passing-recess-detail { grid-column:1/-1; text-align:left; }
+  .passing-recess-note { margin-top:16px; }
   .standing-card { padding:21px 7px 12px; }
   .standing-card img { width:56px; height:56px; }
   .standing-name { font-size:20px; }
@@ -203,6 +210,10 @@ details[open]>summary>.disclosure-icon { transform:rotate(45deg)!important; }
   .register-source { flex-direction:column; align-items:start; gap:10px; padding-block:10px 30px; }
 }
 @media(max-width:380px) {
+  .passing-recess-stats { grid-template-columns:1fr; gap:0; }
+  .passing-recess-stat, .passing-recess-stat:first-child, .passing-recess-stat:nth-child(2) { grid-column:auto; padding:12px 0; border:0; border-bottom:1px solid #62745b; }
+  .passing-recess-stat:first-child { padding-top:0; }
+  .passing-recess-stat:last-child { border-bottom:0; }
   .celebration-hero h1 { font-size:46px; }
   .standing-score { font-size:27px; }
   .standing-score small { font-size:7px; }
