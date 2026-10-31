@@ -17,8 +17,8 @@
   <meta name="apple-mobile-web-app-title" content="Stammtisch">
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="celebration.css?v=col-recess-20261031">
-  <script type="module" src="celebration.mjs?v=col-recess-20261031"></script>
+  <link rel="stylesheet" href="celebration.css?v=col-recess-records-20261031">
+  <script type="module" src="celebration.mjs?v=col-recess-records-20261031"></script>
   <script type="module" src="col-push.mjs?v=col-live-20261008"></script>
 </head>
 <body>
@@ -34,10 +34,26 @@
       <div class="shell">
         <div class="standings-heading"><div><p class="eyebrow">The company · <span data-year>2026</span></p><h2 id="standings-title">The standings</h2></div><p>Choose a member to explore their list.</p></div>
         <div class="standings-grid" id="standings"><p>Loading the standings…</p></div>
-        <aside class="passing-recess" id="passing-recess" aria-label="Days since the last dated passing on the Club lists" hidden>
-          <p class="passing-recess-copy"><span class="eyebrow">The Reaper’s Recess</span><span>Days since the latest dated passing on our lists.</span></p>
-          <p class="passing-recess-count"><strong id="passing-recess-days">—</strong> <span id="passing-recess-unit">days</span></p>
-          <p class="passing-recess-detail"><span id="passing-recess-date"></span><a href="#commemorations" id="passing-recess-link">View commemoration <span aria-hidden="true">↓</span></a></p>
+        <aside class="passing-recess" id="passing-recess" aria-label="The Reaper’s Recess: days between dated Club passings" hidden>
+          <h3 class="passing-recess-heading">The Reaper’s Recess <span id="passing-recess-season"></span></h3>
+          <div class="passing-recess-stats">
+            <div class="passing-recess-stat">
+              <p class="passing-recess-label">Current recess</p>
+              <p class="passing-recess-count"><strong id="passing-recess-days">—</strong> <span id="passing-recess-unit">days</span></p>
+              <p class="passing-recess-detail"><span id="passing-recess-date"></span><a href="#commemorations" id="passing-recess-link">View commemoration <span aria-hidden="true">↓</span></a></p>
+            </div>
+            <div class="passing-recess-stat">
+              <p class="passing-recess-label">The Great Drought</p>
+              <p class="passing-recess-count"><strong id="passing-recess-long-days">—</strong> <span id="passing-recess-long-unit">days</span></p>
+              <p class="passing-recess-detail" id="passing-recess-long-detail"></p>
+            </div>
+            <div class="passing-recess-stat">
+              <p class="passing-recess-label">The Briefest Recess</p>
+              <p class="passing-recess-count"><strong id="passing-recess-short-days">—</strong> <span id="passing-recess-short-unit">days</span></p>
+              <p class="passing-recess-detail" id="passing-recess-short-detail"></p>
+            </div>
+          </div>
+          <p class="passing-recess-note">Calendar days between distinct passings in this CoL season; the ongoing recess can become the longest. Verified death dates take precedence; otherwise Club-recorded dates are used. Informational only, not the Droughtmaker award.</p>
         </aside>
       </div>
     </section>
