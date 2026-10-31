@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ageAt, basePoints, multiplierFor, selectionValue, rankedMembers, matchesPick, groupedCommemorations, escapeHtml, pickMarkup, mountCelebration, reconciledClubResults, torontoDayKey, latestPassingInterval } from '../celebration.mjs';
+import { ageAt, basePoints, multiplierFor, selectionValue, rankedMembers, matchesPick, groupedCommemorations, escapeHtml, pickMarkup, mountCelebration, reconciledClubResults, torontoDayKey, latestPassingInterval, seasonPassingIntervals } from '../celebration.mjs';
 import { awardEvents } from '../celebration-awards.mjs';
 
 const data = JSON.parse(readFileSync(new URL('../data/celebration.json', import.meta.url), 'utf8'));
@@ -211,6 +211,111 @@ test('the Reaper’s Recess uses Toronto calendar days and the latest dated Club
   assert.ok(html.indexOf('id="standings"') < html.indexOf('id="passing-recess"'));
 });
 
+
+test('Reaper’s interval comparisons use deduplicated dated deaths, not an invented season-opening death', () => {
+  const fixture = { year: 2026, asOf: '2026-10-31', members: [
+    { id: 'matt', name: 'Matt', picks: [
+      { pick: 1, name: 'First', born: '1960-01-01', dateOfPassing: '2026-02-01' },
+      { pick: 2, name: 'Second', born: '1960-01-02', dateOfPassing: '2026-02-03' },
+      { pick: 3, name: 'Third', born: '1960-01-03', actualDeathDate: '2026-03-10' }
+    ] },
+    { id: 'jerome', name: 'Jerome', picks: [
+      { pick: 4, name: 'First', born: '1960-01-01', dateOfPassing: '2026-02-01' }
+    ] }
+  ] };
+  const { longest, shortest } = seasonPassingIntervals(fixture, null, '2026-03-12');
+  assert.equal(shortest.days, 2);
+  assert.equal(shortest.start.person.name, 'First');
+  assert.equal(shortest.end.person.name, 'Second');
+  assert.equal(longest.days, 35);
+  assert.equal(longest.start.person.name, 'Second');
+  assert.equal(longest.end.person.name, 'Third');
+  assert.equal(longest.ongoing, false);
+  assert.equal(longest.end.verified, true);
+  const ongoing = seasonPassingIntervals(fixture, null, '2026-06-01').longest;
+  assert.equal(ongoing.days, 83);
+  assert.equal(ongoing.ongoing, true);
+  assert.equal(ongoing.end, null);
+  assert.equal(seasonPassingIntervals(fixture, null, '2026-01-31').longest, null);
+  assert.equal(seasonPassingIntervals(fixture, null, '2026-01-31').shortest, null);
+  assert.equal(seasonPassingIntervals(fixture, null, '2026-02-01').shortest, null);
+  assert.equal(seasonPassingIntervals(fixture, null, '2026-02-01').longest.days, 0);
+  assert.deepEqual(seasonPassingIntervals(fixture, null, '2026-02-30'), { longest: null, shortest: null });
+});
+
+test('shortest dated interval can be same-day, with no invented hour or duplicate-person gap', () => {
+  const fixture = { year: 2027, asOf: '2027-02-03', members: [
+    { id: 'matt', name: 'Matt', picks: [
+      { pick: 1, name: 'One', born: '1960-01-01', dateOfPassing: '2027-02-02' },
+      { pick: 2, name: 'Two', born: '1960-01-02', dateOfPassing: '2027-02-02' }
+    ] },
+    { id: 'ken', name: 'Ken', picks: [
+      { pick: 3, name: 'One', born: '1960-01-01', dateOfPassing: '2027-02-02' }
+    ] }
+  ] };
+  const result = seasonPassingIntervals(fixture, null, '2027-02-03');
+  assert.equal(result.shortest.days, 0);
+  assert.equal(result.longest.days, 1, 'the ongoing gap can outrun a completed same-day gap');
+  assert.equal(result.longest.ongoing, true);
+  assert.equal(result.shortest.start.date, '2027-02-02');
+  assert.equal(result.shortest.end.date, '2027-02-02');
+});
+
+test('intervals count calendar days over leap day and Toronto daylight-saving changes', () => {
+  const fixture = (year, a, b) => ({ year, asOf: b, members: [
+    { id: 'marc', name: 'Marc', picks: [
+      { pick: 1, name: 'First', born: '1950-01-01', actualDeathDate: a },
+      { pick: 2, name: 'Second', born: '1950-01-02', actualDeathDate: b }
+    ] }
+  ] });
+  assert.equal(seasonPassingIntervals(fixture(2028, '2028-02-28', '2028-03-01'), null, '2028-03-01').shortest.days, 2);
+  assert.equal(seasonPassingIntervals(fixture(2027, '2027-03-13', '2027-03-15'), null, '2027-03-15').shortest.days, 2);
+  assert.equal(torontoDayKey(new Date('2027-11-07T04:59:59Z')), '2027-11-07');
+  assert.equal(torontoDayKey(new Date('2027-11-08T04:59:59Z')), '2027-11-07');
+  assert.equal(torontoDayKey(new Date('2027-11-08T05:00:00Z')), '2027-11-08');
+});
+
+test('January 8 p.m. Toronto season handover respects verified times and Club corrections', () => {
+  const fixture = { year: 2027, asOf: '2027-01-17', members: [
+    { id: 'matt', name: 'Matt', picks: [
+      { pick: 1, name: 'Before', born: '1940-01-01', actualDeathDate: '2027-01-15', actualDeathAt: '2027-01-15T19:59:00-05:00' },
+      { pick: 2, name: 'After', born: '1940-01-02', actualDeathDate: '2027-01-15', actualDeathAt: '2027-01-15T20:01:00-05:00' },
+      { pick: 3, name: 'Next', born: '1940-01-03', dateOfPassing: '2027-01-16' }
+    ] }
+  ] };
+  const regular = seasonPassingIntervals(fixture, null, '2027-01-17');
+  assert.equal(regular.shortest.days, 1, 'the death before 8 p.m. belongs to 2026');
+  assert.equal(regular.shortest.start.person.name, 'After');
+  assert.equal(regular.shortest.end.person.name, 'Next');
+  const corrected = seasonPassingIntervals(fixture, { seasonCorrections: [
+    { name: 'Before', born: '1940-01-01', diedOn: '2027-01-15', competitionYear: 2027 }
+  ] }, '2027-01-17');
+  assert.equal(corrected.shortest.days, 0, 'an authoritative GitHub season correction applies');
+});
+
+test('Reaper’s comparison excludes disputed dates and future passings, and explains unverified Club dates', () => {
+  const fixture = { year: 2027, asOf: '2027-04-01', members: [
+    { id: 'matt', name: 'Matt', picks: [
+      { pick: 1, name: 'One', born: '1940-01-01', dateOfPassing: '2027-02-01' },
+      { pick: 2, name: 'Conflict', born: '1940-01-02', dateOfPassing: '2027-02-02' },
+      { pick: 3, name: 'Future', born: '1940-01-03', actualDeathDate: '2027-12-03' }
+    ] },
+    { id: 'ken', name: 'Ken', picks: [
+      { pick: 4, name: 'Conflict', born: '1940-01-02', dateOfPassing: '2027-02-03' }
+    ] }
+  ] };
+  const result = seasonPassingIntervals(fixture, null, '2027-02-04');
+  assert.equal(result.shortest, null);
+  assert.equal(result.longest.days, 3);
+  assert.equal(result.longest.start.verified, false);
+  const html = readFileSync(new URL('../celebration.html', import.meta.url), 'utf8');
+  for (const id of ['passing-recess-long-days', 'passing-recess-short-days', 'passing-recess-season']) {
+    assert.match(html, new RegExp('id="' + id + '"'));
+  }
+  assert.ok(html.indexOf('id="standings"') < html.indexOf('id="passing-recess"'));
+  assert.match(html, /Informational only, not the Droughtmaker award/);
+});
+
 function fakeCelebrationDocument() {
   const nodes = new Map();
   const node = () => ({ innerHTML: '', textContent: '', hidden: true, value: '', dataset: {},
@@ -248,6 +353,9 @@ test('register status announces loading then success through the real mount scri
     finishRegisterFetch({ ok: true, json: async () => structuredClone(data) });
     await mounted;
     assert.equal(fixture.nodes.get('#register-load-status').textContent, 'The Celebration register has loaded.');
+    assert.equal(fixture.nodes.get('#passing-recess').hidden, false);
+    assert.ok(Number(fixture.nodes.get('#passing-recess-short-days').textContent) >= 0);
+    assert.ok(Number(fixture.nodes.get('#passing-recess-long-days').textContent) >= 0);
   } finally {
     if (previousDocument === undefined) delete globalThis.document;
     else globalThis.document = previousDocument;

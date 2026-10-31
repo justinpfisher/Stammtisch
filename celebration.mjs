@@ -1,6 +1,6 @@
 import { ageAt, basePoints, distinctionReason } from './celebration-rules.mjs';
 export { ageAt, basePoints } from './celebration-rules.mjs';
-import { calculateAwards, awardsMarkup, draftMarkup } from './celebration-awards.mjs?v=col-renewal-snapshot-20261021';
+import { calculateAwards, awardsMarkup, draftMarkup, awardEvents } from './celebration-awards.mjs?v=col-renewal-snapshot-20261021';
 import {readClubState,applyPointsCorrections} from './col-club-state.mjs?v=col-renewal-snapshot-20261021';
 import {loadOperativeSnapshot} from './col-rules-reader.mjs';
 import {verifiedAwardPolicy} from './col-award-policy.mjs?v=col-release-20261020';
@@ -94,6 +94,47 @@ export function latestPassingInterval(members, todayKey = torontoDayKey()) {
   if (!entries.length) return null;
   const { person, date, verified } = entries[0];
   return { person, date, verified, days: (today - utcDay(date)) / 86400000 };
+}
+
+
+/** Read-only comparison of CoL passings, separate from the Droughtmaker award.
+ * awardEvents provides one person per death and the adopted competition year,
+ * including corrected January handover assignments. Never invent an opening
+ * death to measure a season's first gap. */
+export function seasonPassingIntervals(data, clubState = null, todayKey = torontoDayKey()) {
+  const utcDay = value => {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+    const ms = Date.parse(value + 'T00:00:00Z');
+    return Number.isFinite(ms) && new Date(ms).toISOString().slice(0, 10) === value ? ms : null;
+  };
+  const today = utcDay(todayKey);
+  if (today === null || !Number.isInteger(data?.year) || !Array.isArray(data?.members))
+    return { longest: null, shortest: null };
+  const passings = awardEvents(data, clubState)
+    .filter(event => event.competitionYear === data.year && !event.dateConflict)
+    .map(event => ({
+      person: { name: event.name, born: event.born },
+      date: Number.isFinite(event.diedAt) ? torontoDayKey(new Date(event.diedAt)) : event.at,
+      verified: Boolean(event.diedOn)
+    }))
+    .filter(({ date }) => { const day = utcDay(date); return day !== null && day <= today; })
+    .sort((a, b) => a.date.localeCompare(b.date) ||
+      a.person.name.localeCompare(b.person.name) || String(a.person.born).localeCompare(String(b.person.born)));
+  let longest = null, shortest = null;
+  for (let index = 1; index < passings.length; index++) {
+    const start = passings[index - 1], end = passings[index];
+    const interval = { start, end, ongoing: false,
+      days: (utcDay(end.date) - utcDay(start.date)) / 86400000 };
+    if (!longest || interval.days > longest.days) longest = interval;
+    if (!shortest || interval.days < shortest.days) shortest = interval;
+  }
+  if (passings.length) {
+    const start = passings[passings.length - 1];
+    const ongoing = { start, end: null, ongoing: true,
+      days: (today - utcDay(start.date)) / 86400000 };
+    if (!longest || ongoing.days > longest.days) longest = ongoing;
+  }
+  return { longest, shortest };
 }
 
 export const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -219,6 +260,30 @@ export async function mountCelebration() {
     document.querySelector('#passing-recess-link').href = `#${commemorationAnchor(recess.person)}`;
     document.querySelector('#passing-recess').hidden = false;
   }
+
+  const intervals = seasonPassingIntervals(data, clubState);
+  document.querySelector('#passing-recess-season').textContent = data.year + ' season';
+  if (intervals.longest) {
+    const interval = intervals.longest;
+    document.querySelector('#passing-recess-long-days').textContent = String(interval.days);
+    document.querySelector('#passing-recess-long-unit').textContent = interval.days === 1 ? 'day' : 'days';
+    document.querySelector('#passing-recess-long-detail').textContent = interval.ongoing
+      ? 'Since ' + dateLabel(interval.start.date) + ' · ongoing'
+      : dateLabel(interval.start.date) + ' – ' + dateLabel(interval.end.date);
+  } else {
+    document.querySelector('#passing-recess-long-detail').textContent = 'Awaiting a dated passing this season.';
+  }
+  if (intervals.shortest) {
+    const interval = intervals.shortest;
+    document.querySelector('#passing-recess-short-days').textContent = String(interval.days);
+    document.querySelector('#passing-recess-short-unit').textContent = interval.days === 1 ? 'day' : 'days';
+    document.querySelector('#passing-recess-short-detail').textContent =
+      dateLabel(interval.start.date) + ' – ' + dateLabel(interval.end.date) +
+      ' · ' + interval.start.person.name + ' / ' + interval.end.person.name;
+  } else {
+    document.querySelector('#passing-recess-short-detail').textContent = 'Awaiting two distinct dated passings.';
+  }
+  if (intervals.longest && !recess) document.querySelector('#passing-recess').hidden = false;
   filters.innerHTML = [{ id: 'all', name: 'Everyone' }, ...members].map(member => `<button type="button" data-member="${e(member.id)}" aria-pressed="${member.id === 'all'}">${e(member.name)}</button>`).join('');
   document.querySelector('#register-controls').hidden = false;
 
