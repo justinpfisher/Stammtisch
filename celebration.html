@@ -17,8 +17,8 @@
   <meta name="apple-mobile-web-app-title" content="Stammtisch">
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="celebration.css?v=club-rules-20261021-compact">
-  <script type="module" src="celebration.mjs?v=col-renewal-snapshot-20261021"></script>
+  <link rel="stylesheet" href="celebration.css?v=col-recess-20261031">
+  <script type="module" src="celebration.mjs?v=col-recess-20261031"></script>
   <script type="module" src="col-push.mjs?v=col-live-20261008"></script>
 </head>
 <body>
@@ -34,6 +34,11 @@
       <div class="shell">
         <div class="standings-heading"><div><p class="eyebrow">The company · <span data-year>2026</span></p><h2 id="standings-title">The standings</h2></div><p>Choose a member to explore their list.</p></div>
         <div class="standings-grid" id="standings"><p>Loading the standings…</p></div>
+        <aside class="passing-recess" id="passing-recess" aria-label="Days since the last dated passing on the Club lists" hidden>
+          <p class="passing-recess-copy"><span class="eyebrow">The Reaper’s Recess</span><span>Days since the latest dated passing on our lists.</span></p>
+          <p class="passing-recess-count"><strong id="passing-recess-days">—</strong> <span id="passing-recess-unit">days</span></p>
+          <p class="passing-recess-detail"><span id="passing-recess-date"></span><a href="#commemorations" id="passing-recess-link">View commemoration <span aria-hidden="true">↓</span></a></p>
+        </aside>
       </div>
     </section>
     <div class="register-nav-wrap"><nav class="shell register-nav" aria-label="Celebration of Life sections"><a href="#the-lists">Everyone’s lists <span aria-hidden="true">↓</span></a><a href="#commemorations">Commemorations <span aria-hidden="true">↓</span></a><a href="#how-it-works">The tradition &amp; scoring <span aria-hidden="true">↓</span></a><a href="#awards">Awards &amp; draft <span aria-hidden="true">↓</span></a><a href="#official-rules">Official rules <span aria-hidden="true">↓</span></a></nav></div>
