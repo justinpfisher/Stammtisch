@@ -188,7 +188,7 @@ test('the Reaper’s Recess uses Toronto calendar days and the latest dated Club
   assert.equal(torontoDayKey(new Date('2026-03-08T04:59:00Z')), '2026-03-07');
   assert.equal(torontoDayKey(new Date('2026-03-08T05:00:00Z')), '2026-03-08');
   const sample = [{ id: 'one', name: 'Member', picks: [
-    { name: 'Earlier', born: '1940-01-01', dateOfPassing: '2026-03-07' },
+    { name: 'Earlier', born: '1940-01-01', dateOfPassing: '2026-03-06' },
     { name: 'Later', born: '1941-01-01', dateOfPassing: '2026-03-08',
       actualDeathDate: '2026-03-07' },
     { name: 'Future', born: '1942-01-01', actualDeathDate: '2026-03-10' }
