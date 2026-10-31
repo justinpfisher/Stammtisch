@@ -64,6 +64,38 @@ export function groupedCommemorations(members) {
   return [...groups.values()].sort((a, b) => dated(b).localeCompare(dated(a)) || a.name.localeCompare(b.name));
 }
 
+
+/** Count calendar days in Toronto, not elapsed 24-hour periods across DST. */
+export function torontoDayKey(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(now);
+  const part = type => parts.find(item => item.type === type).value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+/** Display-only; never affects scores, event creation or notifications.
+ * Prefer independently verified death dates, falling back to the Club's
+ * recorded date with a visible qualification when the actual date is unknown. */
+export function latestPassingInterval(members, todayKey = torontoDayKey()) {
+  const utcDay = value => {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+    const milliseconds = Date.parse(`${value}T00:00:00Z`);
+    return Number.isFinite(milliseconds) && new Date(milliseconds).toISOString().slice(0, 10) === value
+      ? milliseconds : null;
+  };
+  const today = utcDay(todayKey);
+  if (today === null) return null;
+  const entries = groupedCommemorations(members)
+    .map(person => ({ person, date: actualDeathDate(person) || person.dateOfPassing,
+      verified: Boolean(actualDeathDate(person)) }))
+    .filter(({ date }) => { const day = utcDay(date); return day !== null && day <= today; })
+    .sort((a, b) => b.date.localeCompare(a.date) || a.person.name.localeCompare(b.person.name));
+  if (!entries.length) return null;
+  const { person, date, verified } = entries[0];
+  return { person, date, verified, days: (today - utcDay(date)) / 86400000 };
+}
+
 export const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 
 function dateLabel(value, options = {}) {
@@ -177,6 +209,16 @@ export async function mountCelebration() {
     ? `Club standings as of ${dateLabel(data.asOf)}. Authenticated GitHub corrections take precedence over spreadsheet entries. Newly confirmed passings enter when the Club records their awards.`
     : `The Club correction register could not be loaded. Showing provisional spreadsheet totals as of ${dateLabel(data.asOf)}; recorded member corrections may be missing.`;
   document.querySelector('#standings').innerHTML = members.map(member => `<a class="standing-card" href="#the-lists" data-member-link="${e(member.id)}" aria-label="${e(member.name)}, rank ${member.rank}, ${member.score} points. View full list."><span class="standing-rank">${String(member.rank).padStart(2, '0')}</span><img src="${e(member.avatar)}" width="240" height="240" alt=""><span class="standing-name">${e(member.name)}</span><span class="standing-score">${pointsLabel(member.score)}<small>points</small></span><span class="standing-cta">View list <span aria-hidden="true">↗</span></span></a>`).join('');
+  const recess = latestPassingInterval(members);
+  if (recess) {
+    document.querySelector('#passing-recess-days').textContent = String(recess.days);
+    document.querySelector('#passing-recess-unit').textContent = recess.days === 1 ? 'day' : 'days';
+    document.querySelector('#passing-recess-date').textContent = recess.verified
+      ? `Latest verified passing: ${dateLabel(recess.date)}.`
+      : `Latest Club entry: ${dateLabel(recess.date)} (actual date unverified).`;
+    document.querySelector('#passing-recess-link').href = `#${commemorationAnchor(recess.person)}`;
+    document.querySelector('#passing-recess').hidden = false;
+  }
   filters.innerHTML = [{ id: 'all', name: 'Everyone' }, ...members].map(member => `<button type="button" data-member="${e(member.id)}" aria-pressed="${member.id === 'all'}">${e(member.name)}</button>`).join('');
   document.querySelector('#register-controls').hidden = false;
 

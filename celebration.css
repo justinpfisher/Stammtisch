@@ -22,6 +22,17 @@
 .standing-score small { font:9px/1.6 var(--sans); text-transform:uppercase; letter-spacing:.13em; color:#d3dbd0; margin-left:6px; }
 .standing-cta { font-size:10px; color:#d3dbd0; margin-top:14px; }
 .standing-cta>span { margin-left:15px; color:var(--gold); }
+
+/* Compact, display-only intermission: below standings, never another scorecard. */
+.passing-recess { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,.72fr); align-items:center; gap:16px 26px; margin-top:25px; padding-top:18px; border-top:1px solid #62745b; }
+.passing-recess[hidden] { display:none; }
+.passing-recess-copy { margin:0; }
+.passing-recess-copy .eyebrow { display:block; color:var(--gold); }
+.passing-recess-copy>span:last-child { display:block; margin-top:6px; font-size:12px; line-height:1.5; color:#d3dbd0; }
+.passing-recess-count { margin:0; white-space:nowrap; color:var(--paper); font:13px var(--sans); }
+.passing-recess-count strong { font:43px/1 var(--serif); font-variant-numeric:tabular-nums; }
+.passing-recess-detail { margin:0; text-align:right; font-size:11px; line-height:1.6; color:#d3dbd0; }
+.passing-recess-detail a { display:block; color:var(--gold); text-underline-offset:4px; }
 .register-nav-wrap { border-bottom:1px solid var(--line); }
 .register-nav { justify-content:flex-start; gap:43px; min-height:67px; }
 .register-nav a { font-size:12px; gap:16px; }
@@ -139,6 +150,10 @@ details[open]>summary>.disclosure-icon { transform:rotate(45deg)!important; }
   .standings-heading>p { max-width:120px; padding-top:5px; font-size:10px; }
   .standings-heading h2 { font-size:29px; }
   .standings-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+  .passing-recess { grid-template-columns:minmax(0,1fr) auto; gap:12px; margin-top:19px; padding-top:16px; }
+  .passing-recess-copy>span:last-child { font-size:11px; }
+  .passing-recess-count strong { font-size:36px; }
+  .passing-recess-detail { grid-column:1/-1; text-align:left; }
   .standing-card { padding:21px 7px 12px; }
   .standing-card img { width:56px; height:56px; }
   .standing-name { font-size:20px; }

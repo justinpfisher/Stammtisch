@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ageAt, basePoints, multiplierFor, selectionValue, rankedMembers, matchesPick, groupedCommemorations, escapeHtml, pickMarkup, mountCelebration, reconciledClubResults } from '../celebration.mjs';
+import { ageAt, basePoints, multiplierFor, selectionValue, rankedMembers, matchesPick, groupedCommemorations, escapeHtml, pickMarkup, mountCelebration, reconciledClubResults, torontoDayKey, latestPassingInterval } from '../celebration.mjs';
 import { awardEvents } from '../celebration-awards.mjs';
 
 const data = JSON.parse(readFileSync(new URL('../data/celebration.json', import.meta.url), 'utf8'));
@@ -181,6 +181,34 @@ test('post-snapshot confirmed death can become recorded without duplicate points
   assert.equal(selectionValue(eva, copy.asOf), -2);
   assert.match(pickMarkup(eva, jerome, copy), /Points in the standings/);
   assert.equal(awardEvents(copy).filter(x => x.name === 'Eva Marie Saint').length, 1);
+});
+
+
+test('the Reaper’s Recess uses Toronto calendar days and the latest dated Club record', () => {
+  assert.equal(torontoDayKey(new Date('2026-03-08T04:59:00Z')), '2026-03-07');
+  assert.equal(torontoDayKey(new Date('2026-03-08T05:00:00Z')), '2026-03-08');
+  const sample = [{ id: 'one', name: 'Member', picks: [
+    { name: 'Earlier', born: '1940-01-01', dateOfPassing: '2026-03-06' },
+    { name: 'Later', born: '1941-01-01', dateOfPassing: '2026-03-08',
+      actualDeathDate: '2026-03-07' },
+    { name: 'Future', born: '1942-01-01', actualDeathDate: '2026-03-10' }
+  ] }];
+  const result = latestPassingInterval(sample, '2026-03-09');
+  assert.equal(result.days, 2, 'DST changes do not change calendar-day counts');
+  assert.equal(result.date, '2026-03-07', 'verified actual dates precede Club discovery dates');
+  assert.equal(result.verified, true);
+  assert.equal(latestPassingInterval(sample, '2026-03-07').days, 0);
+  assert.equal(latestPassingInterval(sample, '2026-03-05'), null);
+  assert.equal(latestPassingInterval([{ id: 'empty', name: 'Member', picks: [] }], '2026-10-31'), null);
+  assert.equal(latestPassingInterval(sample, '2026-02-30'), null);
+  const recorded = [{ id: 'one', name: 'Member', picks: [
+    { name: 'Unverified', born: '1940-01-01', dateOfPassing: '2026-10-30' }
+  ] }];
+  assert.equal(latestPassingInterval(recorded, '2026-10-31').days, 1);
+  assert.equal(latestPassingInterval(recorded, '2026-10-31').verified, false);
+  const html = readFileSync(new URL('../celebration.html', import.meta.url), 'utf8');
+  assert.match(html, /id="passing-recess"[^>]*hidden/);
+  assert.ok(html.indexOf('id="standings"') < html.indexOf('id="passing-recess"'));
 });
 
 function fakeCelebrationDocument() {
