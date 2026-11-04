@@ -191,6 +191,19 @@ function annalsCocktailEditorialPermitInEditor(itemId,photoIndex){
 /** Source-only, one-shot producer for the supervised native image worker.
  * Current source, original-image rights and editorial transformation rights
  * are re-evaluated before a private job is reserved and sent. */
+/* Gmail may fold long plain-text lines inside JSON string values. Keep the
+ * worker payload lossless by sending UTF-8 JSON as a Base64URL envelope.
+ * Worker contract: verify this exact header, remove ASCII whitespace from the
+ * remaining Base64URL payload, decode UTF-8, then JSON.parse and retain all
+ * existing token/entry/source-hash checks. */
+function annalsPhotoJobMessageBody_(job){
+  if(!job||job.schema!=='annals-photo-job-v1')throw Error('Photo job contract required');
+  var json=JSON.stringify(job);
+  if(typeof json!=='string')throw Error('Photo job JSON unavailable');
+  var bytes=Utilities.newBlob(json,'text/plain','annals-photo-job.json').getBytes();
+  return '[ANNALS PHOTO JOB JSON V1]\n'+Utilities.base64EncodeWebSafe(bytes);
+}
+
 function annalsIssueCocktailPhotoJob_(itemId,photoIndex){
   if(annalsProps_().getProperty('ANNALS_PHOTO_WORKFLOW_ENABLED')!=='true')
     return {state:'held',reason:'native_photo_workflow_disabled'};
@@ -244,7 +257,7 @@ function annalsIssueCocktailPhotoJob_(itemId,photoIndex){
        !annalsJpegDerivativeSafe_(bytes))throw Error('Screened source image failed integrity checks');
     var attachment=Utilities.newBlob(bytes,'image/jpeg','annals-cocktail-source.jpg');
     sendAttempted=true;
-    GmailApp.sendEmail(recipient,'[ANNALS PHOTO JOB v1] '+token,JSON.stringify(job),{
+    GmailApp.sendEmail(recipient,'[ANNALS PHOTO JOB v1] '+token,annalsPhotoJobMessageBody_(job),{
       attachments:[attachment],name:'Stammtisch Annals'
     });
     record.state='sent_once';record.sendOutcome='sent';record.sentAt=new Date().toISOString();
@@ -285,8 +298,12 @@ function annalsHandleCocktailPhotoResult_(message){
     if(!body||body.length>2048)return 'photo_result_held';
     result=JSON.parse(body);
   }catch(ignored){return 'photo_result_held';}
-  var root=annalsRoot_(),indexName='cocktail-photo-job-token-'+token+'-private.json',
-    index=annalsRead_(root,indexName),now=new Date();
+  var root=annalsRoot_(),now=new Date(),
+    canaryIndex=annalsRead_(root,'cocktail-photo-canary-token-'+token+'-private.json');
+  if(canaryIndex)return annalsHandleCocktailPhotoCanaryResult_(
+    message,sender,token,result,canaryIndex,root,now);
+  var indexName='cocktail-photo-job-token-'+token+'-private.json',
+    index=annalsRead_(root,indexName);
   if(!index||index.schema!=='annals-photo-job-index-v1'||index.jobToken!==token||
      index.state!=='sent_once'||Date.parse(index.expiresAt)<=now.getTime())
     return 'photo_result_held';
@@ -680,4 +697,185 @@ function annalsPhotoResultTerminalHold_(root,indexName,index,folder,jobRecord,
     jobToken:token,state:'held',at:now.toISOString()});
   annalsNotifyCocktailPhotoOwner_(folder,index.sourceItemId,token,'photo_result_held');
   return 'photo_result_held';
+}
+
+/* One owner-started fictional email canary. It uses a synthetic JPEG and an
+ * isolated private folder; result handling stores privately and never calls
+ * the editorial publisher. Prepare and send are separate so the parent can
+ * install the exact-subject wake-up before the single email is sent. */
+function annalsPreparePrivatePhotoCanaryInEditor(workerEmail){
+  annalsOwner_();
+  return annalsLocked_(function(){
+  var configuredWorker=String(annalsProps_().getProperty('ANNALS_PHOTO_WORKER_EMAIL')||'').trim().toLowerCase();
+  workerEmail=String(workerEmail||'').trim().toLowerCase();
+  if(!configuredWorker||workerEmail!==configuredWorker||!/^\S+@\S+\.\S+$/.test(workerEmail))
+    throw Error('Approved worker must match existing private configuration');
+  annalsServiceOwner_();
+  if(typeof AnnalsJpegCodec==='undefined'||typeof AnnalsCocktailEditorial==='undefined')
+    throw Error('Photo canary modules unavailable');
+  var itemId=annalsHash_(Utilities.getUuid()),folder=annalsFolder_(itemId,true),
+    width=640,height=640,pixels=new Uint8Array(width*height*4);
+  function pixel(x,y,c){if(x<0||y<0||x>=width||y>=height)return;var p=(y*width+x)*4;
+    pixels[p]=c[0];pixels[p+1]=c[1];pixels[p+2]=c[2];pixels[p+3]=255;}
+  function polygon(points,c){var minX=width,minY=height,maxX=0,maxY=0;
+    points.forEach(function(q){minX=Math.min(minX,q[0]);maxX=Math.max(maxX,q[0]);minY=Math.min(minY,q[1]);maxY=Math.max(maxY,q[1]);});
+    for(var y=minY;y<=maxY;y++)for(var x=minX;x<=maxX;x++){var inside=false;
+      for(var i=0,j=points.length-1;i<points.length;j=i++){
+        var a=points[i],b=points[j];if(((a[1]>y)!==(b[1]>y))&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])inside=!inside;
+      }if(inside)pixel(x,y,c);
+    }
+  }
+  function line(x0,y0,x1,y1,c,thickness){var dx=Math.abs(x1-x0),sx=x0<x1?1:-1,dy=-Math.abs(y1-y0),sy=y0<y1?1:-1,err=dx+dy;
+    while(true){for(var oy=-thickness;oy<=thickness;oy++)for(var ox=-thickness;ox<=thickness;ox++)
+      if(ox*ox+oy*oy<=thickness*thickness)pixel(x0+ox,y0+oy,c);
+      if(x0===x1&&y0===y1)break;var e2=2*err;if(e2>=dy){err+=dy;x0+=sx;}if(e2<=dx){err+=dx;y0+=sy;}
+    }
+  }
+  function circle(cx,cy,r,c){for(var y=-r;y<=r;y++)for(var x=-r;x<=r;x++)if(x*x+y*y<=r*r)pixel(cx+x,cy+y,c);}
+  for(var y=0;y<height;y++)for(var x=0;x<width;x++)pixel(x,y,[224-Math.floor(y/12),238-Math.floor(y/18),230-Math.floor(y/20)]);
+  /* Draw a clearly fictional coupe cocktail, stem, foot, citrus garnish and straw. */
+  polygon([[190,190],[450,190],[420,330],[370,390],[270,390],[220,330]],[205,225,221]);
+  polygon([[211,250],[429,250],[414,319],[365,374],[275,374],[226,319]],[206,132,48]);
+  line(190,190,450,190,[83,105,101],5);line(190,190,220,330,[83,105,101],5);
+  line(450,190,420,330,[83,105,101],5);line(220,330,270,390,[83,105,101],5);
+  line(420,330,370,390,[83,105,101],5);line(270,390,370,390,[83,105,101],5);
+  line(320,392,320,520,[83,105,101],6);
+  polygon([[235,535],[405,535],[385,555],[255,555]],[83,105,101]);
+  polygon([[250,535],[390,535],[378,545],[262,545]],[205,225,221]);
+  line(350,145,390,264,[157,66,49],6);line(353,148,389,255,[242,183,122],2);
+  circle(445,190,30,[231,153,58]);circle(445,190,22,[245,205,111]);circle(445,190,15,[119,153,91]);
+  circle(445,190,5,[245,205,111]);
+  var bytes=AnnalsJpegCodec.encode({data:pixels,width:width,height:height},82).data;
+  pixels=null;
+  if(bytes.length<4000||bytes.length>5*1024*1024||!annalsJpegDerivativeSafe_(bytes))
+    throw Error('Synthetic source JPEG failed bounded validation');
+  var sourceSha256=annalsHash_(bytes),token=Utilities.getUuid().replace(/-/g,'').toLowerCase(),
+    entryId='annal-'+itemId.slice(0,24),now=new Date(),expiresAt=new Date(now.getTime()+7*24*60*60*1000).toISOString();
+  var job=AnnalsCocktailEditorial.photoJob({entryId:entryId,sourceSha256:sourceSha256,
+    photoIndex:0,jobToken:token,name:'Synthetic qualification drink',
+    description:'Fictional image-routing check; not a real drink or person.',
+    ingredients:['imaginary citrus','fictional sparkling water'],keywords:'synthetic canary'});
+  var fileName='cocktail-photo-canary-job-'+token+'-private.json',
+    indexName='cocktail-photo-canary-token-'+token+'-private.json',
+    index={schema:'annals-photo-canary-index-v1',jobToken:token,sourceItemId:itemId,
+      jobFilename:fileName,entryId:entryId,sourceSha256:sourceSha256,
+      createdAt:now.toISOString(),expiresAt:expiresAt,state:'prepared'};
+  annalsPrivate_(folder.createFile(Utilities.newBlob(bytes,'image/jpeg','synthetic-source.jpg')));
+  annalsWriteOnce_(folder,fileName,{schema:'annals-photo-canary-job-v1',job:job,
+    sourceItemId:itemId,sourceFilename:'synthetic-source.jpg',sourceSha256:sourceSha256,
+    createdAt:now.toISOString(),expiresAt:expiresAt,state:'prepared'});
+  annalsWriteOnce_(annalsRoot_(),indexName,index);
+  return {state:'prepared_no_mail',subject:'[ANNALS PHOTO JOB v1] '+token,
+    token:token,workerMatchesConfiguration:true,
+    expiresAt:expiresAt,sourceIsSynthetic:true,mailSent:false,published:false};
+  });
+}
+
+/* One explicit invocation only, after the parent confirms its exact-subject
+ * event is ready. The durable reservation precedes GmailApp; uncertainty is
+ * terminal and never retried. */
+function annalsSendPrivatePhotoCanaryInEditor(token,workerEmail){
+  annalsOwner_();
+  return annalsLocked_(function(){
+  annalsServiceOwner_();
+  workerEmail=String(workerEmail||'').trim().toLowerCase();
+  if(!/^[a-f0-9]{32}$/.test(String(token||''))||
+     workerEmail!==String(annalsProps_().getProperty('ANNALS_PHOTO_WORKER_EMAIL')||'').trim().toLowerCase()||
+     !/^\S+@\S+\.\S+$/.test(workerEmail))throw Error('Authorized canary binding required');
+  var root=annalsRoot_(),indexName='cocktail-photo-canary-token-'+token+'-private.json',
+    index=annalsRead_(root,indexName),now=new Date();
+  if(!index||index.schema!=='annals-photo-canary-index-v1'||index.state!=='prepared'||
+     index.jobToken!==token||Date.parse(index.expiresAt)<=now.getTime())
+    throw Error('Unexpired, unused synthetic canary required');
+  var folder=annalsFolder_(index.sourceItemId),record=annalsRead_(folder,index.jobFilename);
+  if(!record||record.schema!=='annals-photo-canary-job-v1'||record.state!=='prepared'||
+     record.job.jobToken!==token||record.job.sourceSha256!==index.sourceSha256)
+    throw Error('Synthetic canary record mismatch');
+  var source=annalsFile_(folder,record.sourceFilename),bytes=source&&source.getBlob().getBytes();
+  if(!bytes||annalsHash_(bytes)!==record.sourceSha256||!annalsJpegDerivativeSafe_(bytes))
+    throw Error('Synthetic source changed');
+  index.state='send_attempt_reserved';index.sendAttemptAt=now.toISOString();
+  record.state='send_attempt_reserved';record.sendAttemptAt=now.toISOString();
+  annalsSavePrivate_(root,indexName,index);annalsSavePrivate_(folder,index.jobFilename,record);
+  try{
+    GmailApp.sendEmail(workerEmail,'[ANNALS PHOTO JOB v1] '+token,
+      annalsPhotoJobMessageBody_(record.job),{attachments:[Utilities.newBlob(bytes,'image/jpeg','synthetic-source.jpg')],
+        name:'Stammtisch Annals'});
+    index.state='sent_once';record.state='sent_once';
+    index.sentAt=new Date().toISOString();record.sentAt=index.sentAt;
+    annalsSavePrivate_(root,indexName,index);annalsSavePrivate_(folder,index.jobFilename,record);
+    return {state:'sent_once',subject:'[ANNALS PHOTO JOB v1] '+token,published:false};
+  }catch(ignored){
+    index.state='unknown_no_retry';record.state='unknown_no_retry';
+    index.failedAt=new Date().toISOString();record.failedAt=index.failedAt;
+    annalsSavePrivate_(root,indexName,index);annalsSavePrivate_(folder,index.jobFilename,record);
+    return {state:'unknown_no_retry',published:false};
+  }
+  });
+}
+
+function annalsHandleCocktailPhotoCanaryResult_(message,sender,token,result,index,root,now){
+  var indexName='cocktail-photo-canary-token-'+token+'-private.json';
+  if(index.schema!=='annals-photo-canary-index-v1'||index.jobToken!==token||
+     index.state!=='sent_once'||Date.parse(index.expiresAt)<=now.getTime())return 'photo_result_held';
+  var folder=annalsFolder_(index.sourceItemId),record=annalsRead_(folder,index.jobFilename),
+    consumeName='cocktail-photo-canary-consume-'+token+'-private.json',
+    resultName='cocktail-photo-canary-result-'+token+'-private.json',
+    imageName='cocktail-photo-canary-result-'+token+'-private.jpg';
+  if(!record||record.schema!=='annals-photo-canary-job-v1'||record.state!=='sent_once'||
+     record.job.jobToken!==token||record.job.entryId!==index.entryId||
+     record.job.sourceSha256!==index.sourceSha256||record.expiresAt!==index.expiresAt||
+     annalsFile_(folder,consumeName)||annalsFile_(folder,resultName)||annalsFile_(folder,imageName))
+    return 'photo_result_held';
+  var sourceFile=annalsFile_(folder,record.sourceFilename),sourceBytes;
+  try{sourceBytes=sourceFile&&sourceFile.getBlob().getBytes();}catch(ignored){sourceBytes=null;}
+  if(!sourceBytes||annalsHash_(sourceBytes)!==record.sourceSha256||
+     record.sourceSha256!==record.job.sourceSha256)return 'photo_result_held';
+  var outcome;
+  try{outcome=AnnalsCocktailEditorial.validatePhotoResult(result,record.job,true,now);}
+  catch(ignored){return 'photo_result_held';}
+  if(outcome.qualified){
+    var sentAt=Date.parse(record.sentAt),generatedAt=Date.parse(result.generatedAt),reviewedAt=Date.parse(result.reviewedAt);
+    if(!Number.isFinite(sentAt)||generatedAt<sentAt-30000||reviewedAt<generatedAt||reviewedAt>now.getTime()+30000)
+      return 'photo_result_held';
+  }
+  var attachments;
+  try{attachments=message.getAttachments({includeInlineImages:false,includeAttachments:true});}
+  catch(ignored){return 'photo_result_held';}
+  var heldReason=outcome.qualified?'':(outcome.reason||'visual_qa_failed'),bytes=null,width=0,height=0,imageSha='';
+  if(outcome.qualified&&Array.isArray(attachments)&&attachments.length===1){
+    try{
+      var blob=attachments[0];bytes=blob.getBytes();
+      if(String(blob.getContentType()).toLowerCase()!=='image/jpeg'||bytes.length<4000||
+         bytes.length>5*1024*1024||!annalsJpegDerivativeSafe_(bytes))bytes=null;
+      var clean=bytes&&AnnalsMedia.sanitizeEditorial(bytes,AnnalsJpegCodec);
+      if(!clean||!clean.bytes||annalsHash_(clean.bytes)!==annalsHash_(bytes)||
+         clean.width<480||clean.height<480||clean.width>2560||clean.height>2560||
+         annalsHash_(bytes)===record.job.sourceSha256)bytes=null;
+      else{width=clean.width;height=clean.height;imageSha=annalsHash_(bytes);}
+    }catch(ignored){bytes=null;}
+    if(!bytes)heldReason='visual_qa_failed';
+  }else if(outcome.qualified)heldReason='attachment_unavailable';
+  if(!outcome.qualified&&(!Array.isArray(attachments)||attachments.length!==0))return 'photo_result_held';
+  /* Consume before any file write. Even an uncertain Drive write cannot replay. */
+  annalsWriteOnce_(folder,consumeName,{schema:'annals-photo-canary-consume-v1',jobToken:token,
+    state:'result_attempt_reserved',at:now.toISOString()});
+  var qualified=outcome.qualified&&!!bytes;
+  if(qualified){
+    annalsPrivate_(folder.createFile(Utilities.newBlob(bytes,'image/jpeg',imageName)));
+    annalsWriteOnce_(folder,resultName,{schema:'annals-photo-canary-result-v1',jobToken:token,
+      entryId:record.job.entryId,sourceSha256:record.job.sourceSha256,state:'qualified_private_only',
+      imageFilename:imageName,imageSha256:imageSha,width:width,height:height,alt:outcome.alt,
+      receivedAt:now.toISOString(),generatedAt:outcome.generatedAt,reviewedAt:outcome.reviewedAt});
+  }else{
+    annalsWriteOnce_(folder,resultName,{schema:'annals-photo-canary-result-v1',jobToken:token,
+      entryId:record.job.entryId,sourceSha256:record.job.sourceSha256,state:'held_private_only',
+      reasonCode:heldReason||outcome.reason||'visual_qa_failed',receivedAt:now.toISOString()});
+  }
+  record.state=qualified?'result_received_private_canary':'held_private_canary';
+  record.consumedAt=now.toISOString();index.state=record.state;index.consumedAt=now.toISOString();
+  annalsSavePrivate_(folder,index.jobFilename,record);annalsSavePrivate_(root,indexName,index);
+  annalsSavePrivate_(folder,consumeName,{schema:'annals-photo-canary-consume-v1',jobToken:token,
+    state:record.state,at:now.toISOString()});
+  return qualified?'photo_canary_private_only':'photo_result_held';
 }
