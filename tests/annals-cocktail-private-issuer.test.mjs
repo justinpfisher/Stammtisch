@@ -16,6 +16,15 @@ import {verifyEditorialPermit,extractUnspentEditorialPermit} from '../scripts/an
 const moduleSource=readFileSync(new URL('../scripts/annals/CocktailEditorialProduction.gs',import.meta.url),'utf8');
 const referenceBuffer=Buffer.alloc(5000,17),referenceId='fictional-owner-approved-reference-id';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
+function decodePhotoJobEnvelope(body){
+ const marker='[ANNALS PHOTO JOB JSON V1]';
+ const separator=body.indexOf('\n');
+ assert.ok(separator>=0,'versioned Base64URL job envelope has a header separator');
+ assert.equal(body.slice(0,separator).replace(/\r$/,''),marker,'exact versioned header is present');
+ const payload=body.slice(separator+1).replace(/[\t\r\n ]/g,'');
+ assert.match(payload,/^[A-Za-z0-9_-]+={0,2}$/);
+ return JSON.parse(Buffer.from(payload,'base64url').toString('utf8'));
+}
 const itemId='c'.repeat(64),entryId='annal-'+itemId.slice(0,24),sourceSha='d'.repeat(64);
 const publicKey='fictional-publisher-key-'+'p'.repeat(40);
 const issuerKey='fictional-editorial-permit-key-'+'i'.repeat(40);
@@ -121,6 +130,7 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
    Charset:{UTF_8:'UTF-8'},DigestAlgorithm:{SHA_1:'SHA-1'},
    computeDigest:(algorithm,bytes)=>Array.from(createHash('sha1').update(Buffer.from(bytes)).digest()),
    base64Encode:(bytes)=>Buffer.from(bytes).toString('base64'),
+   base64EncodeWebSafe:(bytes)=>Buffer.from(bytes).toString('base64url'),
    getUuid:()=> 'ffffffff-ffff-ffff-ffff-ffffffffffff',
    base64Decode:(v)=>Array.from(Buffer.from(v,'base64')),
    newBlob:(bytes,mime,name)=>{const data=Buffer.from(bytes);return {bytes:data,mime,name,
@@ -437,6 +447,7 @@ test('readiness reserves and sends at most one exact source/style job after live
  assert.equal(f.events.sends.length,1);
  assert.equal(f.events.sends[0][0],'worker@example.invalid');
  assert.match(f.events.sends[0][1],/^\[ANNALS PHOTO JOB v1\] [a-f0-9]{32}$/);
+ assert.deepEqual(decodePhotoJobEnvelope(f.events.sends[0][2]),record.job);
  assert.equal(f.events.sends[0][3].attachments.length,1);
  assert.equal(f.events.sends[0][3].attachments[0].mime,'image/jpeg');
  assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'already_reserved');

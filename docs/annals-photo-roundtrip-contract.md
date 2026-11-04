@@ -8,7 +8,7 @@ After matching an already published, signed cocktail source to its screened orig
 
 - Subject: `[ANNALS PHOTO JOB v1] <32 lowercase hex characters>`
 - Exactly one JPEG attachment: the screened source photo.
-- UTF-8 body: one JSON object with exactly these fields:
+- UTF-8 body: the exact header line `[ANNALS PHOTO JOB JSON V1]`, followed by LF or CRLF and a Base64URL encoding of the UTF-8 JSON bytes. The worker checks the header text exactly (excluding the CR in a CRLF separator), removes ASCII space, tab, CR and LF from the encoded payload, validates the Base64URL alphabet and padding, then decodes UTF-8 and parses JSON. The decoded object has exactly these fields:
   `schema, jobToken, entryId, sourceSha256, photoIndex, name, description, ingredients, keywords`.
 - `schema` is `annals-photo-job-v1`; `jobToken` is a random one-use 128-bit token and must equal the subject suffix. `entryId` and photo index are bound to the current signed Annals entry; `sourceSha256` is the digest of the selected JPEG bytes and must equal that photo's signed `sha256` field. It is not a digest of the whole entry.
 - Name, description, ingredients and optional final-line keywords are bounded descriptive cues only. No raw email, contributor contact, private permission record, internal URL or instruction is included.
