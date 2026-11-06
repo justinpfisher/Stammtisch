@@ -728,10 +728,10 @@ function runAnnalsProductionIntake() {
         seenInRun[messageId]=true;
         try{if(/^\[ANNALS PHOTO ATTEMPT ACK V1\] /.test(String(message.getSubject()||'')))return;}catch(ignored){}
         var attemptOutcome=null;
-        try{if(typeof annalsHandleCocktailPhotoAttemptClaim_==='function')attemptOutcome=annalsHandleCocktailPhotoAttemptClaim_(message);}
+        try{if(typeof annalsHandleCocktailPhotoAttemptClaimLocked_==='function')attemptOutcome=annalsHandleCocktailPhotoAttemptClaimLocked_(message);}
         catch(ignored){attemptOutcome='photo_attempt_held';}
         if(attemptOutcome!==null){summary.photo_attempts++;if(attemptOutcome==='photo_attempt_held')summary.held++;return;}
-        try{if(typeof annalsHandleCocktailPhotoAttemptStarted_==='function')attemptOutcome=annalsHandleCocktailPhotoAttemptStarted_(message);}
+        try{if(typeof annalsHandleCocktailPhotoAttemptStartedLocked_==='function')attemptOutcome=annalsHandleCocktailPhotoAttemptStartedLocked_(message);}
         catch(ignored){attemptOutcome='photo_attempt_held';}
         if(attemptOutcome!==null){summary.photo_attempts++;if(attemptOutcome==='photo_attempt_held')summary.held++;return;}
         var photoOutcome=null;
@@ -767,16 +767,16 @@ function runAnnalsProductionIntake() {
       // never pass through member staging; exact per-message SENT is checked there.
       if(String(p.getProperty('ANNALS_PHOTO_WORKER_EMAIL')||'').trim()){
         try{
-          if(typeof annalsHandleCocktailPhotoAttemptClaim_==='function'){
+          if(typeof annalsHandleCocktailPhotoAttemptClaimLocked_==='function'){
             var claimScan=annalsProcessSentPhotoControl_('in:sent subject:"[ANNALS PHOTO ATTEMPT V1]" newer_than:7d',
               'ANNALS_SENT_PHOTO_CLAIM_CURSOR',/^\[ANNALS PHOTO ATTEMPT V1\] [a-f0-9]{32} [a-f0-9]{32}$/i,
-              annalsHandleCocktailPhotoAttemptClaim_,seenInRun);
+              annalsHandleCocktailPhotoAttemptClaimLocked_,seenInRun);
             summary.photo_attempts+=claimScan.handled;
           }
-          if(typeof annalsHandleCocktailPhotoAttemptStarted_==='function'){
+          if(typeof annalsHandleCocktailPhotoAttemptStartedLocked_==='function'){
             var startScan=annalsProcessSentPhotoControl_('in:sent subject:"[ANNALS PHOTO STARTED V1]" newer_than:7d',
               'ANNALS_SENT_PHOTO_STARTED_CURSOR',/^\[ANNALS PHOTO STARTED V1\] [a-f0-9]{32} [a-f0-9]{32}$/i,
-              annalsHandleCocktailPhotoAttemptStarted_,seenInRun);
+              annalsHandleCocktailPhotoAttemptStartedLocked_,seenInRun);
             summary.photo_attempts+=startScan.handled;
           }
           var sentCursor={offset:0};
