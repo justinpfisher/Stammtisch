@@ -147,3 +147,19 @@ test('the existing intake processes bounded claim pages with a resumable cursor'
   assert.equal(properties.ANNALS_SENT_PHOTO_CLAIM_CURSOR,undefined);
   assert.equal(queries.every(query=>query.includes('in:sent')&&query.includes('[ANNALS PHOTO ATTEMPT V1]')),true);
 });
+test('intake calls the locked handlers directly and never probes/releases a nested lock handle',()=>{
+  const x=harness();x.context.annalsFolder_=()=>Object.assign(x.folder,x.folderApi);
+  let probes=0,tries=0,releases=0;
+  x.context.LockService={getScriptLock:()=>({
+    hasLock:()=>{probes++;return false;},
+    tryLock:()=>{tries++;return false;},
+    releaseLock:()=>{releases++;}
+  })};
+  // Intake already owns a lock, but a second getScriptLock handle need not report it.
+  assert.equal(x.context.annalsHandleCocktailPhotoAttemptClaimLocked_(x.message('ATTEMPT')),
+    'photo_attempt_accepted');
+  assert.equal(probes,0);assert.equal(tries,0);assert.equal(releases,0);
+  const production=readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8');
+  assert.match(production,/annalsHandleCocktailPhotoAttemptClaimLocked_\(message\)/);
+  assert.match(production,/annalsHandleCocktailPhotoAttemptStartedLocked_,seenInRun/);
+});
