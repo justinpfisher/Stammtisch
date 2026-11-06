@@ -48,7 +48,7 @@ var AnnalsPhotos = (function () {
   function editorialCaption(assessment) {
     if (!assessment || ['drink_or_object','scenery','member_group'].indexOf(assessment.kind) < 0 ||
         assessment.safeToPublish !== true || assessment.privateDetails !== false ||
-        assessment.thirdPartyMaterial !== false || assessment.childrenOrGuests !== false ||
+        assessment.thirdPartyMaterial !== false ||
         typeof assessment.altText !== 'string' || typeof assessment.caption !== 'string') return '';
     var raw=assessment.caption, value=raw.replace(/\s+/g,' ').trim();
     if (!value || value.length > 200 || /[\r\n<>{}\[\]@#\\]/.test(raw) ||
@@ -69,14 +69,12 @@ var AnnalsPhotos = (function () {
   function allowed(evidence, assessment, grants) {
     if (!evidence || evidence.senderAuthenticated !== true || evidence.imageConsentAtReceipt !== true ||
         !assessment || assessment.safeToPublish !== true || assessment.privateDetails !== false ||
-        assessment.thirdPartyMaterial !== false || assessment.childrenOrGuests !== false ||
+        assessment.thirdPartyMaterial !== false ||
         evidence.originalRights !== true) return false;
-    if (['drink_or_object','scenery'].indexOf(assessment.kind)>=0) return true;
-    // All six grants are checked conservatively; no automated person tagging.
-    return assessment.kind === 'member_group' && evidence.peopleAttestedSixOnly === true &&
-      Array.isArray(grants) && grants.length === 6 && MEMBERS.every(function(m){
-        return grants.some(function(g){return g.member===m && g.active===true && g.atReceipt===true;});
-      });
+    // People and groups do not require image-level identity matching or a
+    // separate all-members attestation. Source rights and actual private
+    // details remain independent requirements.
+    return ['drink_or_object','scenery','member_group'].indexOf(assessment.kind)>=0;
   }
   function blobRefs(list, refs) {
     validate(list);

@@ -81,16 +81,16 @@ test('signed register releases are disabled by default, exact-base bound, one-sh
 });
 
 const grants=Photos.MEMBERS.map(member=>({member,active:true,atReceipt:true}));
-const photoEvidence={senderAuthenticated:true,imageConsentAtReceipt:true,originalRights:true,peopleAttestedSixOnly:true};
-const screen={kind:'member_group',safeToPublish:true,privateDetails:false,thirdPartyMaterial:false,childrenOrGuests:false};
-test('ordinary six-member standing permission needs no per-image owner approval, but revocation holds',()=>{
+const photoEvidence={senderAuthenticated:true,imageConsentAtReceipt:true,originalRights:true,peopleAttestedSixOnly:false};
+const screen={kind:'member_group',safeToPublish:true,privateDetails:false,thirdPartyMaterial:false,childrenOrGuests:true};
+test('authenticated member-submitted group photos do not need identity matching or a people attestation',()=>{
   assert.equal(Photos.allowed(photoEvidence,screen,grants),true);
-  assert.equal(Photos.allowed(photoEvidence,screen,grants.map((g,i)=>i?g:{...g,active:false})),false);
-  assert.equal(Photos.allowed({...photoEvidence,peopleAttestedSixOnly:false},screen,grants),false);
+  assert.equal(Photos.allowed({...photoEvidence,peopleAttestedSixOnly:false},screen,[]),true);
+  assert.equal(Photos.allowed({...photoEvidence,imageConsentAtReceipt:false},screen,grants),false);
 });
-test('AI face classification never establishes identity, consent, rights or third-party permission',()=>{
+test('member photo admission still requires authentication, contribution consent, source rights and private-detail screening',()=>{
   for(const e of [{senderAuthenticated:false},{imageConsentAtReceipt:false},{originalRights:false}])assert.equal(Photos.allowed({...photoEvidence,...e},screen,grants),false);
-  for(const a of [{childrenOrGuests:true},{privateDetails:true},{thirdPartyMaterial:true},{kind:'document_or_text'},{safeToPublish:false}])assert.equal(Photos.allowed(photoEvidence,{...screen,...a},grants),false);
+  for(const a of [{privateDetails:true},{thirdPartyMaterial:true},{kind:'document_or_text'},{safeToPublish:false}])assert.equal(Photos.allowed(photoEvidence,{...screen,...a},grants),false);
 });
 const raw=Buffer.from(readFileSync(new URL('./annals-safe-media.test.mjs',import.meta.url),'utf8').match(/const photo=\(\)=>Buffer.from\('([^']+)'/)[1],'base64');
 const bytes=Buffer.from(Media.sanitize(raw).bytes),hash=createHash('sha256').update(bytes).digest('hex');
@@ -244,13 +244,16 @@ test('integrated private rule intake consumes only one existing reservation and 
   assert.equal(context.annalsProcessRuleRequest_('a'.repeat(64)),true);assert.equal(files.get('col-rule-request-private.json').state,'awaiting_implementation');assert.equal(notices,3);assert.equal(fetches,2);
   assert.equal(JSON.parse(values.ANNALS_BUDGET_LEDGER).reservedCents,10);assert.equal(context.annalsProcessRuleRequest_('a'.repeat(64)),false);assert.equal(fetches,2);
 });
-test('integrated group photo uses six standing grants while guest images and extraction documents stay held',()=>{
+test('integrated authenticated group and guest photos publish without person checks; extraction documents stay held',()=>{
   const context=vm.createContext({AnnalsPhotos:Photos,AnnalsAuto:Auto,AnnalsMediaPolicy:{MODE:'standing-consent-image-v1'}});
   vm.runInContext(readFileSync(new URL('../scripts/annals/PhotoProduction.gs',import.meta.url),'utf8'),context);context.annalsPhotoSubjectGrants_=()=>grants;
   const s={senderAuthenticated:true,imageConsentAtReceipt:true,source:{subject:'Photographs',excerpt:'All six of us.',receivedAt:at}};
   const d={category:'assembly',riskFlags:['faces_or_reflections'],imageReviews:[screen]},set=[{sha256:hash,width:1,height:1}];
   const result=context.annalsPhotoDecision_(s,d,'a'.repeat(64),{eligible:false,reason:'material_uncertainty'},set);assert.equal(result.eligible,true);assert.equal(result.entry.photos.length,1);assert.equal(result.entry.eventPeriod,'');
-  for(const risk of [{childrenOrGuests:true},{kind:'document_or_text'}])assert.equal(context.annalsPhotoDecision_(s,{...d,imageReviews:[{...screen,...risk}]},'a'.repeat(64),{eligible:false,reason:'material_uncertainty'},set).eligible,false);
+  const guest=context.annalsPhotoDecision_(s,{...d,imageReviews:[{...screen,childrenOrGuests:true}]},'a'.repeat(64),{eligible:false,reason:'material_uncertainty'},set);
+  assert.equal(guest.eligible,true);
+  const document=context.annalsPhotoDecision_(s,{...d,imageReviews:[{...screen,kind:'document_or_text'}]},'a'.repeat(64),{eligible:false,reason:'material_uncertainty'},set);
+  assert.equal(document.eligible,false);
   const privatePlace={...s,source:{...s.source,excerpt:'All six of us. The fictional meeting was at 2400 Example Road.'}};
   const screened=context.annalsPhotoDecision_(privatePlace,d,'a'.repeat(64),{eligible:false,reason:'material_uncertainty'},set);
   assert.equal(screened.eligible,true);

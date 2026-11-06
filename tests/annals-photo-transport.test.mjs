@@ -169,14 +169,14 @@ test('disabling transport in the last upload response prevents dispatch without 
     annalsStandingGalleryCorrectionAllowed_:()=>true,annalsDispatchEvent_:()=>{dispatched++;return true;}});
   assert.equal(c.annalsDispatchApproved_({getName:()=> 'a'.repeat(64)},entry,sign(entry),'annals-auto-entry','publication-dispatch-private.json'),false);assert.equal(dispatched,0);
 });
-test('depiction revocation holds people while independently screened objects and scenery retain their own permissions',()=>{
+test('authenticated member photos with people pass without depiction attestations while sender revocation still holds',()=>{
   const source={senderAuthenticated:true,imageConsentAtReceipt:true,source:{sender:'fictional@example.test',receivedAt:at,subject:'All six of us',excerpt:''}};
   let kind='drink_or_object';const assessments=()=>photos.map(()=>({kind,safeToPublish:true,privateDetails:false,thirdPartyMaterial:false,childrenOrGuests:false}));
   const c=vm.createContext({AnnalsPhotos:Photos,AnnalsAuto:{cleanText:s=>s}});vm.runInContext(readFileSync(new URL('../scripts/annals/PhotoProduction.gs',import.meta.url),'utf8'),c);
   Object.assign(c,{annalsImageConsentActive_:()=>true,annalsPhotoSubjectGrants_:()=>Photos.MEMBERS.map((member,i)=>({member,active:i!==0,atReceipt:true})),
     annalsRead_:(_,n)=>n==='photos-v2-private.json'?photos:{imageReviews:assessments()}});
   assert.equal(c.annalsStandingGalleryCorrectionAllowed_(source,entry,'folder'),true);kind='scenery';assert.equal(c.annalsStandingGalleryCorrectionAllowed_(source,entry,'folder'),true);
-  kind='member_group';assert.equal(c.annalsStandingGalleryCorrectionAllowed_(source,entry,'folder'),false);kind='drink_or_object';c.annalsImageConsentActive_=()=>false;
+  kind='member_group';assert.equal(c.annalsStandingGalleryCorrectionAllowed_(source,entry,'folder'),true);kind='drink_or_object';c.annalsImageConsentActive_=()=>false;
   assert.equal(c.annalsStandingGalleryCorrectionAllowed_(source,entry,'folder'),false);
 });
 

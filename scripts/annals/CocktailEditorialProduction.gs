@@ -27,6 +27,16 @@ function annalsCocktailEditorialContext_(itemId,photoIndex){
   if(!photo||!/^[a-f0-9]{64}$/.test(photo.sha256||'')||
      !annalsImageConsentActive_(source.source.sender,source.source.receivedAt))
     throw Error('Exact signed screened photograph and current original rights required');
+  // Cocktail art may edit only a screened drink/object photograph. An ordinary
+  // group photo stays on the authentic-photo route and is never transformed
+  // into a drink rendition. People in the original are not a hold; private
+  // details and unrelated rights problems remain screened.
+  var draft=annalsRead_(folder,'draft-private.json'),set=annalsRead_(folder,'photos-v2-private.json'),
+    screenIndex=Array.isArray(set)?set.findIndex(function(p){return p.sha256===photo.sha256;}):-1,
+    screen=draft&&Array.isArray(draft.imageReviews)&&draft.imageReviews[screenIndex];
+  if(screenIndex<0||!screen||screen.kind!=='drink_or_object'||screen.safeToPublish!==true||
+     screen.privateDetails!==false||screen.thirdPartyMaterial!==false)
+    throw Error('Exact screened cocktail object and private-detail check required');
   // The normal original-photo path already verified exact screened public
   // source; no pending/withdrawn/replaced photo may mint an edit permit.
   if(annalsFile_(folder,'quarantine-private.json')||
@@ -44,8 +54,7 @@ function annalsCocktailEditorialContext_(itemId,photoIndex){
     sourceRecordComplete:!source.source.sourceTruncated&&!source.source.subjectTruncated&&!source.source.excerptTruncated,
     securityRecoveryVerified:annalsProps_().getProperty('ANNALS_EDITORIAL_SECURITY_RECOVERY_VERIFIED')==='true',
     signedPhotoVerified:true,originalRightsVerified:originalRights,
-    cocktailCategoryVerified:true,safePhotoScreeningVerified:true,
-    noUnconsentedPeopleOrPrivateDetails:saved.uncertaintiesReviewed===true
+    cocktailCategoryVerified:true,safePhotoScreeningVerified:true
   });
   if(permission.eligible!==true)throw Error(permission.reason);
   return {folder:folder,entry:saved.entry,entryId:saved.entry.id,sourceSha256:photo.sha256};

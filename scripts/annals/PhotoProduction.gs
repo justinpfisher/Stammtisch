@@ -59,35 +59,23 @@ function annalsRunPhotoCodecFixture_(){
     return {executed:true,record:record};
   });
 }
-function annalsPhotoSubjectGrants_(at){
-  var members=annalsConsentRegistry_().members,map=annalsSpeakerIdentities_();
-  return Object.keys(map).map(function(a){
-    var m=members[a],g=m&&m.photoSubjects;
-    return {member:map[a],active:!!(g&&g.status==='active'&&!g.revokedAt&&m.status==='active'&&!m.revokedAt&&(!m.imagePublication||m.imagePublication.status!=='revoked')&&m.autoPublication&&m.autoPublication.status==='active'&&!m.autoPublication.revokedAt),
-      atReceipt:!!(g&&Number.isFinite(Date.parse(g.consentedAt))&&Date.parse(g.consentedAt)<=Date.parse(at))};
-  });
-}
 function annalsPhotoEvidence_(source){
   var text=AnnalsAuto.cleanText(source.source.excerpt||''),subject=AnnalsAuto.cleanText(source.source.subject||'');
   return {senderAuthenticated:source.senderAuthenticated,imageConsentAtReceipt:source.imageConsentAtReceipt,
-    originalRights:! /\b(?:not my photo|borrowed|found online|from (?:instagram|facebook|a website)|copyright|photographer unknown|forwarded photo)\b/i.test(subject+'\n'+text),
-    peopleAttestedSixOnly:/\b(?:only (?:the )?(?:six )?(?:Stammtisch )?members|all six of us)\b/i.test(subject+'\n'+text)};
+    originalRights:! /\b(?:not my photo|borrowed|found online|from (?:instagram|facebook|a website)|copyright|photographer unknown|forwarded photo)\b/i.test(subject+'\n'+text)};
 }
 function annalsStandingGalleryCorrectionAllowed_(source,entry,folder){
   if(!source||source.senderAuthenticated!==true||source.imageConsentAtReceipt!==true)return false;
   if(!annalsImageConsentActive_(source.source.sender,source.source.receivedAt))return false;
-  var grants=annalsPhotoSubjectGrants_(source.source.receivedAt);
   if(entry&&folder){
     var set=annalsRead_(folder,'photos-v2-private.json'),draft=annalsRead_(folder,'draft-private.json');
     if(!Array.isArray(set)||!draft||!Array.isArray(draft.imageReviews)||draft.imageReviews.length!==set.length)return false;
     var evidence=annalsPhotoEvidence_(source);
     return entry.photos.every(function(p){var i=set.findIndex(function(x){return x.sha256===p.sha256;});
-      return i>=0&&AnnalsPhotos.allowed(evidence,draft.imageReviews[i],grants);});
+      return i>=0&&AnnalsPhotos.allowed(evidence,draft.imageReviews[i]);});
   }
-  // Older callers without exact per-image screening retain the conservative
-  // six-member hold. No kind or consent is inferred from an AI face identity.
-  return !!source&&source.senderAuthenticated===true&&source.imageConsentAtReceipt===true&&
-    grants.length===6&&grants.every(function(g){return g.active&&g.atReceipt;});
+  // Older callers without exact per-image screening remain held.
+  return false;
 }
 /** Record the owner's 15 October standing attestation, not invented member mail.
  * Never calls this automatically or revives an individual revocation. */
@@ -270,8 +258,7 @@ function annalsPhotoDecision_(source,draft,id,decision,set){
   if(!screened.valid)return decision;
   var text=AnnalsAuto.cleanText(screened.excerpt),subject=AnnalsAuto.cleanText(screened.subject)||'A photographic contribution';
   var evidence=annalsPhotoEvidence_(source);
-  var grants=annalsPhotoSubjectGrants_(source.source.receivedAt);
-  var eligible=set.filter(function(p,i){return AnnalsPhotos.allowed(evidence,draft.imageReviews[i],grants);});
+  var eligible=set.filter(function(p,i){return AnnalsPhotos.allowed(evidence,draft.imageReviews[i]);});
   if(!eligible.length)return decision;
   // Preserve ordinary eligible text when images are held. For a photo-only
   // message use literal safe member caption; never publish extraction evidence.

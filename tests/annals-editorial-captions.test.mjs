@@ -20,7 +20,7 @@ test('AI-generated editorial caption requires a safe, image-specific detail',()=
   assert.equal(Photos.editorialCaption(eligible),eligible.caption);
   for(const patch of [
     {kind:'unknown'}, {safeToPublish:false}, {privateDetails:true},
-    {thirdPartyMaterial:true}, {childrenOrGuests:true}, {altText:''},
+    {thirdPartyMaterial:true}, {altText:''},
     {caption:'A magnificent establishment records its greatness.'},
     {caption:'Justin prepared this historical drink in Toronto.'},
     {caption:'Rum and cider were definitely used.'},
@@ -108,4 +108,25 @@ test('new AI schema and prompt separate visual captions from protected recipe te
   };
   // Existing stored drafts without captions remain readable.
   assert.equal(Production.candidate(fictionalDraft,true).imageReviews[0].caption,undefined);
+});
+
+test('member photos remain eligible with people while actual private details remain screened',()=>{
+  const request=Production.request('Synthetic member photo fixture.',[]);
+  const instructions=request.instructions;
+  assert.match(instructions,/person, face, body, hand, reflection, guest, child or uncertain identity/i);
+  assert.match(instructions,/is not by itself a reason to hold/i);
+  assert.match(instructions,/actual sensitive\/private details/i);
+  assert.match(instructions,/Never infer or name people from pixels/i);
+  const candidate={
+    category:'club_history',title:'Synthetic member group photo',summary:'Synthetic fixture.',
+    eventDate:'',quoteVerbatim:'',recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]},
+    riskFlags:[],imageSafety:{kind:'person_or_private',safeToPublish:true,altText:'A group at a table.'},
+    imageReviews:[imageReview({kind:'member_group',childrenOrGuests:true})],
+    interpretation:{intent:'description',speakerId:'unknown',evidenceField:'body'}
+  };
+  assert.equal(Production.candidate(candidate,true).imageSafety.safeToPublish,true);
+  assert.equal(Photos.allowed({senderAuthenticated:true,imageConsentAtReceipt:true,originalRights:true},
+    imageReview({kind:'member_group',childrenOrGuests:true}),[]),true);
+  assert.equal(Photos.allowed({senderAuthenticated:true,imageConsentAtReceipt:true,originalRights:true},
+    imageReview({kind:'member_group',privateDetails:true}),[]),false);
 });

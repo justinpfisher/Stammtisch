@@ -34,8 +34,7 @@ function rights(){
   currentOriginalImagePermission:true,sourceRecordComplete:true,
   securityRecoveryVerified:true,
   signedPhotoVerified:true,originalRightsVerified:true,
-  cocktailCategoryVerified:true,safePhotoScreeningVerified:true,
-  noUnconsentedPeopleOrPrivateDetails:true
+  cocktailCategoryVerified:true,safePhotoScreeningVerified:true
  };
 }
 test('previously approved documentary photograph can have a later, owner-dated edit scope without backdating',()=>{
@@ -67,8 +66,7 @@ test('source and rights must be verified by private authority, not sender allowl
   'senderAuthenticated','imageConsentAtReceipt','currentOriginalImagePermission',
   'sourceRecordComplete','securityRecoveryVerified',
   'signedPhotoVerified','originalRightsVerified',
-  'cocktailCategoryVerified','safePhotoScreeningVerified',
-  'noUnconsentedPeopleOrPrivateDetails'
+  'cocktailCategoryVerified','safePhotoScreeningVerified'
  ];
  for(const key of critical){
   const r=rights();r[key]=false;

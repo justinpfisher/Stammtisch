@@ -71,7 +71,11 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
  root.getFolders=()=>iterator([folder]);
  const folder={files:new Map([
   ['source-private.json',submission],
-  ['approval-private.json',signed]
+  ['approval-private.json',signed],
+  ['photos-v2-private.json',[{sha256:sourceSha,base64:''}]],
+  ['draft-private.json',{imageReviews:[{
+   kind:'drink_or_object',safeToPublish:true,privateDetails:false,thirdPartyMaterial:false
+  }]}]
  ])};
  folder.getName=()=>itemId;
  folder.getFiles=()=>iterator([...folder.files.keys()].map(name=>({getName:()=>name})));
@@ -179,7 +183,7 @@ test('owner preflight checks existing provider cap and rights but creates no led
  assert.equal(report.published,false);
  assert.equal(report.recoveryRequired,false);
  assert.equal(f.root.files.size,0);
- assert.equal(f.folder.files.size,2);
+ assert.equal(f.folder.files.size,4);
  assert.deepEqual(f.log,[]);
  assert.doesNotMatch(JSON.stringify(report),/fictional-model-key|permit-key|publisher-key|example.invalid/);
 });
@@ -232,7 +236,7 @@ test('recovery, signing, cap and scoped rights prevent issuance without a new le
    const f=fixture(config);
    assert.throws(()=>f.context.annalsCocktailEditorialPermitInEditor(itemId,0));
    assert.equal(f.root.files.size,0);
-   assert.equal(f.folder.files.size,2);
+   assert.equal(f.folder.files.size,4);
  }
  const f=fixture();
  f.props.ANNALS_EDITORIAL_PROJECT_HARD_LIMIT_VERIFIED='false';
@@ -245,7 +249,7 @@ test('existing historical private source reservations still block duplicate atte
    reservations:[{sourceSha256:sourceSha}]
  });
  assert.throws(()=>f.context.annalsCocktailEditorialPermitInEditor(itemId,0),/Historical source attempt/);
- assert.equal(f.folder.files.size,2);
+ assert.equal(f.folder.files.size,4);
  const unrelated=fixture();
  unrelated.root.files.set('cocktail-editorial-budget-private.json',{
    reservations:[{sourceSha256:'f'.repeat(64)}]
@@ -285,7 +289,7 @@ test('credential status uses owner-only GET and returns Booleans, never keys or 
    method:'get',followRedirects:false,muteHttpExceptions:true
  });
  assert.equal(f.root.files.size,0);
- assert.equal(f.folder.files.size,2);
+ assert.equal(f.folder.files.size,4);
  assert.deepEqual(f.log,[]);
  assert.doesNotMatch(JSON.stringify(result),/fictional-model-key|permit-key|publisher-key|example.invalid|Bearer /);
 });
@@ -324,7 +328,7 @@ test('provider rejects/unavailable and unset owner flags remain non-spending fal
    assert.equal(f.events.modelRequests||0,0);
    assert.equal(report.paidRequestMade,false);
    assert.equal(f.root.files.size,0);
-   assert.equal(f.folder.files.size,2);
+   assert.equal(f.folder.files.size,4);
    assert.deepEqual(f.log,[]);
  }
 });
@@ -339,7 +343,7 @@ test('after recorded recovery, provider 401 and transport failures remain non-bi
    assert.equal(report.paidRequestMade,false);
    assert.equal(f.events.modelRequests,1);
    assert.equal(f.root.files.size,0);
-   assert.equal(f.folder.files.size,2);
+   assert.equal(f.folder.files.size,4);
    assert.deepEqual(f.log,[]);
  }
 });
@@ -363,7 +367,7 @@ test('bounded model metadata statuses distinguish failures without exposing prov
    assert.equal(report.paidRequestMade,false);
    assert.equal(f.events.modelRequests,1);
    assert.equal(f.root.files.size,0);
-   assert.equal(f.folder.files.size,2);
+   assert.equal(f.folder.files.size,4);
    assert.deepEqual(f.log,[]);
    assert.doesNotMatch(JSON.stringify(report),/Bearer|fictional-model-key|permit-key|publisher-key|example.invalid/i);
  }
@@ -392,7 +396,8 @@ test('native photo job and result v1 bind the exact source and fail closed',()=>
  const result={schema:'annals-photo-result-v1',jobToken:job.jobToken,entryId:job.entryId,
    sourceSha256:job.sourceSha256,status:'qualified',
    qa:{sameGlass:true,sameDrinkAndGarnish:true,photorealisticSubject:true,
-     plausibleStemOrBase:true,sceneAppropriate:true,noArtifactsOrPrivateDetails:true},
+     plausibleStemOrBase:true,sceneAppropriate:true,noArtifactsOrPrivateDetails:true,
+     noVisiblePeopleOrReflections:true},
    alt:'AI-stylized amber cocktail in its original textured glass',
    generatedAt:'2026-10-26T11:59:00.000Z',reviewedAt:'2026-10-26T12:00:00.000Z',
    generationProvider:'openai-chatgpt',generationModel:'undisclosed'};
@@ -418,6 +423,10 @@ function prepareLiveJobFixture(f,bytes){
  const digest=sha(bytes);
  delete f.signed.entry.photo;
  f.signed.entry.photos=[{sha256:digest,width:600,height:900}];
+ f.folder.files.set('photos-v2-private.json',[{sha256:digest,base64:Buffer.from(bytes).toString('base64')}]);
+ f.folder.files.set('draft-private.json',{imageReviews:[{
+  kind:'drink_or_object',safeToPublish:true,privateDetails:false,thirdPartyMaterial:false
+ }]});
  f.events.photoBytes=bytes;
  f.folder.files.set('auto-live-verification-private.json',
    {state:'verified_live',contentSha256:f.signed.receipt.contentSha256});
@@ -428,6 +437,10 @@ test('readiness refuses an accepted dispatch until source is positively live-rec
  const f=fixture(),bytes=sourceJpeg(),digest=sha(bytes);
  f.props.ANNALS_PHOTO_WORKFLOW_ENABLED='true';
  delete f.signed.entry.photo;f.signed.entry.photos=[{sha256:digest,width:600,height:900}];
+ f.folder.files.set('photos-v2-private.json',[{sha256:digest,base64:bytes.toString('base64')}]);
+ f.folder.files.set('draft-private.json',{imageReviews:[{
+  kind:'drink_or_object',safeToPublish:true,privateDetails:false,thirdPartyMaterial:false
+ }]});
  f.events.photoBytes=bytes;f.props.ANNALS_PHOTO_WORKER_EMAIL='worker@example.invalid';
  const result=f.context.annalsIssueCocktailPhotoJob_(itemId,0);
  assert.equal(result.state,'held');assert.equal(result.reason,'source_not_live_reconciled');
@@ -460,6 +473,7 @@ test('revoked rights and a changed screened source create no readiness message',
  assert.equal(f.events.sends.length,0);
  f.member.cocktailEditorialTransformation.status='active';
  f.signed.entry.photos[0].sha256='e'.repeat(64);
+ f.folder.files.set('photos-v2-private.json',[{sha256:'e'.repeat(64),base64:''}]);
  const changed=f.context.annalsIssueCocktailPhotoJob_(itemId,0);
  assert.equal(changed.state,'held');assert.equal(changed.reason,'screened_source_unavailable');
  assert.equal(f.events.sends.length,0);
@@ -527,7 +541,8 @@ function qualifiedResult(job){
  return {schema:'annals-photo-result-v1',jobToken:job.jobToken,entryId:job.entryId,
   sourceSha256:job.sourceSha256,status:'qualified',
   qa:{sameGlass:true,sameDrinkAndGarnish:true,photorealisticSubject:true,
-   plausibleStemOrBase:true,sceneAppropriate:true,noArtifactsOrPrivateDetails:true},
+   plausibleStemOrBase:true,sceneAppropriate:true,noArtifactsOrPrivateDetails:true,
+   noVisiblePeopleOrReflections:true},
   alt:'AI-stylized amber cocktail in its original textured glass',
   generatedAt:stamp,reviewedAt:stamp,generationProvider:'openai-chatgpt',generationModel:'undisclosed'};
 }
@@ -755,6 +770,12 @@ test('different photo jobs in one entry use independent private publication mark
  delete f.signed.entry.photo;
  f.signed.entry.photos=[{sha256:digestA,width:600,height:900},{sha256:digestB,width:600,height:900}];
  f.events.photoBytes=[sourceA,sourceB];
+ f.folder.files.set('photos-v2-private.json',[
+  {sha256:digestA,base64:sourceA.toString('base64')},{sha256:digestB,base64:sourceB.toString('base64')}
+ ]);
+ f.folder.files.set('draft-private.json',{imageReviews:[digestA,digestB].map(()=>({
+  kind:'drink_or_object',safeToPublish:true,privateDetails:false,thirdPartyMaterial:false
+ }))});
  f.folder.files.set('auto-live-verification-private.json',
    {state:'verified_live',contentSha256:f.signed.receipt.contentSha256});
  f.props.ANNALS_PHOTO_WORKER_EMAIL='worker@example.invalid';
