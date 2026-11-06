@@ -423,7 +423,7 @@ function annalsPhotoResultIsOwnerSent_(message,worker){
        !Gmail.Users||!Gmail.Users.Messages)return false;
     var metadata=Gmail.Users.Messages.get('me',messageId,{format:'metadata'});
     if(!metadata||String(metadata.id||'')!==messageId||!Array.isArray(metadata.labelIds))return false;
-    return metadata.labelIds.indexOf('SENT')>=0&&metadata.labelIds.indexOf('INBOX')<0;
+    return metadata.labelIds.indexOf('SENT')>=0;
   }catch(ignored){return false;}
 }
 
