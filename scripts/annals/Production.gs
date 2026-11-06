@@ -68,7 +68,7 @@ function annalsAuthentication_(message, sender) {
         !/^received:\s*from fwd1\.porkbun\.com(?:[\s(]|$)/i.test(googleReceiver)) return false;
   } else if (results.length !== 1) return false;
   var header = results[0].toLowerCase();
-  var domain = String(sender.split('@')[1] || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  var domain = String(sender.split('@')[1] || '').replace(/[.*+?^${}()|[\]\]/g, '\\$&');
   if (!header || !/^mx\.google\.com(?:[\s;]|$)/.test(header) || !domain) return false;
   var dkim = new RegExp('dkim=pass[^;]*(?:header\\.d=' + domain + '(?:[\\s;]|$)|header\\.i=[^;\\s]*@' + domain + '(?:[\\s;]|$))');
   var dmarc = new RegExp('dmarc=pass[^;]*header\\.from=' + domain + '(?:[\\s;]|$)');
@@ -695,7 +695,7 @@ function annalsRecordStagingException_(messageId) {
  * A saved thread/message position is resumed on the next run, then wraps.
  */
 function runAnnalsProductionIntake() {
-  var p = annalsProps_(), summary = { enabled: false, photo_results:0, photo_live_verified:0, staged: 0, held: 0, duplicates: 0, skipped: 0, unverified: 0, awaiting_consent: 0, consent_activated: 0, consent_revoked: 0, auto_consent_activated: 0, auto_consent_revoked: 0, quote_attribution_revoked: 0, portrait_hidden: 0, portrait_enabled: 0, image_consent_activated: 0, image_consent_revoked: 0, staging_errors: 0, drafted: 0, verified: 0 };
+  var p = annalsProps_(), summary = { enabled: false, photo_results:0, photo_attempts:0, photo_live_verified:0, staged: 0, held: 0, duplicates: 0, skipped: 0, unverified: 0, awaiting_consent: 0, consent_activated: 0, consent_revoked: 0, auto_consent_activated: 0, auto_consent_revoked: 0, quote_attribution_revoked: 0, portrait_hidden: 0, portrait_enabled: 0, image_consent_activated: 0, image_consent_revoked: 0, staging_errors: 0, drafted: 0, verified: 0 };
   if (p.getProperty('ANNALS_PRODUCTION_INTAKE_ENABLED') !== 'true') return summary;
   try {
     return annalsLocked_(function () {
@@ -726,6 +726,14 @@ function runAnnalsProductionIntake() {
         if (typeof messageId!=='string' || !messageId) { summary.staging_errors++; return; }
         if (Object.prototype.hasOwnProperty.call(seenInRun,messageId)) return;
         seenInRun[messageId]=true;
+        try{if(/^\[ANNALS PHOTO ATTEMPT ACK V1\] /.test(String(message.getSubject()||'')))return;}catch(ignored){}
+        var attemptOutcome=null;
+        try{if(typeof annalsHandleCocktailPhotoAttemptClaim_==='function')attemptOutcome=annalsHandleCocktailPhotoAttemptClaim_(message);}
+        catch(ignored){attemptOutcome='photo_attempt_held';}
+        if(attemptOutcome!==null){summary.photo_attempts++;if(attemptOutcome==='photo_attempt_held')summary.held++;return;}
+        try{if(typeof annalsHandleCocktailPhotoAttemptStarted_==='function')attemptOutcome=annalsHandleCocktailPhotoAttemptStarted_(message);}
+        catch(ignored){attemptOutcome='photo_attempt_held';}
+        if(attemptOutcome!==null){summary.photo_attempts++;if(attemptOutcome==='photo_attempt_held')summary.held++;return;}
         var photoOutcome=null;
         try{if(typeof annalsHandleCocktailPhotoResult_==='function')photoOutcome=annalsHandleCocktailPhotoResult_(message);}
         catch(ignored){photoOutcome='photo_result_held';}
@@ -759,6 +767,18 @@ function runAnnalsProductionIntake() {
       // never pass through member staging; exact per-message SENT is checked there.
       if(String(p.getProperty('ANNALS_PHOTO_WORKER_EMAIL')||'').trim()){
         try{
+          if(typeof annalsHandleCocktailPhotoAttemptClaim_==='function'){
+            var claimScan=annalsProcessSentPhotoControl_('in:sent subject:"[ANNALS PHOTO ATTEMPT V1]" newer_than:7d',
+              'ANNALS_SENT_PHOTO_CLAIM_CURSOR',/^\[ANNALS PHOTO ATTEMPT V1\] [a-f0-9]{32} [a-f0-9]{32}$/i,
+              annalsHandleCocktailPhotoAttemptClaim_,seenInRun);
+            summary.photo_attempts+=claimScan.handled;
+          }
+          if(typeof annalsHandleCocktailPhotoAttemptStarted_==='function'){
+            var startScan=annalsProcessSentPhotoControl_('in:sent subject:"[ANNALS PHOTO STARTED V1]" newer_than:7d',
+              'ANNALS_SENT_PHOTO_STARTED_CURSOR',/^\[ANNALS PHOTO STARTED V1\] [a-f0-9]{32} [a-f0-9]{32}$/i,
+              annalsHandleCocktailPhotoAttemptStarted_,seenInRun);
+            summary.photo_attempts+=startScan.handled;
+          }
           var sentCursor={offset:0};
           try{sentCursor=JSON.parse(p.getProperty('ANNALS_SENT_PHOTO_CURSOR')||'{"offset":0}');}catch(ignored){}
           if(!Number.isSafeInteger(sentCursor.offset)||sentCursor.offset<0)sentCursor={offset:0};
@@ -2414,4 +2434,26 @@ function annalsRecoverCapturedTextDraft(nonce, id, confirmed) {
     annalsFile_(folder, 'captured-response-recovery-private.json').setContent(JSON.stringify(record));
     return { drafted: true, providerCalled: false, publishesAnything: false };
   }); });
+}
+
+function annalsProcessSentPhotoControl_(query,cursorName,subjectPattern,handler,seenInRun){
+  var p=annalsProps_(),cursor={offset:0},threads,handled=0;
+  try{cursor=JSON.parse(p.getProperty(cursorName)||'{"offset":0}');}catch(ignored){}
+  if(!Number.isSafeInteger(cursor.offset)||cursor.offset<0)cursor={offset:0};
+  threads=GmailApp.search(query,cursor.offset,10);
+  for(var ti=0;ti<threads.length;ti++){
+    var messages=threads[ti].getMessages();
+    for(var mi=Math.max(0,messages.length-3);mi<messages.length;mi++){
+      var message=messages[mi],id='',subject='';
+      try{subject=String(message.getSubject()||'');}catch(ignored){continue;}
+      if(!subjectPattern.test(subject))continue;
+      try{id=String(message.getId()||'');}catch(ignored){continue;}
+      if(!id||Object.prototype.hasOwnProperty.call(seenInRun,id))continue;
+      seenInRun[id]=true;
+      try{if(handler(message)!==null)handled++;}catch(ignored){handled++;}
+    }
+  }
+  if(threads.length<10)p.deleteProperty(cursorName);
+  else p.setProperty(cursorName,JSON.stringify({offset:cursor.offset+threads.length}));
+  return {handled:handled,threads:threads.length};
 }
