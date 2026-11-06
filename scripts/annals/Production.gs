@@ -759,7 +759,10 @@ function runAnnalsProductionIntake() {
       // never pass through member staging; exact per-message SENT is checked there.
       if(String(p.getProperty('ANNALS_PHOTO_WORKER_EMAIL')||'').trim()){
         try{
-          var sentThreads=GmailApp.search('in:sent subject:"[ANNALS PHOTO RESULT V1]" newer_than:7d',0,10);
+          var sentCursor={offset:0};
+          try{sentCursor=JSON.parse(p.getProperty('ANNALS_SENT_PHOTO_CURSOR')||'{"offset":0}');}catch(ignored){}
+          if(!Number.isSafeInteger(sentCursor.offset)||sentCursor.offset<0)sentCursor={offset:0};
+          var sentThreads=GmailApp.search('in:sent subject:"[ANNALS PHOTO RESULT V1]" newer_than:7d',sentCursor.offset,10);
           for(var sentThreadIndex=0;sentThreadIndex<sentThreads.length;sentThreadIndex++){
             var sentMessages=sentThreads[sentThreadIndex].getMessages();
             for(var sentMessageIndex=Math.max(0,sentMessages.length-3);sentMessageIndex<sentMessages.length;sentMessageIndex++){
@@ -775,6 +778,8 @@ function runAnnalsProductionIntake() {
               if(sentOutcome!==null){summary.photo_results++;if(sentOutcome==='photo_result_held')summary.held++;}
             }
           }
+          if(sentThreads.length<10)p.deleteProperty('ANNALS_SENT_PHOTO_CURSOR');
+          else p.setProperty('ANNALS_SENT_PHOTO_CURSOR',JSON.stringify({offset:sentCursor.offset+sentThreads.length}));
         }catch(ignored){summary.staging_errors++;}
       }
       for (var recentIndex = 0; recentIndex < recent.length; recentIndex++) {
