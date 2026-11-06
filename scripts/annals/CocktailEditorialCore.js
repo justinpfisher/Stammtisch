@@ -124,7 +124,7 @@ var AnnalsCocktailEditorial = (function () {
       if(Object.keys(result).sort().join(',')!==
          'entryId,jobToken,reasonCode,schema,sourceSha256,status'||
          ['source_unreadable','identity_uncertain','edit_failed',
-          'visual_qa_failed','attachment_unavailable'].indexOf(result.reasonCode)<0)
+          'visual_qa_failed','attachment_unavailable','provenance_unavailable'].indexOf(result.reasonCode)<0)
         throw Error('Invalid held photo result');
       return {qualified:false,reason:result.reasonCode};
     }
