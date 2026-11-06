@@ -118,11 +118,12 @@ test('Base64URL photo-job envelope survives folded lines and preserves exact UTF
 
 test('result authentication uses owner SENT metadata rather than SMTP Authentication-Results',()=>{
  const h=harness();
+ h.context.Gmail.Users.Messages.get=(_user,id)=>({id,labelIds:['SENT','INBOX']});
  h.message.getRawContent=()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=attacker.example\r\n\r\nForged';
  assert.equal(h.context.annalsHandleCocktailPhotoResult_(h.message),'photo_canary_private_only');
  assert.equal(h.counts().writeCount,2);assert.equal(h.counts().publisherCalls,0);
 });
-test('result metadata must match the exact message ID and have SENT without INBOX',()=>{
+test('result metadata must match the exact message ID, have SENT, and belong to the owner',()=>{
  for(const alter of [
   h=>{h.context.Gmail.Users.Messages.get=(_user,id)=>({id:'different-id',labelIds:['SENT']});},
   h=>{h.context.Gmail.Users.Messages.get=(_user,id)=>({id,labelIds:['INBOX']});},
