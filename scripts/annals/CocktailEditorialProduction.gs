@@ -318,15 +318,23 @@ function annalsHandleCocktailPhotoResult_(message){
     return 'photo_result_held';
   var folder=annalsFolder_(index.sourceItemId),jobRecord=annalsRead_(folder,index.jobFilename),
     job=jobRecord&&jobRecord.job,consumeName='cocktail-photo-consume-'+token+'-private.json',
+    attemptName='cocktail-photo-attempt-'+token+'-private.json',
+    attemptRecord=annalsRead_(folder,attemptName),
     resultName='cocktail-photo-result-'+token+'-private.json',
     imageName='cocktail-photo-result-'+token+'-private.jpg';
   if(!jobRecord||jobRecord.state!=='sent_once'||!job||job.jobToken!==token||
      jobRecord.sourceItemId!==index.sourceItemId||jobRecord.expiresAt!==index.expiresAt||
+     !attemptRecord||attemptRecord.schema!=='annals-photo-attempt-v1'||
+     ['claim_accepted','generation_started'].indexOf(attemptRecord.state)<0||
+     result.attemptId!==attemptRecord.attemptId||
+     attemptRecord.entryId!==job.entryId||attemptRecord.sourceSha256!==job.sourceSha256||
      annalsFile_(folder,consumeName)||annalsFile_(folder,resultName)||annalsFile_(folder,imageName))
     return 'photo_result_held';
   var outcome;
-  try{outcome=AnnalsCocktailEditorial.validatePhotoResult(result,job,true,now);}
+  try{outcome=AnnalsCocktailEditorial.validatePhotoResult(result,job,true,now,attemptRecord.attemptId);}
   catch(ignored){return 'photo_result_held';}
+  if(outcome.qualified&&(attemptRecord.state!=='generation_started'||
+     result.generatedAt!==attemptRecord.generatedAt))return 'photo_result_held';
   if(outcome.qualified){
     var sentAt=Date.parse(jobRecord.sentAt),generatedAt=Date.parse(result.generatedAt),reviewedAt=Date.parse(result.reviewedAt);
     if(!Number.isFinite(sentAt)||generatedAt<sentAt-30000||reviewedAt<generatedAt||
@@ -377,13 +385,16 @@ function annalsHandleCocktailPhotoResult_(message){
   if(!outcome.qualified){
     annalsWriteOnce_(folder,resultName,{schema:'annals-photo-stored-result-v1',
       jobToken:token,entryId:job.entryId,sourceSha256:job.sourceSha256,
-      state:'worker_held',reasonCode:outcome.reason,receivedAt:now.toISOString()});
+      attemptId:attemptRecord.attemptId,state:'worker_held',reasonCode:outcome.reason,receivedAt:now.toISOString()});
     jobRecord.state='worker_held';jobRecord.consumedAt=now.toISOString();
     index.state='worker_held';index.consumedAt=now.toISOString();
     annalsSavePrivate_(folder,index.jobFilename,jobRecord);
     annalsSavePrivate_(root,indexName,index);
     annalsSavePrivate_(folder,consumeName,{schema:'annals-photo-consume-v1',
       jobToken:token,state:'worker_held',at:now.toISOString()});
+    attemptRecord.state='result_received';attemptRecord.resultMessageId=String(message.getId()||'');
+    attemptRecord.resultReceivedAt=now.toISOString();attemptRecord.reasonCode=outcome.reason;
+    annalsSavePrivate_(folder,attemptName,attemptRecord);
     annalsNotifyCocktailPhotoOwner_(folder,index.sourceItemId,token,'photo_result_held');
     return 'photo_result_held';
   }
@@ -393,7 +404,7 @@ function annalsHandleCocktailPhotoResult_(message){
     if(file.getName()!==imageName)file.setName(imageName);
     annalsWriteOnce_(folder,resultName,{schema:'annals-photo-stored-result-v1',
       jobToken:token,entryId:job.entryId,sourceSha256:job.sourceSha256,
-      photoIndex:job.photoIndex,state:'qualified_held_for_publisher',
+      photoIndex:job.photoIndex,attemptId:attemptRecord.attemptId,state:'qualified_held_for_publisher',
       imageFilename:imageName,imageSha256:imageSha,width:width,height:height,
       alt:outcome.alt,qa:result.qa,receivedAt:now.toISOString(),
       generatedAt:outcome.generatedAt,reviewedAt:outcome.reviewedAt,
@@ -404,6 +415,9 @@ function annalsHandleCocktailPhotoResult_(message){
     annalsSavePrivate_(root,indexName,index);
     annalsSavePrivate_(folder,consumeName,{schema:'annals-photo-consume-v1',
       jobToken:token,state:'result_received_private',at:now.toISOString()});
+    attemptRecord.state='result_received';attemptRecord.resultMessageId=String(message.getId()||'');
+    attemptRecord.resultReceivedAt=now.toISOString();attemptRecord.editedSha256=imageSha;
+    annalsSavePrivate_(folder,attemptName,attemptRecord);
     var published=annalsPublishCocktailEditorialResult_(index.sourceItemId,token);
     if(!published&&annalsProps_().getProperty('ANNALS_PHOTO_WORKFLOW_ENABLED')==='true')
       annalsNotifyCocktailPhotoOwner_(folder,index.sourceItemId,token,'photo_result_held');
@@ -415,6 +429,134 @@ function annalsHandleCocktailPhotoResult_(message){
     return 'photo_result_held';
   }
 }
+function annalsPhotoAttemptWithLock_(fn){
+  var lock=LockService.getScriptLock();
+  if(typeof lock.hasLock==='function'&&lock.hasLock())return fn();
+  if(!lock.tryLock(1000))return 'photo_attempt_held';
+  try{return fn();}finally{lock.releaseLock();}
+}
+function annalsHandleCocktailPhotoAttemptClaim_(message){
+  return annalsPhotoAttemptWithLock_(function(){return annalsHandleCocktailPhotoAttemptClaimLocked_(message);});
+}
+function annalsHandleCocktailPhotoAttemptClaimLocked_(message){
+  var subject='';
+  try{subject=String(message.getSubject()||'');}catch(ignored){return null;}
+  if(!/^\[ANNALS PHOTO ATTEMPT V1\] /.test(subject))return null;
+  var match=/^\[ANNALS PHOTO ATTEMPT V1\] ([a-f0-9]{32}) ([a-f0-9]{32})$/.exec(subject);
+  if(!match)return 'photo_attempt_held';
+  var token=match[1],attemptId=match[2],props=annalsProps_(),
+    worker=String(props.getProperty('ANNALS_PHOTO_WORKER_EMAIL')||'').trim().toLowerCase(),sender='';
+  try{sender=AnnalsPilot.senderAddress(message.getFrom()).toLowerCase();}catch(ignored){}
+  if(props.getProperty('ANNALS_PHOTO_WORKFLOW_ENABLED')!=='true'||!worker||
+     sender!==worker||!annalsPhotoResultIsOwnerSent_(message,worker))return 'photo_attempt_held';
+  var request;
+  try{
+    if(message.getAttachments({includeInlineImages:false,includeAttachments:true}).length!==0)return 'photo_attempt_held';
+    var body=String(message.getPlainBody()||'').trim();if(!body||body.length>1024)return 'photo_attempt_held';
+    request=JSON.parse(body);
+  }catch(ignored){return 'photo_attempt_held';}
+  if(!request||Object.keys(request).sort().join(',')!=='attemptId,entryId,jobToken,schema,sourceSha256'||
+     request.schema!=='annals-photo-attempt-claim-v1'||request.jobToken!==token||
+     request.attemptId!==attemptId||!/^annal-[a-f0-9]{24}$/.test(request.entryId||'')||
+     !/^[a-f0-9]{64}$/.test(request.sourceSha256||''))return 'photo_attempt_held';
+  var root=annalsRoot_(),indexName='cocktail-photo-job-token-'+token+'-private.json',
+    index=annalsRead_(root,indexName),now=new Date();
+  if(annalsFile_(root,'cocktail-photo-canary-token-'+token+'-private.json')||
+     !index||index.schema!=='annals-photo-job-index-v1'||index.jobToken!==token||
+     index.state!=='sent_once'||Date.parse(index.expiresAt)<=now.getTime()||
+     index.entryId!==request.entryId||index.sourceSha256!==request.sourceSha256)
+    return 'photo_attempt_held';
+  var folder=annalsFolder_(index.sourceItemId),jobRecord=annalsRead_(folder,index.jobFilename),
+    attemptName='cocktail-photo-attempt-'+token+'-private.json';
+  if(!jobRecord||jobRecord.state!=='sent_once'||!jobRecord.job||jobRecord.job.jobToken!==token||
+     jobRecord.job.entryId!==request.entryId||jobRecord.job.sourceSha256!==request.sourceSha256||
+     jobRecord.sourceItemId!==index.sourceItemId||jobRecord.expiresAt!==index.expiresAt||
+     annalsFile_(folder,attemptName)||annalsFile_(folder,'cocktail-photo-consume-'+token+'-private.json')||
+     annalsFile_(folder,'cocktail-photo-result-'+token+'-private.json'))return 'photo_attempt_held';
+  try{
+    var context=annalsCocktailEditorialContext_(index.sourceItemId,jobRecord.job.photoIndex),
+      live=annalsRead_(folder,'auto-live-verification-private.json'),
+      saved=annalsRead_(folder,'approval-private.json');
+    if(context.entryId!==request.entryId||context.sourceSha256!==request.sourceSha256||
+       !live||live.state!=='verified_live'||!saved||!saved.receipt||
+       live.contentSha256!==saved.receipt.contentSha256)return 'photo_attempt_held';
+  }catch(ignored){return 'photo_attempt_held';}
+  var record={schema:'annals-photo-attempt-v1',state:'claim_accepted',jobToken:token,
+    attemptId:attemptId,entryId:request.entryId,sourceSha256:request.sourceSha256,
+    expiresAt:index.expiresAt,claimMessageId:String(message.getId()),claimedAt:now.toISOString()};
+  var file=annalsPrivate_(folder.createFile(Utilities.newBlob(
+    JSON.stringify(record),'application/json',attemptName)));
+  if(!file)return 'photo_attempt_held';
+  record.ackState='attempted_once';record.ackAttemptedAt=new Date().toISOString();
+  annalsSavePrivate_(folder,attemptName,record);
+  try{
+    GmailApp.sendEmail(worker,'[ANNALS PHOTO ATTEMPT ACK V1] '+token+' '+attemptId,
+      JSON.stringify({schema:'annals-photo-attempt-ack-v1',state:'accepted',jobToken:token,
+        attemptId:attemptId,entryId:request.entryId,sourceSha256:request.sourceSha256,
+        expiresAt:index.expiresAt}),{name:'Stammtisch Annals'});
+    record.ackState='sent_once';record.ackSentAt=new Date().toISOString();
+    annalsSavePrivate_(folder,attemptName,record);
+    return 'photo_attempt_accepted';
+  }catch(ignored){
+    record.ackState='unknown_no_retry';record.ackUncertainAt=new Date().toISOString();
+    annalsSavePrivate_(folder,attemptName,record);
+    return 'photo_attempt_ack_uncertain';
+  }
+}
+
+function annalsHandleCocktailPhotoAttemptStarted_(message){
+  return annalsPhotoAttemptWithLock_(function(){return annalsHandleCocktailPhotoAttemptStartedLocked_(message);});
+}
+function annalsHandleCocktailPhotoAttemptStartedLocked_(message){
+  var subject='';
+  try{subject=String(message.getSubject()||'');}catch(ignored){return null;}
+  if(!/^\[ANNALS PHOTO STARTED V1\] /.test(subject))return null;
+  var match=/^\[ANNALS PHOTO STARTED V1\] ([a-f0-9]{32}) ([a-f0-9]{32})$/.exec(subject);
+  if(!match)return 'photo_attempt_held';
+  var token=match[1],attemptId=match[2],props=annalsProps_(),
+    worker=String(props.getProperty('ANNALS_PHOTO_WORKER_EMAIL')||'').trim().toLowerCase(),sender='';
+  try{sender=AnnalsPilot.senderAddress(message.getFrom()).toLowerCase();}catch(ignored){}
+  if(props.getProperty('ANNALS_PHOTO_WORKFLOW_ENABLED')!=='true'||!worker||
+     sender!==worker||!annalsPhotoResultIsOwnerSent_(message,worker))return 'photo_attempt_held';
+  var started;
+  try{
+    if(message.getAttachments({includeInlineImages:false,includeAttachments:true}).length!==0)return 'photo_attempt_held';
+    var body=String(message.getPlainBody()||'').trim();if(!body||body.length>1024)return 'photo_attempt_held';
+    started=JSON.parse(body);
+  }catch(ignored){return 'photo_attempt_held';}
+  if(!started||Object.keys(started).sort().join(',')!=='attemptId,entryId,generatedAt,jobToken,schema,sourceSha256'||
+     started.schema!=='annals-photo-attempt-start-v1'||started.jobToken!==token||
+     started.attemptId!==attemptId||!/^annal-[a-f0-9]{24}$/.test(started.entryId||'')||
+     !/^[a-f0-9]{64}$/.test(started.sourceSha256||'')||!Number.isFinite(Date.parse(started.generatedAt)))
+    return 'photo_attempt_held';
+  var root=annalsRoot_(),index=annalsRead_(root,'cocktail-photo-job-token-'+token+'-private.json'),
+    sentAt=index&&Date.parse(index.sentAt||''),now=Date.now();
+  if(!index||index.state!=='sent_once'||index.entryId!==started.entryId||index.sourceSha256!==started.sourceSha256||
+     Date.parse(index.expiresAt)<=now||!Number.isFinite(sentAt)||
+     Date.parse(started.generatedAt)<sentAt-30000||Date.parse(started.generatedAt)>now+30000)
+    return 'photo_attempt_held';
+  var folder=annalsFolder_(index.sourceItemId),jobRecord=annalsRead_(folder,index.jobFilename),
+    attemptName='cocktail-photo-attempt-'+token+'-private.json',attempt=annalsRead_(folder,attemptName);
+  if(!jobRecord||jobRecord.state!=='sent_once'||!jobRecord.job||jobRecord.job.jobToken!==token||
+     jobRecord.job.entryId!==started.entryId||jobRecord.job.sourceSha256!==started.sourceSha256||
+     jobRecord.expiresAt!==index.expiresAt)return 'photo_attempt_held';
+  if(!attempt||attempt.schema!=='annals-photo-attempt-v1'||attempt.state!=='claim_accepted'||
+     attempt.jobToken!==token||attempt.attemptId!==attemptId||attempt.entryId!==started.entryId||
+     attempt.sourceSha256!==started.sourceSha256)return 'photo_attempt_held';
+  try{
+    var context=annalsCocktailEditorialContext_(index.sourceItemId,jobRecord.job.photoIndex),
+      live=annalsRead_(folder,'auto-live-verification-private.json'),
+      saved=annalsRead_(folder,'approval-private.json');
+    if(context.entryId!==started.entryId||context.sourceSha256!==started.sourceSha256||
+       !live||live.state!=='verified_live'||!saved||!saved.receipt||
+       live.contentSha256!==saved.receipt.contentSha256)return 'photo_attempt_held';
+  }catch(ignored){return 'photo_attempt_held';}
+  attempt.state='generation_started';attempt.generatedAt=started.generatedAt;
+  attempt.startMessageId=String(message.getId());attempt.startedRecordedAt=new Date().toISOString();
+  annalsSavePrivate_(folder,attemptName,attempt);
+  return 'photo_attempt_started';
+}
+
 function annalsPhotoResultIsOwnerSent_(message,worker){
   try{
     var owner=String(Session.getEffectiveUser().getEmail()||'').trim().toLowerCase(),

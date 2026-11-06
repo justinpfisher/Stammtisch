@@ -528,8 +528,23 @@ function issuedPhotoResultFixture(){
  f.props.ANNALS_PHOTO_WORKER_EMAIL='worker@example.invalid';
  assert.equal(f.context.annalsIssueCocktailPhotoJob_(itemId,0).state,'sent_once');
  const indexName='cocktail-photo-job-token-'+'f'.repeat(32)+'-private.json';
- const index=f.root.files.get(indexName),jobRecord=f.folder.files.get(index.jobFilename);
- return {f,indexName,index,jobRecord,job:jobRecord.job,digest};
+ const index=f.root.files.get(indexName),jobRecord=f.folder.files.get(index.jobFilename),
+  job=jobRecord.job,attemptId='e'.repeat(32),generatedAt=new Date(Date.now()-1000).toISOString();
+ job.attemptId=attemptId;job.generatedAt=generatedAt;
+ f.folder.files.set('cocktail-photo-attempt-'+job.jobToken+'-private.json',{
+  schema:'annals-photo-attempt-v1',state:'generation_started',jobToken:job.jobToken,
+  attemptId,entryId:job.entryId,sourceSha256:job.sourceSha256,generatedAt
+ });
+ return {f,indexName,index,jobRecord,job,digest,attemptId,generatedAt};
+}
+function bindGenerationAttempt(f,job,attemptId){
+ const generatedAt=new Date(Date.now()-1000).toISOString();
+ job.attemptId=attemptId;job.generatedAt=generatedAt;
+ f.folder.files.set('cocktail-photo-attempt-'+job.jobToken+'-private.json',{
+  schema:'annals-photo-attempt-v1',state:'generation_started',jobToken:job.jobToken,
+  attemptId,entryId:job.entryId,sourceSha256:job.sourceSha256,generatedAt
+ });
+ return generatedAt;
 }
 function workerMessage(f,job,result,attachments=[],sender='worker@example.invalid',subjectToken=job.jobToken){
  if(f.events.authenticated===undefined)f.events.authenticated=true;
@@ -540,13 +555,14 @@ function workerMessage(f,job,result,attachments=[],sender='worker@example.invali
 }
 function qualifiedResult(job){
  const stamp=new Date().toISOString();
- return {schema:'annals-photo-result-v1',jobToken:job.jobToken,entryId:job.entryId,
-  sourceSha256:job.sourceSha256,status:'qualified',
+ return {schema:'annals-photo-result-v1',jobToken:job.jobToken,attemptId:job.attemptId,
+  entryId:job.entryId,sourceSha256:job.sourceSha256,status:'qualified',
   qa:{sameGlass:true,sameDrinkAndGarnish:true,photorealisticSubject:true,
    plausibleStemOrBase:true,sceneAppropriate:true,noArtifactsOrPrivateDetails:true,
    noVisiblePeopleOrReflections:true},
   alt:'AI-stylized amber cocktail in its original textured glass',
-  generatedAt:stamp,reviewedAt:stamp,generationProvider:'openai-chatgpt',generationModel:'undisclosed'};
+  generatedAt:job.generatedAt||stamp,reviewedAt:stamp,
+  generationProvider:'openai-chatgpt',generationModel:'undisclosed'};
 }
 test('authenticated exact result is source-bound, privately stored, and not dispatched',()=>{
  const {f,indexName,job}=issuedPhotoResultFixture(),jpeg=editedJpeg(),
@@ -609,8 +625,8 @@ test('changed source and revoked transformation rights terminally hold an otherw
 });
 test('held result has no image or QA claims and consumes only its matching job',()=>{
  const {f,index,job}=issuedPhotoResultFixture();
- const held={schema:'annals-photo-result-v1',jobToken:job.jobToken,entryId:job.entryId,
-  sourceSha256:job.sourceSha256,status:'held',reasonCode:'edit_failed'};
+ const held={schema:'annals-photo-result-v1',jobToken:job.jobToken,attemptId:job.attemptId,
+  entryId:job.entryId,sourceSha256:job.sourceSha256,status:'held',reasonCode:'edit_failed'};
  assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,held,[])),'photo_result_held');
  const stored=f.folder.files.get('cocktail-photo-result-'+job.jobToken+'-private.json');
  assert.equal(stored.state,'worker_held');assert.equal(stored.reasonCode,'edit_failed');
@@ -739,8 +755,8 @@ test('held worker results and stale accepted dispatches send one generic private
  f.props.ANNALS_OWNER_EMAIL='owner@example.invalid';
  f.props.ANNALS_REVIEW_URL='https://script.google.com/macros/s/fictional-review';
  f.events.sends.length=0;
- const held={schema:'annals-photo-result-v1',jobToken:job.jobToken,entryId:job.entryId,
-  sourceSha256:job.sourceSha256,status:'held',reasonCode:'edit_failed'};
+ const held={schema:'annals-photo-result-v1',jobToken:job.jobToken,attemptId:job.attemptId,
+  entryId:job.entryId,sourceSha256:job.sourceSha256,status:'held',reasonCode:'edit_failed'};
  const message=workerMessage(f,job,held,[]);
  assert.equal(f.context.annalsHandleCocktailPhotoResult_(message),'photo_result_held');
  assert.equal(f.events.sends.length,1);
@@ -799,6 +815,7 @@ test('different photo jobs in one entry use independent private publication mark
  f.props.ANNALS_GITHUB_TOKEN='synthetic-github-token';
  f.props.ANNALS_PUBLISH_SIGNING_KEY='synthetic-separate-publication-signing-key';
  for(const [job,fill] of [[jobA,9],[jobB,10]]){
+  bindGenerationAttempt(f,job,job===jobA?'1'.repeat(32):'2'.repeat(32));
   const jpeg=editedJpeg(fill),message=workerMessage(f,job,qualifiedResult(job),
    [f.context.Utilities.newBlob(jpeg,'image/jpeg','x')]);
   assert.equal(f.context.annalsHandleCocktailPhotoResult_(message),'photo_publisher_dispatch_accepted');
