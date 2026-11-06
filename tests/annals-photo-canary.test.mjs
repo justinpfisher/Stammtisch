@@ -144,6 +144,20 @@ test('worker identity uncertainty remains the held reason when no attachment is 
  assert.equal(h.counts().publisherCalls,0);
 });
 
+test('missing image invocation provenance is consumed as an explicit private hold',()=>{
+ const h=harness({attachments:0});
+ h.message.getPlainBody=()=>JSON.stringify({schema:'annals-photo-result-v1',jobToken:token,
+  entryId,sourceSha256:h.record.sourceSha256,status:'held',reasonCode:'provenance_unavailable'});
+ assert.equal(h.context.annalsHandleCocktailPhotoResult_(h.message),'photo_result_held');
+ const result=h.files.get('cocktail-photo-canary-result-'+token+'-private.json');
+ assert.equal(result.state,'held_private_only');
+ assert.equal(result.reasonCode,'provenance_unavailable');
+ assert.equal(h.files.get('job.json').state,'held_private_canary');
+ assert.equal(h.index.state,'held_private_canary');
+ assert.ok(h.files.has('cocktail-photo-canary-consume-'+token+'-private.json'));
+ assert.equal(h.counts().publisherCalls,0);
+});
+
 test('photo results are intercepted before ordinary intake staging',()=>{
  const start=production.indexOf('function processInboxMessage(message)');
  const end=production.indexOf('for (var recentIndex',start);
