@@ -112,7 +112,7 @@ function uploadHarness(){
   const values={ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED:'true',ANNALS_GITHUB_REPOSITORY:'justinpfisher/Stammtisch',ANNALS_GITHUB_TOKEN:'fictional-token',ANNALS_PUBLISH_SIGNING_KEY:key};
   const files=new Map(),folder={getName:()=> 'a'.repeat(64)},approval=sign(entry),source={senderAuthenticated:true,imageConsentAtReceipt:true,source:{sender:'fictional@example.test',receivedAt:at}};
   files.set('source-private.json',source);files.set('approval-private.json',{entry,receipt:{},publication:approval});
-  let requests=0,permitted=true,ready=true;
+  let requests=0,posts=0,gets=0,blobs=new Map(),permitted=true,ready=true;
   const c=vm.createContext({Date:class extends Date{constructor(...a){super(...(a.length?a:[at]));}static now(){return Date.parse(at);}},
     AnnalsPhotos:Photos,AnnalsMedia:Media,AnnalsProduction:{serial},AnnalsPhotoDerivative:Derivative,AnnalsJpegCodec:Codec,
     annalsProps_:()=>({getProperty:k=>values[k]||null}),annalsRead_:(_,n)=>files.get(n)||null,
@@ -121,19 +121,24 @@ function uploadHarness(){
     annalsPrivateReceiptValid_:()=>true,annalsPublicApproval_:()=>approval,annalsOrdinarySourceGate_:()=>{},annalsHash_:b=>hash(Buffer.from(b)),
     annalsHex_:b=>Buffer.from(b).toString('hex'),Utilities:{base64Decode:s=>Array.from(Buffer.from(s,'base64')),
       newBlob:s=>({getBytes:()=>Array.from(Buffer.from(s))}),DigestAlgorithm:{SHA_1:'sha1'},computeDigest:(a,b)=>Array.from(createHash(a).update(Buffer.from(b)).digest())},
-    UrlFetchApp:{fetch:(_,options)=>{assert.ok(files.has('photo-upload-private.json'),'reserve before upload');requests++;
+    UrlFetchApp:{fetch:(url,options)=>{requests++;
+      if(options.method==='get'){gets++;const gitSha=url.split('/').pop(),b=blobs.get(gitSha);
+        return b?{getResponseCode:()=>200,getContentText:()=>JSON.stringify({sha:gitSha,size:b.length,encoding:'base64',content:b.toString('base64')})}:
+          {getResponseCode:()=>404,getContentText:()=>''};}
+      assert.ok(files.has('photo-upload-private.json'),'reserve before upload');posts++;
       const b=Buffer.from(JSON.parse(options.payload).content,'base64');assert.ok(b.length<=524288);
-      return {getResponseCode:()=>201,getContentText:()=>JSON.stringify({sha:gitBlobHash(b)})};}}});
+      const sha=gitBlobHash(b);blobs.set(sha,b);
+      return {getResponseCode:()=>201,getContentText:()=>JSON.stringify({sha})};}}});
   vm.runInContext(readFileSync(new URL('../scripts/annals/PhotoProduction.gs',import.meta.url),'utf8'),c);
   c.annalsPublisherDispatchReady_=()=>true;
   c.annalsPhotosReady_=()=>ready;c.annalsStandingGalleryCorrectionAllowed_=()=>permitted;
   c.annalsPhotoSet_=()=>images.map((b,i)=>({...photos[i],base64:b.toString('base64')}));
-  return {c,values,files,run:()=>c.annalsPhotoBlobRefs_(folder,entry,approval,'annals-auto-entry'),requests:()=>requests,revoke:()=>{permitted=false;},close:()=>{ready=false;}};
+  return {c,values,files,run:()=>c.annalsPhotoBlobRefs_(folder,entry,approval,'annals-auto-entry'),requests:()=>requests,posts:()=>posts,gets:()=>gets,revoke:()=>{permitted=false;},close:()=>{ready=false;}};
 }
 
-test('private uploader reserves before network, stages only approved derivatives and never repeats uploads',()=>{
-  const h=uploadHarness();assert.equal(h.run().length,3);assert.equal(h.requests(),3);assert.equal(h.files.get('photo-upload-private.json').state,'uploaded');
-  assert.equal(h.run(),null);assert.equal(h.requests(),3);
+test('private uploader reserves before network and reconciles exact uploaded blobs without repeating POSTs',()=>{
+  const h=uploadHarness();assert.equal(h.run().length,3);assert.equal(h.requests(),3);assert.equal(h.posts(),3);assert.equal(h.files.get('photo-upload-private.json').state,'uploaded');
+  assert.equal(h.run().length,3);assert.equal(h.posts(),3);assert.equal(h.gets(),3);assert.equal(h.requests(),6);
 });
 
 test('private disabled/security/source gate, revocation, missing exact receipt and quarantines produce no uploads',()=>{
@@ -144,12 +149,15 @@ test('private disabled/security/source gate, revocation, missing exact receipt a
   }
 });
 
-test('unknown, rejected and malformed upload results are permanently held without retry',()=>{
+test('unknown, rejected and malformed upload outcomes never repeat a POST; uncertain outcomes only reconcile by GET',()=>{
   for(const result of ['unknown','rejected','malformed']){
-    const h=uploadHarness();let requests=0;h.c.UrlFetchApp.fetch=()=>{requests++;if(result==='unknown')throw Error('Timeout');
-      return {getResponseCode:()=>result==='rejected'?403:201,getContentText:()=>'{malformed'};};
+    const h=uploadHarness();let posts=0,gets=0;h.c.UrlFetchApp.fetch=(url,options)=>{
+      if(options.method==='get'){gets++;return {getResponseCode:()=>404,getContentText:()=>''};}
+      posts++;if(result==='unknown')throw Error('Timeout');
+      return {getResponseCode:()=>result==='rejected'?403:201,getContentText:()=>'{malformed'};
+    };
     assert.equal(h.run(),null);assert.match(h.files.get('photo-upload-private.json').state,/no_retry/);
-    assert.equal(h.run(),null);assert.equal(requests,1);
+    assert.equal(h.run(),null);assert.equal(posts,1);assert.equal(gets,result==='rejected'?0:1);
   }
 });
 
