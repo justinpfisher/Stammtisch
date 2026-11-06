@@ -33,6 +33,10 @@ function decodePhotoJobEnvelope(body){
 
 function harness({bytes=derivative,attachments=1,expired=false}={}){
  const now=new Date('2026-11-01T12:00:00.000Z'),files=new Map();
+ const FrozenDate=class extends Date{
+  constructor(...args){super(...(args.length?args:[now.getTime()]));}
+  static now(){return now.getTime();}
+ };
  const job={schema:'annals-photo-job-v1',jobToken:token,entryId,sourceSha256:sha(sourceBytes),photoIndex:0,
   name:'Synthetic drink',description:'Fictional qualification image.',ingredients:['imaginary citrus'],keywords:'synthetic'};
  const record={schema:'annals-photo-canary-job-v1',job,sourceItemId:itemId,
@@ -46,7 +50,7 @@ function harness({bytes=derivative,attachments=1,expired=false}={}){
  const sourceFile=makeFile(record.sourceFilename,sourceBytes);files.set(record.sourceFilename,sourceFile);files.set('job.json',record);
  const folder={createFile(blob){const name=blob.getName();const f=makeFile(name,blob.getBytes());files.set(name,f);return f;}};
  const indexName='cocktail-photo-canary-token-'+token+'-private.json',rootFiles=new Map([[indexName,index]]),root={};let writeCount=0,publisherCalls=0;
- const context={Date,AnnalsCocktailEditorial:Policy,annalsFolder_:()=>folder,
+ const context={Date:FrozenDate,AnnalsCocktailEditorial:Policy,annalsFolder_:()=>folder,
   annalsRead_:(target,name)=>(target===root?rootFiles:files).get(name)||null,
   annalsFile_:(target,name)=>(target===root?rootFiles:files).has(name)?(target===root?rootFiles:files).get(name):null,
   annalsWriteOnce_:(target,name,value)=>{const map=target===root?rootFiles:files;if(map.has(name))throw Error('replay');map.set(name,value);writeCount++;},
