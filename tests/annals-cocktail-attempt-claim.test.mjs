@@ -158,6 +158,11 @@ test('intake calls the locked handlers directly and never probes/releases a nest
   // Intake already owns a lock, but a second getScriptLock handle need not report it.
   assert.equal(x.context.annalsHandleCocktailPhotoAttemptClaimLocked_(x.message('ATTEMPT')),
     'photo_attempt_accepted');
+  const start=x.message('STARTED',attemptId,{
+    schema:'annals-photo-attempt-start-v1',jobToken:token,attemptId,entryId,sourceSha256,
+    generatedAt:'2026-11-06T10:02:05.000Z'
+  });
+  assert.equal(x.context.annalsHandleCocktailPhotoAttemptStartedLocked_(start),'photo_attempt_started');
   assert.equal(probes,0);assert.equal(tries,0);assert.equal(releases,0);
   const production=readFileSync(new URL('../scripts/annals/Production.gs',import.meta.url),'utf8');
   assert.match(production,/annalsHandleCocktailPhotoAttemptClaimLocked_\(message\)/);
