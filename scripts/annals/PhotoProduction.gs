@@ -291,14 +291,60 @@ function annalsPhotoDecision_(source,draft,id,decision,set){
 
 /* Upload is PUBLIC storage, even before a commit. Only exact signed screened
  * derivatives may enter this route. Never upload originals or private records.
- * One operation journal is reserved before the first request. An incomplete,
- * rejected or unknown operation is never resumed or retried automatically. */
+ * One operation journal is reserved before the first request. A POST is never
+ * retried; an interrupted request proceeds only after a read-only exact-blob
+ * reconciliation against the current signed derivative. */
+/* A previous upload can finish remotely even when execution stops before its
+ * private completion checkpoint. Reconcile only by reading the exact immutable
+ * Git blob and validating the full bytes against today's signed, screened
+ * derivative. Never replay a POST or rewrite the original attempt journal.
+ */
+function annalsReconcilePhotoBlobs_(entry,approval,uploadRecord,refs,uploads){
+  var count=refs.length;
+  if(!uploadRecord||['attempt_reserved','unknown_no_retry','uploaded'].indexOf(uploadRecord.state)<0||
+     uploadRecord.contentSha256!==approval.contentSha256||
+     !Number.isInteger(uploadRecord.completed)||uploadRecord.completed<0||uploadRecord.completed>count||
+     (uploadRecord.state==='uploaded'&&uploadRecord.completed!==count)||
+     JSON.stringify(uploadRecord.refs)!==JSON.stringify(refs))return null;
+  for(var i=0;i<refs.length;i++){
+    var ref=refs[i],photo=entry.photos[i],upload=uploads[i];
+    if(!ref||!photo||!upload||ref.sha256!==photo.sha256||ref.gitSha!==upload.gitSha||
+       ref.size!==upload.size||upload.sha256!==photo.sha256)return null;
+    var response;
+    try{
+      response=UrlFetchApp.fetch('https://api.github.com/repos/justinpfisher/Stammtisch/git/blobs/'+ref.gitSha,{
+        method:'get',headers:{Authorization:'Bearer '+annalsProps_().getProperty('ANNALS_GITHUB_TOKEN'),
+          Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},
+        muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true});
+      if(response.getResponseCode()!==200)return null;
+      var bodyText=response.getContentText();
+      if(bodyText.length>Math.ceil(ref.size*1.5)+8192)return null;
+      var body=JSON.parse(bodyText);
+      if(!body||body.sha!==ref.gitSha||body.size!==ref.size||body.encoding!=='base64'||
+         typeof body.content!=='string')return null;
+      var bytes=Utilities.base64Decode(body.content.replace(/\s/g,''));
+      if(bytes.length!==ref.size||annalsHash_(bytes)!==ref.sha256)return null;
+      var header=Utilities.newBlob('blob '+bytes.length+'\u0000').getBytes(),
+        actualGitSha=annalsHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_1,header.concat(Array.from(bytes))));
+      if(actualGitSha!==ref.gitSha)return null;
+      var clean=AnnalsMedia.sanitize(bytes,true);
+      if(annalsHash_(clean.bytes)!==ref.sha256||clean.width!==photo.width||clean.height!==photo.height)return null;
+      if(typeof AnnalsPhotoDerivative==='undefined'||typeof AnnalsJpegCodec==='undefined')return null;
+      var thumb=AnnalsPhotoDerivative.thumbnail(clean.bytes,AnnalsJpegCodec,AnnalsMedia);
+      if(!thumb||!thumb.bytes||thumb.bytes.length>98304)return null;
+    }catch(ignored){return null;}
+  }
+  return refs;
+}
+
 function annalsPhotoBlobRefs_(folder,entry,approval,eventType){
   if(['annals-auto-entry','annals-approved-entry','annals-correct-entry'].indexOf(eventType)<0)return null;
   var p=annalsProps_(),id=folder.getName(),name=eventType==='annals-correct-entry'?'correction-photo-upload-private.json':'photo-upload-private.json';
+  var uploadFile=annalsFile_(folder,name),uploadRecord=uploadFile?annalsRead_(folder,name):null;
   if(p.getProperty('ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED')!=='true'||!annalsPhotosReady_(id)||
     !annalsPublisherDispatchReady_()||p.getProperty('ANNALS_GITHUB_REPOSITORY')!=='justinpfisher/Stammtisch'||
-    !p.getProperty('ANNALS_GITHUB_TOKEN')||annalsFile_(folder,name)||annalsFile_(folder,'quarantine-private.json')||annalsFile_(folder,'removal-private.json'))return null;
+    !p.getProperty('ANNALS_GITHUB_TOKEN')||
+    annalsFile_(folder,'quarantine-private.json')||annalsFile_(folder,'removal-private.json'))return null;
   var source=annalsRead_(folder,'source-private.json');
   annalsOrdinarySourceGate_(source);
   if(!annalsStandingGalleryCorrectionAllowed_(source,entry,folder))return null;
@@ -326,6 +372,7 @@ function annalsPhotoBlobRefs_(folder,entry,approval,eventType){
   AnnalsPhotos.blobRefs(entry.photos,refs);
   // Check the final dispatch budget before creating any publicly stored blob.
   if(Utilities.newBlob(JSON.stringify({event_type:eventType,client_payload:{entry:entry,approval:approval,imageBlobs:refs}})).getBytes().length>60000)return null;
+  if(uploadFile)return uploadRecord?annalsReconcilePhotoBlobs_(entry,approval,uploadRecord,refs,uploads):null;
   var record={state:'attempt_reserved',at:new Date().toISOString(),contentSha256:approval.contentSha256,refs:refs,completed:0};
   annalsWriteOnce_(folder,name,record);
   try{
