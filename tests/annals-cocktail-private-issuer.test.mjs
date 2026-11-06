@@ -85,7 +85,7 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
    getOwner:()=>({getEmail:()=> 'owner@example.invalid'}),getBlob:()=>blob};
   folder.files.set(name,file);return file;
  };
- const log=[],events={photoBytes:null,sends:[],authenticated:true};
+ const log=[],events={photoBytes:null,sends:[],authenticated:true,labels:['SENT']};
  const context={
   // Keep dates in one realm for the pure Node/App Script policy fixture.
   Date:Date,Intl:Intl,
@@ -107,6 +107,8 @@ function fixture({recovered=true,enabled=true,originalReceiptValid=true,revoked=
     sanitizeEditorial:(bytes,codec)=>Media.sanitizeEditorial(bytes,codec)
   },
   AnnalsJpegCodec:Jpeg,
+  Session:{getEffectiveUser:()=>({getEmail:()=>events.effectiveUser||props.ANNALS_PHOTO_WORKER_EMAIL||'worker@example.invalid'})},
+  Gmail:{Users:{Messages:{get:(_user,id)=>({id:events.metadataId||id,labelIds:events.labels})}}},
   annalsAuthentication_:(message,sender)=>events.authenticated===true&&sender==='worker@example.invalid',
   annalsOwner_:()=>{events.ownerChecks=(events.ownerChecks||0)+1},
   annalsLocked_:(fn)=>fn(),
@@ -560,13 +562,19 @@ test('authenticated exact result is source-bound, privately stored, and not disp
  assert.equal(f.events.sends.length,1);
  assert.equal(f.folder.files.has('publication-dispatch-private.json'),false);
 });
-test('wrong sender and forged body authentication cannot consume a job',()=>{
+test('wrong sender, wrong owner, or missing exact-message SENT metadata cannot consume a job',()=>{
  const {f,job}=issuedPhotoResultFixture(),jpeg=editedJpeg(),result=qualifiedResult(job),
   blob=f.context.Utilities.newBlob(jpeg,'image/jpeg','ignored.jpg');
  assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,result,[blob],
   'attacker@example.invalid')),'photo_result_held');
  assert.equal(f.folder.files.has('cocktail-photo-consume-'+job.jobToken+'-private.json'),false);
- f.events.authenticated=false;
+ f.events.labels=['INBOX'];
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,result,[blob])),'photo_result_held');
+ f.events.labels=['SENT'];f.events.metadataId='different-message-id';
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,result,[blob])),'photo_result_held');
+ f.events.metadataId=null;f.events.effectiveUser='wrong-owner@example.invalid';
+ assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,result,[blob])),'photo_result_held');
+ f.events.effectiveUser=null;f.props.ANNALS_PHOTO_WORKER_EMAIL='';
  assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,result,[blob])),'photo_result_held');
  assert.equal(f.folder.files.has('cocktail-photo-consume-'+job.jobToken+'-private.json'),false);
 });
