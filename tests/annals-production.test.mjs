@@ -607,22 +607,45 @@ test('production intake resumes a long thread and wraps without reading while di
   assert.deepEqual([...seen].sort((a,b)=>a-b),Array.from({length:12},(_,i)=>i));
   x.context.runAnnalsProductionIntake();assert.equal(x.props.ANNALS_INBOX_CURSOR,undefined);
 });
-test('bounded Sent scan handles exact worker results with empty Inbox and never stages unrelated Sent mail',()=>{
+test('bounded Sent scan handles an exact result with an empty Inbox without staging other Sent mail',()=>{
   const x=mock(),handled=[],staged=[];
   const result={id:'sent-result',getId(){return this.id;},getSubject:()=> '[ANNALS PHOTO RESULT V1] '+'a'.repeat(32)};
   const unrelated={id:'sent-unrelated',getId(){return this.id;},getSubject:()=> 'ordinary Sent note'};
-  const member={id:'member-inbox',getId(){return this.id;},getSubject:()=> 'member photo'};
-  const sentThread={getMessages:()=>[unrelated,result]},inboxThread={getId:()=> 'inbox-thread',getMessages:()=>[result,member]};
-  x.context.GmailApp={getInboxThreads:()=>[inboxThread],getThreadById:()=>inboxThread,search:(query,start,max)=>{
+  const sentThread={getMessages:()=>[unrelated,result]};
+  x.context.GmailApp={getInboxThreads:()=>[],getThreadById:()=>undefined,search:(query,start,max)=>{
     assert.match(query,/in:sent/);assert.match(query,/\[ANNALS PHOTO RESULT V1\]/);assert.equal(start,0);assert.equal(max,10);return [sentThread];
   }};
-  x.context.annalsHandleCocktailPhotoResult_=m=>{handled.push(m.id);return m===result?'photo_result_stored_private':null;};
+  x.context.annalsHandleCocktailPhotoResult_=m=>{if(m===result){handled.push(m.id);return 'photo_result_stored_private';}return null;};
   x.context.annalsStageProduction_=m=>{staged.push(m.id);return 'staged';};
   Object.assign(x.props,{ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_AI_ENABLED:'true',ANNALS_OPENAI_API_KEY:'test',ANNALS_BUDGET_LEDGER:'{}',ANNALS_GITHUB_TOKEN:'test',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'owner/repo',ANNALS_REVIEW_URL:'https://script.google.com/macros/s/test/exec',ANNALS_ALLOWED_SENDERS:'member1@example.test,member2@example.test,member3@example.test,member4@example.test,member5@example.test,member6@example.test',ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z',ANNALS_PHOTO_WORKER_EMAIL:'annalsstammtisch@gmail.com'});
   x.root.getFolders=()=>iter([]);
   const summary=x.context.runAnnalsProductionIntake();
-  assert.equal(summary.photo_results,1);assert.equal(handled.filter(id=>id==='sent-result').length,1);
-  assert.deepEqual(staged,['member-inbox']);
+  assert.equal(summary.photo_results,1);assert.deepEqual(handled,['sent-result']);assert.deepEqual(staged,[]);
+});
+test('Sent photo cursor reaches results after the first ten threads across ordinary runs',()=>{
+  const x=mock(),handled=[];
+  const threads=Array.from({length:11},(_,i)=>({getMessages:()=>[{id:'result-'+i,getId(){return this.id;},getSubject:()=> '[ANNALS PHOTO RESULT V1] '+String(i).padStart(32,'a')}]}));
+  x.context.GmailApp={getInboxThreads:()=>[],getThreadById:()=>undefined,search:(query,start,max)=>threads.slice(start,start+max)};
+  x.context.annalsHandleCocktailPhotoResult_=m=>{handled.push(m.id);return 'photo_result_stored_private';};
+  Object.assign(x.props,{ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_AI_ENABLED:'true',ANNALS_OPENAI_API_KEY:'test',ANNALS_BUDGET_LEDGER:'{}',ANNALS_GITHUB_TOKEN:'test',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'owner/repo',ANNALS_REVIEW_URL:'https://script.google.com/macros/s/test/exec',ANNALS_ALLOWED_SENDERS:'member1@example.test,member2@example.test,member3@example.test,member4@example.test,member5@example.test,member6@example.test',ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z',ANNALS_PHOTO_WORKER_EMAIL:'annalsstammtisch@gmail.com'});
+  x.root.getFolders=()=>iter([]);
+  x.context.runAnnalsProductionIntake();
+  assert.equal(handled.length,10);assert.equal(x.props.ANNALS_SENT_PHOTO_CURSOR,'{"offset":10}');
+  x.context.runAnnalsProductionIntake();
+  assert.equal(handled.length,11);assert.equal(handled[10],'result-10');
+});
+test('Sent and Inbox overlap processes the result once and stages only the ordinary member message',()=>{
+  const x=mock(),handled=[],staged=[];
+  const result={id:'overlap-result',getId(){return this.id;},getSubject:()=> '[ANNALS PHOTO RESULT V1] '+'b'.repeat(32)};
+  const member={id:'member-inbox',getId(){return this.id;},getSubject:()=> 'member photo'};
+  const thread={getId:()=> 'mixed-thread',getMessages:()=>[result,member]};
+  x.context.GmailApp={getInboxThreads:()=>[thread],getThreadById:()=>thread,search:()=>[thread]};
+  x.context.annalsHandleCocktailPhotoResult_=m=>{if(m===result){handled.push(m.id);return 'photo_result_stored_private';}return null;};
+  x.context.annalsStageProduction_=m=>{staged.push(m.id);return 'staged';};
+  Object.assign(x.props,{ANNALS_PRODUCTION_INTAKE_ENABLED:'true',ANNALS_AI_ENABLED:'true',ANNALS_OPENAI_API_KEY:'test',ANNALS_BUDGET_LEDGER:'{}',ANNALS_GITHUB_TOKEN:'test',ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40),ANNALS_GITHUB_REPOSITORY:'owner/repo',ANNALS_REVIEW_URL:'https://script.google.com/macros/s/test/exec',ANNALS_ALLOWED_SENDERS:'member1@example.test,member2@example.test,member3@example.test,member4@example.test,member5@example.test,member6@example.test',ANNALS_ACTIVATED_AT:'2026-10-08T23:00:00Z',ANNALS_PHOTO_WORKER_EMAIL:'annalsstammtisch@gmail.com'});
+  x.root.getFolders=()=>iter([]);
+  x.context.runAnnalsProductionIntake();
+  assert.deepEqual(handled,['overlap-result']);assert.deepEqual(staged,['member-inbox']);
 });
 test('old and unknown messages are skipped before body reads and production intake copies no aggregate-oversize attachments', () => {
   const x=mock();x.files.delete('source-private.json');let bodyReads=0,copies=0;
