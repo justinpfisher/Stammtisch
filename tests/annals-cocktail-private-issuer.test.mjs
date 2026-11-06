@@ -537,6 +537,15 @@ function issuedPhotoResultFixture(){
  });
  return {f,indexName,index,jobRecord,job,digest,attemptId,generatedAt};
 }
+function bindGenerationAttempt(f,job,attemptId){
+ const generatedAt=new Date(Date.now()-1000).toISOString();
+ job.attemptId=attemptId;job.generatedAt=generatedAt;
+ f.folder.files.set('cocktail-photo-attempt-'+job.jobToken+'-private.json',{
+  schema:'annals-photo-attempt-v1',state:'generation_started',jobToken:job.jobToken,
+  attemptId,entryId:job.entryId,sourceSha256:job.sourceSha256,generatedAt
+ });
+ return generatedAt;
+}
 function workerMessage(f,job,result,attachments=[],sender='worker@example.invalid',subjectToken=job.jobToken){
  if(f.events.authenticated===undefined)f.events.authenticated=true;
  return {getId:()=> 'synthetic-photo-result-'+subjectToken,
@@ -746,8 +755,8 @@ test('held worker results and stale accepted dispatches send one generic private
  f.props.ANNALS_OWNER_EMAIL='owner@example.invalid';
  f.props.ANNALS_REVIEW_URL='https://script.google.com/macros/s/fictional-review';
  f.events.sends.length=0;
- const held={schema:'annals-photo-result-v1',jobToken:job.jobToken,entryId:job.entryId,
-  sourceSha256:job.sourceSha256,status:'held',reasonCode:'edit_failed'};
+ const held={schema:'annals-photo-result-v1',jobToken:job.jobToken,attemptId:job.attemptId,
+  entryId:job.entryId,sourceSha256:job.sourceSha256,status:'held',reasonCode:'edit_failed'};
  const message=workerMessage(f,job,held,[]);
  assert.equal(f.context.annalsHandleCocktailPhotoResult_(message),'photo_result_held');
  assert.equal(f.events.sends.length,1);
@@ -806,6 +815,7 @@ test('different photo jobs in one entry use independent private publication mark
  f.props.ANNALS_GITHUB_TOKEN='synthetic-github-token';
  f.props.ANNALS_PUBLISH_SIGNING_KEY='synthetic-separate-publication-signing-key';
  for(const [job,fill] of [[jobA,9],[jobB,10]]){
+  bindGenerationAttempt(f,job,job===jobA?'1'.repeat(32):'2'.repeat(32));
   const jpeg=editedJpeg(fill),message=workerMessage(f,job,qualifiedResult(job),
    [f.context.Utilities.newBlob(jpeg,'image/jpeg','x')]);
   assert.equal(f.context.annalsHandleCocktailPhotoResult_(message),'photo_publisher_dispatch_accepted');
