@@ -68,7 +68,7 @@ function annalsAuthentication_(message, sender) {
         !/^received:\s*from fwd1\.porkbun\.com(?:[\s(]|$)/i.test(googleReceiver)) return false;
   } else if (results.length !== 1) return false;
   var header = results[0].toLowerCase();
-  var domain = String(sender.split('@')[1] || '').replace(/[.*+?^${}()|[\]\]/g, '\\$&');
+  var domain = String(sender.split('@')[1] || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   if (!header || !/^mx\.google\.com(?:[\s;]|$)/.test(header) || !domain) return false;
   var dkim = new RegExp('dkim=pass[^;]*(?:header\\.d=' + domain + '(?:[\\s;]|$)|header\\.i=[^;\\s]*@' + domain + '(?:[\\s;]|$))');
   var dmarc = new RegExp('dmarc=pass[^;]*header\\.from=' + domain + '(?:[\\s;]|$)');
