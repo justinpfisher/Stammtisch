@@ -114,22 +114,25 @@ var AnnalsCocktailEditorial = (function () {
   var RESULT_QA=['sameGlass','sameDrinkAndGarnish','photorealisticSubject',
     'plausibleStemOrBase','sceneAppropriate','noArtifactsOrPrivateDetails',
     'noVisiblePeopleOrReflections'];
-  function validatePhotoResult(result,job,authenticatedSender,now){
+  function validatePhotoResult(result,job,authenticatedSender,now,expectedAttemptId){
     if(authenticatedSender!==true)throw Error('Authenticated worker sender required');
     if(!result||!job||result.schema!=='annals-photo-result-v1')
       throw Error('Invalid photo result contract');
+    var attemptBound=expectedAttemptId!==undefined;
+    if(attemptBound&&(!/^[a-f0-9]{32}$/.test(expectedAttemptId)||result.attemptId!==expectedAttemptId))
+      throw Error('Photo result attempt mismatch');
     if(result.jobToken!==job.jobToken||result.entryId!==job.entryId||
        result.sourceSha256!==job.sourceSha256)throw Error('Photo result source mismatch');
     if(result.status==='held'){
       if(Object.keys(result).sort().join(',')!==
-         'entryId,jobToken,reasonCode,schema,sourceSha256,status'||
+         (attemptBound?'attemptId,entryId,jobToken,reasonCode,schema,sourceSha256,status':'entryId,jobToken,reasonCode,schema,sourceSha256,status')||
          ['source_unreadable','identity_uncertain','edit_failed',
           'visual_qa_failed','attachment_unavailable','provenance_unavailable'].indexOf(result.reasonCode)<0)
         throw Error('Invalid held photo result');
       return {qualified:false,reason:result.reasonCode};
     }
     if(Object.keys(result).sort().join(',')!==
-       'alt,entryId,generatedAt,generationModel,generationProvider,jobToken,qa,reviewedAt,schema,sourceSha256,status'||
+       (attemptBound?'alt,attemptId,entryId,generatedAt,generationModel,generationProvider,jobToken,qa,reviewedAt,schema,sourceSha256,status':'alt,entryId,generatedAt,generationModel,generationProvider,jobToken,qa,reviewedAt,schema,sourceSha256,status')||
        result.status!=='qualified'||!result.qa||Array.isArray(result.qa)||
        Object.keys(result.qa).sort().join(',')!==RESULT_QA.slice().sort().join(',')||
        RESULT_QA.some(function(k){return result.qa[k]!==true}))
