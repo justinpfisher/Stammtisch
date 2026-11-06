@@ -755,6 +755,28 @@ function runAnnalsProductionIntake() {
           } catch (ignored) { summary.staging_errors++; }
         }
       }
+      // Sent mailbox messages can only enter the photo-result verifier. They
+      // never pass through member staging; exact per-message SENT is checked there.
+      if(String(p.getProperty('ANNALS_PHOTO_WORKER_EMAIL')||'').trim()){
+        try{
+          var sentThreads=GmailApp.search('in:sent subject:"[ANNALS PHOTO RESULT V1]" newer_than:7d',0,10);
+          for(var sentThreadIndex=0;sentThreadIndex<sentThreads.length;sentThreadIndex++){
+            var sentMessages=sentThreads[sentThreadIndex].getMessages();
+            for(var sentMessageIndex=Math.max(0,sentMessages.length-3);sentMessageIndex<sentMessages.length;sentMessageIndex++){
+              var sentMessage=sentMessages[sentMessageIndex],sentId,sentSubject='';
+              try{sentSubject=String(sentMessage.getSubject()||'');}catch(ignored){continue;}
+              if(!/^\[ANNALS PHOTO RESULT V1\] [a-f0-9]{32}$/i.test(sentSubject))continue;
+              try{sentId=sentMessage.getId();}catch(ignored){continue;}
+              if(typeof sentId!=='string'||!sentId||Object.prototype.hasOwnProperty.call(seenInRun,sentId))continue;
+              seenInRun[sentId]=true;
+              var sentOutcome=null;
+              try{if(typeof annalsHandleCocktailPhotoResult_==='function')sentOutcome=annalsHandleCocktailPhotoResult_(sentMessage);}
+              catch(ignored){sentOutcome='photo_result_held';}
+              if(sentOutcome!==null){summary.photo_results++;if(sentOutcome==='photo_result_held')summary.held++;}
+            }
+          }
+        }catch(ignored){summary.staging_errors++;}
+      }
       for (var recentIndex = 0; recentIndex < recent.length; recentIndex++) {
         var recentMessages = recent[recentIndex].getMessages();
         for (var recentMessage = Math.max(0, recentMessages.length - 3);
