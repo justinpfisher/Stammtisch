@@ -1793,18 +1793,20 @@ function annalsAutoPublishCandidate_(id, allowHeldRecovery) {
       AnnalsPilot.allowedSenders(p.getProperty('ANNALS_ALLOWED_SENDERS') || '').length !== 6) return false;
   var folder = annalsFolder_(id);
   if (annalsFile_(folder, 'quarantine-private.json')) return false;
-  var previous = annalsRead_(folder, 'approval-private.json');
-  if (previous) return [AnnalsAuto.MODE,AnnalsAuto.QUOTE_MODE,AnnalsMediaPolicy.MODE,'standing-consent-photos-v2'].indexOf(previous.approvalMode) >= 0 && previous.publicationState === 'dispatch_accepted';
+  var previousFile = annalsFile_(folder, 'approval-private.json'), previous = annalsRead_(folder, 'approval-private.json');
+  if (previousFile) return !!previous && [AnnalsAuto.MODE,AnnalsAuto.QUOTE_MODE,AnnalsMediaPolicy.MODE,'standing-consent-photos-v2'].indexOf(previous.approvalMode) >= 0 && previous.publicationState === 'dispatch_accepted';
   var source = annalsRead_(folder, 'source-private.json'), draft = annalsRead_(folder, 'draft-private.json');
   var priorDecision = annalsRead_(folder, 'auto-decision-private.json');
   var recoveryAttempt = annalsRead_(folder, 'reassessment-attempt-private.json');
+  var resumableEligible = priorDecision && priorDecision.state === 'eligible' &&
+    !previousFile && !annalsFile_(folder, 'publication-dispatch-private.json');
   var heldRecovery = allowHeldRecovery === true && priorDecision &&
     priorDecision.state === 'held' && recoveryAttempt && recoveryAttempt.state === 'attempt_reserved' &&
     recoveryAttempt.owner === annalsOwner_() && recoveryAttempt.aiCall === false && recoveryAttempt.dispatchWasAbsent === true &&
     source && draft && recoveryAttempt.sourceDigest === annalsHash_(AnnalsProduction.serial(source.source)) &&
     recoveryAttempt.draftDigest === annalsHash_(AnnalsProduction.serial(draft)) &&
     !annalsRead_(folder, 'auto-reassessment-private.json');
-  if (priorDecision && !heldRecovery) return false; // no silent retries
+  if (priorDecision && !heldRecovery && !resumableEligible) return false; // no silent retries
   if (!priorDecision && recoveryAttempt) return false;
   if (!source || !draft || !annalsOrdinaryPublicationAllowed_(source) ||
     source.source.sourceTruncated || source.source.subjectTruncated || source.source.excerptTruncated ||
@@ -1844,12 +1846,15 @@ function annalsAutoPublishCandidate_(id, allowHeldRecovery) {
     AnnalsProduction.serial({ entry: entry, receipt: receipt }), p.getProperty('ANNALS_APPROVAL_KEY'), Utilities.Charset.UTF_8));
   var publication = annalsPublicApproval_(entry, receipt, p.getProperty('ANNALS_PUBLISH_SIGNING_KEY'));
   if (!publication || publication.mode !== decision.mode) return false;
+  if (resumableEligible && (priorDecision.policy !== decision.mode ||
+      priorDecision.contentSha256 !== hash ||
+      priorDecision.sourceDigest !== annalsHash_(String(source.source.subject || '') + '\n' + String(source.source.excerpt || '')))) return false;
   // Both consent records and the accuracy/eligibility reason stay private.
-  annalsWriteOnce_(folder, heldRecovery ? 'auto-reassessment-private.json' : 'auto-decision-private.json', {
-    state: 'eligible', policy: decision.mode,
-    sourceDigest: annalsHash_(String(source.source.subject || '') + '\n' + String(source.source.excerpt || '')),
-    contentSha256: hash, consentCheckedAt: new Date().toISOString()
-  });
+  if (!resumableEligible) annalsWriteOnce_(folder, heldRecovery ? 'auto-reassessment-private.json' : 'auto-decision-private.json', {
+      state: 'eligible', policy: decision.mode,
+      sourceDigest: annalsHash_(String(source.source.subject || '') + '\n' + String(source.source.excerpt || '')),
+      contentSha256: hash, consentCheckedAt: new Date().toISOString()
+    });
   var saved = { entry: entry, receipt: receipt, publication: publication, approvalMode: decision.mode,
     evidenceNote: 'Authenticated member; separate standing consents active at receipt and signing; deterministic source-grounded policy accepted.',
     uncertaintiesReviewed: true, publicationState: 'approved_private_pending_publish' };

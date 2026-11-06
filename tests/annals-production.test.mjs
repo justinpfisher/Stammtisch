@@ -94,6 +94,57 @@ test('review UI correction and removal buttons require exact review evidence and
   assert.match(ui,/call\('annalsSaveCorrection'/);assert.match(ui,/call\('annalsApproveCorrection'/);assert.match(ui,/call\('annalsApproveRemoval'/);
   assert.match(ui,/GitHub's permanent commit history may still retain old content/);
 });
+test('an eligible auto-decision resumes only when approval is absent and its recomputed source/content still match', () => {
+  function run(mismatch) {
+    const x=mock();
+    Object.assign(x.props, { ANNALS_AUTO_PUBLICATION_ENABLED:'true',
+      ANNALS_GITHUB_REPOSITORY:'justinpfisher/Stammtisch', ANNALS_GITHUB_TOKEN:'synthetic-token',
+      ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40), ANNALS_ACTIVATED_AT:'2026-10-01T00:00:00Z' });
+    const source={senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,
+      aiConsentActive:true,autoConsentAtReceipt:true,imageConsentAtReceipt:false,
+      source:{sender:'member1@example.test',subject:'Fictional Test Mule',
+        excerpt:'Fictional Test Mule\n1 oz invented syrup\n2 oz imaginary juice\nStir the invented liquids.',
+        receivedAt:'2026-10-09T00:00:00Z'},
+      attachmentManifest:{items:[]}};
+    x.files.get('source-private.json').setContent(JSON.stringify(source));
+    const savedDraft={category:'cocktail',title:'Fictional Test Mule',summary:'An invented test recipe',eventDate:'',quoteVerbatim:'',
+      riskFlags:[],interpretation:{intent:'recipe',speakerId:'unknown',evidenceField:'body'},
+      recipe:{drinkIngredients:['1 oz invented syrup','2 oz imaginary juice'],syrupIngredients:[],steps:['Stir the invented liquids.']}};
+    x.folder.createFile('draft-private.json',JSON.stringify(savedDraft));
+    const id='a'.repeat(64), proposed=x.context.AnnalsAuto.propose(source,savedDraft,id),
+      mode=proposed.mode;
+    assert.equal(proposed.eligible,true);
+    const recomputed=x.context.AnnalsMediaPolicy.enrich(source,savedDraft,id,proposed,null),
+      publicEntry=x.context.AnnalsProduction.publicEntry(recomputed.entry);
+    const sourceDigest=x.context.annalsHash_(source.source.subject+'\n'+source.source.excerpt),
+      contentSha256=x.context.annalsHash_(x.context.AnnalsProduction.serial(publicEntry));
+    assert.equal(recomputed.mode,mode);
+    const originalDecision={state:'eligible',policy:mode,sourceDigest:mismatch?'0'.repeat(64):sourceDigest,
+      contentSha256,consentCheckedAt:'2026-10-09T00:10:00Z'};
+    x.folder.createFile('auto-decision-private.json',JSON.stringify(originalDecision));
+    let dispatches=0;
+    x.context.annalsOrdinaryPublicationAllowed_=()=>true;
+    x.context.annalsPhotosReady_=()=>false;
+    x.context.annalsContributorPortrait_=()=>null;
+    x.context.annalsPublicApproval_=()=>({mode});
+    x.context.annalsDispatchApproved_=()=>{dispatches++;return true;};
+    const accepted=x.context.annalsAutoPublishCandidate_(id);
+    return {x,accepted,dispatches,originalDecision};
+  }
+  const recovered=run(false);
+  assert.equal(recovered.accepted,true);
+  assert.equal(recovered.dispatches,1);
+  assert.equal(recovered.x.calls.ai,0);
+  assert.ok(recovered.x.files.has('approval-private.json'));
+  assert.deepEqual(JSON.parse(recovered.x.files.get('auto-decision-private.json').getBlob().getDataAsString()),recovered.originalDecision,
+    'the original eligible decision is retained without rewriting its journal');
+  const stale=run(true);
+  assert.equal(stale.accepted,false);
+  assert.equal(stale.dispatches,0);
+  assert.equal(stale.x.files.has('approval-private.json'),false);
+});
+
+
 test('budget admits at most fifty ten-cent attempts, never refunds uncertainty, rolls month safely', () => {
   let ledger={schemaVersion:1,month:'2026-10',reservedCents:0};
   for(let i=0;i<50;i++) ledger=core.reserve(ledger,'2026-10');
