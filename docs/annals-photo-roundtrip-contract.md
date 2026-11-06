@@ -25,7 +25,7 @@ The included native image worker replies to the Annals account:
 - `schema` is `annals-photo-result-v1`. A `qualified` result has exactly the common fields plus `qa` and `alt`; it requires exactly seven true booleans: `sameGlass`, `sameDrinkAndGarnish`, `photorealisticSubject`, `plausibleStemOrBase`, `sceneAppropriate`, `noArtifactsOrPrivateDetails`, `noVisiblePeopleOrReflections`. Drink renditions remove visible people, body parts and person reflections while preserving the exact drink and glass. The MIME message must include exactly one JPEG for this variant. Any false/missing flag holds the result.
 - A `held` result has exactly `schema, jobToken, entryId, sourceSha256, status, reasonCode`, where `reasonCode` is one of `source_unreadable`, `identity_uncertain`, `edit_failed`, `visual_qa_failed`, or `attachment_unavailable`. Human presence or uncertain person identity alone is never a reason to hold a member photo. Ordinary group photos remain on the authentic-photo route and are not transformed into cocktail imagery. It has no image attachment, provenance, `qa`, `alt`, or free-text error. This variant reports failure without implying an image or successful checks exists.
 - `alt` is a bounded accessible description (20–240 characters) beginning `AI-stylized`. It must identify a cropped stem/base as an editorial reconstruction when extended. It must not claim reconstructed details were present in the original. The qualified variant also includes ISO timestamps for generation and visual review, `generationProvider: openai-chatgpt`, and `generationModel: undisclosed`; the receiver checks that these times follow the job send and do not claim a future review.
-- The random token is only a correlation/replay identifier, not a bearer credential or rights grant. Sender authentication is verified from the received message's authentication evidence and exact qualified address; a From header, body, token or subject alone never authenticates a result. The token must match one unexpired, unused private job. Entry ID and source hash must match that job and the currently signed source.
+- The random token is only a correlation/replay identifier, not a bearer credential or rights grant. A result is read from the Annals mailbox and accepted only when the configured worker address matches the effective Annals account and Gmail metadata for that exact message ID reports the `SENT` system label. `SENT` is owner-mailbox write provenance, not proof of an SMTP round trip; the From header, body, token or subject alone never authenticates a result. The token must match one unexpired, unused private job. Entry ID and source hash must match that job and the currently signed source.
 
 ## Typed signed publisher event
 
@@ -43,11 +43,8 @@ A qualified result is not an approval by itself. Immediately before publication,
 
 The original photo stays reachable as fallback. There is no second intake trigger, publisher, public endpoint, credential or signing key.
 
-## Parent-owned Gmail event filters
+## Worker activation boundary
 
-Only after a bounded private qualification event proves the actual authenticated sender and routing:
+The existing installable five-minute Apps Script trigger executes as its Annals-owned creator. During each run, intake performs a bounded search of recent Annals Sent threads for exact photo-result subjects and passes only those messages to the result verifier. Sent messages never enter member staging. The verifier reads per-message Gmail metadata; it does not rely on thread labels or sender authentication headers.
 
-1. Worker mailbox: exact Annals sender **and** subject prefix `[ANNALS PHOTO JOB v1]`.
-2. Annals mailbox: exact worker sender **and** subject prefix `[ANNALS PHOTO RESULT v1]`.
-
-Use a case-insensitive anchored exact-address sender pattern only after verifying the actual address; do not guess or broaden the filter. The event is a wake-up only: retrieve the message and attachment, then perform all server-side validation above. No filter or automation is active by virtue of this contract or source tests.
+The manifest uses the existing `mail.google.com/` OAuth grant and enables the Gmail Advanced Service for per-message metadata. No Gmail event filter or account-ambiguous webhook is used. The dedicated `ANNALS_PHOTO_WORKFLOW_ENABLED` property remains off until one fresh private canary verifies the complete AI edit and returned result.
