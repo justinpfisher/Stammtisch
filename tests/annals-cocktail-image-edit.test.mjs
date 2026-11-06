@@ -68,6 +68,7 @@ const flags=[
   'realisticTransparencyAndRefraction','believableReflectionsAndCondensation','coherentSceneLighting',
   'realisticSurfaceContact','subjectSpecificSetting','convincingPhotographicDepth',
   'noSegmentationOrGenerationArtefacts','noAddedIngredientsOrPeople',
+  'noVisiblePeopleOrReflections',
   'noIdentifyingOrPrivateContent','comparableMoodyAtmosphere'
 ];
 const passedReview=()=>Object.fromEntries([
@@ -190,7 +191,16 @@ test('visual reviewer receives sanitized setting context and directs reconstruct
   assert.match(reviewerText,/Do not include that disclosure as text in the picture/);
   assert.match(reviewerText,/coherent scene-appropriate lighting \(warm or cool as the scene requires\)/);
   assert.match(reviewerText,/Require true drink colour and coherent reflections, not a blanket colour tint/);
+  assert.match(reviewerText,/contains no visible people, faces, bodies, hands, arms, partial torsos or person reflections/);
   assert.doesNotMatch(reviewerText,/private synthetic subject|private synthetic body/);
+});
+test('drink rendition removes source background people while preserving the exact drink and glass',()=>{
+  const prompt=cocktailArtPrompt({entryId:'fictional-cocktail',sourceAlt:'Amber drink with a hand in the background'});
+  assert.match(prompt,/Remove all visible people from the drink rendition/);
+  assert.match(prompt,/hands, arms, partial torsos and person reflections/);
+  assert.match(prompt,/do not erase, alter or obscure any part of the drink or glass/);
+  assert.ok(flags.includes('noVisiblePeopleOrReflections'));
+  assert.equal(qualifyVisualReview({...passedReview(),noVisiblePeopleOrReflections:false}).qualified,false);
 });
 test('Sunburst request uses actual source bytes first, reference second, and NEVER a generation endpoint',()=>{
   const request=makeSunburstEditRequest({

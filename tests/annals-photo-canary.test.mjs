@@ -66,7 +66,7 @@ function harness({bytes=derivative,attachments=1,expired=false}={}){
   annalsRoot_:()=>root};
  vm.createContext(context);vm.runInContext(authSource+'\n'+jobTransport+'\n'+handler+'\n'+canary,context,{timeout:10000});
  const qa={sameGlass:true,sameDrinkAndGarnish:true,photorealisticSubject:true,plausibleStemOrBase:true,
-  sceneAppropriate:true,noArtifactsOrPrivateDetails:true};
+  sceneAppropriate:true,noArtifactsOrPrivateDetails:true,noVisiblePeopleOrReflections:true};
  const result={schema:'annals-photo-result-v1',jobToken:token,entryId,sourceSha256:job.sourceSha256,
   status:'qualified',qa,alt:'AI-stylized fictional amber drink in a simple glass.',
   generatedAt:'2026-11-01T11:30:00.000Z',reviewedAt:'2026-11-01T11:35:00.000Z',

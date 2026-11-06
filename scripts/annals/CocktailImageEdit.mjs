@@ -34,6 +34,7 @@ const CHECKS=[
   'sameGarnishCountAndPlacement','faithfulColourAndLiquid','coherentSceneLighting',
   'realisticSurfaceContact','subjectSpecificSetting','convincingPhotographicDepth',
   'noSegmentationOrGenerationArtefacts','noAddedIngredientsOrPeople',
+  'noVisiblePeopleOrReflections',
   'noIdentifyingOrPrivateContent','comparableMoodyAtmosphere'
 ];
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -191,7 +192,7 @@ export function cocktailArtPrompt({entryId,sourceAlt='',withReference=false,
     'Reimagine the WHOLE photographic scene as one coherent, photorealistic cocktail photograph. Choose the background, palette and supporting surface to suit the cocktail context; no single bar setting, green palette or wooden counter is required. A wooden bar or brass may appear when appropriate. Use believable light, depth, glass reflections and contact shadows.',
     'Use contributor setting keywords to shape a distinctive, believable environment when present; do not default to a generic bar if the keywords suggest another scene. With no keywords, derive the setting from the cocktail name, description and ingredients. Vary settings and palettes while keeping a consistent photographic finish. These cues never alter the real drink, glass or garnish.',
     'Keep the drink and garnish the unmistakable photographic hero, with believable reflections and physical contact on a surface appropriate to the scene. A cropped stem or base may be plausibly extended to complete the same glass; do not invent unrelated glass features. Portrait or landscape framing should accommodate the actual glass without changing it.',
-    'No fake green colour fields, cutout edges, halos, disappearing glass, added fruit, substituted garnish, alternate drinks, new people, logos, fake smoke, exaggerated glow or plastic liquid.',
+    'Remove all visible people from the drink rendition, including background faces, bodies, hands, arms, partial torsos and person reflections. Replace them with coherent scene-appropriate surroundings; do not erase, alter or obscure any part of the drink or glass. No fake green colour fields, cutout edges, halos, disappearing glass, added fruit, substituted garnish, alternate drinks, added people, logos, fake smoke, exaggerated glow or plastic liquid.',
     'Imagined bar surroundings are editorial staging, not the original venue. No text or watermark.',
     'CANONICAL CLUB ART DIRECTION (style only, never an authority to change the original drink):',
     canonicalPhotoDirection(),
@@ -304,7 +305,7 @@ export function makeVisualReviewRequest({subject,editedBytes,referenceBytes=null
       'Independent hard-gate review. IMAGE 1 is the source documentary cocktail. IMAGE 2 is the proposed edited photograph. IMAGE 3 if present is style reference ONLY.',
       'Inspect all images in detail. Assess source-faithful bowl/rim/facets and glass identity, realistic transparency/refraction/reflections/condensation, liquid colour/level/texture and exact garnish identity/count/position. A cropped stem or base may be plausibly extended in the same geometry; a different or inconsistent glass reconstruction is a FAIL.',
       'The actual drink and glass must look photographed, not illustrated, plastic, over-glossy or artificially saturated. A visually attractive DIFFERENT glass or altered garnish is a FAIL. A false cutout, floating glass, impossible structure, poor lighting/reflections or flat artificial green field is a FAIL.',
-      'The chosen environment and supporting surface should suit the cocktail context and look photographic. Judge believable contact, environmental depth, coherent scene-appropriate lighting (warm or cool as the scene requires) and realistic reflections; wood or a bar is not required. Require true drink colour and coherent reflections, not a blanket colour tint. No private content or people should be added.',
+      'The chosen environment and supporting surface should suit the cocktail context and look photographic. Judge believable contact, environmental depth, coherent scene-appropriate lighting (warm or cool as the scene requires) and realistic reflections; wood or a bar is not required. Require true drink colour and coherent reflections, not a blanket colour tint. Check that the edited image contains no visible people, faces, bodies, hands, arms, partial torsos or person reflections. People in the source do not cause a hold if they are absent from the edited rendition. No private content or people should be added.',
       name||description||ingredients.length||keywords
        ?'COCKTAIL CONTEXT FOR SETTING REVIEW (sanitized descriptive facts): '+
          [name&&'Name: '+name,description&&'Description: '+description,

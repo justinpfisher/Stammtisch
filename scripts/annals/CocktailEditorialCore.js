@@ -67,8 +67,7 @@ var AnnalsCocktailEditorial = (function () {
         input.signedPhotoVerified!==true ||
         input.originalRightsVerified!==true ||
         input.cocktailCategoryVerified!==true ||
-        input.safePhotoScreeningVerified!==true ||
-        input.noUnconsentedPeopleOrPrivateDetails!==true)
+        input.safePhotoScreeningVerified!==true)
       return fail('specific_photo_evidence_not_verified');
     return {eligible:true,reason:'qualified_private_evidence_only'};
   }
@@ -113,7 +112,8 @@ var AnnalsCocktailEditorial = (function () {
       keywords:boundedVisualText(input.keywords,160)};
   }
   var RESULT_QA=['sameGlass','sameDrinkAndGarnish','photorealisticSubject',
-    'plausibleStemOrBase','sceneAppropriate','noArtifactsOrPrivateDetails'];
+    'plausibleStemOrBase','sceneAppropriate','noArtifactsOrPrivateDetails',
+    'noVisiblePeopleOrReflections'];
   function validatePhotoResult(result,job,authenticatedSender,now){
     if(authenticatedSender!==true)throw Error('Authenticated worker sender required');
     if(!result||!job||result.schema!=='annals-photo-result-v1')

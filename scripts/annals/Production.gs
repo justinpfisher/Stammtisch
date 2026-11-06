@@ -327,7 +327,7 @@ function annalsHandleConsentReply_(sender, body) {
   if (member && member.photoSubjects && text === 'REVOKE ANNALS PHOTO DEPICTION') {
     member.photoSubjects.status='revoked';member.photoSubjects.revokedAt=new Date().toISOString();
     annalsSavePrivate_(root,'consent-registry-private.json',registry);
-    GmailApp.sendEmail(sender,'Annals photographic depiction revoked','Future group photographs are held. Contact the owner for correction or withdrawal of existing entries.');
+    GmailApp.sendEmail(sender,'Annals photo preference recorded','This preference no longer places people-based holds on authenticated member-submitted photos. The existing member authentication, image-publication consent and source-rights checks still apply. Contact the owner if you want an existing photo reviewed for withdrawal.');
     return 'image_consent_revoked';
   }
   if (member && text === 'HIDE MY ANNALS PORTRAIT') {
@@ -901,8 +901,8 @@ function annalsInviteAutoPublicationConsent(nonce, email) {
     member.autoPublication = { status: 'pending', scope: 'future_source_grounded_text_and_screened_image_publication',
       invitedAt: new Date().toISOString(), challenge: challenge };
     annalsSavePrivate_(root, 'consent-registry-private.json', registry);
-    GmailApp.sendEmail(address, 'One-time choice: automatic Annals text and safe photographs',
-      'This is a separate, optional and revocable authorisation. If you agree, your original text and safe photographs that you own or are permitted to share can publish automatically on the PUBLIC Stammtisch website and in permanent PUBLIC GitHub history without per-entry review. A private AI service may analyse submitted images, and only a screened, metadata-stripped small image derivative can be public. The Club owner confirms that the six members have agreed to photos, but any guests or other identifiable people still need their own permission. Strong profanity may be visibly censored; attribution defaults to anonymous. If the content is unsafe, it stays private. You affirm that you hold the rights needed for the content you send. Withdrawal cannot erase previous GitHub history.\n\nTo opt in, reply with this exact sentence:\n\nI CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT AND SCREENED PHOTO PUBLICATION. CODE: ' + challenge +
+    GmailApp.sendEmail(address, 'One-time choice: automatic Annals text and photographs',
+      'This is a separate, optional and revocable authorisation. If you agree, your original text and photographs that you own or are permitted to share can publish automatically on the PUBLIC Stammtisch website and in permanent PUBLIC GitHub history without per-entry review. Authenticated member-submitted photos are not held merely because people appear in them. A private AI service may analyse submitted images, and only a screened, metadata-stripped small image derivative can be public. Actual sensitive/private details and source-rights issues remain screened. Strong profanity may be visibly censored; attribution defaults to anonymous. If the content is unsafe for another specific reason, it stays private. You affirm that you hold the rights needed for the content you send. Withdrawal cannot erase previous GitHub history.\n\nTo opt in, reply with this exact sentence:\n\nI CONSENT TO AUTOMATIC PUBLIC ANNALS TEXT AND SCREENED PHOTO PUBLICATION. CODE: ' + challenge +
       '\n\nTo revoke, send: REVOKE ANNALS AUTOMATIC PUBLICATION. Your private AI-processing consent is separate.');
     return { invited: true };
   }); });
