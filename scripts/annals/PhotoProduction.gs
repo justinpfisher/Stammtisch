@@ -329,9 +329,6 @@ function annalsReconcilePhotoBlobs_(entry,approval,uploadRecord,refs,uploads){
       if(actualGitSha!==ref.gitSha)return null;
       var clean=AnnalsMedia.sanitize(bytes,true);
       if(annalsHash_(clean.bytes)!==ref.sha256||clean.width!==photo.width||clean.height!==photo.height)return null;
-      if(typeof AnnalsPhotoDerivative==='undefined'||typeof AnnalsJpegCodec==='undefined')return null;
-      var thumb=AnnalsPhotoDerivative.thumbnail(clean.bytes,AnnalsJpegCodec,AnnalsMedia);
-      if(!thumb||!thumb.bytes||thumb.bytes.length>98304)return null;
     }catch(ignored){return null;}
   }
   return refs;

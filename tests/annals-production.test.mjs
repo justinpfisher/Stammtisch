@@ -2150,3 +2150,70 @@ test('ineligible legacy history sources may be withdrawn but cannot be republish
   assert.equal(x.calls.ai,0);
   assert.equal(x.files.has('publication-dispatch-private.json'),false);
 });
+
+
+test('automatic continuation reconciles a pending signed photo approval and dispatches once without model or upload replay', () => {
+  const x=mock(), c=x.context, id='b'.repeat(64), mode='standing-consent-photos-v2';
+  Object.assign(x.props, { ANNALS_AUTO_PUBLICATION_ENABLED:'true', ANNALS_PHOTO_BLOB_TRANSPORT_ENABLED:'true',
+    ANNALS_PHOTOS_V2_ENABLED:'true', ANNALS_PHOTOS_HOSTED_ACCEPTED:'true',
+    ANNALS_GITHUB_REPOSITORY:'justinpfisher/Stammtisch', ANNALS_GITHUB_TOKEN:'synthetic-token',
+    ANNALS_PUBLISH_SIGNING_KEY:'p'.repeat(40), ANNALS_ACTIVATED_AT:'2026-10-01T00:00:00Z' });
+  const source={senderAuthenticated:true,clubMemberAuthenticated:true,externalContributionAtReceipt:false,
+    aiConsentActive:true,autoConsentAtReceipt:true,imageConsentAtReceipt:true,
+    source:{sender:'member1@example.test',subject:'Fictional drink photo',excerpt:'Authenticated source.',receivedAt:'2026-10-09T00:00:00Z'},
+    attachmentManifest:{items:[{mimeType:'image/jpeg',accepted:true}]}};
+  x.files.get('source-private.json').setContent(JSON.stringify(source));
+  const bytes=Buffer.from('already-validated derivative bytes'),sha256=createHash('sha256').update(bytes).digest('hex'),
+    gitSha=createHash('sha1').update(Buffer.concat([Buffer.from('blob '+bytes.length+'\0'),bytes])).digest('hex');
+  const photo={sha256,width:1200,height:800,alt:'Fictional test drink'};
+  const entry={id:'annal-'+id.slice(0,24),category:'cocktail',title:'Fictional test drink',summary:'Temporary test image.',
+    year:2026,dateLabel:'',sortDate:'',credit:'anonymous',quoteVerbatim:'',
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]},photos:[photo],submittedAt:'2026-10-09T00:00:00Z',eventPeriod:''};
+  const receipt={entryId:entry.id,approvedAt:'2026-10-09T00:30:00Z',reviewedBy:'standing-consent-image-automation-v1',
+    consents:{publication:true,quotePublication:false,recipeVerified:false,namedAttribution:false,photoPublication:true},
+    contentSha256:c.annalsHash_(c.AnnalsProduction.serial(entry)),signature:'f'.repeat(64)};
+  const publication={mode,entryId:entry.id,approvedAt:receipt.approvedAt,consents:receipt.consents,
+    contentSha256:receipt.contentSha256,signature:'a'.repeat(64)};
+  const sourceDigest=c.annalsHash_(source.source.subject+'\n'+source.source.excerpt);
+  x.folder.getName=()=>id;
+  x.folder.createFile('auto-decision-private.json',JSON.stringify({state:'eligible',policy:mode,sourceDigest,
+    contentSha256:receipt.contentSha256,consentCheckedAt:'2026-10-09T00:20:00Z'}));
+  x.folder.createFile('approval-private.json',JSON.stringify({entry,receipt,publication,approvalMode:mode,
+    publicationState:'approved_private_pending_publish'}));
+  const refs=[{sha256,gitSha,size:bytes.length}];
+  x.folder.createFile('photo-upload-private.json',JSON.stringify({state:'attempt_reserved',at:'2026-10-09T00:31:00Z',
+    contentSha256:receipt.contentSha256,refs,completed:0}));
+  c.annalsOrdinaryPublicationAllowed_=()=>true;
+  c.annalsPrivateReceiptValid_=()=>true;
+  c.annalsPublicApproval_=()=>publication;
+  c.annalsPhotosReady_=()=>true;
+  c.annalsPublisherDispatchReady_=()=>true;
+  c.annalsOrdinarySourceGate_=()=>{};
+  c.annalsStandingGalleryCorrectionAllowed_=()=>true;
+  c.annalsPhotoSet_=()=>[{...photo,base64:bytes.toString('base64')}];
+  c.AnnalsPhotos={validate:()=>true,blobRefs:(_photos,actual)=>actual};
+  c.AnnalsMedia={sanitize:(value)=>({bytes:Buffer.from(value),width:1200,height:800})};
+  c.AnnalsPhotoDerivative={thumbnail:()=>({bytes:Buffer.from([1,2,3])})};
+  c.AnnalsJpegCodec={};
+  c.Utilities.DigestAlgorithm.SHA_1='sha1';
+  c.Utilities.computeDigest=(algorithm,value)=>[...createHash(algorithm).update(Buffer.isBuffer(value)?value:Buffer.from(value)).digest()];
+  let gets=0,posts=0,dispatches=0;
+  c.UrlFetchApp.fetch=(url,options)=>{if(options.method==='get'){gets++;
+    assert.equal(url,'https://api.github.com/repos/justinpfisher/Stammtisch/git/blobs/'+gitSha);
+    return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({sha:gitSha,size:bytes.length,encoding:'base64',content:bytes.toString('base64')})};
+  }posts++;throw new Error('No upload POST is permitted during reconciliation');};
+  c.annalsDispatchEvent_=(folder,eventType,payload,marker)=>{dispatches++;
+    assert.equal(eventType,'annals-auto-entry');assert.equal(marker,'publication-dispatch-private.json');
+    assert.deepEqual(JSON.parse(JSON.stringify(payload.imageBlobs)),refs);
+    c.annalsWriteOnce_(folder,marker,{state:'accepted'});return true;};
+  vm.runInContext(readFileSync(new URL('../scripts/annals/PhotoProduction.gs',import.meta.url),'utf8'),c);
+  c.annalsPhotosReady_=()=>true;
+  c.annalsStandingGalleryCorrectionAllowed_=()=>true;
+  c.annalsPhotoSet_=()=>[{...photo,base64:bytes.toString('base64')}];
+  const accepted=c.annalsAutoAttemptSafe_(x.folder,id);
+  assert.equal(accepted,true);assert.equal(gets,1);assert.equal(posts,0);assert.equal(dispatches,1);assert.equal(x.calls.ai,0);
+  assert.equal(x.files.get('publication-dispatch-private.json')!==undefined,true);
+  assert.equal(JSON.parse(x.files.get('approval-private.json').getBlob().getDataAsString()).publicationState,'dispatch_accepted');
+  assert.equal(JSON.parse(x.files.get('photo-upload-private.json').getBlob().getDataAsString()).state,'attempt_reserved',
+    'the original uncertain upload record is not rewritten as success');
+});

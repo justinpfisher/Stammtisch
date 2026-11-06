@@ -1841,7 +1841,37 @@ function annalsAutoPublishCandidate_(id, allowHeldRecovery) {
   var folder = annalsFolder_(id);
   if (annalsFile_(folder, 'quarantine-private.json')) return false;
   var previousFile = annalsFile_(folder, 'approval-private.json'), previous = annalsRead_(folder, 'approval-private.json');
-  if (previousFile) return !!previous && [AnnalsAuto.MODE,AnnalsAuto.QUOTE_MODE,AnnalsMediaPolicy.MODE,'standing-consent-photos-v2'].indexOf(previous.approvalMode) >= 0 && previous.publicationState === 'dispatch_accepted';
+  if (previousFile) {
+    if (!previous || [AnnalsAuto.MODE,AnnalsAuto.QUOTE_MODE,AnnalsMediaPolicy.MODE,'standing-consent-photos-v2'].indexOf(previous.approvalMode) < 0) return false;
+    if (previous.publicationState === 'dispatch_accepted') return true;
+    if (previous.publicationState !== 'approved_private_pending_publish' ||
+        !previous.entry || !Array.isArray(previous.entry.photos) ||
+        !previous.publication || annalsFile_(folder, 'publication-dispatch-private.json')) return false;
+    var pendingSource = annalsRead_(folder, 'source-private.json'),
+      pendingDecision = annalsRead_(folder, 'auto-decision-private.json'),
+      pendingReceipt = previous.receipt,
+      pendingEntry = previous.entry,
+      pendingSourceDigest = pendingSource && annalsHash_(String(pendingSource.source.subject || '') + '\n' + String(pendingSource.source.excerpt || '')),
+      pendingApproval = pendingReceipt && annalsPublicApproval_(pendingEntry, pendingReceipt, p.getProperty('ANNALS_PUBLISH_SIGNING_KEY'));
+    if (!pendingSource || !pendingDecision || pendingDecision.state !== 'eligible' ||
+        pendingDecision.policy !== previous.approvalMode ||
+        pendingDecision.sourceDigest !== pendingSourceDigest ||
+        !annalsOrdinaryPublicationAllowed_(pendingSource) ||
+        !annalsPrivateReceiptValid_(pendingEntry, pendingReceipt) ||
+        pendingReceipt.entryId !== pendingEntry.id ||
+        pendingReceipt.contentSha256 !== annalsHash_(AnnalsProduction.serial(pendingEntry)) ||
+        pendingDecision.contentSha256 !== pendingReceipt.contentSha256 ||
+        !pendingApproval || pendingApproval.mode !== previous.approvalMode ||
+        AnnalsProduction.serial(previous.publication) !== AnnalsProduction.serial(pendingApproval)) return false;
+    // The signed approval is durable, but publication did not finish. Re-enter
+    // the existing locked publisher path; photo transport reconciles an exact
+    // immutable blob read-only before the one-shot signed dispatch.
+    var resumed = annalsDispatchApproved_(folder, pendingEntry, previous.publication,
+      'annals-auto-entry', 'publication-dispatch-private.json');
+    previous.publicationState = resumed ? 'dispatch_accepted' : 'dispatch_not_configured_or_held';
+    annalsFile_(folder, 'approval-private.json').setContent(JSON.stringify(previous));
+    return resumed;
+  }
   var source = annalsRead_(folder, 'source-private.json'), draft = annalsRead_(folder, 'draft-private.json');
   var priorDecision = annalsRead_(folder, 'auto-decision-private.json');
   var recoveryAttempt = annalsRead_(folder, 'reassessment-attempt-private.json');
