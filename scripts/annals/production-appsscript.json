@@ -1,6 +1,12 @@
 {
   "timeZone": "America/Toronto",
-  "dependencies": {},
+  "dependencies": {
+    "enabledAdvancedServices": [{
+      "userSymbol": "Gmail",
+      "serviceId": "gmail",
+      "version": "v1"
+    }]
+  },
   "exceptionLogging": "NONE",
   "runtimeVersion": "V8",
   "oauthScopes": [

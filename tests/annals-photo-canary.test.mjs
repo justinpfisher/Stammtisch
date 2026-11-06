@@ -50,7 +50,8 @@ function harness({bytes=derivative,attachments=1,expired=false}={}){
  const sourceFile=makeFile(record.sourceFilename,sourceBytes);files.set(record.sourceFilename,sourceFile);files.set('job.json',record);
  const folder={createFile(blob){const name=blob.getName();const f=makeFile(name,blob.getBytes());files.set(name,f);return f;}};
  const indexName='cocktail-photo-canary-token-'+token+'-private.json',rootFiles=new Map([[indexName,index]]),root={};let writeCount=0,publisherCalls=0;
- const context={Date:FrozenDate,AnnalsCocktailEditorial:Policy,annalsFolder_:()=>folder,
+ const context={Date:FrozenDate,AnnalsCocktailEditorial:Policy,Session:{getEffectiveUser:()=>({getEmail:()=>worker})},
+  Gmail:{Users:{Messages:{get:(_user,id)=>({id,labelIds:['SENT']})}}},annalsFolder_:()=>folder,
   annalsRead_:(target,name)=>(target===root?rootFiles:files).get(name)||null,
   annalsFile_:(target,name)=>(target===root?rootFiles:files).has(name)?(target===root?rootFiles:files).get(name):null,
   annalsWriteOnce_:(target,name,value)=>{const map=target===root?rootFiles:files;if(map.has(name))throw Error('replay');map.set(name,value);writeCount++;},
@@ -71,7 +72,7 @@ function harness({bytes=derivative,attachments=1,expired=false}={}){
   status:'qualified',qa,alt:'AI-stylized fictional amber drink in a simple glass.',
   generatedAt:'2026-11-01T11:30:00.000Z',reviewedAt:'2026-11-01T11:35:00.000Z',
   generationProvider:'openai-chatgpt',generationModel:'undisclosed'};
- const message={getSubject:()=> '[ANNALS PHOTO RESULT V1] '+token,getFrom:()=> worker,
+ const message={getId:()=> 'canary-message-'+token,getSubject:()=> '[ANNALS PHOTO RESULT V1] '+token,getFrom:()=> worker,
   getRawContent:()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=example.invalid\r\n\r\nCanary fixture',
   getPlainBody:()=>JSON.stringify(result),getAttachments:()=>Array.from({length:attachments},()=>({getBytes:()=>Array.from(bytes),getContentType:()=> 'image/jpeg'}))};
  return {context,folder,files,index,record,result,message,now,counts:()=>({writeCount,publisherCalls})};
@@ -115,11 +116,23 @@ test('Base64URL photo-job envelope survives folded lines and preserves exact UTF
  assert.equal(JSON.stringify(decodePhotoJobEnvelope(receivedEnvelope)),JSON.stringify(job));
 });
 
-test('forged Authentication-Results cannot consume the canary or fall through',()=>{
+test('result authentication uses owner SENT metadata rather than SMTP Authentication-Results',()=>{
  const h=harness();
+ h.context.Gmail.Users.Messages.get=(_user,id)=>({id,labelIds:['SENT','INBOX']});
  h.message.getRawContent=()=> 'Authentication-Results: mx.google.com; dkim=pass header.d=attacker.example\r\n\r\nForged';
- assert.equal(h.context.annalsHandleCocktailPhotoResult_(h.message),'photo_result_held');
- assert.equal(h.counts().writeCount,0);assert.equal(h.counts().publisherCalls,0);
+ assert.equal(h.context.annalsHandleCocktailPhotoResult_(h.message),'photo_canary_private_only');
+ assert.equal(h.counts().writeCount,2);assert.equal(h.counts().publisherCalls,0);
+});
+test('result metadata must match the exact message ID, have SENT, and belong to the owner',()=>{
+ for(const alter of [
+  h=>{h.context.Gmail.Users.Messages.get=(_user,id)=>({id:'different-id',labelIds:['SENT']});},
+  h=>{h.context.Gmail.Users.Messages.get=(_user,id)=>({id,labelIds:['INBOX']});},
+  h=>{h.context.Session.getEffectiveUser=()=>({getEmail:()=> 'other@example.invalid'});}
+ ]){
+  const h=harness();alter(h);
+  assert.equal(h.context.annalsHandleCocktailPhotoResult_(h.message),'photo_result_held');
+  assert.equal(h.counts().writeCount,0);assert.equal(h.counts().publisherCalls,0);
+ }
 });
 
 test('worker identity uncertainty remains the held reason when no attachment is returned',()=>{

@@ -299,7 +299,7 @@ function annalsHandleCocktailPhotoResult_(message){
     sender='';
   try{sender=AnnalsPilot.senderAddress(message.getFrom()).toLowerCase();}catch(ignored){}
   // Exact, authenticated sender is checked before body or attachment access.
-  if(!worker||sender!==worker||!annalsAuthentication_(message,sender))
+  if(!worker||sender!==worker||!annalsPhotoResultIsOwnerSent_(message,worker))
     return 'photo_result_held';
   var result;
   try{
@@ -415,6 +415,18 @@ function annalsHandleCocktailPhotoResult_(message){
     return 'photo_result_held';
   }
 }
+function annalsPhotoResultIsOwnerSent_(message,worker){
+  try{
+    var owner=String(Session.getEffectiveUser().getEmail()||'').trim().toLowerCase(),
+      messageId=String(message.getId()||'');
+    if(!owner||owner!==worker||!messageId||typeof Gmail==='undefined'||
+       !Gmail.Users||!Gmail.Users.Messages)return false;
+    var metadata=Gmail.Users.Messages.get('me',messageId,{format:'metadata'});
+    if(!metadata||String(metadata.id||'')!==messageId||!Array.isArray(metadata.labelIds))return false;
+    return metadata.labelIds.indexOf('SENT')>=0;
+  }catch(ignored){return false;}
+}
+
 function annalsEditorialSourceAlreadyQualified_(sourcePath){
   try{
     var url='https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/annals-editorial-photos.json?source-check='+Date.now(),
