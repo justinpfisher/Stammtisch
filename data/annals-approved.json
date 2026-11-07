@@ -32,6 +32,33 @@
         "sha256": "ee47c45a0d84121fdd761df6fb9f08e04b276a3504ab5922dd040101b2ac8b44",
         "alt": "An amber-coloured cocktail in a stemmed glass garnished with thin apple slices."
       }
+    },
+    {
+      "id": "annal-d11ca37f86aa798cf5ae8995",
+      "category": "cocktail",
+      "title": "Stammtisch AI photo retest 2026-11-06",
+      "summary": "This is a temporary test of the member photo submission and AI\ntreatment process. The attached drink photo was provided for this\ntest. Please remove the test entry after verification.",
+      "year": 2026,
+      "dateLabel": "Submitted 2026-11",
+      "sortDate": "",
+      "quoteVerbatim": "",
+      "recipe": {
+        "drinkIngredients": [],
+        "syrupIngredients": [],
+        "steps": []
+      },
+      "credit": "anonymous",
+      "photos": [
+        {
+          "alt": "Member-submitted drink or object",
+          "height": 1536,
+          "sha256": "4479827786b52601831cffe89ce0e9859704e0b9ae7852fd8d32328f97133c7c",
+          "width": 1152
+        }
+      ],
+      "submittedAt": "2026-11-06T18:41:19.000Z",
+      "eventPeriod": "",
+      "contributorPortrait": "fish"
     }
   ],
   "approvals": [
@@ -47,6 +74,20 @@
       "contentSha256": "26f03d51bef159af31ec060b53c172face39acc68015346c3b3f0335e64361bd",
       "entryId": "annal-96b5ae266a36793c6a203033",
       "signature": "dcfbe572af0fd1f1c6d73cbc18aa5d93a5211ea242fed4049eb402fea0f74dcb"
+    },
+    {
+      "approvedAt": "2026-11-06T19:10:17.148Z",
+      "consents": {
+        "namedAttribution": true,
+        "photoPublication": true,
+        "publication": true,
+        "quotePublication": false,
+        "recipeVerified": true
+      },
+      "contentSha256": "a3499dcbf596842f0922efa0280dac9dea2510fab7c7a02c8f9fabd7c1db8884",
+      "entryId": "annal-d11ca37f86aa798cf5ae8995",
+      "mode": "standing-consent-photos-v2",
+      "signature": "104f74a1a178ecece113e0a2aa4012946456ea38cfc4134708f69c5ca4c2b980"
     }
   ],
   "retiredIds": [
