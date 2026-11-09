@@ -21,26 +21,6 @@
       "reviewMethod": "owner-visual-assessment",
       "generatedAt": "2026-10-25T19:37:23Z",
       "reviewedAt": "2026-10-25T20:38:51Z"
-    },
-    {
-      "alt": "AI-stylized amber-orange cocktail with ice in its original fluted tumbler, on a warmly lit dark bar counter.",
-      "artDirection": "moody-atmospheric-v2",
-      "asset": "assets/annals/4479827786b52601831cffe89ce0e9859704e0b9ae7852fd8d32328f97133c7c-editorial-v2.jpg",
-      "editorialSha256": "653b253ad326301bd16413be5d24cc04cb2ba8e692f1f3a61910e3ca3bef0ce5",
-      "generatedAt": "2026-11-07T06:04:21.000Z",
-      "generationModel": "undisclosed",
-      "generationOperation": "image-edit",
-      "generationProvider": "openai-chatgpt",
-      "height": 1448,
-      "reviewMethod": "ai-visual-assessment",
-      "reviewedAt": "2026-11-07T06:05:24.000Z",
-      "rightsQualified": true,
-      "safetyQualified": true,
-      "source": "assets/annals/4479827786b52601831cffe89ce0e9859704e0b9ae7852fd8d32328f97133c7c.jpg",
-      "sourceSha256": "4479827786b52601831cffe89ce0e9859704e0b9ae7852fd8d32328f97133c7c",
-      "status": "qualified",
-      "visualQualified": true,
-      "width": 1086
     }
   ]
 }

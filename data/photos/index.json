@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "count": 2,
+  "count": 1,
   "pages": [
     {
-      "path": "data/photos/7261caa64a7ee672eb6906c477c411441aa81fca6cbbf895c9c39e68128dc0a4.json",
+      "path": "data/photos/abf963424d7212722103851610111c11326ab216ebb0a238479fc14280bf1d99.json",
       "collection": "cocktail",
       "year": 2026,
-      "count": 2
+      "count": 1
     }
   ]
 }
