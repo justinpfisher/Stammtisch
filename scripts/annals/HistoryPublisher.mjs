@@ -26,6 +26,7 @@ export function applyHistoryRevision({current,event,secret,enabled,now=new Date(
   if(enabled!==true||typeof secret!=='string'||secret.length<32||event?.action!=='annals-history-revision'||!exact(event.client_payload,['document','approval']))throw Error('History authority unavailable');
   const {document,approval}=event.client_payload;
   validateHistory(document);
+  if(current.schemaVersion===2&&document.schemaVersion!==2)throw Error('History downgrade would discard source bindings');
   if(!exact(approval,['mode','previousDigest','contentSha256','issuedAt','signature'])||approval.mode!==HISTORY_MODE||approval.previousDigest!==historyDigest(current)||approval.contentSha256!==historyDigest(document)||document.revision!==current.revision+1||approval.issuedAt!==document.updatedAt||!Number.isFinite(Date.parse(approval.issuedAt))||now.getTime()-Date.parse(approval.issuedAt)>86400000||Date.parse(approval.issuedAt)>now.getTime()+60000||!/^[a-f0-9]{64}$/.test(approval.signature))throw Error('Stale or altered history revision');
   const {signature,...proof}=approval;
   const expected=createHmac('sha256',secret).update(JSON.stringify(canonical({document,approval:proof}))).digest();
