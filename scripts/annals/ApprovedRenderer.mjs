@@ -453,6 +453,7 @@ ${siteHeader('annals')}
 <li><strong>Cocktails &amp; recipes:</strong> For the advancement of the liquid arts. Include ingredients, quantities, and instructions—including any homemade syrups. A photo is welcome, should the spirit move you.</li>
 <li><strong>The Register of Remarks:</strong> A turn of phrase that deserves another turn. Send the exact words, who said them, and any essential context. Quotation publication requires the actual speaker and applicable rights to be supported.</li>
 <li><strong>Club History &amp; keepsakes:</strong> The past remains less orderly than the official record would prefer. Send a recollection, the origins of a tradition, or an artefact worth preserving. The Editorial Committee will shape supported contributions into one continuing account; fragments are entirely acceptable.</li>
+<li><strong>The Register of Miscellany:</strong> For stray observations, small curiosities, and other bits of Stammtisch life that don’t fit anywhere else but deserve to be annalled.</li>
 <li><strong>Celebration of Life rules:</strong> Rules and amendments are maintained exclusively on the <a href="celebration.html">Celebration of Life page</a>; authenticated members may propose changes by email.</li>
 </ul>
 <h2>Address the record</h2>

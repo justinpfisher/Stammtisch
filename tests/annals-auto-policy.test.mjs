@@ -874,7 +874,8 @@ test('member wordplay is signed and rendered as Miscellany without an invented t
   const {html}=await publish(approval);
   assert.match(html,/The Register of Miscellany/);
   assert.match(html,/id="collection-miscellany"/);
-  assert.equal(html.split('For stray observations, small curiosities, and other bits of Stammtisch life that don’t fit anywhere else but deserve to be annalled.').length,2);
+  assert.equal(html.split('For stray observations, small curiosities, and other bits of Stammtisch life that don’t fit anywhere else but deserve to be annalled.').length,3);
+  assert.match(html,/<li><strong>The Register of Miscellany:<\/strong> For stray observations/);
   const intro=html.indexOf('id="annal-miscellany-intro"');
   const stream=html.indexOf('id="annals-entries"');
   assert.ok(intro>=0 && intro<stream);
