@@ -36,9 +36,18 @@ const approvals=entries.map(entry=>{
   const approval={entryId:entry.id,approvedAt:'2026-10-15T12:00:00Z',consents:{publication:true,quotePublication:entry.category==='quotation',recipeVerified:entry.category==='cocktail',namedAttribution:false,photoPublication:false},contentSha256:contentDigest(entry)};
   return {...approval,signature:createHmac('sha256',fixtureKey).update(JSON.stringify(canonical({entry,approval}))).digest('hex')};
 });
-const history={schemaVersion:1,revision:1,updatedAt:'2027-01-01T00:00:00Z',chapters:[
-  {id:'origins',heading:'Origins',paragraphs:['A member recalls: This entirely fictional early passage tests a chapter added out of receipt order. (Historical uncertainty: an approximate period only.)']},
-  {id:'traditions',heading:'Developing traditions',paragraphs:['This is fictional browser-layout prose. It must never become an actual club recollection. '.repeat(5)]}
+const boundEntry={...base,id:'annal-'+'1'.repeat(24),category:'club_history',title:'Fictional browser opening',
+  summary:'A source fixture for the reciprocal link.',contributorPortrait:'fish'};
+const boundApproval={entryId:boundEntry.id,approvedAt:'2026-10-15T12:00:00Z',consents:{publication:true,
+  quotePublication:false,recipeVerified:false,namedAttribution:true,photoPublication:false},contentSha256:contentDigest(boundEntry)};
+entries.push(boundEntry);
+approvals.push({...boundApproval,signature:createHmac('sha256',fixtureKey).update(
+  JSON.stringify(canonical({entry:boundEntry,approval:boundApproval}))).digest('hex')});
+const history={schemaVersion:2,revision:1,updatedAt:'2027-01-01T00:00:00Z',chapters:[
+  {id:'origins',heading:'Origins',passages:[{id:'offline-origins',text:'A member recalls: This entirely fictional early passage tests a chapter added out of receipt order. (Historical uncertainty: an approximate period only.)',sources:[{kind:'record',ref:'club-record'}]}]},
+  {id:'gatherings',heading:'Gathering together',passages:[{id:'offline-gatherings',text:'The gathering has a standing date.',sources:[{kind:'record',ref:'monthly-stammtisch'}]}]},
+  {id:'assemblies',heading:'Annual Assemblies',passages:[{id:'offline-assemblies',text:'This is an Assembly fixture.',sources:[{kind:'record',ref:'huntsville-assembly'}]}]},
+  {id:'traditions',heading:'Developing traditions',passages:[{id:'offline-traditions',text:'This is fictional browser-layout prose. It must never become an actual club recollection. '.repeat(5),sources:[{kind:'annal',entryId:boundEntry.id,digest:boundApproval.contentSha256,portrait:'fish',label:'Original fictional browser entry'}]}]}
 ]};
 const tinyBytes=Buffer.from(Media.sanitize(Buffer.from((await readFile(path.join(root,'tests/annals-safe-media.test.mjs'),'utf8')).match(/const photo=\(\)=>Buffer.from\('([^']+)'/)[1],'base64')).bytes);
 const fixturePhoto={sha256:'a'.repeat(64),alt:'Fictional browser photograph',width:1,height:1};
@@ -368,6 +377,24 @@ try{
         await page.goto(origin+'/history.html');assert.equal(await page.locator('.history-meta').first().innerText(),'Updated January 2027');
         assert.match(await page.locator('main').innerText(),/Historical uncertainty: an approximate period only/);
       });
+      await check(browser,profile,'Club History and exact Annals source link both ways without scripts',async page=>{
+        await page.goto(origin+'/annals.html#'+boundEntry.id);
+        const card=page.locator('#'+boundEntry.id);
+        const backlink=card.locator('a[href="history.html#chapter-traditions"]');
+        assert.equal(await backlink.count(),1);
+        assert.equal(await page.locator('#offline-browser-recipe a[href^="history.html#chapter-"]').count(),0);
+        await backlink.click();
+        await page.waitForURL('**/history.html#chapter-traditions');
+        for(const id of ['origins','gatherings','assemblies','traditions'])
+          assert.equal(await page.locator('#chapter-'+id).count(),1);
+        assert.equal(await page.locator('.history-contributors li').count(),1);
+        assert.equal(await page.locator('.history-contributors li').innerText(),'Justin');
+        assert.equal(await page.locator('.history-contributors img').getAttribute('alt'),'');
+        await noOverflow(page);
+        await page.locator('#chapter-traditions a[href="annals.html#'+boundEntry.id+'"]').click();
+        await page.waitForURL('**/annals.html#'+boundEntry.id);
+        assert.equal(await page.locator('#'+boundEntry.id+' h2').count()+await page.locator('#'+boundEntry.id+' h3').count(),1);
+      },{javaScriptEnabled:false});
       await check(browser,profile,'visible euphemisms, source-safe quotation notice and accessibility',async page=>{
         await page.goto(origin+'/annals.html');
         const card=page.locator('#offline-browser-quote');
