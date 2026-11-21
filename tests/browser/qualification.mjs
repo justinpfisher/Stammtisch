@@ -343,7 +343,7 @@ try{
       await check(browser,profile,'chronological cards and accessible category filtering',async page=>{
         await page.goto(origin+'/annals.html');
         const cards=page.locator('.annal-stream .annal-entry');
-        assert.equal(await cards.count(),7);
+        assert.equal(await cards.count(),8);
         assert.equal(await cards.first().getAttribute('id'),'offline-browser-quote');
         const columns=await page.locator('.annal-stream').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length);
         assert.equal(columns,profile.name==='desktop-chromium'?2:1);
@@ -355,7 +355,7 @@ try{
         await page.reload();
         assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),1);
         await page.getByRole('link',{name:'All entries',exact:true}).click();
-        assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),7);
+        assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),8);
         assert.equal(await page.locator('#offline-browser-recipe .annal-entry-link').getAttribute('href'),'#offline-browser-recipe');
         await noOverflow(page);
       });
@@ -423,7 +423,7 @@ try{
           assert.ok(await page.evaluate(()=>document.querySelector('main').contains(document.activeElement)));
           assert.notEqual(await page.evaluate(()=>getComputedStyle(document.activeElement).outlineStyle),'none');
           assert.equal(await page.locator('h1').count(),1);assert.equal(await page.locator('main').count(),1);
-          for(const link of await page.locator('nav a,main a,footer a').all())if(await link.isVisible())assert.ok((await link.boundingBox()).height>=44,'Small link target');
+          for(const link of await page.locator('nav a,main a,footer a').all())if(await link.isVisible())assert.ok((await link.boundingBox()).height>=44,'Small link target: '+await link.getAttribute('href'));
         }
       });
       await check(browser,profile,'form control focus visibility and 320px reflow',async page=>{
@@ -447,7 +447,7 @@ try{
         await page.setViewportSize({width:320,height:740});
         for(const file of ['annals.html','history.html']){await page.goto(origin+'/'+file);await noOverflow(page);}
         assert.ok(await page.locator('main').evaluate(e=>e.getBoundingClientRect().width)<=320);
-        assert.equal(await page.locator('section h2').count(),2);
+        assert.equal(await page.locator('.history-chapter h2').count(),4);
         assert.ok(parseFloat(await page.locator('section p').first().evaluate(e=>getComputedStyle(e).fontSize))>=16);
       });
       await check(browser,profile,'dark preference retains readable euphemism and layout',async page=>{
