@@ -854,6 +854,8 @@ test('member wordplay is signed and rendered as Miscellany without an invented t
     quoteVerbatim:'',recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]},
     interpretation:{intent:'other',speakerId:'unknown',evidenceField:'body'}};
   assert.equal(core.candidate({...d,title:''}).title,'');
+  assert.ok(core.request('Fictional wordplay.',[]).text.format.schema.properties.category.enum.includes('miscellany'));
+  assert.ok(core.request('Fictional wordplay.',[]).text.format.schema.properties.category.enum.includes('uncategorised'));
   const decision=policy.propose(s,d,id);
   assert.equal(decision.eligible,true);
   assert.equal(decision.entry.title,'');
