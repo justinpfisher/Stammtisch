@@ -302,7 +302,7 @@ try{
           await page.goto(origin+'/'+file);
           assert.equal(await page.locator('header.site-header').count(),1,file);
           assert.ok(await page.locator('.mobile-site-navigation').isVisible(),file+' menu');
-          assert.equal(await page.locator('.mobile-site-navigation nav a').count(),5,file+' menu links');
+          assert.equal(await page.locator('.mobile-site-navigation nav a').count(),6,file+' menu links');
           await noOverflow(page);
         }
       });
@@ -314,7 +314,7 @@ try{
         await page.waitForFunction(()=>/^\d{4}-\d{2}-\d{2}$/.test(
           document.querySelector('[data-monthly-date]').getAttribute('datetime')||''));
         assert.match(await hero.innerText(),/8 p.m. Toronto time/);
-        assert.equal(await page.locator('header.site-header nav[aria-label="Main navigation"] a').count(),5);
+        assert.equal(await page.locator('header.site-header nav[aria-label="Main navigation"] a').count(),6);
         if(profile.name==='desktop-chromium'){
           assert.ok(await page.locator('header.site-header nav[aria-label="Main navigation"]').isVisible());
           assert.equal(await page.locator('.mobile-site-navigation').isVisible(),false);
