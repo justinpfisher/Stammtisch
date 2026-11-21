@@ -103,11 +103,24 @@ function siteFooter(section) {
 }
 
 const HISTORY_PORTRAITS=Object.freeze({fish:'Justin',marc:'Marc',matt:'Matt',ken:'Ken',jamie:'Jamie',jerome:'Jerome'});
+// Only approved public destinations are rendered. Private provenance stays in the ledger.
+const HISTORY_RECORD_LINKS=Object.freeze({
+  'club-record':['index.html#the-club','Club record'],
+  'six-face-crest':['assets/crest.webp','The six-face crest'],
+  'monthly-stammtisch':['index.html#monthly-stammtisch','Monthly Stammtisch'],
+  'huntsville-assembly':['location.html','The Huntsville Assembly'],
+  'remembrance-speech':['celebration.html','The remembrance speech']
+});
 function historyChapters(document) {
   if(!document.chapters.length) return '<p class="history-pending">The Club has a history. The formal account is, for the moment, less forthcoming.</p>';
   return document.chapters.map(c => {
     const body=document.schemaVersion===2 ? c.passages.map(p=>{
-      const links=p.sources.filter(s=>s.kind==='annal').map(s=>'<a href="annals.html#'+escapeHtml(s.entryId)+'">'+escapeHtml(s.label)+'</a>');
+      const links=p.sources.flatMap(s=>{
+        if(s.kind==='annal')return ['<a href="annals.html#'+escapeHtml(s.entryId)+'">'+escapeHtml(s.label)+'</a>'];
+        if(s.kind!=='record'||!Object.hasOwn(HISTORY_RECORD_LINKS,s.ref))return [];
+        const [href,label]=HISTORY_RECORD_LINKS[s.ref];
+        return ['<a href="'+href+'">'+label+'</a>'];
+      });
       return '<div class="history-passage" id="history-'+escapeHtml(c.id)+'-'+escapeHtml(p.id)+'"><p>'+editorialHtml(p.text)+'</p>'+
         (links.length?'<p class="history-sources">'+links.join(' · ')+'</p>':'')+'</div>';
     }).join('') : c.paragraphs.map(p=>'<p>'+editorialHtml(p)+'</p>').join('');
