@@ -10,7 +10,7 @@ var AnnalsLivingHistory=(function(){
        !Array.isArray(value)||value.length>4) return [];
     var fields=source.source, seen=new Set();
     return value.filter(function(c){
-      if(!c||Object.keys(c).sort().join(',')!=='chapter,field,kind,period,span,topic'||
+      if(!c||!['chapter,field,kind,period,span,topic','chapter,editorialFrame,field,kind,period,span,topic'].includes(Object.keys(c).sort().join(','))||
          !Object.prototype.hasOwnProperty.call(headings,c.chapter)||!slug.test(c.topic)||
          ['subject','excerpt'].indexOf(c.field)<0||c.kind!=='recollection'||
          typeof c.span!=='string'||c.span.length<18||c.span.length>600||c.span.trim()!==c.span||
@@ -23,18 +23,23 @@ var AnnalsLivingHistory=(function(){
       seen.add(identity);return true;
     });
   }
-  function passage(c, bound, candidateWording){
+  function passage(c, bound){
     if(!c||!bound||!annal.test(bound.entryId)||!digest.test(bound.digest)||
       !digest.test(bound.claimId)||bound.publication!==true||
       !(bound.portrait===null||Object.prototype.hasOwnProperty.call(titles,bound.portrait)))
       throw new Error('Version-matched public and private History binding required');
     var name=bound.portrait?titles[bound.portrait]:null;
     var span=/[.!?]$/.test(c.span)?c.span:c.span+'.';
-    // Generated prose may choose any approved attribution frame, but cannot add,
-    // translate or remove a factual clause without separate source evidence.
-    var choices=[(name?name+' recalls: ':'A member recalls: ')+span,
-      (name?'In '+name+'’s recollection: ':'In one member’s recollection: ')+span];
-    var text=choices.indexOf(candidateWording)>=0?candidateWording:choices[0];
+    // The model edits the editorial footing, not the evidence. The attributed
+    // excerpt stays literal so uncertainty, chronology and details cannot drift.
+    var lead=name?name+' recalls: ':'A member recalls: ';
+    if(c.editorialFrame==='club_record')lead=name?'For the Club’s record, '+name+' recalls: ':'For the Club’s record, one member recalls: ';
+    if(c.editorialFrame==='tradition'&&c.chapter==='traditions')
+      lead=name?'The tradition, as '+name+' remembers it: ':'The tradition, as one member remembers it: ';
+    var recalled=/^I (?:remember|recall) that ([a-z].*)$/.exec(span);
+    if(recalled&&c.editorialFrame==='club_record')
+      lead=name?'As '+name+' remembers it, ':'As one member remembers it, ';
+    var text=lead+(recalled&&c.editorialFrame==='club_record'?recalled[1]:span);
     return {topic:c.topic,chapter:c.chapter,sourceEntryId:bound.entryId,sourceVersion:bound.digest,
       passage:{id:'claim-'+bound.claimId.slice(0,24),text:text,sources:[
         {kind:'annal',entryId:bound.entryId,digest:bound.digest,label:'Read the original entry',portrait:bound.portrait}]}};
@@ -79,7 +84,7 @@ function annalsHistoryIntakeReady_(){
     ledger.schemaVersion===1&&!!ledger.privateOpeningPacketSha256;
 }
 function annalsHistoryIntakeFolder_(folder,id,state){
-  if(!annalsHistoryIntakeReady_()||state.dispatched||annalsFile_(folder,'quarantine-private.json')||
+  if(!state.historySynced||state.dispatched||annalsFile_(folder,'quarantine-private.json')||
     annalsFile_(folder,'removal-private.json'))return false;
   var root=annalsRoot_(), pending=annalsRead_(root,'history-pending-private.json');
   if(pending&&pending.state!=='verified_live')return false;
@@ -108,7 +113,6 @@ function annalsHistoryIntakeFolder_(folder,id,state){
     annalsHash_(AnnalsProduction.serial(entry))!==saved.receipt.contentSha256)return false;
   var portrait=annalsContributorPortrait_(source);
   portrait=portrait&&entry.contributorPortrait===portrait&&approval.consents.namedAttribution===true?portrait:null;
-  annalsRebaseHistoryAfterAnnals_(archive);
   var current=annalsRead_(root,'history-published-private.json'), projected=current;
   var ledger=annalsRead_(root,'history-bound-ledger-private.json'),
     records=candidates.map(function(c){
@@ -132,14 +136,28 @@ function annalsHistoryIntakeFolder_(folder,id,state){
   return result.dispatchAccepted===true;
 }
 
-function annalsHistoryTickReconcile_(){
+function annalsHistoryTickReconcile_(state){
+  state.historySynced=false;
   if(!annalsHistoryIntakeReady_()||typeof annalsReconcileHistoryLocked_!=='function')return;
   var root=annalsRoot_(),pending=annalsRead_(root,'history-pending-private.json');
-  if(!pending||pending.state!=='dispatch_accepted'||pending.review.operation!=='standing-consent-history-intake')return;
-  var result=annalsReconcileHistoryLocked_();
-  if(result.verified===true&&pending.sourceId)annalsSavePrivate_(annalsFolder_(pending.sourceId),
-    'history-intake-seen-private.json',{contentSha256:pending.review.boundLedger.lastBoundEntryDigest,
-      state:'verified_live',revision:result.revision});
+  if(pending&&pending.state!=='verified_live'){
+    if(pending.state!=='dispatch_accepted'||((pending.review||{}).operation)!=='standing-consent-history-intake')return;
+    var result=annalsReconcileHistoryLocked_();
+    if(result.verified!==true)return;
+    if(pending.sourceId)annalsSavePrivate_(annalsFolder_(pending.sourceId),
+      'history-intake-seen-private.json',{contentSha256:pending.review.boundLedger.lastBoundEntryDigest,
+        state:'verified_live',revision:result.revision});
+  }
+  // An Annals correction or withdrawal may have already subtracted support
+  // from public History. Reconcile independent of any eligible draft or folder.
+  var current=annalsRead_(root,'history-published-private.json');
+  var live=JSON.parse(annalsHistoryReadPublic_('https://stammtischbrewery.com/data/club-history.json'));
+  if(annalsHash_(AnnalsProduction.serial(live))===annalsHash_(AnnalsProduction.serial(current))){
+    state.historySynced=true;
+  }else if(live.schemaVersion===2&&live.revision>current.revision){
+    state.archive=annalsOpeningArchive_();
+    state.historySynced=annalsRebaseHistoryAfterAnnals_(state.archive,live);
+  }
 }
 
 // Keep the exact public subtraction projection mechanically bound by tests.
@@ -209,12 +227,12 @@ function annalsHistoryReadPublic_(url){
   if(typeof body!=='string'||body.length>250000)throw new Error('History verification exceeds bounds');
   return body;
 }
-function annalsRebaseHistoryAfterAnnals_(verifiedArchive){
+function annalsRebaseHistoryAfterAnnals_(verifiedArchive, verifiedLive){
   if(!annalsHistoryIntakeReady_())return false;
   var root=annalsRoot_(),pending=annalsRead_(root,'history-pending-private.json');
   if(pending&&pending.state!=='verified_live')return false;
   var current=annalsRead_(root,'history-published-private.json');
-  var live=JSON.parse(annalsHistoryReadPublic_('https://stammtischbrewery.com/data/club-history.json'));
+  var live=verifiedLive||JSON.parse(annalsHistoryReadPublic_('https://stammtischbrewery.com/data/club-history.json'));
   if(live.schemaVersion!==2||!Number.isSafeInteger(live.revision)||live.revision<=current.revision||
      !Number.isFinite(Date.parse(live.updatedAt)))return false;
   var archive=verifiedArchive||annalsOpeningArchive_();
