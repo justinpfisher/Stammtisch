@@ -6,6 +6,7 @@ const vm=require('node:vm');
 const fs=require('node:fs');
 const crypto=require('node:crypto');
 const script=fs.readFileSync(new URL('../../scripts/annals/LivingHistoryIntake.gs',import.meta.url),'utf8');
+const shared=fs.readFileSync(new URL('../../scripts/annals/HistoryProduction.gs',import.meta.url),'utf8');
 const fixtures=(opts={})=>{
   const a='a'.repeat(64),root='root',annal='annal-'+a.slice(0,24);
   const span='I remember that we sang after the year-end gathering.';
@@ -36,7 +37,10 @@ const fixtures=(opts={})=>{
     UrlFetchApp:{fetch:url=>({getResponseCode:()=>200,getContentText:()=>url.endsWith('/history.html')?'rendered-'+live.revision+'\n':JSON.stringify(url.includes('githubusercontent')?(main||live):live)})},
     annalsDispatchHistoryRevision_:(...args)=>{events.push(args);records.set(root+'/history-pending-private.json',{state:'dispatch_accepted'});return {dispatchAccepted:true};}
   });
-  vm.runInContext(script,cx);
+  vm.runInContext(shared+'\n'+script,cx);
+  cx.annalsReconcileHistoryLocked_=()=>({verified:false});
+  cx.annalsDispatchHistoryRevision_=(...args)=>{events.push(args);records.set(root+'/history-pending-private.json',{state:'dispatch_accepted'});return {dispatchAccepted:true};};
+  cx.annalsOpeningArchive_=()=>archive;
   return {a,records,events,root,shot,archive,entry,version,
     setLive:(value,mainValue)=>{live=value;main=mainValue;},
     tick:()=>{const state={dispatched:false,archive:null};cx.annalsHistoryTickReconcile_(state);return state;},
@@ -64,7 +68,7 @@ test('an authorized anonymous source contributes without naming or a portrait',(
 
 test('ordinary Annals subtraction projects only the lost source, leaving the other credit',()=>{
   const mock=vm.createContext({});
-  vm.runInContext(script,mock);
+  vm.runInContext(shared+'\n'+script,mock);
   const a='annal-'+'a'.repeat(24), b='annal-'+'b'.repeat(24),digest='c'.repeat(64);
   const entrySource=(entryId,portrait)=>({kind:'annal',entryId,digest,portrait,label:'Source'});
   const p=(id,text,src)=>({id,text,sources:[src]});
@@ -121,5 +125,19 @@ for(const mode of ['correction','withdrawal']){
     assert.equal(f.events.length,0);
     assert.deepEqual(JSON.parse(JSON.stringify(f.records.get(f.root+'/history-published-private.json'))),live);
     assert.deepEqual(JSON.parse(JSON.stringify(f.records.get(f.root+'/history-bound-ledger-private.json').chapters)),live.chapters);
+    if(mode==='correction'){
+      f.records.set(f.a+'/draft-private.json',fresh);
+      assert.equal(f.run(),true);
+      assert.equal(f.events[0][6],2);
+      assert.equal(f.events[0][4][1].passages[0].text,'Marc remembers Thursday.');
+      assert.equal(f.events[0][4][1].passages[1].sources[0].digest,f.version);
+    }
   });
 }
+
+test('owner-maintained source versions cannot be reinserted by a late assessment',()=>{
+  const f=fixtures(),key=f.root+'/history-bound-ledger-private.json';
+  f.records.get(key).ownerMaintainedSourceVersions={[f.entry.id+':'+f.version]:true};
+  assert.equal(f.run(),false);
+  assert.equal(f.events.length,0);
+});
