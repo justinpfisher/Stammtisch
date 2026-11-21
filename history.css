@@ -20,3 +20,5 @@
 .history-contributors ul{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:1rem;margin-block:1rem}
 .history-contributors li{display:grid;justify-items:center;gap:.35rem;font-size:.875rem}
 .history-contributors img{border-radius:50%;display:block;object-fit:cover}
+
+.history-sources a{display:inline-flex;align-items:center;min-height:44px;max-width:100%;overflow-wrap:anywhere}
