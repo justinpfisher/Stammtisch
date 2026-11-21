@@ -3,6 +3,7 @@ import { readFile,writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import display from './PublicDisplay.js';
+import { validateBoundHistory, subtractStaleHistory } from './BoundHistory.mjs';
 
 export const HISTORY_MODE='source-grounded-history-revision-v1';
 const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(k=>[k,canonical(value[k])])):value;
@@ -10,6 +11,7 @@ export const historyDigest=value=>createHash('sha256').update(JSON.stringify(can
 const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).sort().join(',')===[...keys].sort().join(',');
 export const emptyHistory=()=>({schemaVersion:1,revision:0,chapters:[],updatedAt:''});
 export function validateHistory(value){
+  if(value?.schemaVersion===2) return validateBoundHistory(value);
   if(!exact(value,['schemaVersion','revision','chapters','updatedAt'])||value.schemaVersion!==1||!Number.isSafeInteger(value.revision)||value.revision<0||!Array.isArray(value.chapters)||value.chapters.length>4||typeof value.updatedAt!=='string'||value.revision>0&&!Number.isFinite(Date.parse(value.updatedAt)))throw Error('Invalid public history');
   const ids=new Set();
   for(const c of value.chapters){
@@ -42,7 +44,10 @@ async function main(){
   const document=applyHistoryRevision({current,event,secret:process.env.ANNALS_HISTORY_SIGNING_KEY,enabled:true});
   const {buildPublishedAnnals}=await import('./ApprovedRenderer.mjs');
   const archive=JSON.parse(await readFile('data/annals-approved.json','utf8'));
-  const rendered=buildPublishedAnnals(archive.entries,archive.approvals,process.env.ANNALS_PUBLISH_SIGNING_KEY,document);
+  const editorial=JSON.parse(await readFile('data/annals-editorial-photos.json','utf8'));
+  const rendered=buildPublishedAnnals(archive.entries,archive.approvals,process.env.ANNALS_PUBLISH_SIGNING_KEY,document,editorial);
+  if(subtractStaleHistory(document,archive.entries,archive.approvals,new Date())!==document)
+    throw Error('History source or portrait does not match the current signed Annals');
   await writeFile('data/club-history.json',JSON.stringify(document,null,2)+'\n');
   await writeFile('history.html',renderHistory(document)+'\n');
   await writeFile('annals.html',rendered.html+'\n');
