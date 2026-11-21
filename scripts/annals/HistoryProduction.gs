@@ -301,8 +301,7 @@ function annalsDispatchHistoryRevision_(folder,id,review,schemaVersion,chapters,
     return {dispatchAccepted:accepted,published:false};
 }
 
-function annalsReconcileHistory(nonce){
-  return annalsUiCall_(nonce,function(){return annalsLocked_(function(){
+function annalsReconcileHistoryLocked_(){
     var root=annalsRoot_(),pending=annalsRead_(root,'history-pending-private.json');
     if(!pending||pending.state!=='dispatch_accepted')return {verified:false,retryAllowed:false};
     var response=UrlFetchApp.fetch('https://stammtischbrewery.com/data/club-history.json',{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true});
@@ -320,7 +319,9 @@ function annalsReconcileHistory(nonce){
     // Preserve the pending attempt as evidence instead of deleting or replaying it.
     annalsSavePrivate_(root,'history-pending-private.json',Object.assign({},pending,{state:'verified_live'}));
     return {verified:true,revision:pending.document.revision};
-  });});
+}
+function annalsReconcileHistory(nonce){
+  return annalsUiCall_(nonce,function(){return annalsLocked_(annalsReconcileHistoryLocked_);});
 }
 
 /** Owner-only, non-publishing proof check. No properties, Drive records, gates,
