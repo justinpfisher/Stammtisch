@@ -2223,9 +2223,9 @@ function annalsVerifyAutomaticPublications_(limit) {
   if (annalsProps_().getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') !== 'true') return 0;
   var p = annalsProps_(), token = p.getProperty('ANNALS_VERIFY_CURSOR');
   var folders = token ? DriveApp.continueFolderIterator(token) : annalsRoot_().getFolders();
-  var checked = 0, verified = 0, historyState={dispatched:false,archive:null};
+  var checked = 0, verified = 0, historyState={dispatched:false,archive:null,historySynced:false};
   if(typeof annalsHistoryTickReconcile_==='function'){
-    try{annalsHistoryTickReconcile_();}
+    try{annalsHistoryTickReconcile_(historyState);}
     catch(ignored){/* A failed live read never authorizes another dispatch. */}
   }
   while (folders.hasNext() && checked++ < 12 && verified < limit) {
