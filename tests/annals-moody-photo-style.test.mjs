@@ -36,14 +36,17 @@ test('failed v1 segmentation cannot be used or regenerated',()=>{
   assert.doesNotMatch(read('.github/workflows/annals-publish.yml'),/cocktail-image-style|opencv/);
 });
 test('actual Kingston editorial derivative is qualified, source-bound and keeps the original reachable',()=>{
-  assert.equal(manifest.images.length,1);
-  assert.equal(manifest.images[0].source,source);
-  assert.equal(manifest.images[0].sourceSha256,sourceSha);
-  assert.equal(manifest.images[0].editorialSha256,
+  const matching=manifest.images.filter(item=>item.source===source);
+  assert.equal(matching.length,1,'Exactly one qualified record belongs to the Kingston original');
+  const [kingston]=matching;
+  assert.equal(kingston.sourceSha256,sourceSha);
+  assert.equal(kingston.editorialSha256,
     'efa701f64a1b0e15f22390796af991e0d77cfec6a136f74f2475e84cd3a17f6f');
-  assert.match(manifest.images[0].alt,/AI-stylized/);
-  assert.match(manifest.images[0].alt,/foot reconstructed/);
-  assert.deepEqual(verifyEditorialAssets(manifest,archive.entries),{qualified:1,sourceCount:1});
+  assert.match(kingston.alt,/AI-stylized/);
+  assert.match(kingston.alt,/foot reconstructed/);
+  assert.deepEqual(verifyEditorialAssets(manifest,archive.entries),{
+    qualified:manifest.images.length,sourceCount:photoSources(archive.entries).size,
+  });
   assert.match(read('docs/brand-editorial-style-guide.md'),/whole-scene generative editing/i);
 });
 test('a source-bound reviewed editorial JPEG can be admitted, but not by file presence alone',()=>{
