@@ -17,6 +17,7 @@ const TYPES = Object.freeze({
   assembly: 'Annual Assemblies',
   club_history: 'Archival Records',
   artefact: 'Club Keepsakes',
+  miscellany: 'The Register of Miscellany',
 });
 
 const PUBLIC_KEYS = new Set([
@@ -87,10 +88,13 @@ export function validatePublicTextEntry(input) {
   if (input.category !== 'cocktail' && Object.values(outputRecipe).some(a => a.length)) {
     throw new Error('Unexpected recipe fields');
   }
+  if (input.category === 'miscellany' && (input.photo != null || input.photos !== undefined)) {
+    throw new Error('Miscellany requires text only');
+  }
   const output = {
     id: input.id,
     category: input.category,
-    title: limited(input.title, 'title', 180, true),
+    title: limited(input.title, 'title', 180, input.category !== 'miscellany'),
     summary: limited(input.summary, 'summary', 2400, true),
     year, dateLabel, sortDate, quoteVerbatim, recipe: outputRecipe,
     credit: limited(input.credit || 'anonymous', 'credit', 70, true),
@@ -334,10 +338,10 @@ function approvedEntryMarkup(entry,editorialManifest) {
     (Photos.photos(entry).length ? ' annal-entry--has-photo' : '') +
     '" id="' + esc(entry.id) + '" data-annals-category="' + esc(entry.category) + '">' +
     '<header class="annal-entry-head"><div><p class="annal-type">' +
-    esc(TYPES[entry.category]) + '</p><h2 class="annal-entry-title">' +
-    text(entry.title) + '</h2>' + date + correction +
+    esc(TYPES[entry.category]) + '</p>' + (entry.title ? '<h2 class="annal-entry-title">' +
+    text(entry.title) + '</h2>' : '') + date + correction +
     '</div><a class="annal-permalink" href="#' + esc(entry.id) +
-    '" aria-label="Direct link to ' + esc(entry.title) + '">↗</a></header>' +
+    '" aria-label="Direct link to ' + esc(entry.title || 'this entry') + '">↗</a></header>' +
     (entry.category === 'quotation' ? quoteCard
       : '<div class="annal-overview">' + introductionMarkup + photoMarkup(entry,editorialManifest) + '</div>') +
     recipe +
@@ -387,7 +391,7 @@ function buildAnnals(entries, receipts, verifyReceipt, history = emptyHistory(),
     accepted.some(item => item.category === category));
   const filterLabels = {
     cocktail: 'Cocktails', quotation: 'Remarks', monthly_gathering: 'Occasions',
-    assembly: 'Assemblies', club_history: 'Records', artefact: 'Keepsakes',
+    assembly: 'Assemblies', club_history: 'Records', artefact: 'Keepsakes', miscellany: 'Miscellany',
   };
   const categoryAnchors = populatedTypes.map(category =>
     '<span class="annal-anchor" id="collection-' +

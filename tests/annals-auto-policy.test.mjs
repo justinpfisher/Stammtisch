@@ -845,3 +845,53 @@ test('an exact submitted garnish note is retained without accepting an omitted i
   changed.recipe.steps.push('Garnish. A curl of different peel.');
   assert.equal(policy.propose(s,changed,id).reason,'recipe_measure_or_step_uncertain');
 });
+
+test('member wordplay is signed and rendered as Miscellany without an invented title', async () => {
+  const s=sample();
+  s.source.subject='Quick update';
+  s.source.excerpt='Could a dictionary have a favourite letter? The alphabet refuses to comment.';
+  const d={...draft(),category:'miscellany',title:'A headline the author never wrote',
+    quoteVerbatim:'',recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]},
+    interpretation:{intent:'other',speakerId:'unknown',evidenceField:'body'}};
+  assert.equal(core.candidate({...d,title:''}).title,'');
+  const decision=policy.propose(s,d,id);
+  assert.equal(decision.eligible,true);
+  assert.equal(decision.entry.title,'');
+  assert.equal(decision.entry.summary,s.source.excerpt);
+  assert.deepEqual(core.publicEntry(decision.entry),decision.entry);
+  const approval=proof(decision.entry);
+  assert.equal(verifyPublicApproval(decision.entry,approval,secret),true);
+  const data={schemaVersion:1,entries:[],approvals:[]};
+  const publish=(proof)=>applyApprovedEntry({event:{action:'annals-auto-entry',
+    client_payload:{entry:decision.entry,approval:proof}},data,secret});
+  const {signature,...bare}=approval;
+  const legacy={...bare,mode:'open-email-text-v1'};
+  legacy.signature=createHmac('sha256',secret).update(JSON.stringify(
+    canonical({entry:decision.entry,approval:legacy}))).digest('hex');
+  await assert.rejects(publish(legacy),/Missing exact public approval/);
+  const {html}=await publish(approval);
+  assert.match(html,/The Register of Miscellany/);
+  assert.match(html,/id="collection-miscellany"/);
+  assert.match(html,/Direct link to this entry/);
+  assert.match(html,/Could a dictionary have a favourite letter/);
+  assert.doesNotMatch(html,/class="annal-entry-title"|A headline the author never wrote|Quick update/);
+});
+
+test('Miscellany respects explicit titles and cannot swallow protected or uncertain material', () => {
+  const s=sample();
+  s.source.subject='Quick update';
+  s.source.excerpt='Title: A Curious Alphabet\n\nPunctuation is apparently a matter of opinion.';
+  const d={...draft(),category:'miscellany',title:'',quoteVerbatim:'',
+    recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+  const decision=policy.propose(s,d,id);
+  assert.equal(decision.eligible,true);
+  assert.equal(decision.entry.title,'A Curious Alphabet');
+  assert.equal(decision.entry.summary,'Punctuation is apparently a matter of opinion.');
+  assert.equal(policy.propose({...s,autoConsentAtReceipt:false},d,id).eligible,false);
+  assert.equal(policy.propose({...s,source:{...s.source,excerptTruncated:true}},d,id).eligible,false);
+  assert.equal(policy.propose({...s,attachmentManifest:{items:[{}]}},d,id).eligible,false);
+  assert.equal(policy.propose(s,{...d,category:'uncategorised'},id).eligible,false);
+  assert.equal(policy.propose(s,{...d,quoteVerbatim:'An attributed quotation'},id).eligible,false);
+  assert.equal(policy.propose({...s,source:{...s.source,excerpt:'Jamie said "An imagined remark."'}},d,id).eligible,false);
+  assert.throws(()=>core.publicEntry({...decision.entry,photo:{sha256:'a'.repeat(64),alt:'Fixture'}}),/requires text only/);
+});
