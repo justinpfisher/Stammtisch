@@ -409,6 +409,8 @@ function buildAnnals(entries, receipts, verifyReceipt, history = emptyHistory(),
   const navigation = filters || historyLink || photosLink
     ? '<nav class="annal-collections" aria-label="Browse published Annals">' +
       filters + historyLink + photosLink + '</nav>' : '';
+  const miscellanyIntro = populatedTypes.includes('miscellany')
+    ? '<section id="annal-miscellany-intro" aria-labelledby="annal-miscellany-heading"' + (filters ? ' hidden' : '') + '><div class="annal-guidance-body"><h2 id="annal-miscellany-heading">The Register of Miscellany</h2><p>For stray observations, small curiosities, and other bits of Stammtisch life that don’t fit anywhere else but deserve to be annalled.</p></div></section>' : '';
   const listHeader = accepted.length
     ? '<div class="annal-toolbar"><div><p class="eyebrow">A living index</p>' +
       '<h2>Recently recorded</h2><p id="annal-result-count" role="status" aria-live="polite">' +
@@ -463,6 +465,7 @@ ${siteHeader('annals')}
 ${categoryAnchors}
 ${listHeader}
 ${navigation}
+${miscellanyIntro}
 ${stream}${emptyState}
 <p class="annal-editorial-notice">${EDITORIAL_NOTICE}</p>
 </main>
