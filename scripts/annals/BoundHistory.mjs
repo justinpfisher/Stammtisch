@@ -77,6 +77,26 @@ function archivedSupport(entries, receipts) {
   }));
 }
 
+// The two founding recipe references support separable title mentions in the
+// approved opening sentence. The ordinary publisher can delete only those
+// exact words (never compose new prose). Other passages remain conjunctive.
+const OPENING_RECIPE_LINE = "Marc gave that tradition a place in the written record when he contributed Kingston Windfall and Daq in Black to the Annals.";
+const OPENING_RECIPE_CLAIMS = Object.freeze([
+  {entryId:'annal-96b5ae266a36793c6a203033',title:'Kingston Windfall'},
+  {entryId:'annal-5e0607c7dc924fb5663c40e0',title:'Daq in Black'}
+]);
+function subtractOpeningRecipe(c,p,missing){
+  if(c.id!=='gatherings'||p.id!=='opening-2'||!missing.every(s=>OPENING_RECIPE_CLAIMS.some(k=>k.entryId===s.entryId)))return null;
+  const removed=new Set(missing.map(s=>s.entryId));
+  const remaining=p.sources.filter(s=>!removed.has(s.entryId));
+  const before=OPENING_RECIPE_CLAIMS.filter(k=>p.sources.some(s=>s.kind==='annal'&&s.entryId===k.entryId));
+  const after=before.filter(k=>!removed.has(k.entryId));
+  const useTitles=claims=>OPENING_RECIPE_LINE.replace('Kingston Windfall and Daq in Black',claims.map(k=>k.title).join(' and '));
+  const from=useTitles(before);
+  if(!p.text.includes(from)||!remaining.some(s=>s.kind==='record'))return null;
+  const text=after.length?p.text.replace(from,useTitles(after)):p.text.replace(from+' ','');
+  return {...p,text,sources:remaining};
+}
 // Call only after the ordinary publisher has verified the records' signatures.
 // An Annals correction may remove support and credit, never invent a narrative.
 export function subtractStaleHistory(value, entries, receipts, now) {
@@ -85,10 +105,13 @@ export function subtractStaleHistory(value, entries, receipts, now) {
   const support = archivedSupport(entries,receipts);
   let changed = false;
   const chapters = value.chapters.map(chapter => {
-    const passages = chapter.passages.flatMap(p => {
-      if (p.sources.some(s => s.kind === 'annal' && support.get(s.entryId)?.digest !== s.digest)) {
+    const passages = chapter.passages.flatMap(original => {
+      const stale=original.sources.filter(s=>s.kind==='annal'&&support.get(s.entryId)?.digest!==s.digest);
+      let p=original;
+      if (stale.length) {
         changed = true;
-        return [];
+        p=subtractOpeningRecipe(chapter,original,stale);
+        if(!p)return [];
       }
       let portraitChanged = false;
       const sources = p.sources.map(s => {
