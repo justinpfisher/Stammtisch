@@ -108,6 +108,7 @@ const HISTORY_RECORD_LINKS=Object.freeze({
   'club-record':['index.html#the-club','Club record'],
   'six-face-crest':['assets/crest.webp','The six-face crest'],
   'monthly-stammtisch':['index.html#monthly-stammtisch','Monthly Stammtisch'],
+  'january-2026-notice':['https://github.com/justinpfisher/Stammtisch/blob/07131f6845e8129978dc197d11ebdef84b0b014a/client/src/pages/Home.tsx','The January 2026 notice'],
   'huntsville-assembly':['location.html','The Huntsville Assembly'],
   'remembrance-speech':['celebration.html','The remembrance speech']
 });
