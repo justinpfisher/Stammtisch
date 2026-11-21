@@ -56,3 +56,23 @@ test('History data rejects a private URL and a forged portrait key',()=>{
   privateLink.chapters[0].passages[0].sources[0].ref='https://example.invalid';
   assert.throws(()=>validateBoundHistory(privateLink));
 });
+
+test('opening recipe withdrawal removes only unsupported names and preserves Marc if still incorporated',()=>{
+  const king='annal-96b5ae266a36793c6a203033', daq='annal-5e0607c7dc924fb5663c40e0';
+  const prefix='The cocktails were part of the gathering. ';
+  const text=prefix+'Marc gave that tradition a place in the written record when he contributed Kingston Windfall and Daq in Black to the Annals. Other evidence records the team.';
+  const doc={...fixture(),chapters:[{id:'gatherings',heading:'Gathering together',passages:[
+    {id:'opening-2',text,sources:[{kind:'record',ref:'club-record'},source(king,'marc'),source(daq,'marc')]}]}]};
+  for(const [lost,kept,keptTitle] of [[king,daq,'Daq in Black'],[daq,king,'Kingston Windfall']]){
+    const revised=subtractStaleHistory(doc,[entry(kept,'marc')],[receipt(kept)],at);
+    const passage=revised.chapters[0].passages[0];
+    assert.equal(passage.text,prefix+'Marc gave that tradition a place in the written record when he contributed '+keptTitle+' to the Annals. Other evidence records the team.');
+    assert.deepEqual(historyCredits(revised).map(x=>x.name),['Marc']);
+    assert.equal(historyBacklinks(revised).has(lost),false);
+    assert.equal(historyBacklinks(revised).has(kept),true);
+    const withdrawn=subtractStaleHistory(revised,[],[],at);
+    assert.equal(withdrawn.chapters[0].passages[0].text,prefix+'Other evidence records the team.');
+    assert.deepEqual(historyCredits(withdrawn),[]);
+    assert.match(display.historyPage(withdrawn),/index\.html#the-club">Club record/);
+  }
+});
