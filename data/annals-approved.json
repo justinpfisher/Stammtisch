@@ -32,6 +32,23 @@
         "sha256": "ee47c45a0d84121fdd761df6fb9f08e04b276a3504ab5922dd040101b2ac8b44",
         "alt": "An amber-coloured cocktail in a stemmed glass garnished with thin apple slices."
       }
+    },
+    {
+      "id": "annal-f463f9566e3d9c3fe09465de",
+      "category": "club_history",
+      "title": "History of Stammtisch",
+      "summary": "Each December we have Christisch. We wrap a present which is just something\nin our houses that we don't really want but someone else may.",
+      "year": 2026,
+      "dateLabel": "Submitted 2026-11",
+      "sortDate": "",
+      "quoteVerbatim": "",
+      "recipe": {
+        "drinkIngredients": [],
+        "syrupIngredients": [],
+        "steps": []
+      },
+      "credit": "anonymous",
+      "contributorPortrait": "fish"
     }
   ],
   "approvals": [
@@ -47,6 +64,20 @@
       "contentSha256": "26f03d51bef159af31ec060b53c172face39acc68015346c3b3f0335e64361bd",
       "entryId": "annal-96b5ae266a36793c6a203033",
       "signature": "dcfbe572af0fd1f1c6d73cbc18aa5d93a5211ea242fed4049eb402fea0f74dcb"
+    },
+    {
+      "approvedAt": "2026-11-21T05:09:06.129Z",
+      "consents": {
+        "namedAttribution": true,
+        "photoPublication": false,
+        "publication": true,
+        "quotePublication": false,
+        "recipeVerified": false
+      },
+      "contentSha256": "fbd9d1485454f5396cf59f683922069ab3632d967368e3665a784f826b62c7bd",
+      "entryId": "annal-f463f9566e3d9c3fe09465de",
+      "mode": "standing-consent-text-v1",
+      "signature": "2b402e31b54a4a7741576063b10c3c2021f82eb9ccaefd4966a01a40a7c4f776"
     }
   ],
   "retiredIds": [
