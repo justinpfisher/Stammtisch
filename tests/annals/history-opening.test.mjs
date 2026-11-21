@@ -29,7 +29,7 @@ const fixture=(options={})=>{
   const props={ANNALS_HISTORY_PUBLICATION_ENABLED:'true',ANNALS_SIGNING_REMEDIATED_AT:at,ANNALS_HISTORY_SIGNING_KEY:key};
   const c=vm.createContext({
     Date:class extends Date{constructor(...a){super(...(a.length?a:[tick.toISOString()]));}},
-    Utilities:{computeHmacSha256Signature:(message,key)=>createHmac('sha256',key).update(message).digest()},
+    Utilities:{Charset:{UTF_8:'UTF-8'},computeHmacSha256Signature:(message,key)=>createHmac('sha256',key).update(message).digest()},
     AnnalsProduction:{serial},AnnalsPublicDisplay:{historyPage:renderHistory},annalsHash_:digest,
     annalsHex_:b=>b.toString('hex'),
     annalsRoot_:()=> 'private',annalsProps_:()=>({getProperty:k=>props[k]}),
