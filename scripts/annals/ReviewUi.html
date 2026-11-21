@@ -88,6 +88,17 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 <label><input id="confirmHistoryOpening" type="checkbox">Publish the exact previously approved opening edition.</label>
 <button id="publishHistoryOpening" disabled>Publish the opening edition through History</button>
 </fieldset>
+<fieldset><legend>Maintain published Club History</legend>
+<button id="loadHistoryMaintenance">Load the current History passages</button>
+<label>Passage<select id="historyMaintenanceTarget"></select></label>
+<label>Change<select id="historyMaintenanceAction"><option value="correct">Correct this passage, retaining its sources</option><option value="withdraw">Withdraw this passage and its History credit</option></select></label>
+<label>Replacement public wording (correction only)<textarea id="historyMaintenanceCopy" maxlength="1500"></textarea></label>
+<label>Private supporting evidence or withdrawal reason<textarea id="historyMaintenanceEvidence" maxlength="1000"></textarea></label>
+<p>These changes do not edit any original Annals entry. If a correction changes which sources support the passage, withdraw it rather than retaining the wrong sources.</p>
+<button id="prepareHistoryMaintenance" disabled>Preview the exact change</button><pre id="historyMaintenancePreview"></pre>
+<label><input id="confirmHistoryMaintenance" type="checkbox">I checked the preview, the supporting sources and permissions, and confirm publication.</label>
+<button id="publishHistoryMaintenance" disabled>Publish the signed History change</button><button id="reconcileHistoryMaintenance">Verify the last signed History change</button>
+</fieldset>
 <button id="checkSigningRotation" disabled>Check signing rotation against this private historical record</button><pre id="signingRotationResult"></pre>
 <label><input id="signingReconciliationConfirmed" type="checkbox">I verified outstanding dispatches against existing live and withdrawal evidence; the historical missing withdrawal receipt remains recorded as a gap.</label>
 <button id="diagnoseSigningQualification" disabled>Read signing recorder diagnostics</button><pre id="signingDiagnosticResult"></pre>
@@ -397,6 +408,47 @@ el('retainRuleWitness').onclick=()=>act(async()=>{const result=await call('annal
 el('prepareRuleProposal').onclick=()=>act(async()=>{const packet=await call('annalsPrepareRuleProposal',nonce,current.id,val('ruleHeading'),val('ruleReplacement'),val('ruleRecommendation'));el('rulePacket').textContent=JSON.stringify(packet,null,2);say('Private proposal comparison saved. No rule was adopted or published.');});
 el('saveHistoryClaim').onclick=()=>act(async()=>{const raw={chapter:val('historyChapter'),factKey:val('historyFactKey'),field:val('historyField'),statement:val('historyStatement'),period:val('historyPeriod'),order:Number(val('historyOrder')),status:val('historyClaimStatus'),uncertainty:val('historyUncertainty'),evidenceNote:val('historyEvidence')};historyReview=await call('annalsSaveHistoryClaim',nonce,current.id,raw,val('historyOperation'),val('historyEvidence'));el('historyPreview').textContent=JSON.stringify(historyReview.chapters,null,2);el('historyConfirmed').checked=false;el('approveHistoryRevision').disabled=historyReview.held===true;if(historyReview.held){say('Conflicting recollections held privately. Reconcile the sources before preparing a correction.');return;}say('Exact narrative revision prepared privately. Existing public history is unchanged.');});
 el('approveHistoryRevision').onclick=()=>act(async()=>{if(!historyReview||!el('historyConfirmed').checked)throw new Error('Review the exact chapter revision first.');const r=await call('annalsApproveHistoryRevision',nonce,current.id,historyReview.hash,true);el('approveHistoryRevision').disabled=true;say(r.dispatchAccepted?'Signed history revision accepted; live verification remains pending.':'History dispatch is uncertain or rejected. No automatic retry.');});
+el('reconcileHistoryMaintenance').onclick=()=>act(async()=>{
+  const result=await call('annalsReconcileHistory',nonce);
+  say(result.verified?'Verified Club History revision '+result.revision+' on the live site.':'The signed History change is not verified live yet. Do not retry.');
+});
+let boundEdition=null,boundReview=null,boundTargets=[];
+function resetBoundReview(){
+  boundReview=null;el('historyMaintenancePreview').textContent='';
+  el('publishHistoryMaintenance').disabled=true;el('confirmHistoryMaintenance').checked=false;
+}
+el('loadHistoryMaintenance').onclick=()=>act(async()=>{
+  resetBoundReview();boundEdition=null;boundTargets=[];el('prepareHistoryMaintenance').disabled=true;
+  el('historyMaintenanceTarget').replaceChildren();
+  boundEdition=await call('annalsListHistoryMaintenance',nonce);
+  for(const c of boundEdition.chapters)for(const p of c.passages){
+    const option=document.createElement('option');
+    option.value=String(boundTargets.length);option.textContent=c.heading+' / '+p.id+' / '+p.text.slice(0,72);
+    boundTargets.push({chapterId:c.id,passageId:p.id,text:p.text});el('historyMaintenanceTarget').append(option);
+  }
+  el('prepareHistoryMaintenance').disabled=!boundTargets.length;
+  el('historyMaintenanceCopy').value=boundTargets.length?boundTargets[0].text:'';
+  el('historyMaintenanceEvidence').value='';
+});
+el('historyMaintenanceTarget').onchange=()=>{
+  resetBoundReview();el('historyMaintenanceCopy').value=boundTargets[Number(val('historyMaintenanceTarget'))]?.text||'';
+};
+for(const id of ['historyMaintenanceAction','historyMaintenanceCopy','historyMaintenanceEvidence'])
+  el(id).addEventListener('input',resetBoundReview);
+el('prepareHistoryMaintenance').onclick=()=>act(async()=>{
+  resetBoundReview();const selected=boundTargets[Number(val('historyMaintenanceTarget'))];
+  if(!boundEdition||!selected)throw new Error('Load and select a current passage first.');
+  boundReview=await call('annalsPrepareHistoryMaintenance',nonce,boundEdition.digest,selected.chapterId,selected.passageId,
+    val('historyMaintenanceAction'),val('historyMaintenanceCopy'),val('historyMaintenanceEvidence'));
+  el('historyMaintenancePreview').textContent=JSON.stringify(boundReview.chapters,null,2);
+  el('publishHistoryMaintenance').disabled=false;
+});
+el('publishHistoryMaintenance').onclick=()=>act(async()=>{
+  if(!boundReview||!el('confirmHistoryMaintenance').checked)throw new Error('Confirm the exact History preview first.');
+  const digest=boundReview.hash;resetBoundReview();el('prepareHistoryMaintenance').disabled=true;
+  const result=await call('annalsPublishHistoryMaintenance',nonce,digest,true);
+  say(result.dispatchAccepted?'Signed History change accepted. Check the last History publication for live verification.':'History dispatch uncertain or rejected. Do not retry.');
+});
 let openingPreview=null;
 el('previewHistoryOpening').onclick=()=>act(async()=>{
   openingPreview=null;
