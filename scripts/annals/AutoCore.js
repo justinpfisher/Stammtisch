@@ -8,7 +8,7 @@ var AnnalsAuto = (function () {
   var MODE = 'standing-consent-text-v1';
   var QUOTE_MODE = 'standing-consent-quote-v1';
   var NOTICE = 'The Editorial Committee reserves the right to replace particularly spirited language with conspicuous euphemisms. Historical accuracy is otherwise maintained. The Editorial Committee is actually just AI we tried to train.';
-  var CATEGORIES = ['cocktail', 'quotation', 'monthly_gathering', 'assembly', 'club_history', 'artefact'];
+  var CATEGORIES = ['cocktail', 'quotation', 'monthly_gathering', 'assembly', 'club_history', 'artefact', 'miscellany'];
   // Independent of the AI category. Conservative private routing also covers
   // ambiguous references and mixed recipe/proposal emails, in either field.
   function protectedRoute(subject, body) {
@@ -423,12 +423,24 @@ var AnnalsAuto = (function () {
     })) return held('material_uncertainty');
     if (!reasonableCategory(candidate.category, full)) return held('classification_not_supported');
     // Ignore unverified AI event dates; publish only the verified receipt period.
-    if (typeof candidate.title !== 'string' || !candidate.title.trim() || candidate.title.length > 160 ||
-        protectedText(candidate.title,publicAssemblySource)) return held('title_missing_or_sensitive');
-    // Model-created headlines are editorial labels, not historical evidence.
-    // Prefer an innocuous original subject to unsupported model-created claims.
-    var title = sourceGrounded(full,candidate.title) ? candidate.title.trim() : s.subject.trim();
-    if (!title || protectedText(title,publicAssemblySource) || /(?:first ever|official record|unanimously decided|every member|all six were present)\b/i.test(title))
+    if (candidate.category !== 'miscellany' &&
+        (typeof candidate.title !== 'string' || !candidate.title.trim() || candidate.title.length > 160 ||
+        protectedText(candidate.title,publicAssemblySource))) return held('title_missing_or_sensitive');
+    // Miscellany is a text-only catch-all, not a way around a hold or a
+    // reason to turn an email subject or AI suggestion into a headline.
+    var title;
+    if (candidate.category === 'miscellany') {
+      if (!body || media.items.length) return held('miscellany_requires_body_text');
+      var explicit = /^Title:[ \t]*([^\r\n]+)\r?\n+/i.exec(body);
+      title = explicit ? explicit[1].trim() : '';
+      if (explicit) source = body.slice(explicit[0].length).trim();
+      if (!source || source.length > 1800) return held('source_incomplete');
+    } else {
+      // Prefer an innocuous original subject to unsupported model-created claims.
+      title = sourceGrounded(full,candidate.title) ? candidate.title.trim() : s.subject.trim();
+    }
+    if ((!title && candidate.category !== 'miscellany') || title.length > 160 ||
+        protectedText(title,publicAssemblySource) || /(?:first ever|official record|unanimously decided|every member|all six were present)\b/i.test(title))
       return held('title_asserts_unverified_fact');
     var recipe = candidate.recipe;
     if (!recipe || !Array.isArray(recipe.drinkIngredients) || !Array.isArray(recipe.syrupIngredients) || !Array.isArray(recipe.steps))
