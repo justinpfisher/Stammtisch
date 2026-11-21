@@ -90,6 +90,22 @@
       "submittedAt": "2026-11-21T02:26:11.000Z",
       "eventPeriod": "",
       "contributorPortrait": "marc"
+    },
+    {
+      "id": "annal-216ab229a2144f93d1c39152",
+      "category": "miscellany",
+      "title": "",
+      "summary": "Unclear if the word \"annal\" is \"anal\", \"annal\", \"annul\", \"Anna L.\" or \"unnel\".",
+      "year": 2026,
+      "dateLabel": "",
+      "sortDate": "",
+      "quoteVerbatim": "",
+      "recipe": {
+        "drinkIngredients": [],
+        "syrupIngredients": [],
+        "steps": []
+      },
+      "credit": "anonymous"
     }
   ],
   "approvals": [
@@ -133,6 +149,19 @@
       "entryId": "annal-5e0607c7dc924fb5663c40e0",
       "mode": "standing-consent-photos-v2",
       "signature": "e2452ed0e590805f347a8ed7049d85b433fa0e52d09eecac2a8c32d51e2a5fed"
+    },
+    {
+      "approvedAt": "2026-11-21T13:20:05.324Z",
+      "consents": {
+        "namedAttribution": false,
+        "photoPublication": false,
+        "publication": true,
+        "quotePublication": false,
+        "recipeVerified": false
+      },
+      "contentSha256": "afd4e7ccce389cd7152fc5b73e3f179e4f6fe686d71621ad92ade5fd705855e2",
+      "entryId": "annal-216ab229a2144f93d1c39152",
+      "signature": "68e38c32396971c93d27f05d7e0beb69d60f6f4b84181cabd3216ee587829980"
     }
   ],
   "retiredIds": [
