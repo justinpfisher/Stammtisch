@@ -29,11 +29,14 @@ function recipeIntroduction(entry) {
   // arrays below the introductory paragraph. Do not repeat them as prose.
   // Recognise only a full-line section heading; never cut a sentence merely
   // because it mentions the words "ingredients" or "instructions".
-  const sectionHeading = /(?:^|\r?\n)[ \t]*(?:ingredients|instructions|preparation|method|homemade syrup)[ \t]*:?[ \t]*(?=\r?\n|$)/gi;
+  const sectionHeading = /(?:^|\r?\n)[ \t]*(?:ingredients|instructions|preparation(?: steps)?|method|homemade syrup)[ \t]*[.:]?[ \t]*(?=\r?\n|$)/i;
   const firstHeading = sectionHeading.exec(entry.summary);
   if (firstHeading) {
-    const intro = entry.summary.slice(0,firstHeading.index).trim();
-    if (intro) return intro.replace(/\*([^*\n]+)\*/g,'$1').replace(/\s+/g,' ').trim();
+    const intro = entry.summary.slice(0,firstHeading.index)
+      .trim().replace(/\*([^*\n]+)\*/g,'$1').replace(/\s+/g,' ');
+    // The article header already renders the title. A title-only prefix
+    // is not a separate description, and the structured recipe comes below.
+    return intro.toLowerCase() === entry.title.toLowerCase().replace(/\s+/g,' ').trim() ? '' : intro;
   }
   const normalize = value => value.toLowerCase().replace(/\s+/g,' ').trim().replace(/[.;:]$/,'');
   const recorded = [...recipe.drinkIngredients,...recipe.syrupIngredients,...recipe.steps];
