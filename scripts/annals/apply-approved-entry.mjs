@@ -144,7 +144,10 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
     if(retiredIds.includes(entry.id))throw new Error('Withdrawn identity cannot be replayed');
     if (!verifyPublicApproval(entry, approval, secret)) throw new Error('Missing exact public approval');
     if (event.action === 'annals-auto-entry') {
-      if (!entry.photos && ['club_history','monthly_gathering','artefact'].includes(entry.category))
+      // Signed member recollections are ordinary Annals entries. The
+      // canonical Club History uses a different event, workflow and key.
+      if (!entry.photos && approval.mode !== 'standing-consent-text-v1' &&
+          ['club_history','monthly_gathering','artefact'].includes(entry.category))
         throw new Error('Living History requires distinct signed revision authority');
       if ((['standing-consent-text-v1','open-email-text-v1'].includes(approval.mode) && (entry.photo || entry.photos || event.client_payload.imageBase64 !== undefined || event.client_payload.images !== undefined || event.client_payload.imageBlobs !== undefined)) ||
           (['standing-consent-image-v1','standing-consent-photos-v2'].includes(approval.mode) && (!(entry.photo || entry.photos) || entry.photo && event.client_payload.imageBase64 === undefined || entry.photos && event.client_payload.images === undefined && event.client_payload.imageBlobs === undefined)) ||

@@ -781,3 +781,53 @@ test('a reported quotation cannot be made publishable by masking the alleged spe
   assert.equal(safe.excerpt,'Marc brought an imaginary glass.');
   assert.doesNotMatch(safe.excerpt,/quotation|Laurel Brewer/);
 });
+
+test('mail-wrapped measured bullets keep exact wording and distinct recipe rows', () => {
+  const s = sample();
+  s.source.excerpt = [
+    'Ingredients',
+    '   - 1 oz invented cordial (deep amber, pale amber, or',
+    '   clear)',
+    '   - 2 oz imaginary juice',
+    '   - Flavouring: 1 dash non-existent tonic',
+    '',
+    'Preparation',
+    '   - Stir the invented liquids.',
+  ].join('\n');
+  const d = draft();
+  d.recipe.drinkIngredients = ['1 oz invented cordial (deep amber, pale amber, or clear)',
+    '2 oz imaginary juice', 'Flavouring: 1 dash non-existent tonic'];
+  assert.equal(policy.propose(s,d,id).eligible,true);
+  for (const lines of [
+    ['1 oz invented cordial (deep amber, pale amber, or', ...d.recipe.drinkIngredients.slice(1)],
+    ['2 oz invented cordial (deep amber, pale amber, or clear)', ...d.recipe.drinkIngredients.slice(1)],
+    d.recipe.drinkIngredients.slice(0,2),
+  ]) {
+    assert.equal(policy.propose(s,{...d,recipe:{...d.recipe,drinkIngredients:lines}},id).reason,
+      'recipe_measure_or_step_uncertain');
+  }
+});
+
+test('ordinary signed recollections publish only as Annals entries, not History revisions', async () => {
+  const historyData = {schemaVersion:1,revision:0,updatedAt:'',chapters:[]};
+  const initialHistory = structuredClone(historyData);
+  const data = {schemaVersion:1,entries:[],approvals:[]};
+  for (const category of ['club_history','monthly_gathering','artefact']) {
+    const s = sample();
+    s.source.subject = 'Fictional club tradition';
+    s.source.excerpt = 'We trade small handmade gifts at the end of each fictional gathering.';
+    const d = {...draft(),category,title:s.source.subject,
+      recipe:{drinkIngredients:[],syrupIngredients:[],steps:[]}};
+    const result = policy.propose(s,d,id);
+    assert.equal(result.eligible,true);
+    const approval = proof(result.entry);
+    const event = {action:'annals-auto-entry',client_payload:{entry:result.entry,approval}};
+    const publish = (e) => applyApprovedEntry({event:e,data,secret,history:historyData,
+      now:new Date('2026-10-10T15:03:00Z')});
+    assert.deepEqual((await publish(event)).data.entries,[result.entry]);
+    assert.deepEqual(historyData,initialHistory);
+    await assert.rejects(publish({...event,action:'annals-history-revision'}));
+    await assert.rejects(publish({...event,client_payload:{...event.client_payload,
+      approval:{...approval,signature:'0'.repeat(64)}}}));
+  }
+});
