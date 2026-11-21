@@ -339,6 +339,26 @@ var AnnalsAuto = (function () {
     // editorial suggestion. Never fabricate amounts or historic methods.
     return true;
   }
+  // A labelled garnish note is part of the original serving directions,
+  // even when the extraction put only imperatives in the method. Recover
+  // the literal line from screened text, never a guessed garnish or amount.
+  function withSourceGarnishNotes(source, recipe) {
+    if (!recipe.steps.length) return recipe;
+    var seen = recipe.steps.map(recipeComparable);
+    var notes = [];
+    source.split(/\r?\n/).forEach(function (raw) {
+      var line = raw.trim().replace(/^(?:[-•]\s+|\d+[.)]\s+)/, '');
+      if (!/^Garnish[.:]\s+\S/i.test(line) || line.length > 220) return;
+      var comparison = recipeComparable(line);
+      if (seen.indexOf(comparison) >= 0) return;
+      seen.push(comparison);
+      notes.push(line);
+    });
+    if (!notes.length || notes.length + recipe.steps.length > 30) return recipe;
+    return { drinkIngredients: recipe.drinkIngredients, syrupIngredients: recipe.syrupIngredients,
+      steps: notes.concat(recipe.steps) };
+  }
+
   // This is explicitly an optional editorial suggestion, never asserted to be a
   // recovered historical instruction or a verified homemade syrup recipe.
   function suggestedMethod(recipe, source) {
@@ -415,6 +435,7 @@ var AnnalsAuto = (function () {
       return held('invalid_recipe');
     var all = recipe.drinkIngredients.concat(recipe.syrupIngredients,recipe.steps);
     if (candidate.category === 'cocktail') {
+      recipe = withSourceGarnishNotes(full, recipe);
       if (!sourceRecipeGrounded(full, recipe)) return held('recipe_measure_or_step_uncertain');
     } else if (all.length) return held('unexpected_recipe');
     var quote = '';

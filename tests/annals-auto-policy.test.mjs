@@ -831,3 +831,17 @@ test('ordinary signed recollections publish only as Annals entries, not History 
       approval:{...approval,signature:'0'.repeat(64)}}}));
   }
 });
+
+test('an exact submitted garnish note is retained without accepting an omitted instruction', () => {
+  const s = sample();
+  s.source.excerpt += '\n- Garnish. A curl of fictional citrus peel.';
+  const result = policy.propose(s,draft(),id);
+  assert.equal(result.eligible,true);
+  assert.equal(result.entry.recipe.steps[0],'Garnish. A curl of fictional citrus peel.');
+  assert.equal(result.entry.recipe.steps[1],'Stir the invented liquids.');
+  const absentStep = {...s,source:{...s.source,excerpt:s.source.excerpt+'\nGarnish with fictional flowers.'}};
+  assert.equal(policy.propose(absentStep,draft(),id).reason,'recipe_measure_or_step_uncertain');
+  const changed = draft();
+  changed.recipe.steps.push('Garnish. A curl of different peel.');
+  assert.equal(policy.propose(s,changed,id).reason,'recipe_measure_or_step_uncertain');
+});
