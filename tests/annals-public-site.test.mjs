@@ -68,10 +68,15 @@ test('published cocktails show their description once while each recorded ingred
   const html=read('../annals.html');
   for(const entry of data.entries.filter(e=>e.category==='cocktail')){
     const intro=recipeIntroduction(entry);
-    assert.ok(intro,'Cocktail has a readable introduction');
-    const tag='<p class="annal-summary">'+intro+'</p>';
-    assert.ok(html.includes(tag),'Published description matches deterministic safe display source');
     const section=html.split('id="'+entry.id+'"')[1]?.split('</article>')[0]||'';
+    const overview=section.split('<div class="annal-recipe">')[0];
+    assert.ok(overview.startsWith(' data-annals-category="cocktail"'));
+    if (intro) {
+      const tag='<p class="annal-summary">'+editorialHtml(intro)+'</p>';
+      assert.equal(overview.split(tag).length-1,1,'Published description matches safe display source');
+    } else {
+      assert.doesNotMatch(overview,/<p class="annal-summary">/,'No title-only or recipe-only preamble');
+    }
     assert.ok(section.includes('<h4>Preparation</h4>'));
     for(const step of entry.recipe.steps){
       assert.equal(section.split('<li>'+step+'</li>').length-1,1,'Each preparation step is rendered once');
@@ -80,6 +85,19 @@ test('published cocktails show their description once while each recorded ingred
     assert.doesNotMatch(section.split('<div class="annal-recipe">')[0],/Instructions\s*[-:]|<li>.*(?:Shake|Strain|Garnish)/);
     assert.equal(data.approvals.find(a=>a.entryId===entry.id)?.contentSha256,contentDigest(entry),'Presentation does not mutate signed material');
   }
+});
+
+test('recipe section headings suppress a repeated title and wrapped instructions without losing real prose', () => {
+  const entry = {
+    title: 'Fictional example',
+    category: 'cocktail',
+    recipe: { drinkIngredients: ['1 oz amber syrup'], syrupIngredients: [], steps: ['Shake. Use firm ice.'] },
+  };
+  const body = 'Ingredients.\n  - 1 oz amber\n    syrup\nPreparation Steps\n  - Shake. Use firm ice.';
+  assert.equal(recipeIntroduction({...entry, summary: entry.title + '\n\n' + body}), '');
+  assert.equal(recipeIntroduction({...entry, summary: body}), '');
+  assert.equal(recipeIntroduction({...entry, summary: 'I served this chilled.\n\n' + body}), 'I served this chilled.');
+  assert.equal(recipeIntroduction({...entry, summary: 'Preparation Steps\n  - Shake. Use firm ice.'}), '');
 });
 
 test('signed-source-safe editorial language uses approved visible euphemisms without hidden redaction bars',()=>{
