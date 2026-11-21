@@ -1,6 +1,7 @@
 /* Lightweight optional filtering of already-public cards; no votes, accounts or analytics. */
 const cards=[...document.querySelectorAll('.annal-stream .annal-entry[data-annals-category]')];
 const filters=[...document.querySelectorAll('.annal-collections [data-annals-filter]')];
+const miscellanyIntro=document.getElementById('annal-miscellany-intro');
 const status=document.getElementById('annal-result-count');
 if(cards.length && filters.length && status){
   const allowed=new Set(['all',...cards.map(card=>card.dataset.annalsCategory)]);
@@ -11,6 +12,7 @@ if(cards.length && filters.length && status){
   };
   const activate=category=>{
     const value=allowed.has(category)?category:'all';
+    if(miscellanyIntro)miscellanyIntro.hidden=value!=='miscellany';
     let shown=0;
     for(const card of cards){
       const visible=value==='all'||card.dataset.annalsCategory===value;
@@ -29,7 +31,9 @@ if(cards.length && filters.length && status){
       event.preventDefault();
       history.replaceState(null,'',link.getAttribute('href'));
       activate(link.dataset.annalsFilter);
-      document.getElementById('annals-entries')?.scrollIntoView({block:'start'});
+      const destination=link.dataset.annalsFilter==='miscellany' && miscellanyIntro && !miscellanyIntro.hidden
+        ? miscellanyIntro : document.getElementById('annals-entries');
+      destination?.scrollIntoView({block:'start'});
     });
   }
   window.addEventListener('hashchange',()=>activate(fromHash()));
