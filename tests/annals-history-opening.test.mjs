@@ -33,7 +33,7 @@ const fixture=(options={})=>{
   const membership={clubMemberAuthenticated:true,externalContributionAtReceipt:false};
   const source={sourceId:id,senderAuthenticated:true,aiConsentActive:true,autoConsentAtReceipt:true,
     source:{sender,receivedAt:options.legacy?'2026-10-08T13:00:00.000Z':at,
-      subject:'Fixture drink',excerpt:'A fictional recipe.'},...(options.legacy?{}:membership)};
+      subject:'Fixture drink',excerpt:'A fictional recipe.\nServe chilled.'},...(options.legacy?{}:membership)};
   const grantAt='2026-10-01T00:00:00.000Z';
   const member={status:options.revoked?'revoked':'active',scope:'future_text_ai_drafting',consentedAt:grantAt,
     autoPublication:{status:'active',scope:'future_source_grounded_text_publication',consentedAt:grantAt},
@@ -50,8 +50,14 @@ const fixture=(options={})=>{
   const unsignedReceipt={...receiptFields,reviewedBy:'standing-consent-automation-v1'};
   const receipt={...unsignedReceipt,signature:createHmac('sha256',privateKey)
     .update(serial({entry:originalEntry,receipt:unsignedReceipt})).digest('hex')};
-  const original={entry:originalEntry,publication,receipt,publicationState:'dispatch_accepted'};
-  if(options.legacy)files.set('approval-private.json',original);
+  const original={entry:originalEntry,publication,receipt,approvalMode:mode,publicationState:'dispatch_accepted'};
+  const eligibility={state:'eligible',policy:mode,contentSha256:unsignedProof.contentSha256,
+    sourceDigest:digest(source.source.subject+'\n'+source.source.excerpt),consentCheckedAt:historicalApprovalAt};
+  if(options.legacy){
+    files.set('approval-private.json',original);
+    files.set('auto-decision-private.json',options.reassessed?{state:'held'}:eligibility);
+    if(options.reassessed)files.set('auto-reassessment-private.json',eligibility);
+  }
   let publicHistory=today, tick=new Date(at);
   const props={ANNALS_HISTORY_PUBLICATION_ENABLED:'true',ANNALS_SIGNING_REMEDIATED_AT:at,ANNALS_HISTORY_SIGNING_KEY:key,
     ANNALS_APPROVAL_KEY:privateKey,ANNALS_ALLOWED_SENDERS:allowed.join(','),
@@ -80,9 +86,9 @@ const fixture=(options={})=>{
   c.ANNALS_HISTORY_OPENING_SOURCES_={'gatherings/opening-1':[
     ['record','fictional-record'],['annal',entryId,'Fixture drink','marc']]};
   c.ANNALS_HISTORY_OPENING_ANNALS_SHA_={[entryId]:archive.approvals[0].contentSha256};
-  c.ANNALS_HISTORY_OPENING_LEGACY_PROOF_SHA_={[entryId]:digest(serial(publication))};
+  c.ANNALS_HISTORY_OPENING_LEGACY_PROOF_SHA_=options.legacy?{[entryId]:digest(serial(publication))}:{};
   const readback=()=>{publicHistory=applyHistoryRevision({current:today,event:events[0],secret:key,enabled:true,now:tick});};
-  return {c,archive,packet,events,props,store,files,source,original,member,allowed,readback};
+  return {c,archive,packet,events,props,store,files,source,original,eligibility,member,allowed,readback};
 };
 
 test('opening signed via the existing owner-only route; ledger advances only after exact served bytes',()=>{
@@ -124,16 +130,21 @@ test('opening catches altered copy, changed signed source, rights loss and missi
   }
 });
 
-test('opening accepts an exact historical member proof and preserves both original private records',()=>{
-  const f=fixture({legacy:true}), c=f.c, before=serial([...f.files]);
-  assert.throws(()=>c.annalsOrdinarySourceGate_(f.source),/Authenticated member source/);
-  const p=c.annalsPreviewHistoryOpening('owner');
-  assert.equal(p.previewDigest,fixture().c.annalsPreviewHistoryOpening('owner').previewDigest);
-  assert.equal(serial([...f.files]),before);
-  assert.equal(c.annalsPublishHistoryOpening('owner',p.previewDigest,true).dispatchAccepted,true);
-  assert.equal(serial([...f.files]),before);
-  assert.equal(c.annalsPrivateReceiptValid_(f.original.entry,f.original.receipt),true);
-  assert.doesNotMatch(JSON.stringify(f.events),/example\.test|Original fictional title|standing-consent-text-v1|privateOpeningPacket/);
+test('opening accepts the matching historical decision and preserves the private evidence and signatures',()=>{
+  const modernPreview=fixture().c.annalsPreviewHistoryOpening('owner').previewDigest;
+  for(const reassessed of [false,true]){
+    const f=fixture({legacy:true,reassessed}), c=f.c, before=serial([...f.files]);
+    assert.throws(()=>c.annalsOrdinarySourceGate_(f.source),/Authenticated member source/);
+    const p=c.annalsPreviewHistoryOpening('owner');
+    assert.equal(p.previewDigest,modernPreview);
+    assert.equal(serial([...f.files]),before);
+    assert.equal(c.annalsPublishHistoryOpening('owner',p.previewDigest,true).dispatchAccepted,true);
+    assert.equal(serial([...f.files]),before);
+    assert.equal(c.annalsPrivateReceiptValid_(f.original.entry,f.original.receipt),true);
+    const payload=JSON.stringify(f.events);
+    assert.doesNotMatch(payload,/example\.test|Original fictional title|standing-consent-text-v1|privateOpeningPacket|A fictional recipe\./);
+    assert.equal(payload.includes(f.eligibility.sourceDigest),false);
+  }
 });
 
 test('opening holds when the historical membership evidence is absent, wrong or contradictory',()=>{
@@ -160,6 +171,56 @@ test('opening holds when the historical membership evidence is absent, wrong or 
     const f=fixture({legacy:true}); edit(f);
     assert.throws(()=>f.c.annalsPreviewHistoryOpening('owner'),
       /provenance or permission|legacy membership evidence|Authenticated member source/,reason);
+    assert.equal(f.events.length,0,reason);
+  }
+});
+
+test('opening requires the exact retained subject and excerpt bound to the original signed content',()=>{
+  const cases=[
+    ['different subject',f=>f.source.source.subject='Another fictional drink'],
+    ['different excerpt',f=>f.source.source.excerpt='A different fictional recipe.'],
+    ['changed excerpt with modern membership fields',f=>{
+      Object.assign(f.source,{clubMemberAuthenticated:true,externalContributionAtReceipt:false});
+      f.source.source.excerpt='A different fictional recipe.';
+    }],
+    ['missing subject',f=>delete f.source.source.subject],
+    ['missing excerpt',f=>delete f.source.source.excerpt],
+    ['missing decision',f=>f.files.delete('auto-decision-private.json')],
+    ['ineligible decision',f=>f.eligibility.state='held'],
+    ['wrong policy',f=>f.eligibility.policy='standing-consent-quote-v1'],
+    ['wrong original approval mode',f=>f.original.approvalMode='standing-consent-quote-v1'],
+    ['missing source digest',f=>delete f.eligibility.sourceDigest],
+    ['wrong source digest',f=>f.eligibility.sourceDigest='b'.repeat(64)],
+    ['missing signed content digest',f=>delete f.eligibility.contentSha256],
+    ['current rather than original signed content',f=>f.eligibility.contentSha256=f.archive.approvals[0].contentSha256],
+    ['conflicting eligible reassessment',f=>f.files.set('auto-reassessment-private.json',{...f.eligibility})],
+    ['malformed subject boundary',f=>{
+      const [firstLine,rest]=f.source.source.excerpt.split('\n');
+      f.source.source.subject+='\n'+firstLine;
+      f.source.source.excerpt=rest;
+      assert.equal(digest(f.source.source.subject+'\n'+f.source.source.excerpt),f.eligibility.sourceDigest);
+    }],
+  ];
+  for(const [reason,edit] of cases){
+    const f=fixture({legacy:true});
+    const {previewDigest}=f.c.annalsPreviewHistoryOpening('owner');
+    edit(f);
+    const error=/legacy source-to-approval evidence/;
+    assert.throws(()=>f.c.annalsPreviewHistoryOpening('owner'),error,reason);
+    assert.throws(()=>f.c.annalsPublishHistoryOpening('owner',previewDigest,true),error,reason);
+    assert.equal(f.events.length,0,reason);
+  }
+});
+
+test('opening requires a matching reassessment after a historical hold',()=>{
+  const cases=[
+    ['missing initial hold',f=>f.files.delete('auto-decision-private.json')],
+    ['missing reassessment',f=>f.files.delete('auto-reassessment-private.json')],
+    ['mismatched reassessment',f=>f.eligibility.contentSha256='b'.repeat(64)],
+  ];
+  for(const [reason,edit] of cases){
+    const f=fixture({legacy:true,reassessed:true}); edit(f);
+    assert.throws(()=>f.c.annalsPreviewHistoryOpening('owner'),/legacy source-to-approval evidence/,reason);
     assert.equal(f.events.length,0,reason);
   }
 });

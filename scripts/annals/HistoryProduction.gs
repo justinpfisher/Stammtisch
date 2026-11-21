@@ -214,13 +214,12 @@ var ANNALS_HISTORY_OPENING_LEGACY_PROOF_SHA_={
 };
 
 function annalsOpeningSourceGate_(folder,source,entryId,portrait){
-  var hasFlag=Object.prototype.hasOwnProperty;
-  if(hasFlag.call(source,'clubMemberAuthenticated')||hasFlag.call(source,'externalContributionAtReceipt')){
+  var expected=ANNALS_HISTORY_OPENING_LEGACY_PROOF_SHA_[entryId];
+  if(!expected){
     annalsOrdinarySourceGate_(source);
     return;
   }
-  var expected=ANNALS_HISTORY_OPENING_LEGACY_PROOF_SHA_[entryId],
-    original=expected&&annalsRead_(folder,'approval-private.json'),
+  var original=annalsRead_(folder,'approval-private.json'),
     proof=original&&original.publication, received=Date.parse(source.source.receivedAt);
   if(!proof||original.publicationState!=='dispatch_accepted'||!original.entry||
     proof.entryId!==entryId||original.entry.id!==entryId||original.entry.contributorPortrait!==portrait||
@@ -229,8 +228,23 @@ function annalsOpeningSourceGate_(folder,source,entryId,portrait){
     !Number.isFinite(received)||!(received<=Date.parse(proof.approvedAt))||
     source.aiConsentActive!==true||source.autoConsentAtReceipt!==true)
     throw new Error('Opening legacy membership evidence missing or changed');
-  // Supply the proven flags only to the existing gate. Keep all stored records intact.
-  annalsOrdinarySourceGate_(Object.assign({},source,{clubMemberAuthenticated:true,externalContributionAtReceipt:false}));
+
+  // The original publisher wrote this eligibility decision before the signed approval.
+  var initial=annalsRead_(folder,'auto-decision-private.json'),
+    wasHeld=initial&&initial.state==='held',
+    eligibility=wasHeld?annalsRead_(folder,'auto-reassessment-private.json'):initial,
+    subject=source.source.subject, excerpt=source.source.excerpt;
+  if(!eligibility||eligibility.state!=='eligible'||eligibility.policy!==proof.mode||
+    original.approvalMode!==proof.mode||eligibility.contentSha256!==proof.contentSha256||
+    (!wasHeld&&annalsFile_(folder,'auto-reassessment-private.json'))||
+    typeof subject!=='string'||typeof excerpt!=='string'||/[\r\n]/.test(subject)||
+    eligibility.sourceDigest!==annalsHash_(subject+'\n'+excerpt))
+    throw new Error('Opening legacy source-to-approval evidence missing or changed');
+
+  // Keep the original fields authoritative when present and never write the derived flags.
+  var hasFlag=Object.prototype.hasOwnProperty;
+  annalsOrdinarySourceGate_(hasFlag.call(source,'clubMemberAuthenticated')||hasFlag.call(source,'externalContributionAtReceipt')?
+    source:Object.assign({},source,{clubMemberAuthenticated:true,externalContributionAtReceipt:false}));
 }
 
 function annalsOpeningArchive_(){
