@@ -83,6 +83,11 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 <button id="saveHistoryClaim">Prepare exact chapter revision</button><pre id="historyPreview"></pre>
 <label><input id="historyConfirmed" type="checkbox">I checked the exact chapter revision, permissions, source grounding and any conflicts.</label>
 <button id="approveHistoryRevision" disabled>Approve qualified history revision</button><button id="reconcileHistory">Check the last history publication</button></fieldset>
+<fieldset><legend>Approved Club History opening edition</legend>
+<button id="previewHistoryOpening">Check staged opening edition and permissions</button>
+<label><input id="confirmHistoryOpening" type="checkbox">Publish the exact previously approved opening edition.</label>
+<button id="publishHistoryOpening" disabled>Publish the opening edition through History</button>
+</fieldset>
 <button id="checkSigningRotation" disabled>Check signing rotation against this private historical record</button><pre id="signingRotationResult"></pre>
 <label><input id="signingReconciliationConfirmed" type="checkbox">I verified outstanding dispatches against existing live and withdrawal evidence; the historical missing withdrawal receipt remains recorded as a gap.</label>
 <button id="diagnoseSigningQualification" disabled>Read signing recorder diagnostics</button><pre id="signingDiagnosticResult"></pre>
@@ -392,6 +397,23 @@ el('retainRuleWitness').onclick=()=>act(async()=>{const result=await call('annal
 el('prepareRuleProposal').onclick=()=>act(async()=>{const packet=await call('annalsPrepareRuleProposal',nonce,current.id,val('ruleHeading'),val('ruleReplacement'),val('ruleRecommendation'));el('rulePacket').textContent=JSON.stringify(packet,null,2);say('Private proposal comparison saved. No rule was adopted or published.');});
 el('saveHistoryClaim').onclick=()=>act(async()=>{const raw={chapter:val('historyChapter'),factKey:val('historyFactKey'),field:val('historyField'),statement:val('historyStatement'),period:val('historyPeriod'),order:Number(val('historyOrder')),status:val('historyClaimStatus'),uncertainty:val('historyUncertainty'),evidenceNote:val('historyEvidence')};historyReview=await call('annalsSaveHistoryClaim',nonce,current.id,raw,val('historyOperation'),val('historyEvidence'));el('historyPreview').textContent=JSON.stringify(historyReview.chapters,null,2);el('historyConfirmed').checked=false;el('approveHistoryRevision').disabled=historyReview.held===true;if(historyReview.held){say('Conflicting recollections held privately. Reconcile the sources before preparing a correction.');return;}say('Exact narrative revision prepared privately. Existing public history is unchanged.');});
 el('approveHistoryRevision').onclick=()=>act(async()=>{if(!historyReview||!el('historyConfirmed').checked)throw new Error('Review the exact chapter revision first.');const r=await call('annalsApproveHistoryRevision',nonce,current.id,historyReview.hash,true);el('approveHistoryRevision').disabled=true;say(r.dispatchAccepted?'Signed history revision accepted; live verification remains pending.':'History dispatch is uncertain or rejected. No automatic retry.');});
+let openingPreview=null;
+el('previewHistoryOpening').onclick=()=>act(async()=>{
+  openingPreview=null;
+  el('publishHistoryOpening').disabled=true;
+  el('confirmHistoryOpening').checked=false;
+  openingPreview=await call('annalsPreviewHistoryOpening',nonce);
+  el('publishHistoryOpening').disabled=false;
+  say('Approved opening checked: '+openingPreview.chapterCount+' chapters and '+openingPreview.portraitCount+' contributor portraits. Not yet published.');
+});
+el('publishHistoryOpening').onclick=()=>act(async()=>{
+  if(!openingPreview||!el('confirmHistoryOpening').checked)throw new Error('Check the staged opening edition first.');
+  const digest=openingPreview.previewDigest;
+  openingPreview=null;
+  el('publishHistoryOpening').disabled=true;
+  const r=await call('annalsPublishHistoryOpening',nonce,digest,true);
+  say(r.dispatchAccepted?'Opening revision dispatched. Check exact live publication next.':'Opening publication not verified. Do not replay without reconciliation.');
+});
 el('reconcileHistory').onclick=()=>act(async()=>{const r=await call('annalsReconcileHistory',nonce);say(r.verified?'History revision '+r.revision+' verified live.':'History is not verified live. No request was replayed.');});
 el('quarantine').onclick=()=>act(async()=>{const result=await call('annalsQuarantineSubmission',nonce,current.id,val('quarantineReason'),el('quarantineConfirmed').checked);if(!result||result.quarantined!==true)throw new Error('Quarantine was not confirmed. Check the saved private record before any further action.');current.quarantined=true;current.status='Quarantined - owner-identified test';el('itemStatus').textContent=current.status;updateQueuedItem();say('Test quarantined privately. Originals and audit records are preserved.');});
 el('prepare').onclick=()=>act(async()=>{say('Preparing the private draft…');await call('annalsPrepareDraft',nonce,current.id,val('source'),[...document.querySelectorAll('.media:checked')].map(i=>i.value),el('aiConsent').checked);await open(current.id);});

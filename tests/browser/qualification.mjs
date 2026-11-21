@@ -36,9 +36,18 @@ const approvals=entries.map(entry=>{
   const approval={entryId:entry.id,approvedAt:'2026-10-15T12:00:00Z',consents:{publication:true,quotePublication:entry.category==='quotation',recipeVerified:entry.category==='cocktail',namedAttribution:false,photoPublication:false},contentSha256:contentDigest(entry)};
   return {...approval,signature:createHmac('sha256',fixtureKey).update(JSON.stringify(canonical({entry,approval}))).digest('hex')};
 });
-const history={schemaVersion:1,revision:1,updatedAt:'2027-01-01T00:00:00Z',chapters:[
-  {id:'origins',heading:'Origins',paragraphs:['A member recalls: This entirely fictional early passage tests a chapter added out of receipt order. (Historical uncertainty: an approximate period only.)']},
-  {id:'traditions',heading:'Developing traditions',paragraphs:['This is fictional browser-layout prose. It must never become an actual club recollection. '.repeat(5)]}
+const boundEntry={...base,id:'annal-'+'1'.repeat(24),category:'club_history',title:'Fictional browser opening',
+  summary:'A source fixture for the reciprocal link.',contributorPortrait:'fish'};
+const boundApproval={entryId:boundEntry.id,approvedAt:'2026-10-15T12:00:00Z',consents:{publication:true,
+  quotePublication:false,recipeVerified:false,namedAttribution:true,photoPublication:false},contentSha256:contentDigest(boundEntry)};
+entries.push(boundEntry);
+approvals.push({...boundApproval,signature:createHmac('sha256',fixtureKey).update(
+  JSON.stringify(canonical({entry:boundEntry,approval:boundApproval}))).digest('hex')});
+const history={schemaVersion:2,revision:1,updatedAt:'2027-01-01T00:00:00Z',chapters:[
+  {id:'origins',heading:'Origins',passages:[{id:'offline-origins',text:'A member recalls: This entirely fictional early passage tests a chapter added out of receipt order. (Historical uncertainty: an approximate period only.)',sources:[{kind:'record',ref:'club-record'}]}]},
+  {id:'gatherings',heading:'Gathering together',passages:[{id:'offline-gatherings',text:'The gathering has a standing date.',sources:[{kind:'record',ref:'monthly-stammtisch'}]}]},
+  {id:'assemblies',heading:'Annual Assemblies',passages:[{id:'offline-assemblies',text:'This is an Assembly fixture.',sources:[{kind:'record',ref:'huntsville-assembly'}]}]},
+  {id:'traditions',heading:'Developing traditions',passages:[{id:'offline-traditions',text:'This is fictional browser-layout prose. It must never become an actual club recollection. '.repeat(5),sources:[{kind:'annal',entryId:boundEntry.id,digest:boundApproval.contentSha256,portrait:'fish',label:'Original fictional browser entry'}]}]}
 ]};
 const tinyBytes=Buffer.from(Media.sanitize(Buffer.from((await readFile(path.join(root,'tests/annals-safe-media.test.mjs'),'utf8')).match(/const photo=\(\)=>Buffer.from\('([^']+)'/)[1],'base64')).bytes);
 const fixturePhoto={sha256:'a'.repeat(64),alt:'Fictional browser photograph',width:1,height:1};
@@ -302,7 +311,7 @@ try{
           await page.goto(origin+'/'+file);
           assert.equal(await page.locator('header.site-header').count(),1,file);
           assert.ok(await page.locator('.mobile-site-navigation').isVisible(),file+' menu');
-          assert.equal(await page.locator('.mobile-site-navigation nav a').count(),5,file+' menu links');
+          assert.equal(await page.locator('.mobile-site-navigation nav a').count(),6,file+' menu links');
           await noOverflow(page);
         }
       });
@@ -314,7 +323,7 @@ try{
         await page.waitForFunction(()=>/^\d{4}-\d{2}-\d{2}$/.test(
           document.querySelector('[data-monthly-date]').getAttribute('datetime')||''));
         assert.match(await hero.innerText(),/8 p.m. Toronto time/);
-        assert.equal(await page.locator('header.site-header nav[aria-label="Main navigation"] a').count(),5);
+        assert.equal(await page.locator('header.site-header nav[aria-label="Main navigation"] a').count(),6);
         if(profile.name==='desktop-chromium'){
           assert.ok(await page.locator('header.site-header nav[aria-label="Main navigation"]').isVisible());
           assert.equal(await page.locator('.mobile-site-navigation').isVisible(),false);
@@ -334,7 +343,7 @@ try{
       await check(browser,profile,'chronological cards and accessible category filtering',async page=>{
         await page.goto(origin+'/annals.html');
         const cards=page.locator('.annal-stream .annal-entry');
-        assert.equal(await cards.count(),7);
+        assert.equal(await cards.count(),8);
         assert.equal(await cards.first().getAttribute('id'),'offline-browser-quote');
         const columns=await page.locator('.annal-stream').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length);
         assert.equal(columns,profile.name==='desktop-chromium'?2:1);
@@ -346,7 +355,7 @@ try{
         await page.reload();
         assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),1);
         await page.getByRole('link',{name:'All entries',exact:true}).click();
-        assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),7);
+        assert.equal(await page.locator('.annal-stream .annal-entry:visible').count(),8);
         assert.equal(await page.locator('#offline-browser-recipe .annal-entry-link').getAttribute('href'),'#offline-browser-recipe');
         await noOverflow(page);
       });
@@ -368,6 +377,24 @@ try{
         await page.goto(origin+'/history.html');assert.equal(await page.locator('.history-meta').first().innerText(),'Updated January 2027');
         assert.match(await page.locator('main').innerText(),/Historical uncertainty: an approximate period only/);
       });
+      await check(browser,profile,'Club History and exact Annals source link both ways without scripts',async page=>{
+        await page.goto(origin+'/annals.html#'+boundEntry.id);
+        const card=page.locator('#'+boundEntry.id);
+        const backlink=card.locator('a[href="history.html#chapter-traditions"]');
+        assert.equal(await backlink.count(),1);
+        assert.equal(await page.locator('#offline-browser-recipe a[href^="history.html#chapter-"]').count(),0);
+        await backlink.click();
+        await page.waitForURL('**/history.html#chapter-traditions');
+        for(const id of ['origins','gatherings','assemblies','traditions'])
+          assert.equal(await page.locator('#chapter-'+id).count(),1);
+        assert.equal(await page.locator('.history-contributors li').count(),1);
+        assert.equal(await page.locator('.history-contributors li').innerText(),'Justin');
+        assert.equal(await page.locator('.history-contributors img').getAttribute('alt'),'');
+        await noOverflow(page);
+        await page.locator('#chapter-traditions a[href="annals.html#'+boundEntry.id+'"]').click();
+        await page.waitForURL('**/annals.html#'+boundEntry.id);
+        assert.equal(await page.locator('#'+boundEntry.id+' h2').count()+await page.locator('#'+boundEntry.id+' h3').count(),1);
+      },{javaScriptEnabled:false});
       await check(browser,profile,'visible euphemisms, source-safe quotation notice and accessibility',async page=>{
         await page.goto(origin+'/annals.html');
         const card=page.locator('#offline-browser-quote');
@@ -396,7 +423,7 @@ try{
           assert.ok(await page.evaluate(()=>document.querySelector('main').contains(document.activeElement)));
           assert.notEqual(await page.evaluate(()=>getComputedStyle(document.activeElement).outlineStyle),'none');
           assert.equal(await page.locator('h1').count(),1);assert.equal(await page.locator('main').count(),1);
-          for(const link of await page.locator('nav a,main a,footer a').all())if(await link.isVisible())assert.ok((await link.boundingBox()).height>=44,'Small link target');
+          for(const link of await page.locator('nav a,main a,footer a').all())if(await link.isVisible())assert.ok((await link.boundingBox()).height>=44,'Small link target: '+await link.getAttribute('href'));
         }
       });
       await check(browser,profile,'form control focus visibility and 320px reflow',async page=>{
@@ -420,7 +447,7 @@ try{
         await page.setViewportSize({width:320,height:740});
         for(const file of ['annals.html','history.html']){await page.goto(origin+'/'+file);await noOverflow(page);}
         assert.ok(await page.locator('main').evaluate(e=>e.getBoundingClientRect().width)<=320);
-        assert.equal(await page.locator('section h2').count(),2);
+        assert.equal(await page.locator('.history-chapter h2').count(),4);
         assert.ok(parseFloat(await page.locator('section p').first().evaluate(e=>getComputedStyle(e).fontSize))>=16);
       });
       await check(browser,profile,'dark preference retains readable euphemism and layout',async page=>{

@@ -61,6 +61,7 @@ const SITE_LINKS = Object.freeze([
   ['monthly', 'index.html#monthly-stammtisch', 'Monthly Stammtisch'],
   ['club', 'index.html#the-club', 'The Club'],
   ['annals', 'annals.html', 'The Annals'],
+  ['history', 'history.html', 'Club History'],
   ['col', 'celebration.html', 'Celebration of Life'],
   ['assembly', 'location.html', 'Annual Assembly']
 ]);
@@ -101,8 +102,44 @@ function siteFooter(section) {
     '</nav></div></footer>';
 }
 
+const HISTORY_PORTRAITS=Object.freeze({fish:'Justin',marc:'Marc',matt:'Matt',ken:'Ken',jamie:'Jamie',jerome:'Jerome'});
+// Only approved public destinations are rendered. Private provenance stays in the ledger.
+const HISTORY_RECORD_LINKS=Object.freeze({
+  'club-record':['index.html#the-club','Club record'],
+  'six-face-crest':['assets/crest.webp','The six-face crest'],
+  'monthly-stammtisch':['index.html#monthly-stammtisch','Monthly Stammtisch'],
+  'january-2026-notice':['https://github.com/justinpfisher/Stammtisch/blob/07131f6845e8129978dc197d11ebdef84b0b014a/client/src/pages/Home.tsx','The January 2026 notice'],
+  'huntsville-assembly':['location.html','The Huntsville Assembly'],
+  'remembrance-speech':['celebration.html','The remembrance speech']
+});
+function historyChapters(document) {
+  if(!document.chapters.length) return '<p class="history-pending">The Club has a history. The formal account is, for the moment, less forthcoming.</p>';
+  return document.chapters.map(c => {
+    const body=document.schemaVersion===2 ? c.passages.map(p=>{
+      const links=p.sources.flatMap(s=>{
+        if(s.kind==='annal')return ['<a href="annals.html#'+escapeHtml(s.entryId)+'">'+escapeHtml(s.label)+'</a>'];
+        if(s.kind!=='record'||!Object.hasOwn(HISTORY_RECORD_LINKS,s.ref))return [];
+        const [href,label]=HISTORY_RECORD_LINKS[s.ref];
+        return ['<a href="'+href+'">'+label+'</a>'];
+      });
+      return '<div class="history-passage" id="history-'+escapeHtml(c.id)+'-'+escapeHtml(p.id)+'"><p>'+editorialHtml(p.text)+'</p>'+
+        (links.length?'<p class="history-sources">'+links.join(' · ')+'</p>':'')+'</div>';
+    }).join('') : c.paragraphs.map(p=>'<p>'+editorialHtml(p)+'</p>').join('');
+    return '<section class="history-chapter" id="chapter-'+escapeHtml(c.id)+'"><h2>'+escapeHtml(c.heading)+'</h2>'+body+'</section>';
+  }).join('');
+}
+function historyContributorRow(document) {
+  if(document.schemaVersion!==2) return '';
+  const credited=new Set(document.chapters.flatMap(c=>c.passages.flatMap(p=>p.sources
+    .filter(s=>s.kind==='annal'&&Object.hasOwn(HISTORY_PORTRAITS,s.portrait)).map(s=>s.portrait))));
+  if(!credited.size) return '';
+  return '<section class="history-contributors"><h2>Contributors to Club History</h2><ul>'+
+    Object.entries(HISTORY_PORTRAITS).filter(([key])=>credited.has(key)).map(([key,name])=>
+      '<li><img src="assets/members/annals/'+key+'-annals.webp" alt="" width="64" height="64" loading="lazy"><span>'+
+      escapeHtml(name)+'</span></li>').join('')+'</ul></section>';
+}
 function historyPage(document) {
-  return `<!doctype html><html lang="en-CA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#193d32"><title>Club History | Stammtisch Social Club</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="history.css"></head><body><a class="skip-link" href="#main">Skip to content</a>${siteHeader('annals-sub')}<main id="main" class="shell history-reading" data-history-revision="${document.revision}"><a class="history-back" href="annals.html">← The Annals</a><header class="history-masthead"><p class="eyebrow">The living record</p><h1>Club History</h1><p class="history-lead">A record assembled from what the Club can substantiate. Its past is considered important enough to preserve, but not to improve by invention.</p>${document.updatedAt?'<p class="history-meta">'+escapeHtml(displayDate('Submitted '+document.updatedAt.slice(0,7)).replace('Submitted','Updated'))+'</p>':''}<p class="history-meta history-revisions">Revision ${document.revision} · <a href="https://github.com/justinpfisher/Stammtisch/commits/main/history.html">Public revision history ↗</a></p></header>${document.chapters.length?document.chapters.map(c=>'<section class="history-chapter" id="chapter-'+escapeHtml(c.id)+'"><h2>'+escapeHtml(c.heading)+'</h2>'+c.paragraphs.map(p=>'<p>'+editorialHtml(p)+'</p>').join('')+'</section>').join(''):'<p class="history-pending">The Club has a history. The formal account is, for the moment, less forthcoming.</p>'}<footer>${escapeHtml(EDITORIAL_NOTICE)}<p><a href="mailto:annals@stammtischbrewery.com">Members: contribute a recollection or correction</a></p></footer></main>${siteFooter('annals-sub')}</body></html>`;
+  return `<!doctype html><html lang="en-CA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#193d32"><title>Club History | Stammtisch Social Club</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="history.css"></head><body><a class="skip-link" href="#main">Skip to content</a>${siteHeader('history')}<main id="main" class="shell history-reading" data-history-revision="${document.revision}"><a class="history-back" href="annals.html">← The Annals</a><header class="history-masthead"><p class="eyebrow">The living record</p><h1>Club History</h1><p class="history-lead">A record assembled from what the Club can substantiate. Its past is considered important enough to preserve, but not to improve by invention.</p>${document.updatedAt?'<p class="history-meta">'+escapeHtml(displayDate('Submitted '+document.updatedAt.slice(0,7)).replace('Submitted','Updated'))+'</p>':''}<p class="history-meta history-revisions">Revision ${document.revision} · <a href="https://github.com/justinpfisher/Stammtisch/commits/main/history.html">Public revision history ↗</a></p></header>${historyChapters(document)}${historyContributorRow(document)}<footer>${escapeHtml(EDITORIAL_NOTICE)}<p><a href="mailto:annals@stammtischbrewery.com">Members: contribute a recollection or correction</a></p></footer></main>${siteFooter('history')}</body></html>`;
 }
 return Object.freeze({displayDate:displayDate,editorialHtml:editorialHtml,recipeIntroduction:recipeIntroduction,
   EDITORIAL_NOTICE:EDITORIAL_NOTICE,historyPage:historyPage,

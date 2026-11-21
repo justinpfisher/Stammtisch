@@ -8,6 +8,7 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { escapeHtml } from './PrivatePreview.mjs';
 import { displayDate, editorialHtml, recipeIntroduction, EDITORIAL_NOTICE, siteHeader, siteFooter } from './EditorialDisplay.mjs';
 import { emptyHistory, validateHistory } from './HistoryPublisher.mjs';
+import { historyBacklinks } from './BoundHistory.mjs';
 import {validateEditorialManifest} from './EditorialPhotoManifest.mjs';
 
 const TYPES = Object.freeze({
@@ -277,8 +278,10 @@ function photoMarkup(entry,editorialManifest) {
     return '<figure><a data-photo-view data-photo-sha256="'+p.sha256+'" href="'+asset+'">'+image+'</a>'+(p.caption ? '<figcaption>'+editorialHtml(p.caption)+'</figcaption>' : '')+'</figure>';
   }).join('') + '</div>' : '';
 }
-function approvedEntryMarkup(entry,editorialManifest) {
+function approvedEntryMarkup(entry,editorialManifest,chapterLinks) {
   const esc = escapeHtml, text = editorialHtml;
+  const historyLinks=Array.from(chapterLinks || [], ([id,heading]) =>
+    '<a class="annal-entry-link annal-history-link" href="history.html#chapter-'+esc(id)+'">Read in Club History: '+esc(heading)+'</a>').join('');
   const introduction = recipeIntroduction(entry);
   const section = (label, items) => items.length
     ? '<h4>' + label + '</h4><ul>' +
@@ -346,7 +349,7 @@ function approvedEntryMarkup(entry,editorialManifest) {
       : '<div class="annal-overview">' + introductionMarkup + photoMarkup(entry,editorialManifest) + '</div>') +
     recipe +
     '<footer class="annal-entry-foot">' + (contributor || '<span>Stammtisch Social Club</span>') +
-    '<a class="annal-entry-link" href="#' + esc(entry.id) + '">Link to entry ↗</a></footer>' +
+    historyLinks + '<a class="annal-entry-link" href="#' + esc(entry.id) + '">Link to entry ↗</a></footer>' +
     '</article>';
 }
 
@@ -364,6 +367,7 @@ function buildAnnals(entries, receipts, verifyReceipt, history = emptyHistory(),
       entries.length > 10000) throw new Error('Invalid publication batch');
   const ids = new Set();
   const accepted = [];
+  const backlinks = historyBacklinks(history);
   for (let i = 0; i < entries.length; i++) {
     const item = validatePublicTextEntry(entries[i]);
     if (ids.has(item.id)) throw new Error('Duplicate entry');
@@ -418,7 +422,7 @@ function buildAnnals(entries, receipts, verifyReceipt, history = emptyHistory(),
       ' · Newest first</p></div></div>' : '';
   const stream = accepted.length
     ? '<section class="annal-stream" id="annals-entries" aria-label="Published contributions">' +
-      accepted.map(item=>approvedEntryMarkup(item,editorialManifest)).join('') + '</section>' : '';
+      accepted.map(item=>approvedEntryMarkup(item,editorialManifest,backlinks.get(item.id))).join('') + '</section>' : '';
   const emptyState = accepted.length === 0 && !history.chapters.length
     ? '<p class="annal-empty">The record awaits an approved contribution.</p>' : '';
   const html = `<!doctype html>

@@ -37,3 +37,23 @@ The [existing native-photo route](annals-photo-roundtrip-contract.md) passed an 
 If intake appears stalled, inspect the original owner's trigger and recent **Time Driven** runs of `runAnnalsProductionIntake`. A completed run can report `enabled:false`; a normal `enabled:true` summary can have zero items. A saved cadence setting, cursor or empty hourly photo queue does not establish that the five-minute inbox ran. When there was an eligible item, distinguish intake, signed dispatch and live readback. Do not use the historical cadence helper to test or repair the trigger.
 
 Hold only the affected action for absent individual rights, invalid private authentication, genuine source conflict, unknown billable result, or independently unverified death. Continue unrelated authorised publication. Log one actionable exception privately and, when safe, a metadata-only checkpoint in Issue #24. Dated private runbooks remain in Git history; do not resurrect retired acceptance gates.
+
+### Opening Club History through the qualified publisher
+
+The one-time opening uses the existing owner-only History desk. Stage the exact owner-approved
+opening copy and its permitted evidence bindings in `history-opening-authorized-private.json`
+in the existing private production staging folder. The adapter checks the approved copy digest,
+all three exact public Annals receipts, the original authenticated private sources and existing
+publication and contributor-portrait rights. No evidence locators, correspondence or private
+source identifiers belong in public History or an Actions payload.
+
+Use the existing History signing and publication readiness checks. Preview the staged opening,
+then publish that exact digest only while current live History is revision 0 and no unresolved
+dispatch exists. Use the existing reconciliation action after the workflow and Pages complete.
+The private ledger is advanced only after exact live JSON and HTML readback. Check both
+directions of the Annals links, all four anchors, mobile navigation and the contributor row on
+the actual domain. A failed or uncertain dispatch is not authority to resend.
+
+An ordinary signed Annals correction or withdrawal may subtract no-longer-supported History
+text, links or contributor credit in the same commit. It cannot insert new narrative. The
+standalone History signer remains the only publisher for additions and rewording.

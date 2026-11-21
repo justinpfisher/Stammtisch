@@ -4,7 +4,7 @@
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 
-const publicationPath=p=>['annals.html','data/annals-approved.json','data/annals-editorial-photos.json'].includes(p)||p.startsWith('data/photos/')||p.startsWith('assets/annals/');
+const publicationPath=p=>['annals.html','data/annals-approved.json','data/annals-editorial-photos.json','data/club-history.json','history.html'].includes(p)||p.startsWith('data/photos/')||p.startsWith('assets/annals/');
 // Only these unrelated content changes can be crossed. A changed workflow,
 // script, permission policy, signature input or archive always stops recovery.
 const unrelated=p=>['data/celebration.json','data/celebration-confirmations.json','index.html','location.html','styles.css'].includes(p);

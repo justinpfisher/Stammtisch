@@ -15,7 +15,8 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildPublishedAnnals, contentDigest, validatePublicTextEntry, verifyPublicApproval, verifyPublicRemoval } from './ApprovedRenderer.mjs';
-import { emptyHistory } from './HistoryPublisher.mjs';
+import { emptyHistory, renderHistory } from './HistoryPublisher.mjs';
+import { subtractStaleHistory } from './BoundHistory.mjs';
 
 export function approvedPhoto(entry, base64) {
   if (!entry.photo) {
@@ -133,8 +134,9 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
     entries.splice(index, 1); approvals.splice(approvalIndex, 1);
     retiredIds.push(event.client_payload.entryId);
     const removalManifest=editorialManifest?pruneEditorialManifest(editorialManifest,entries).manifest:undefined;
-    const result = buildPublishedAnnals(entries, approvals, secret, history, removalManifest);
-    return { data: { schemaVersion: 1, entries, approvals, retiredIds }, html: result.html,
+    const nextHistory = subtractStaleHistory(history, entries, approvals, now ?? new Date());
+    const result = buildPublishedAnnals(entries, approvals, secret, nextHistory, removalManifest);
+    return { data: { schemaVersion: 1, entries, approvals, retiredIds }, html: result.html, history: nextHistory,
       assetsToDelete: [{ path: `assets/annals/${event.client_payload.entryId}.jpg` }, {path:`assets/annals/${event.client_payload.entryId}-editorial-v2.jpg`}, ...Photos.photos(removed).filter(p=>!entries.some(e=>Photos.photos(e).some(x=>x.sha256===p.sha256))).flatMap(p=>[{path:`assets/annals/${p.sha256}.jpg`},{path:`assets/annals/${p.sha256}-thumb.jpg`},{path:`assets/annals/${p.sha256}-editorial-v2.jpg`}])], assetsToWrite: [] };
   } else {
     const keys = Object.keys(event.client_payload).sort().join(',');
@@ -209,9 +211,10 @@ export async function applyApprovedEntry({ event, data, secret, history = emptyH
   // entry; main() still compares the returned archive and deletes stale assets.
   const renderManifest=event.action==='annals-correct-entry'&&editorialManifest
     ?pruneEditorialManifest(editorialManifest,entries).manifest:editorialManifest;
-  const rendered = buildPublishedAnnals(entries, approvals, secret, history, renderManifest);
+  const nextHistory = subtractStaleHistory(history, entries, approvals, now ?? new Date());
+  const rendered = buildPublishedAnnals(entries, approvals, secret, nextHistory, renderManifest);
   for(const asset of [...assetsToWrite]){const thumb=photoThumbnail(asset);if(thumb)assetsToWrite.push(thumb);}
-  return { data: { schemaVersion: 1, entries, approvals, ...(retiredIds.length ? {retiredIds} : {}) }, html: rendered.html, assetsToWrite, assetsToDelete };
+  return { data: { schemaVersion: 1, entries, approvals, ...(retiredIds.length ? {retiredIds} : {}) }, html: rendered.html, history: nextHistory, assetsToWrite, assetsToDelete };
 }
 
 async function main() {
@@ -236,6 +239,10 @@ async function main() {
   for (const item of result.assetsToWrite) { await mkdir(path.dirname(item.path), { recursive: true }); await writeFile(item.path, item.bytes); }
   await writeFile(dataPath, JSON.stringify(result.data, null, 2) + '\n');
   await writeFile(EDITORIAL_MANIFEST_PATH,JSON.stringify(pruned.manifest,null,2)+'\n');
+  if (result.history && result.history !== history) {
+    await writeFile('data/club-history.json', JSON.stringify(result.history, null, 2) + '\n');
+    await writeFile('history.html', renderHistory(result.history) + '\n');
+  }
   await writeFile('annals.html', result.html + '\n');
   await writePhotoIndex(result.data.entries);
   console.log('Approved Annals entry rendered.');

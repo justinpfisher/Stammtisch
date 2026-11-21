@@ -85,7 +85,7 @@ test('public viewer offers original access only for an actual reviewed editorial
 
 test('signed publication commits derivative manifest changes with their retired assets',()=>{
   const workflow=read('.github/workflows/annals-publish.yml');
-  assert.match(workflow,/git add -A -- annals\.html data\/annals-approved\.json data\/annals-editorial-photos\.json data\/photos assets/);
+  assert.match(workflow,/git add -A -- annals\.html data\/annals-approved\.json data\/annals-editorial-photos\.json data\/club-history\.json history\.html data\/photos assets/);
   assert.match(read('scripts/annals/apply-approved-entry.mjs'),/writeFile\(EDITORIAL_MANIFEST_PATH/);
 });
 test('strict JPEG screening rejects hidden data and metadata',()=>{

@@ -14,3 +14,11 @@
 .history-reading footer a{color:var(--forest);min-height:44px;display:inline-flex;align-items:center;font:600 12px/1.5 var(--sans)}
 .history-reading footer p{margin:12px 0 0}
 @media(max-width:560px){.history-reading{padding-top:23px;padding-bottom:38px}.history-masthead{margin-top:18px}.history-chapter p{font-size:16px}.history-pending{padding:22px 18px}}
+
+.history-sources{font-size:.875rem;line-height:1.6}
+.history-contributors{margin-block:2rem}
+.history-contributors ul{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:1rem;margin-block:1rem}
+.history-contributors li{display:grid;justify-items:center;gap:.35rem;font-size:.875rem}
+.history-contributors img{border-radius:50%;display:block;object-fit:cover}
+
+.history-sources a{display:inline-flex;align-items:center;min-height:44px;max-width:100%;overflow-wrap:anywhere}

@@ -13,7 +13,7 @@ const pages = {
   'location.html': 'assembly',
   'annals.html': 'annals',
   'photos.html': 'annals-sub',
-  'history.html': 'annals-sub',
+  'history.html': 'history',
   'col-revisions.html': 'col-sub',
   'col-rules-version.html': 'col-sub',
 };
@@ -21,6 +21,7 @@ const destinations = [
   'index.html#monthly-stammtisch',
   'index.html#the-club',
   'annals.html',
+  'history.html',
   'celebration.html',
   'location.html',
 ];
@@ -43,7 +44,7 @@ test('each template used in automatic publication regenerates the same navigatio
   const history=renderHistory(emptyHistory());
   const register=renderRegister(JSON.parse(read('data/col-rules-register.json')));
   for(const [page,markup,section] of [
-    ['annals',archive,'annals'],['history',history,'annals-sub'],['rules register',register,'col-sub']
+    ['annals',archive,'annals'],['history',history,'history'],['rules register',register,'col-sub']
   ]) {
     assert.ok(markup.includes(display.siteHeader(section)),page+' publisher header');
     assert.ok(markup.includes(display.siteFooter(section)),page+' publisher footer');
