@@ -108,6 +108,7 @@ function annalsHistoryIntakeFolder_(folder,id,state){
     annalsHash_(AnnalsProduction.serial(entry))!==saved.receipt.contentSha256)return false;
   var portrait=annalsContributorPortrait_(source);
   portrait=portrait&&entry.contributorPortrait===portrait&&approval.consents.namedAttribution===true?portrait:null;
+  annalsRebaseHistoryAfterAnnals_(archive);
   var current=annalsRead_(root,'history-published-private.json'), projected=current;
   var ledger=annalsRead_(root,'history-bound-ledger-private.json'),
     records=candidates.map(function(c){
@@ -139,4 +140,95 @@ function annalsHistoryTickReconcile_(){
   if(result.verified===true&&pending.sourceId)annalsSavePrivate_(annalsFolder_(pending.sourceId),
     'history-intake-seen-private.json',{contentSha256:pending.review.boundLedger.lastBoundEntryDigest,
       state:'verified_live',revision:result.revision});
+}
+
+// Keep the exact public subtraction projection mechanically bound by tests.
+// Rebasing cannot introduce a sentence, source, or portrait.
+function archivedSupport(entries, receipts) {
+  const records = new Map(receipts.map(r => [r.entryId,r]));
+  return new Map(entries.map(e => {
+    const receipt = records.get(e.id);
+    return [e.id,{digest:receipt?.contentSha256,portrait:
+      receipt?.consents?.namedAttribution === true ? e.contributorPortrait ?? null : null}];
+  }));
+}
+
+// The two founding recipe references support separable title mentions in the
+// approved opening sentence. The ordinary publisher can delete only those
+// exact words (never compose new prose). Other passages remain conjunctive.
+const OPENING_RECIPE_LINE = "Marc gave that tradition a place in the written record when he contributed Kingston Windfall and Daq in Black to the Annals.";
+const OPENING_RECIPE_CLAIMS = Object.freeze([
+  {entryId:'annal-96b5ae266a36793c6a203033',title:'Kingston Windfall'},
+  {entryId:'annal-5e0607c7dc924fb5663c40e0',title:'Daq in Black'}
+]);
+function subtractOpeningRecipe(c,p,missing){
+  if(c.id!=='gatherings'||p.id!=='opening-2'||!missing.every(s=>OPENING_RECIPE_CLAIMS.some(k=>k.entryId===s.entryId)))return null;
+  const removed=new Set(missing.map(s=>s.entryId));
+  const remaining=p.sources.filter(s=>!removed.has(s.entryId));
+  const before=OPENING_RECIPE_CLAIMS.filter(k=>p.sources.some(s=>s.kind==='annal'&&s.entryId===k.entryId));
+  const after=before.filter(k=>!removed.has(k.entryId));
+  const useTitles=claims=>OPENING_RECIPE_LINE.replace('Kingston Windfall and Daq in Black',claims.map(k=>k.title).join(' and '));
+  const from=useTitles(before);
+  if(!p.text.includes(from)||!remaining.some(s=>s.kind==='record'))return null;
+  const text=after.length?p.text.replace(from,useTitles(after)):p.text.replace(from+' ','');
+  return {...p,text,sources:remaining};
+}
+// Call only after the ordinary publisher has verified the records' signatures.
+// An Annals correction may remove support and credit, never invent a narrative.
+function annalsPredictHistorySubtraction_(value, entries, receipts, now) {
+  if (value.schemaVersion !== 2) return value;
+  const support = archivedSupport(entries,receipts);
+  let changed = false;
+  const chapters = value.chapters.map(chapter => {
+    const passages = chapter.passages.flatMap(original => {
+      const stale=original.sources.filter(s=>s.kind==='annal'&&support.get(s.entryId)?.digest!==s.digest);
+      let p=original;
+      if (stale.length) {
+        changed = true;
+        p=subtractOpeningRecipe(chapter,original,stale);
+        if(!p)return [];
+      }
+      let portraitChanged = false;
+      const sources = p.sources.map(s => {
+        if(s.kind !== 'annal' || !s.portrait || support.get(s.entryId)?.portrait === s.portrait) return s;
+        changed = portraitChanged = true;
+        return {...s,portrait:null};
+      });
+      return [portraitChanged ? {...p,sources} : p];
+    });
+    return passages.length === chapter.passages.length && passages.every((p,i) => p === chapter.passages[i])
+      ? chapter : {...chapter,passages};
+  }).filter(c => c.passages.length);
+  return changed ? {...value,revision:value.revision+1,updatedAt:now.toISOString(),chapters} : value;
+}
+
+function annalsHistoryReadPublic_(url){
+  var response=UrlFetchApp.fetch(url,{muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true});
+  if(response.getResponseCode()!==200)throw new Error('History verification unavailable');
+  var body=response.getContentText();
+  if(typeof body!=='string'||body.length>250000)throw new Error('History verification exceeds bounds');
+  return body;
+}
+function annalsRebaseHistoryAfterAnnals_(verifiedArchive){
+  if(!annalsHistoryIntakeReady_())return false;
+  var root=annalsRoot_(),pending=annalsRead_(root,'history-pending-private.json');
+  if(pending&&pending.state!=='verified_live')return false;
+  var current=annalsRead_(root,'history-published-private.json');
+  var live=JSON.parse(annalsHistoryReadPublic_('https://stammtischbrewery.com/data/club-history.json'));
+  if(live.schemaVersion!==2||!Number.isSafeInteger(live.revision)||live.revision<=current.revision||
+     !Number.isFinite(Date.parse(live.updatedAt)))return false;
+  var archive=verifiedArchive||annalsOpeningArchive_();
+  var expected=annalsPredictHistorySubtraction_(current,archive.entries,archive.approvals,new Date(live.updatedAt));
+  if(expected===current)return false;
+  expected.revision=live.revision;
+  var serialize=AnnalsProduction.serial, expectedDigest=annalsHash_(serialize(expected));
+  if(expectedDigest!==annalsHash_(serialize(live)))return false;
+  var main=JSON.parse(annalsHistoryReadPublic_('https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/club-history.json'));
+  if(expectedDigest!==annalsHash_(serialize(main))||
+    annalsHash_(annalsHistoryReadPublic_('https://stammtischbrewery.com/history.html'))!==
+      annalsHash_(AnnalsPublicDisplay.historyPage(expected)+'\n'))return false;
+  var ledger=annalsRead_(root,'history-bound-ledger-private.json');
+  annalsSavePrivate_(root,'history-bound-ledger-private.json',Object.assign({},ledger,{chapters:expected.chapters}));
+  annalsSavePrivate_(root,'history-published-private.json',expected);
+  return true;
 }
