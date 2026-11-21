@@ -21,6 +21,26 @@
       "reviewMethod": "owner-visual-assessment",
       "generatedAt": "2026-10-25T19:37:23Z",
       "reviewedAt": "2026-10-25T20:38:51Z"
+    },
+    {
+      "alt": "AI-stylized photograph of an amber cocktail over ice in a short faceted glass, with a lime wheel on the rim and a dark wooden bar behind it.",
+      "artDirection": "moody-atmospheric-v2",
+      "asset": "assets/annals/7156bad8eedead66ac3fbfc73a9a09202b4a87a32c926c56320b1a7b5e9b541e-editorial-v2.jpg",
+      "editorialSha256": "251bc3fa2cda05afaae1ae36ff211acd073ba3485d07503c20a52b1706c95dd8",
+      "generatedAt": "2026-11-21T07:13:58.436Z",
+      "generationModel": "undisclosed",
+      "generationOperation": "image-edit",
+      "generationProvider": "openai-chatgpt",
+      "height": 1448,
+      "reviewMethod": "ai-visual-assessment",
+      "reviewedAt": "2026-11-21T07:14:38.124Z",
+      "rightsQualified": true,
+      "safetyQualified": true,
+      "source": "assets/annals/7156bad8eedead66ac3fbfc73a9a09202b4a87a32c926c56320b1a7b5e9b541e.jpg",
+      "sourceSha256": "7156bad8eedead66ac3fbfc73a9a09202b4a87a32c926c56320b1a7b5e9b541e",
+      "status": "qualified",
+      "visualQualified": true,
+      "width": 1086
     }
   ]
 }
