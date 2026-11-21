@@ -304,7 +304,28 @@ var AnnalsAuto = (function () {
     // Every original measurement line must be retained. Editorial commentary,
     // headings and informal banter do not have to be copied into the recipe.
     var quantity = /(?:^|\s)(?:\d+(?:[./]\d+|[¼½¾])?|[¼½¾])\s*(?:oz\b|ounces?\b|ml\b|mL\b|cl\b|g\b|grams?\b|cups?\b|tbsp\b|tsp\b|dash(?:es)?\b|drops?\b|parts?\b)/i;
-    var measurementLines = source.split(/\r?\n/).map(recipeComparable).filter(function (line) { return quantity.test(line); });
+    // An indented soft wrap in an explicitly marked measurement belongs to
+    // that item. Do not merge blank-separated lines, independent measurements,
+    // instructions, or list items, and compare the entire joined wording.
+    var bullet = /^([ \t]*)(?:[-•]|\d+[.)])[ \t]+\S/u;
+    var startsMethod = /^(?:stir|shake|strain|garnish|mix|pour|blend|muddle|simmer|boil|add|combine|chill|serve|heat|steep)\b/i;
+    var measurementLines = [], pending = null;
+    source.split(/\r?\n/).forEach(function (raw) {
+      var line = recipeComparable(raw), marker = raw.match(bullet);
+      var indent = raw.match(/^[ \t]*/)[0];
+      if (pending !== null && line && !marker && indent.length > 0 &&
+          indent === pending.indent && !quantity.test(line) && !startsMethod.test(line)) {
+        pending.text += ' ' + line;
+        return;
+      }
+      if (pending !== null) measurementLines.push(pending.text);
+      pending = null;
+      if (quantity.test(line)) {
+        if (marker) pending = { text: line, indent: marker[1] };
+        else measurementLines.push(line);
+      }
+    });
+    if (pending !== null) measurementLines.push(pending.text);
     if (measurementLines.some(function (line) {
       return !all.some(function (part) { return recipeComparable(part) === line; });
     })) return false;
