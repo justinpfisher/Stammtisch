@@ -32,6 +32,7 @@ const fixtures=(opts={})=>{
     annalsPrivateReceiptValid_:()=>true,annalsContributorPortrait_:()=>opts.anonymous?null:'fish',
     annalsOpeningArchive_:()=>archive,annalsHash_:hash,AnnalsProduction:{serial:JSON.stringify},
     AnnalsAuto:{sensitiveText:()=>false},
+    UrlFetchApp:{fetch:()=>({getResponseCode:()=>200,getContentText:()=>JSON.stringify(shot)})},
     annalsDispatchHistoryRevision_:(...args)=>{events.push(args);records.set(root+'/history-pending-private.json',{state:'dispatch_accepted'});return {dispatchAccepted:true};}
   });
   vm.runInContext(script,cx);
@@ -54,4 +55,21 @@ test('an authorized anonymous source contributes without naming or a portrait',(
   const f=fixtures({anonymous:true});assert.equal(f.run(),true);
   const p=f.events[0][4][1].passages[0];
   assert.match(p.text,/A member recalls/);assert.equal(p.sources[0].portrait,null);
+});
+
+test('ordinary Annals subtraction projects only the lost source, leaving the other credit',()=>{
+  const mock=vm.createContext({});
+  vm.runInContext(script,mock);
+  const a='annal-'+'a'.repeat(24), b='annal-'+'b'.repeat(24),digest='c'.repeat(64);
+  const entrySource=(entryId,portrait)=>({kind:'annal',entryId,digest,portrait,label:'Source'});
+  const p=(id,text,src)=>({id,text,sources:[src]});
+  const before={schemaVersion:2,revision:1,updatedAt:'2026-01-01T00:00:00.000Z',chapters:[
+    {id:'traditions',heading:'Developing traditions',passages:[
+      p('account-a','One member recalls Tuesday.',entrySource(a,'fish')),
+      p('account-b','Another member recalls Thursday.',entrySource(b,'marc'))]}]};
+  const after=mock.annalsPredictHistorySubtraction_(before,[{id:b,contributorPortrait:'marc'}],
+    [{entryId:b,contentSha256:digest,consents:{namedAttribution:true}}],new Date('2026-01-02T00:00:00Z'));
+  assert.equal(after.revision,2);
+  assert.equal(after.chapters[0].passages.length,1);
+  assert.equal(after.chapters[0].passages[0],before.chapters[0].passages[1]);
 });
