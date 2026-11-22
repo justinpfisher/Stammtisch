@@ -17,12 +17,17 @@ const lamps='The lamps were still burning as the furniture was put away.';
 const chapterIds=['origins','gatherings','assemblies','traditions'];
 const portraits=['fish','marc','matt','ken','jamie','jerome'];
 const claim=(id,span,order)=>({id,field:'excerpt',span,order,dispute:'',variant:'',uncertain:false,poignant:false});
-function proposal(span=recall,{chapter='traditions',extra=false}={}){
+function proposal(span=recall,{chapter='traditions',extra=false,voice=0}={}){
   const spoken=span===second?'One account places the singing before the company assembled.':
-    'One account places the company’s singing after the gathering.';
+    ['One account places the company’s singing after the gathering.',
+      'The record places the song after the proceedings had ended.',
+      'By a later recollection, the company sang once the gathering was over.'][voice%3];
+  const lighting=['The lamps stayed lit during the clearing of the room.',
+    'The company moved the furniture while the lights were still burning.',
+    'The room remained lit while the company put away the furniture.'][voice%3];
   const fact=(text,id)=>({kind:'record',text,claims:[id]});
   const claims=[claim('singing',span,1),claim('lamps',lamps,2)];
-  const paragraphs=[[fact(spoken,'singing'),fact('The lamps stayed lit during the clearing of the room.','lamps')]];
+  const paragraphs=[[fact(spoken,'singing'),fact(lighting,'lamps')]];
   if(extra){
     claims.push(claim('closing',extra,3));
     paragraphs.push([fact('The lights were still alight when the furniture was moved.','lamps'),
@@ -32,13 +37,15 @@ function proposal(span=recall,{chapter='traditions',extra=false}={}){
 }
 const completion=raw=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(raw)}]}]});
 
-function fixture({disabled=false,rejected=false}={}){
+function fixture({disabled=false,rejected=false,editOpening=()=>{}}={}){
   const opening={schemaVersion:2,revision:1,updatedAt:at,chapters:chapterIds.map(id=>({
     id,heading:'Opening '+id,passages:[{id:'opening-1',text:'Existing opening prose about '+id+'.',
       sources:[{kind:'record',ref:'opening-record'}]}]}))};
-  let live=opening, main=opening, failOnSave;
+  editOpening(opening);
+  let live=opening, main=opening, failOnSave, publicHistoryAvailable=true;
   const events=[], archive={schemaVersion:1,entries:[],approvals:[],retiredIds:[]};
   const rootFiles=new Map(), folders=new Map(), publications=[], commitParents=[], providerRequests=[];
+  const preparedDrafts=new Set();
   let providerResponse, archiveBeforeMutation=plain(archive);
   function recordMain(value, parentArchive=archive){
     const parent={sha:sha('fictional parent '+publications.length).slice(0,40),document:plain(main),archive:plain(parentArchive)};
@@ -89,6 +96,8 @@ function fixture({disabled=false,rejected=false}={}){
         providerRequests.push(JSON.parse(options.payload));
         return {getResponseCode:()=>200,getContentText:()=>JSON.stringify(providerResponse)};
       }
+      if(!publicHistoryAvailable&&url==='https://stammtischbrewery.com/data/club-history.json')
+        return {getResponseCode:()=>404};
       const pinned=publications.find(record=>url.includes('/'+record.sha+'/'))||
         commitParents.find(record=>url.includes('/'+record.sha+'/'));
       const body=url.startsWith('https://api.github.com/')?
@@ -117,7 +126,7 @@ function fixture({disabled=false,rejected=false}={}){
     annalsDispatchEvent_:(f,action,client_payload)=>{events.push({action,client_payload});return !rejected;}
   });
   const serial=cx.AnnalsProduction.serial;
-  function add(i,{span=recall,category='cocktail',narrative=proposal(span),subject='A club recollection',
+  function add(i,{span=recall,category='cocktail',narrative=proposal(span,{voice:i}),subject='A club recollection',
     excerpt=span+' '+lamps,publicText=span+' '+lamps}={}){
     const id=String(i+1).repeat(64), entryId='annal-'+id.slice(0,24), files=new Map(), member=members[addresses[i]];
     folders.set(id,{files,getName:()=>id});
@@ -165,16 +174,24 @@ function fixture({disabled=false,rejected=false}={}){
   }
   function preview(item,{chapter=item.draft.historyNarrative?.chapter||'traditions',after='opening-1'}={}){
     const {digest}=cx.annalsListHistoryMaintenance('fictional-owner');
+    if(!preparedDrafts.has(item.id)){
+      // Set up synthetic pre-assessed drafts against the state at first use.
+      const historyContext=cx.annalsHistoryIntakeContext_();
+      if(historyContext)item.files.set('ai-attempt-private.json',{historyContext});
+      preparedDrafts.add(item.id);
+    }
     return cx.annalsPrepareHistoryMaintenance('fictional-owner',digest,chapter,after,'compose','',
       'Each fictional paragraph was checked against the exact evidence.',item.id);
   }
   const publish=(review,confirmed=true)=>cx.annalsPublishHistoryMaintenance('fictional-owner',review.hash,confirmed);
   const f={opening,rootFiles,archive,events,cx,props,add,publications,commitParents,providerRequests,preview,publish,
-    assess:item=>{
+    assess:(item,images=[])=>{
+      preparedDrafts.add(item.id);
       item.files.delete('draft-private.json');
       providerResponse=completion(item.raw);
-      return cx.annalsPrepareDraftCore_(item.id,item.source.source.excerpt,[],true,true,[]);
+      return cx.annalsPrepareDraftCore_(item.id,item.source.source.excerpt,[],true,true,images);
     },
+    hidePublicHistory:()=>{publicHistoryAvailable=false;},
     compose:(item,options)=>publish(preview(item,options)),
     failSnapshotWrite:()=>{failOnSave='history-published-private.json';},
     setMain:value=>{main=value;},
@@ -202,13 +219,32 @@ test('one mocked assessment proposes composed copy without raising model, token 
   assert.equal(f.assess(item).drafted,true);
   assert.equal(f.providerRequests.length,1);
   const assessment=f.providerRequests[0];
-  assert.deepEqual(assessment.input,plain(ordinary.input));
+  assert.deepEqual(assessment.input.slice(1),plain(ordinary.input));
+  assert.equal(assessment.input[0].role,'user');
+  const packet=JSON.parse(assessment.input[0].content[0].text);
+  assert.deepEqual(Object.keys(packet),['voiceOnly','chapterContinuity']);
+  assert.deepEqual(packet.voiceOnly,{
+    assembly:'The cottage had evidently been fit for purpose before it acquired a formal title.',
+    solemn:'This part of the evening belongs to the life being remembered.'
+  });
+  assert.deepEqual(packet.chapterContinuity,f.opening.chapters.map(chapter=>({
+    chapter:chapter.id,heading:chapter.heading,prose:chapter.passages[0].text
+  })));
+  assert.match(assessment.instructions,/Use only the final message for all claims/);
+  assert.match(assessment.instructions,/Ignore the packet when writing every field outside historyNarrative/);
+  const {historyNarrative,...ordinaryProperties}=assessment.text.format.schema.properties;
+  assert.deepEqual(ordinaryProperties,plain(ordinary.text.format.schema.properties));
   assert.equal(assessment.model,ordinary.model);
   assert.equal(assessment.max_output_tokens,ordinary.max_output_tokens);
   assert.equal(JSON.parse(f.props.ANNALS_BUDGET_LEDGER).reservedCents,10);
   assert.equal(ordinary.text.format.schema.properties.historyNarrative,undefined);
   assert.ok(assessment.text.format.schema.required.includes('historyNarrative'));
-  assert.ok(item.files.get('draft-private.json').historyNarrative);
+  const saved=item.files.get('draft-private.json');
+  assert.ok(saved.historyNarrative);
+  const bound=item.files.get('ai-attempt-private.json').historyContext;
+  assert.equal(bound.reference,assessment.input[0].content[0].text);
+  assert.equal(bound.revision,f.opening.revision);
+  assert.equal(bound.chapterDigests.traditions,sha(core.serial(f.opening.chapters.at(-1))));
   f.tick();
   assert.equal(f.events.length,0,'an assessment is never release authority');
   const preview=f.preview(item);
@@ -227,13 +263,115 @@ test('one mocked assessment proposes composed copy without raising model, token 
   }
 });
 
+test('unavailable or stale public History leaves the ordinary recipe and photo assessment unchanged',()=>{
+  for(const unavailable of ['Pages unavailable','main ahead of Pages']){
+    const f=fixture(), item=f.add(0), core=f.cx.AnnalsProduction;
+    if(unavailable==='Pages unavailable')f.hidePublicHistory();
+    else f.setMain({...f.opening,revision:f.opening.revision+1});
+    const images=[{mime:'image/jpeg',base64:'Zg=='}];
+    item.raw.imageSafety={kind:'drink_or_object',safeToPublish:true,altText:'A glass on a fictional tray'};
+    item.raw.imageReviews=[{kind:'drink_or_object',safeToPublish:true,privateDetails:false,thirdPartyMaterial:false,
+      childrenOrGuests:false,altText:'A glass on a fictional tray',caption:'The tray was sufficient for the proceedings.'}];
+    const ordinary={...item.raw};
+    delete ordinary.historyNarrative;
+    assert.equal(f.assess(item,images).drafted,true,unavailable);
+    assert.deepEqual(f.providerRequests,[plain(core.request(item.source.source.excerpt,images))],unavailable);
+    assert.deepEqual(item.files.get('draft-private.json'),plain(core.candidate(ordinary,true)),unavailable);
+    assert.equal(item.files.get('ai-attempt-private.json').historyContext,undefined,unavailable);
+    assert.equal(JSON.parse(f.props.ANNALS_BUDGET_LEDGER).reservedCents,10,unavailable);
+  }
+});
+
+test('only safe bounded public prose reaches the same request, with recipe and photo fields intact',()=>{
+  const f=fixture({editOpening:edition=>{
+    edition.chapters[0].heading='Justin appears in this fictional fixture';
+    edition.chapters[1].passages[0].text='The fictional example displays a contact at someone@example.test.';
+    edition.chapters[2].passages.unshift({id:'large',text:'The proceedings were recorded. '.repeat(13).trim(),
+      sources:[{kind:'record',ref:'fictional-source-detail'}]});
+  }});
+  f.rootFiles.get('history-bound-ledger-private.json').privateNote='fictional private ledger note';
+  const item=f.add(0,{narrative:proposal(recall,{chapter:'origins'})});
+  const images=[{mime:'image/jpeg',base64:'Zg=='}], core=f.cx.AnnalsProduction;
+  item.raw.imageReviews=[{kind:'drink_or_object',safeToPublish:true,privateDetails:false,thirdPartyMaterial:false,
+    childrenOrGuests:false,altText:'A glass in a fictional sketch',caption:'The glass received formal attention.'}];
+  f.assess(item,images);
+  assert.equal(f.providerRequests.length,1);
+  const request=f.providerRequests[0], serialized=request.input[0].content[0].text;
+  const packet=JSON.parse(serialized);
+  assert.deepEqual(packet.chapterContinuity.map(sample=>sample.chapter),['assemblies','traditions']);
+  assert.ok(packet.chapterContinuity.every(sample=>sample.prose.length<=320));
+  assert.ok(serialized.length<=core.HISTORY_REFERENCE_LIMIT);
+  assert.doesNotMatch(serialized,/Justin|example\\.test|private ledger note|fictional-source-detail|opening-1|chapterDigest/);
+  assert.deepEqual(request.input.slice(1),plain(core.request(item.source.source.excerpt,images).input));
+  const ordinary={...item.raw};
+  delete ordinary.historyNarrative;
+  assert.deepEqual(item.files.get('draft-private.json'),plain(core.candidate(ordinary,true)));
+});
+
+test('public reference wording is held when a model copies it into prose or proposes it as evidence',()=>{
+  for(const kind of ['Assembly exemplar','chapter prose','solemn exemplar as evidence']){
+    const f=fixture(), item=f.add(0), proposed=item.raw.historyNarrative[0];
+    const {reference}=f.cx.annalsHistoryIntakeContext_(), packet=JSON.parse(reference);
+    if(kind==='solemn exemplar as evidence')proposed.claims[0].span=packet.voiceOnly.solemn;
+    else proposed.paragraphs[0][0].text=kind==='Assembly exemplar'?packet.voiceOnly.assembly:packet.chapterContinuity.at(-1).prose;
+    f.assess(item);
+    const ordinary={...item.raw};
+    delete ordinary.historyNarrative;
+    assert.deepEqual(item.files.get('draft-private.json'),plain(f.cx.AnnalsProduction.candidate(ordinary,false)),kind);
+    assert.equal(f.providerRequests.length,1,kind);
+    assert.equal(f.events.length,0,kind);
+  }
+});
+
+test('the exact original generation context must survive through preview and signing',()=>{
+  const f=fixture(), item=f.add(0);
+  f.assess(item);
+  const attempt=item.files.get('ai-attempt-private.json');
+  delete attempt.historyContext;
+  assert.throws(()=>f.preview(item),/requires current signed chapter context/);
+  assert.equal(f.events.length,0);
+  assert.equal(f.providerRequests.length,1);
+
+  const g=fixture(), fresh=g.add(0);
+  g.assess(fresh);
+  const reviewed=g.preview(fresh);
+  const stamp=fresh.files.get('ai-attempt-private.json').historyContext;
+  const packet=JSON.parse(stamp.reference);
+  packet.voiceOnly.assembly='The fictional Club had put away the ceremonial place cards by then.';
+  stamp.reference=JSON.stringify(packet);
+  assert.throws(()=>g.publish(reviewed),/changed after review/);
+  assert.equal(g.events.length,0);
+  assert.equal(g.providerRequests.length,1);
+});
+
+test('a newer History edition only stales the draft when its selected chapter changes',()=>{
+  for(const chapter of ['traditions','gatherings']){
+    const f=fixture(), item=f.add(0), other=f.add(1,{narrative:proposal(second,{chapter,voice:1}),span:second});
+    f.assess(item);
+    const priorPreview=f.preview(item);
+    f.compose(other); f.serveNext(); f.tick();
+    assert.throws(()=>f.publish(priorPreview),/current History revision/);
+    if(chapter==='traditions'){
+      assert.throws(()=>f.preview(item),/requires current signed chapter context/);
+      assert.equal(f.events.length,1);
+    }else{
+      const freshPreview=f.preview(item);
+      assert.equal(f.publish(freshPreview).dispatchAccepted,true);
+      assert.deepEqual(plain(f.signed().chapters.find(c=>c.id==='gatherings')),
+        plain(f.rootFiles.get('history-published-private.json').chapters.find(c=>c.id==='gatherings')));
+    }
+    assert.equal(f.providerRequests.length,1);
+  }
+});
+
 test('the exact review and signer change only one chapter and reconcile without duplicate publication',()=>{
   const f=fixture(), item=f.add(0);
-  const immutable=plain([...item.files]);
+  const originals=plain([...item.files].filter(([name])=>!['draft-private.json','ai-attempt-private.json'].includes(name)));
   f.tick(); f.tick();
   assert.equal(f.events.length,0);
   assert.throws(()=>f.preview(item,{chapter:'gatherings'}),/eligible current evidence/);
   const preview=f.preview(item);
+  const assessed=plain(item.files.get('draft-private.json'));
   assert.equal(preview.claims.length,2);
   assert.equal(f.publish(preview).dispatchAccepted,true);
   assert.throws(()=>f.publish(preview),/Reconcile the prior History/);
@@ -243,7 +381,8 @@ test('the exact review and signer change only one chapter and reconcile without 
   f.serveNext(); f.tick(); f.tick();
   assert.throws(()=>f.preview(item),/unused narrative source/);
   assert.equal(f.events.length,1);
-  assert.deepEqual(plain([...item.files]),immutable);
+  assert.deepEqual(plain([...item.files].filter(([name])=>!['draft-private.json','ai-attempt-private.json'].includes(name))),originals);
+  assert.deepEqual(plain(item.files.get('draft-private.json')),assessed);
   assert.equal(f.rootFiles.get('history-pending-private.json').state,'verified_live');
 });
 
@@ -319,7 +458,7 @@ test('the private preview keeps supported disagreements and holds flattened acco
 test('placement under exact review preserves independently sourced accounts and active credits',()=>{
   const f=fixture(), first=f.add(0);
   f.compose(first); f.serveNext(); f.tick();
-  const unrelated=f.add(1,{narrative:proposal(recall,{chapter:'gatherings'})});
+  const unrelated=f.add(1,{narrative:proposal(recall,{chapter:'gatherings',voice:1})});
   f.compose(unrelated); f.serveNext(); f.tick();
   const other=f.add(2,{span:second});
   const earlier=passages(f.signed())[1];
@@ -443,7 +582,7 @@ test('a rebound History-only withdrawal survives a later signed correction of th
   assert.deepEqual(f.rootFiles.get('history-published-private.json'),withdrawn);
   assert.equal(historyBacklinks(withdrawn).has(separate.entryId),true);
 
-  const newContribution=f.add(2,{narrative:proposal(recall,{chapter:'assemblies'})});
+  const newContribution=f.add(2,{narrative:proposal(recall,{chapter:'assemblies',voice:2})});
   assert.equal(f.compose(newContribution).dispatchAccepted,true);
   f.serveNext(); f.tick();
   assert.deepEqual(plain(passages(f.signed())),plain(passages(withdrawn)));
@@ -525,7 +664,7 @@ test('unsafe, unsupported, staged, altered, conflicting or revoked evidence cann
   for(const [reason,edit] of cases){
     const f=fixture(), item=f.add(0);
     edit({f,item});
-    if(reason==='feature disabled')assert.throws(()=>f.compose(item),/signing remediation/);
+    if(reason==='feature disabled')assert.throws(()=>f.compose(item),/requires current signed chapter context/);
     else assert.throws(()=>f.preview(item),undefined,reason);
     f.tick();
     assert.equal(f.events.length,0,reason);
@@ -671,7 +810,7 @@ test('the two-withdrawal catch-up holds when any intermediate or private binding
 });
 
 function withdrawalsBeforeAcceptedReconciliation({betweenWithdrawals=false}={}){
-  const f=fixture(), a=f.add(0), b=f.add(1,{span:second}), c=f.add(2,{narrative:proposal(recall,{chapter:'assemblies'})});
+  const f=fixture(), a=f.add(0), b=f.add(1,{span:second}), c=f.add(2,{narrative:proposal(recall,{chapter:'assemblies',voice:2})});
   c.member.contributorPortraitPublication.revokedAt=at;
   f.compose(a); f.serveNext(); f.tick(); f.compose(b); f.serveNext(); f.tick();
   const previous=f.rootFiles.get('history-published-private.json');

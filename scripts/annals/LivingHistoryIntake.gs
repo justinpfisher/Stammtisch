@@ -63,14 +63,21 @@ var AnnalsLivingHistory=(function(){
   return Object.freeze({fromEntry:fromEntry,removeRevokedCredit:removeRevokedCredit,supportedClaims:supportedClaims});
 })();
 
-function annalsHistoryIntakeReady_(){
+function annalsHistoryPublicEdition_(state){
+  var serial=AnnalsProduction.serial;
+  var live=JSON.parse(annalsHistoryReadPublic_('https://stammtischbrewery.com/data/club-history.json'));
+  if(annalsHash_(serial(live))!==state.digest)return null;
+  var main=JSON.parse(annalsHistoryReadPublic_('https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/club-history.json'));
+  return annalsHash_(serial(main))===state.digest?live:null;
+}
+
+function annalsHistoryIntakeContext_(){
   if(typeof AnnalsHistoryNarrative==='undefined'||
-      annalsProps_().getProperty('ANNALS_HISTORY_PUBLICATION_ENABLED')!=='true')return false;
-  var root=annalsRoot_(), current=annalsRead_(root,'history-published-private.json'),
-    ledger=annalsRead_(root,'history-bound-ledger-private.json');
-  return !!current&&current.schemaVersion===2&&Number.isSafeInteger(current.revision)&&current.revision>=1&&
-    !!ledger&&ledger.schemaVersion===1&&/^[a-f0-9]{64}$/.test(ledger.privateOpeningPacketSha256)&&
-    AnnalsProduction.serial(current.chapters)===AnnalsProduction.serial(ledger.chapters);
+      annalsProps_().getProperty('ANNALS_HISTORY_PUBLICATION_ENABLED')!=='true')return null;
+  var state=annalsBoundMaintenanceState_(false), edition=annalsHistoryPublicEdition_(state);
+  if(!edition)return null;
+  return AnnalsHistoryNarrative.generationContext(edition,value=>annalsHash_(AnnalsProduction.serial(value)),
+    AnnalsAuto.sensitiveText,AnnalsProduction.HISTORY_REFERENCE_LIMIT);
 }
 
 // This prepares the exact source-bound proof for the existing owner review.
@@ -95,6 +102,13 @@ function annalsHistoryNarrativeReview_(state,id,chapterId,afterId){
     return c.passages.some(function(p){return AnnalsLivingHistory.fromEntry(p,entryId);});
   }))throw new Error('Select an exact insertion point for an unused narrative source');
 
+  var attempt=annalsRead_(f,'ai-attempt-private.json');
+  var generation=AnnalsHistoryNarrative.bindGeneration(proposed,attempt&&attempt.historyContext);
+  var serial=AnnalsProduction.serial, hash=function(value){return annalsHash_(serial(value));};
+  if(!generation||generation.revision>state.current.revision||generation.chapterDigest!==hash(chapter)||
+    !annalsHistoryPublicEdition_(state))
+    throw new Error('Composed History requires current signed chapter context and original prose');
+
   var original=annalsRead_(f,'approval-private.json');
   var saved=annalsRead_(f,'correction-approval-private.json')||original;
   var blocked=state.ledger.ownerMaintainedSourceVersions||{};
@@ -110,7 +124,6 @@ function annalsHistoryNarrativeReview_(state,id,chapterId,afterId){
   var archive=annalsOpeningArchive_();
   var entry=archive.entries.find(function(e){return e.id===entryId;});
   var approval=archive.approvals.find(function(r){return r.entryId===entryId;});
-  var serial=AnnalsProduction.serial, hash=function(value){return annalsHash_(serial(value));};
   if(!entry||!approval||!approval.consents||approval.consents.publication!==true||
     approval.contentSha256!==digest||hash(entry)!==digest||
     serial(approval)!==serial(saved.publication)||serial(approval.consents)!==serial(saved.receipt.consents))
@@ -133,7 +146,7 @@ function annalsHistoryNarrativeReview_(state,id,chapterId,afterId){
       uncertain:c.uncertain||/\b(?:may|might|possibly|probably|uncertain|around|roughly|approximately|not sure)\b/i.test(c.span),
       poignant:c.poignant,span:c.span,publicSource:publicSource,portraitAllowed:portraitAllowed};
   });
-  var evidence={aliases:['Justin','Fish','Marc','Matt','Ken','Jamie','Jerome'],claims:claims};
+  var evidence={aliases:AnnalsHistoryNarrative.MEMBER_ALIASES,claims:claims};
   var proposal={mode:'revision',chapter:chapterId,
     sections:[{id:chapterId,heading:chapter.heading,paragraphs:proposed.paragraphs}]};
   var reviewedDigest=AnnalsHistoryNarrative.narrativeReviewDigest(state.current,proposal,evidence,hash);
@@ -155,7 +168,7 @@ function annalsHistoryNarrativeReview_(state,id,chapterId,afterId){
   });
   var consents=annalsConsentRegistry_().members[source.source.sender.toLowerCase()];
   return {chapters:chapters,claims:claims,bindingDigest:hash({reviewedDigest:reviewedDigest,after:afterId,
-    source:source,assessedDraft:draft,approvedReceipt:saved.receipt,publicProof:approval,
+    source:source,assessedDraft:draft,generation:generation,approvedReceipt:saved.receipt,publicProof:approval,
     consents:consents,ledger:state.ledger})};
 }
 

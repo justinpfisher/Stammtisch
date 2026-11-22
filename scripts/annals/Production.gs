@@ -1360,17 +1360,20 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
         throw new Error('Invalid automated image selection');
       images = derivedImages;
     }
-    var historyEnabled=false;
-    try{historyEnabled=intakeLockHeld===true&&typeof annalsHistoryIntakeReady_==='function'&&
-      annalsOrdinaryPublicationAllowed_(source)&&annalsHistoryIntakeReady_();}
-    catch(ignored){/* An unavailable History snapshot never blocks ordinary drafting. */}
-    var request = AnnalsProduction.request(text, images, historyEnabled);
+    var historyContext=null;
+    try{
+      if(intakeLockHeld===true&&typeof annalsHistoryIntakeContext_==='function'&&annalsOrdinaryPublicationAllowed_(source))
+        historyContext=annalsHistoryIntakeContext_();
+    }catch(ignored){/* An unavailable History snapshot never blocks ordinary drafting. */}
+    var request = AnnalsProduction.request(text, images, historyContext&&historyContext.reference);
     var month = Utilities.formatDate(new Date(), 'America/Toronto', 'yyyy-MM');
     var ledger = AnnalsProduction.reserve(JSON.parse(p.getProperty('ANNALS_BUDGET_LEDGER') || 'null'), month);
     p.setProperty('ANNALS_BUDGET_LEDGER', JSON.stringify(ledger)); // before any network request
-    annalsWriteOnce_(f, 'ai-attempt-private.json', { state: 'attempt_reserved', reservedCents: 10,
+    var attempt={ state: 'attempt_reserved', reservedCents: 10,
       at: new Date().toISOString(), owner: intakeLockHeld === true ? annalsServiceOwner_() : annalsOwner_(), model: AnnalsProduction.MODEL,
-      processingConsent: true, submittedText: text, selectedNames: selectedNames, imageInputCount: images.length });
+      processingConsent: true, submittedText: text, selectedNames: selectedNames, imageInputCount: images.length };
+    if(historyContext)attempt.historyContext=historyContext;
+    annalsWriteOnce_(f, 'ai-attempt-private.json', attempt);
     var response;
     try {
       response = UrlFetchApp.fetch('https://api.openai.com/v1/responses', {
@@ -1413,7 +1416,9 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
       annalsRecordAttemptOutcome_(f, 'invalid_response');
       throw new Error('AI attempt held; no automatic retry');
     }
-    if(!historyEnabled)delete candidate.historyNarrative;
+    if(candidate.historyNarrative&&(!historyContext||
+      !AnnalsHistoryNarrative.bindGeneration(candidate.historyNarrative,historyContext)))
+      delete candidate.historyNarrative;
     try { annalsWriteOnce_(f, 'draft-private.json', candidate); }
     catch (e) {
       annalsRecordAttemptOutcome_(f, 'private_storage_error');

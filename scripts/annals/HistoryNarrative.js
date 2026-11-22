@@ -3,6 +3,13 @@
 var AnnalsHistoryNarrative=(function(){
 'use strict';
 const CHAPTER_IDS=['origins','gatherings','assemblies','traditions'];
+const MEMBER_ALIASES=Object.freeze(['Justin','Fish','Marc','Matt','Ken','Jamie','Jerome']);
+// Both excerpts are exact public copy from signed History revision 2 (db50d2a).
+// They illustrate cadence only, with no link to a claim or private source.
+const VOICE_EXAMPLES=Object.freeze({
+  assembly:'The cottage had evidently been fit for purpose before it acquired a formal title.',
+  solemn:'This part of the evening belongs to the life being remembered.'
+});
 const exact=(value,keys)=>value&&typeof value==='object'&&!Array.isArray(value)&&
   Object.keys(value).sort().join(',')===[...keys].sort().join(',');
 const id=/^[a-z][a-z0-9-]{0,79}$/;
@@ -30,6 +37,50 @@ function copy(value,limit,names,spans){
   const normalized=words(value);
   requireStage(!names.some(name=>phrase(normalized,name))&&!spans.some(span=>phrase(normalized,span)));
   return value;
+}
+
+function generationContext(edition,historyDigest,isSensitive,maxLength){
+  const names=MEMBER_ALIASES.map(words), chapterDigests={}, chapterContinuity=[];
+  function safe(value,limit){
+    try { return !isSensitive(copy(value,limit,names,[])); }
+    catch { return false; }
+  }
+  for(const chapter of edition.chapters){
+    if(!CHAPTER_IDS.includes(chapter.id)||!safe(chapter.heading,80))continue;
+    // Prefer one whole recent paragraph, so the packet never clips its meaning.
+    const paragraph=chapter.passages.slice().reverse().find(p=>safe(p.text,320));
+    if(!paragraph)continue;
+    chapterContinuity.push({chapter:chapter.id,heading:chapter.heading,prose:paragraph.text});
+    chapterDigests[chapter.id]=historyDigest(chapter);
+  }
+  if(!chapterContinuity.length)return null;
+  const reference=JSON.stringify({voiceOnly:VOICE_EXAMPLES,chapterContinuity:chapterContinuity});
+  return reference.length<=maxLength?{revision:edition.revision,chapterDigests:chapterDigests,reference:reference}:null;
+}
+
+function copiesGenerationReference(proposal,reference){
+  try {
+    const packet=JSON.parse(reference);
+    const sources=Object.values(packet.voiceOnly).concat(packet.chapterContinuity.map(c=>c.prose));
+    const phrases=sources.flatMap(source=>source.split(/(?<=[.!?])\s+/).flatMap(sentence=>{
+      const tokens=words(sentence).split(' ');
+      if(tokens.length<5)return [];
+      if(tokens.length<=8)return [tokens.join(' ')];
+      return tokens.slice(7).map((_,index)=>tokens.slice(index,index+8).join(' '));
+    }));
+    const passages=proposal.paragraphs.map(paragraph=>paragraph.map(clause=>clause.text).join(' '));
+    return passages.concat(proposal.claims.map(claim=>claim.span)).some(text=>{
+      const normalized=words(text);
+      return phrases.some(referencePhrase=>phrase(normalized,referencePhrase));
+    });
+  }catch{return true;}
+}
+
+function bindGeneration(proposal,context){
+  const chapterDigest=context?.chapterDigests?.[proposal?.chapter];
+  if(!hexDigest.test(chapterDigest||'')||!Number.isSafeInteger(context.revision)||context.revision<1||
+     copiesGenerationReference(proposal,context.reference))return null;
+  return {revision:context.revision,chapterDigest:chapterDigest,reference:context.reference};
 }
 
 function stageChapter(section,claims,names,spans,historyDigest){
@@ -138,6 +189,7 @@ function rebindPhotoOnlyCorrection(passage,entry,receipt,digest){
   return {...passage,sources:[{...source,digest:receipt.contentSha256}]};
 }
 
-return Object.freeze({narrativeReviewDigest,stageHistoryNarrative,rebindPhotoOnlyCorrection});
+return Object.freeze({MEMBER_ALIASES,generationContext,bindGeneration,
+  narrativeReviewDigest,stageHistoryNarrative,rebindPhotoOnlyCorrection});
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=AnnalsHistoryNarrative;
