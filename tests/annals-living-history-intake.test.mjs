@@ -24,7 +24,13 @@ function fixture({disabled=false,rejected=false}={}){
     id,heading:'Opening '+id,passages:[{id:'opening-1',text:'Existing opening prose about '+id+'.',
       sources:[{kind:'record',ref:'opening-record'}]}]}))};
   let live=opening, main=opening, failOnSave;
-  const events=[], archive={entries:[],approvals:[]}, rootFiles=new Map(), folders=new Map();
+  const events=[], archive={entries:[],approvals:[]}, rootFiles=new Map(), folders=new Map(), publications=[];
+  function recordMain(value){
+    main=value;
+    publications.unshift({sha:sha('fictional release '+publications.length).slice(0,40),
+      document:plain(value),archive:plain(archive)});
+  }
+  recordMain(opening);
   const members={}, addresses=portraits.map((_,i)=>'member'+i+'@example.test');
   for(const address of addresses)members[address]={
     status:'active',scope:'future_text_ai_drafting',consentedAt:'2026-10-01T00:00:00Z',
@@ -52,9 +58,12 @@ function fixture({disabled=false,rejected=false}={}){
     AnnalsPublicDisplay:{historyPage:renderHistory},
     Utilities:{Charset:{UTF_8:'UTF-8'},computeHmacSha256Signature:(text,key)=>createHmac('sha256',key).update(text).digest()},
     UrlFetchApp:{fetch:url=>{
-      const body=url.includes('annals-approved.json')?JSON.stringify(archive):
+      const pinned=publications.find(record=>url.includes('/'+record.sha+'/'));
+      const body=url.startsWith('https://api.github.com/')?
+        JSON.stringify(publications.slice(0,Number(new URL(url).searchParams.get('per_page'))).map(({sha})=>({sha}))):
+        url.includes('annals-approved.json')?JSON.stringify(pinned?pinned.archive:archive):
         url.endsWith('/history.html')?renderHistory(live)+'\n':
-        url.includes('club-history.json')?JSON.stringify(url.includes('githubusercontent')?main:live):null;
+        url.includes('club-history.json')?JSON.stringify(pinned?pinned.document:url.includes('githubusercontent')?main:live):null;
       if(body===null)throw Error('Unexpected offline fetch');
       return {getResponseCode:()=>200,getContentText:()=>body};
     }}
@@ -108,21 +117,21 @@ function fixture({disabled=false,rejected=false}={}){
     }
     return {id,entryId,files,source,draft,member,approved,approve,withdraw};
   }
-  const f={opening,rootFiles,archive,events,cx,props,add,
+  const f={opening,rootFiles,archive,events,cx,props,add,publications,
     failSnapshotWrite:()=>{failOnSave='history-published-private.json';},
     setMain:value=>{main=value;},
     signed:()=>events.at(-1).client_payload.document,
     tick:()=>cx.annalsVerifyAutomaticPublications_(3),
     serveNext:()=>{
-      main=applyHistoryRevision({current:main,event:events.at(-1),secret:props.ANNALS_HISTORY_SIGNING_KEY,enabled:true,now:new Date(at)});
-      live=main;
+      live=applyHistoryRevision({current:main,event:events.at(-1),secret:props.ANNALS_HISTORY_SIGNING_KEY,enabled:true,now:new Date(at)});
+      recordMain(live);
     },
     subtract:(serveMain=true)=>{
       live=subtractStaleHistory(live,archive.entries,archive.approvals,new Date(at));
-      if(serveMain)main=live;
+      if(serveMain&&live!==main)recordMain(live);
       return live;
     },
-    serveMain:()=>{main=live;}
+    serveMain:()=>{if(live!==main)recordMain(live);}
   };
   return f;
 }
@@ -358,4 +367,51 @@ test('a History-only withdrawal cannot keep a revoked portrait on a surviving pa
   assert.equal(passages(f.signed()).some(p=>p.id===removed.id),false);
   f.serveNext(); f.tick(); f.tick();
   assert.equal(f.events.length,3);
+});
+
+function twoWithdrawals(){
+  const f=fixture(), a=f.add(0), b=f.add(1,{span:second});
+  f.tick(); f.serveNext(); f.tick(); f.serveNext(); f.tick();
+  const ledger='history-bound-ledger-private.json', snapshot='history-published-private.json';
+  assert.equal(f.rootFiles.get(snapshot).revision,3);
+  a.withdraw();
+  const intermediate=f.subtract();
+  f.failSnapshotWrite(); f.tick();
+  assert.equal(intermediate.revision,4);
+  assert.deepEqual(plain(f.rootFiles.get(ledger).chapters),plain(intermediate.chapters));
+  assert.equal(f.rootFiles.get(snapshot).revision,3);
+  b.withdraw();
+  const final=f.subtract();
+  assert.equal(final.revision,5);
+  return {f,ledger,snapshot,final};
+}
+
+test('a second signed withdrawal can overtake the persisted ledger before snapshot recovery',()=>{
+  const {f,ledger,snapshot,final}=twoWithdrawals();
+  f.tick(); f.tick();
+  assert.equal(f.events.length,2);
+  assert.deepEqual(plain(f.rootFiles.get(snapshot)),plain(final));
+  assert.deepEqual(plain(f.rootFiles.get(ledger).chapters),f.opening.chapters);
+  assert.deepEqual(keys(f.rootFiles.get(snapshot)),[]);
+  assert.equal(f.rootFiles.get('history-pending-private.json').state,'verified_live');
+});
+
+test('the two-withdrawal catch-up holds when any intermediate or private binding differs',()=>{
+  const cases=[
+    ['unrelated private ledger metadata',({f,ledger})=>{f.rootFiles.get(ledger).claimTopics={alien:'topic'};}],
+    ['unrelated private ledger copy',({f,ledger})=>{passages(f.rootFiles.get(ledger))[0].text='Unrelated fictional prose.';}],
+    ['intermediate archive cannot explain its History subtraction',({f})=>{
+      f.publications.find(item=>item.document.revision===4).archive=f.publications[0].archive;
+    }],
+    ['intermediate committed History copy differs',({f})=>{
+      passages(f.publications.find(item=>item.document.revision===4).document)[0].text='Unrelated fictional prose.';
+    }],
+    ['intermediate commit is missing',({f})=>{f.publications.splice(1,1);}]
+  ];
+  for(const [reason,edit] of cases){
+    const state=twoWithdrawals();edit(state);
+    state.f.tick();
+    assert.equal(state.f.rootFiles.get(state.snapshot).revision,3,reason);
+    assert.equal(state.f.events.length,2,reason);
+  }
 });

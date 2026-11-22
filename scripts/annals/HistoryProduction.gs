@@ -385,15 +385,20 @@ function annalsHistoryReadPublic_(url){
   return body;
 }
 
-function annalsHistoryVerifiedSubtraction_(prior,live,archive){
+function annalsHistorySubtractionProjection_(prior,live,archive){
   if(!prior||prior.schemaVersion!==2||live.schemaVersion!==2||
      !Number.isSafeInteger(live.revision)||live.revision<=prior.revision||
+     !archive||!Array.isArray(archive.entries)||!Array.isArray(archive.approvals)||
      !Number.isFinite(Date.parse(live.updatedAt)))return null;
   var expected=annalsPredictHistorySubtraction_(prior,archive.entries,archive.approvals,new Date(live.updatedAt));
   if(expected===prior)return null;
   expected.revision=live.revision;
+  return AnnalsProduction.serial(expected)===AnnalsProduction.serial(live)?expected:null;
+}
+function annalsHistoryVerifiedSubtraction_(prior,live,archive){
+  var expected=annalsHistorySubtractionProjection_(prior,live,archive);
+  if(!expected)return null;
   var digest=annalsHash_(AnnalsProduction.serial(expected));
-  if(digest!==annalsHash_(AnnalsProduction.serial(live)))return null;
   var main=JSON.parse(annalsHistoryReadPublic_('https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/club-history.json'));
   if(digest!==annalsHash_(AnnalsProduction.serial(main))||
      annalsHash_(annalsHistoryReadPublic_('https://stammtischbrewery.com/history.html'))!==
@@ -417,6 +422,28 @@ function annalsHistoryVerifiedOvertake_(pending,live){
      AnnalsProduction.serial(head)!==AnnalsProduction.serial(live))return null;
   return annalsHistoryVerifiedSubtraction_(pending.document,live,annalsOpeningArchive_());
 }
+function annalsHistorySubtractionCheckpoint_(prior,target,chapters){
+  var steps=target.revision-prior.revision;
+  // Restrict the public reads performed while holding the existing intake lock.
+  if(!Number.isSafeInteger(steps)||steps<2||steps>12)return false;
+  var commits=JSON.parse(annalsHistoryReadPublic_(
+    'https://api.github.com/repos/justinpfisher/Stammtisch/commits?sha=main&path=data%2Fclub-history.json&per_page='+(steps+1)));
+  if(!Array.isArray(commits)||commits.length!==steps+1||
+    commits.some(function(c){return !c||!/^[a-f0-9]{40}$/.test(c.sha);})||
+    new Set(commits.map(function(c){return c.sha;})).size!==commits.length)return false;
+  var base='https://raw.githubusercontent.com/justinpfisher/Stammtisch/';
+  var read=function(c,path){return JSON.parse(annalsHistoryReadPublic_(base+c.sha+'/data/'+path));};
+  var serial=AnnalsProduction.serial, previous=read(commits[steps],'club-history.json'), found=false;
+  if(serial(previous)!==serial(prior))return false;
+  for(var i=steps-1;i>=0;i--){
+    var next=read(commits[i],'club-history.json');
+    if(next.revision!==previous.revision+1||
+      !annalsHistorySubtractionProjection_(previous,next,read(commits[i],'annals-approved.json')))return false;
+    if(serial(next.chapters)===chapters)found=true;
+    previous=next;
+  }
+  return found&&serial(previous)===serial(target);
+}
 function annalsRebaseHistoryAfterAnnals_(archive,live){
   var root=annalsRoot_(),pending=annalsRead_(root,'history-pending-private.json');
   if(pending&&pending.state!=='verified_live')return false;
@@ -430,9 +457,13 @@ function annalsRebaseHistoryAfterAnnals_(archive,live){
     annalsSavePrivate_(root,'history-bound-ledger-private.json',Object.assign({},ledger,{chapters:projected.chapters}));
   }else{
     // The final signed History journal still records the ledger metadata.
-    // Annals subtractions can change only the verified chapter projection.
+    // Match an interrupted projection against the same public release chain.
     var checkpoint=pending&&pending.review&&pending.review.boundLedger;
-    if(!checkpoint||serial(ledger)!==serial(Object.assign({},checkpoint,{chapters:projected.chapters})))return false;
+    if(!checkpoint||serial(ledger)!==serial(Object.assign({},checkpoint,{chapters:ledger.chapters})))return false;
+    var atTarget=savedChapters===serial(projected.chapters);
+    if((!atTarget||projected.revision>current.revision+1)&&
+      !annalsHistorySubtractionCheckpoint_(current,projected,savedChapters))return false;
+    if(!atTarget)annalsSavePrivate_(root,'history-bound-ledger-private.json',Object.assign({},ledger,{chapters:projected.chapters}));
   }
   annalsSavePrivate_(root,'history-published-private.json',projected);
   return true;
