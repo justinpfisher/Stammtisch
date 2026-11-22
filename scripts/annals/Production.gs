@@ -1360,7 +1360,11 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
         throw new Error('Invalid automated image selection');
       images = derivedImages;
     }
-    var request = AnnalsProduction.request(text, images);
+    var historyEnabled=false;
+    try{historyEnabled=intakeLockHeld===true&&typeof annalsHistoryIntakeReady_==='function'&&
+      annalsOrdinaryPublicationAllowed_(source)&&annalsHistoryIntakeReady_();}
+    catch(ignored){/* An unavailable History snapshot never blocks ordinary drafting. */}
+    var request = AnnalsProduction.request(text, images, historyEnabled);
     var month = Utilities.formatDate(new Date(), 'America/Toronto', 'yyyy-MM');
     var ledger = AnnalsProduction.reserve(JSON.parse(p.getProperty('ANNALS_BUDGET_LEDGER') || 'null'), month);
     p.setProperty('ANNALS_BUDGET_LEDGER', JSON.stringify(ledger)); // before any network request
@@ -1409,6 +1413,7 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
       annalsRecordAttemptOutcome_(f, 'invalid_response');
       throw new Error('AI attempt held; no automatic retry');
     }
+    if(!historyEnabled)delete candidate.historyNarrative;
     try { annalsWriteOnce_(f, 'draft-private.json', candidate); }
     catch (e) {
       annalsRecordAttemptOutcome_(f, 'private_storage_error');
@@ -2220,10 +2225,18 @@ function annalsVerifyAutomaticPublications_(limit) {
   if (annalsProps_().getProperty('ANNALS_AUTO_PUBLICATION_ENABLED') !== 'true') return 0;
   var p = annalsProps_(), token = p.getProperty('ANNALS_VERIFY_CURSOR');
   var folders = token ? DriveApp.continueFolderIterator(token) : annalsRoot_().getFolders();
-  var checked = 0, verified = 0;
+  var checked = 0, verified = 0, historyState={dispatched:false,archive:null,history:null};
+  if(typeof annalsHistoryTickReconcile_==='function'){
+    try{annalsHistoryTickReconcile_(historyState);}
+    catch(ignored){/* A failed live read never authorizes another dispatch. */}
+  }
   while (folders.hasNext() && checked++ < 12 && verified < limit) {
     var folder = annalsPrivate_(folders.next()), id = folder.getName();
     if (!/^[a-f0-9]{64}$/.test(id)) continue;
+    if(historyState.history&&!historyState.dispatched&&typeof annalsHistoryIntakeFolder_==='function'){
+      try{annalsHistoryIntakeFolder_(folder,id,historyState);}
+      catch(ignored){/* Reconciliation may restart observation but never a reserved History dispatch. */}
+    }
     var pendingCorrection=annalsRead_(folder,'correction-approval-private.json');
     if(pendingCorrection&&pendingCorrection.entry&&pendingCorrection.entry.photos&&pendingCorrection.publicationState==='dispatch_accepted'){
       if(typeof annalsVerifyGalleryCorrection_==='function'&&annalsVerifyGalleryCorrection_(folder,id))verified++;

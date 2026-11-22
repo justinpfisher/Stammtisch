@@ -17,7 +17,7 @@ const canonical = value => Array.isArray(value) ? value.map(canonical) : value &
   ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
 const makeApproval = (source,approvedAt='2026-10-09T12:00:00.000Z') => {
   const unsigned = { entryId: source.id, approvedAt,
-    consents: { publication: true, quotePublication: false, recipeVerified: true, namedAttribution: false, photoPublication: false },
+    consents: { publication: true, quotePublication: false, recipeVerified: true, namedAttribution: false, photoPublication: !!source.photo },
     contentSha256: contentDigest(source) };
   return { ...unsigned, signature: createHmac('sha256', secret)
     .update(JSON.stringify(canonical({ entry: source, approval: unsigned }))).digest('hex') };
@@ -90,6 +90,39 @@ test('signed correction replaces only the exact existing entry and preserves the
   assert.equal(result.data.approvals[0].signature,correctionApproval.signature);assert.match(result.html,/Corrected public entry/);
   await assert.rejects(applyApprovedEntry({event,data:emptyArchive(),secret}));
   await assert.rejects(applyApprovedEntry({event:{...event,client_payload:{...event.client_payload,entry:{...corrected,title:'Altered after approval'}}},data:{schemaVersion:1,entries:[previous],approvals:[previousApproval]},secret}));
+});
+
+test('a signed photo-only correction updates one History source without changing published prose',async()=>{
+  const image=photoJpeg(), oldApproval=makeApproval(entry);
+  const photo={sha256:createHash('sha256').update(image).digest('hex'),alt:'A fictional drink'};
+  const passage={id:'narrative-'+'d'.repeat(24)+'-1',text:'The record includes the company’s preparation of the drink.',
+    sources:[{kind:'annal',entryId:entry.id,digest:oldApproval.contentSha256,label:'Supporting Annals entry',portrait:null}]};
+  const another={id:'opening-1',text:'The schedule was written down.',sources:[{kind:'record',ref:'club-record'}]};
+  const history={schemaVersion:2,revision:2,updatedAt:'2026-10-09T12:00:00.000Z',chapters:[
+    {id:'gatherings',heading:'Gatherings',passages:[another]},
+    {id:'traditions',heading:'Traditions',passages:[passage]}
+  ]};
+  const data={schemaVersion:1,entries:[entry],approvals:[oldApproval]};
+  const now=new Date('2026-10-09T12:00:02.000Z');
+  const corrected={...entry,photo};
+  const eventForCorrection=next=>({action:'annals-correct-entry',client_payload:{
+    entry:next,approval:makeApproval(next,'2026-10-09T12:00:01.000Z'),imageBase64:image.toString('base64')
+  }});
+  const event=eventForCorrection(corrected);
+  const result=await applyApprovedEntry({event,data,secret,history,now});
+  assert.equal(result.history.revision,3);
+  assert.equal(result.history.chapters[0],history.chapters[0]);
+  assert.deepEqual(result.history.chapters[1].passages,[{...passage,
+    sources:[{...passage.sources[0],digest:contentDigest(corrected)}]}]);
+  assert.match(result.html,/history\.html#chapter-traditions/);
+  assert.equal(history.chapters[1].passages[0],passage);
+  assert.equal(data.entries[0],entry);
+
+  const altered={...corrected,summary:'A material change to the public account.'};
+  const changed=await applyApprovedEntry({event:eventForCorrection(altered),data,secret,history,now});
+  assert.deepEqual(changed.history.chapters,[history.chapters[0]]);
+  await assert.rejects(applyApprovedEntry({event:{...event,client_payload:{...event.client_payload,
+    approval:{...event.client_payload.approval,signature:'0'.repeat(64)}}},data,secret,history,now}),/exact public approval/);
 });
 
 test('signed correction removes a legacy source photo and prunes its editorial row before rendering',async()=>{
