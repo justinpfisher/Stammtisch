@@ -37,12 +37,15 @@ function fixture({disabled=false,rejected=false}={}){
     id,heading:'Opening '+id,passages:[{id:'opening-1',text:'Existing opening prose about '+id+'.',
       sources:[{kind:'record',ref:'opening-record'}]}]}))};
   let live=opening, main=opening, failOnSave;
-  const events=[], archive={entries:[],approvals:[]}, rootFiles=new Map(), folders=new Map(), publications=[], providerRequests=[];
-  let providerResponse;
-  function recordMain(value){
+  const events=[], archive={schemaVersion:1,entries:[],approvals:[],retiredIds:[]};
+  const rootFiles=new Map(), folders=new Map(), publications=[], commitParents=[], providerRequests=[];
+  let providerResponse, archiveBeforeMutation=plain(archive);
+  function recordMain(value, parentArchive=archive){
+    const parent={sha:sha('fictional parent '+publications.length).slice(0,40),document:plain(main),archive:plain(parentArchive)};
+    commitParents.push(parent);
     main=value;
     publications.unshift({sha:sha('fictional release '+publications.length).slice(0,40),
-      document:plain(value),archive:plain(archive)});
+      parents:[{sha:parent.sha}],document:plain(value),archive:plain(archive)});
   }
   recordMain(opening);
   const members={}, addresses=portraits.map((_,i)=>'member'+i+'@example.test');
@@ -66,10 +69,15 @@ function fixture({disabled=false,rejected=false}={}){
   rootFiles.set('consent-registry-private.json',{schemaVersion:1,members});
   rootFiles.set('history-published-private.json',opening);
   rootFiles.set('history-bound-ledger-private.json',{schemaVersion:1,privateOpeningPacketSha256:'b'.repeat(64),chapters:opening.chapters});
-  const root={files:rootFiles,getFolders:()=>{
-    const values=[...folders.values()];let index=0;
+  const iterate=values=>{
+    let index=0;
     return {hasNext:()=>index<values.length,next:()=>values[index++]};
-  }};
+  };
+  const root={files:rootFiles,getFolders:()=>iterate([...folders.values()]),
+    searchFolders:query=>{
+      const [,prefix]=/^trashed = false and title contains '([a-f0-9]{24})'$/.exec(query);
+      return iterate([...folders.values()].filter(folder=>folder.getName().startsWith(prefix)));
+    }};
   const cx=vm.createContext({
     Date:class extends Date{constructor(...args){super(...(args.length?args:[at]));}static now(){return Date.parse(at);}},
     AnnalsPublicDisplay:{historyPage:renderHistory},
@@ -81,9 +89,10 @@ function fixture({disabled=false,rejected=false}={}){
         providerRequests.push(JSON.parse(options.payload));
         return {getResponseCode:()=>200,getContentText:()=>JSON.stringify(providerResponse)};
       }
-      const pinned=publications.find(record=>url.includes('/'+record.sha+'/'));
+      const pinned=publications.find(record=>url.includes('/'+record.sha+'/'))||
+        commitParents.find(record=>url.includes('/'+record.sha+'/'));
       const body=url.startsWith('https://api.github.com/')?
-        JSON.stringify(publications.slice(0,Number(new URL(url).searchParams.get('per_page'))).map(({sha})=>({sha}))):
+        JSON.stringify(publications.slice(0,Number(new URL(url).searchParams.get('per_page'))).map(({sha,parents})=>({sha,parents}))):
         url.includes('annals-approved.json')?JSON.stringify(pinned?pinned.archive:archive):
         url.endsWith('/history.html')?renderHistory(live)+'\n':
         url.includes('club-history.json')?JSON.stringify(pinned?pinned.document:url.includes('githubusercontent')?main:live):null;
@@ -123,10 +132,13 @@ function fixture({disabled=false,rejected=false}={}){
     files.set('source-private.json',source);
     files.set('draft-private.json',draft);
     files.set('auto-live-verification-private.json',{state:'verified_live'});
+    let approvalTime=Date.parse(at)-10000;
     function approve(text,corrected=false,photo){
+      archiveBeforeMutation=plain(archive);
       const entry={id:entryId,category,title:'A recollection in the Annals',summary:text,year:2026,dateLabel:'',
-        sortDate:'',quoteVerbatim:'',recipe,credit:'Club member',contributorPortrait:portraits[i],...(photo?{photo}:{})};
-      const receipt={entryId,approvedAt:at,reviewedBy:corrected?'fictional-owner':'standing-consent-automation-v1',
+        sortDate:'',quoteVerbatim:'',recipe,credit:'anonymous',contributorPortrait:portraits[i],...(photo?{photo}:{})};
+      const receipt={entryId,approvedAt:new Date(approvalTime+=1000).toISOString(),
+        reviewedBy:corrected?'fictional-owner':'standing-consent-automation-v1',
         consents:{publication:true,namedAttribution:true,photoPublication:!!photo,quotePublication:false,recipeVerified:category==='cocktail'},
         contentSha256:sha(serial(entry))};
       receipt.signature=createHmac('sha256',props.ANNALS_APPROVAL_KEY).update(serial({entry,receipt})).digest('hex');
@@ -140,9 +152,14 @@ function fixture({disabled=false,rejected=false}={}){
     }
     const approved=approve(publicText);
     function withdraw(){
-      files.set('removal-private.json',{state:'dispatch_accepted'});
       const index=archive.entries.findIndex(e=>e.id===entryId);
-      archive.entries.splice(index,1);archive.approvals.splice(index,1);
+      if(index<0)return;
+      archiveBeforeMutation=plain(archive);
+      const entry=archive.entries[index], approvedAt=new Date(Date.parse(at)-1000).toISOString();
+      const proof=plain(cx.annalsPublicRemoval_(entry,approvedAt,props.ANNALS_PUBLISH_SIGNING_KEY));
+      files.set('removal-private.json',{state:'dispatch_accepted',entry:plain(entry),proof,approvedAt});
+      files.set('removal-dispatch-private.json',{state:'accepted',at:approvedAt,completedAt:at});
+      archive.entries.splice(index,1);archive.approvals.splice(index,1);archive.retiredIds.push(entryId);
     }
     return {id,entryId,files,source,draft,raw,member,approved,approve,withdraw};
   }
@@ -169,10 +186,10 @@ function fixture({disabled=false,rejected=false}={}){
     },
     subtract:(serveMain=true)=>{
       live=subtractStaleHistory(live,archive.entries,archive.approvals,new Date(at));
-      if(serveMain&&live!==main)recordMain(live);
+      if(serveMain&&live!==main)recordMain(live,archiveBeforeMutation);
       return live;
     },
-    serveMain:()=>{if(live!==main)recordMain(live);}
+    serveMain:()=>{if(live!==main)recordMain(live,archiveBeforeMutation);}
   };
   return f;
 }
@@ -653,7 +670,7 @@ test('the two-withdrawal catch-up holds when any intermediate or private binding
   }
 });
 
-function withdrawalsBeforeAcceptedReconciliation(){
+function withdrawalsBeforeAcceptedReconciliation({betweenWithdrawals=false}={}){
   const f=fixture(), a=f.add(0), b=f.add(1,{span:second}), c=f.add(2,{narrative:proposal(recall,{chapter:'assemblies'})});
   c.member.contributorPortraitPublication.revokedAt=at;
   f.compose(a); f.serveNext(); f.tick(); f.compose(b); f.serveNext(); f.tick();
@@ -662,13 +679,14 @@ function withdrawalsBeforeAcceptedReconciliation(){
   f.serveNext(); // Its public successor arrives before the intake has reconciled this dispatch.
   a.withdraw();
   const middle=f.subtract();
+  if(betweenWithdrawals)f.add(3,{narrative:null});
   b.withdraw();
   const final=f.subtract();
-  return {f,c,previous,middle,final,accepted:f.signed()};
+  return {f,a,b,c,previous,middle,final,accepted:f.signed()};
 }
 
 test('an accepted dispatch reconciles two signed withdrawals before its first reconciliation',()=>{
-  const {f,c,previous,middle,final,accepted}=withdrawalsBeforeAcceptedReconciliation();
+  const {f,c,previous,middle,final,accepted}=withdrawalsBeforeAcceptedReconciliation({betweenWithdrawals:true});
   const snapshot='history-published-private.json', ledger='history-bound-ledger-private.json';
   const pending='history-pending-private.json', evidence='history-live-'+accepted.revision+'-private.json';
   assert.equal(f.rootFiles.get(snapshot),previous);
@@ -748,4 +766,83 @@ test('an accepted reconciliation resumes an exact intermediate ledger after anot
   assert.deepEqual(f.rootFiles.get(snapshot),plain(final));
   assert.deepEqual(keys(final),[]);
   assert.equal(f.events.length,2);
+});
+
+test('an intermediate archive cannot simulate a withdrawal by keeping its entry without an approval',()=>{
+  const {f,a,middle,previous,accepted}=withdrawalsBeforeAcceptedReconciliation();
+  const committed=f.publications.find(row=>row.document.revision===middle.revision);
+  committed.archive.entries.unshift(plain(a.approved.entry));
+  committed.archive.retiredIds=[];
+  const prediction=subtractStaleHistory(accepted,committed.archive.entries,committed.archive.approvals,new Date(at));
+  assert.deepEqual(plain(prediction),plain(middle),'the unverified projection alone has the intended bytes');
+  f.tick();
+  assert.deepEqual(f.rootFiles.get('history-published-private.json'),previous);
+  assert.equal(f.rootFiles.get('history-pending-private.json').state,'dispatch_accepted');
+  assert.equal(f.events.length,3);
+});
+
+test('an intermediate changed entry with an invalid signed approval cannot remove History support',()=>{
+  const {f,a,middle,previous,accepted}=withdrawalsBeforeAcceptedReconciliation();
+  const committed=f.publications.find(row=>row.document.revision===middle.revision);
+  const replacement={...plain(a.approved.entry),summary:'Revised fictional account.'};
+  const serial=f.cx.AnnalsProduction.serial;
+  const approval=f.cx.annalsPublicApproval_(replacement,{
+    ...a.approved.receipt,approvedAt:new Date(Date.parse(at)-2000).toISOString(),reviewedBy:'fictional-owner',
+    contentSha256:sha(serial(replacement))
+  },f.props.ANNALS_PUBLISH_SIGNING_KEY);
+  committed.archive.entries.unshift(replacement);
+  committed.archive.approvals.unshift({...plain(approval),signature:'a'.repeat(64)});
+  committed.archive.retiredIds=[];
+  const prediction=subtractStaleHistory(accepted,committed.archive.entries,committed.archive.approvals,new Date(at));
+  assert.deepEqual(plain(prediction),plain(middle),'changed bytes alone would remove the passage');
+  f.tick();
+  assert.deepEqual(f.rootFiles.get('history-published-private.json'),previous);
+  assert.equal(f.rootFiles.get('history-pending-private.json').state,'dispatch_accepted');
+  assert.equal(f.events.length,3);
+});
+
+test('a withdrawal edge requires its own contemporaneous signed receipt and no unrelated archive changes',()=>{
+  const cases=[
+    ['missing withdrawal receipt',({a})=>a.files.delete('removal-private.json')],
+    ['wrong entry withdrawal',({a,b})=>a.files.set('removal-private.json',b.files.get('removal-private.json'))],
+    ['valid signature for the wrong version of the same entry',({f,a})=>{
+      const removal=a.files.get('removal-private.json');
+      removal.entry={...removal.entry,summary:'A different fictional version of this account.'};
+      removal.proof=f.cx.annalsPublicRemoval_(removal.entry,removal.approvedAt,f.props.ANNALS_PUBLISH_SIGNING_KEY);
+    }],
+    ['forged withdrawal signature',({a})=>{a.files.get('removal-private.json').proof.signature='a'.repeat(64);}],
+    ['missing accepted dispatch',({a})=>a.files.delete('removal-dispatch-private.json')],
+    ['real receipt signed after the claimed withdrawal commit',({f,a})=>{
+      const removal=a.files.get('removal-private.json'), dispatch=a.files.get('removal-dispatch-private.json');
+      const later=new Date(Date.parse(at)+1000).toISOString();
+      removal.approvedAt=later;
+      removal.proof=f.cx.annalsPublicRemoval_(removal.entry,later,f.props.ANNALS_PUBLISH_SIGNING_KEY);
+      Object.assign(dispatch,{at:later,completedAt:later});
+    }],
+    ['withdrawal tombstones out of order',({f,final})=>{
+      f.publications.find(row=>row.document.revision===final.revision).archive.retiredIds.reverse();
+    }],
+    ['live relevant approval differs from the final committed approval',({f,c})=>{
+      f.archive.approvals.find(approval=>approval.entryId===c.entryId).signature='a'.repeat(64);
+    }],
+    ['live archive resurrects a source removed on an earlier edge',({f,a})=>{
+      f.archive.retiredIds.shift();
+      f.archive.entries.push(plain(a.approved.entry));
+      f.archive.approvals.push(plain(a.approved.publication));
+    }],
+    ['separately signed unrelated addition in the same commit',({f,middle})=>{
+      const other=f.add(3,{narrative:null});
+      const archive=f.publications.find(row=>row.document.revision===middle.revision).archive;
+      archive.entries.push(plain(other.approved.entry));
+      archive.approvals.push(plain(other.approved.publication));
+    }]
+  ];
+  for(const [reason,alter] of cases){
+    const fixture=withdrawalsBeforeAcceptedReconciliation(), {f,previous,accepted}=fixture;
+    alter(fixture); f.tick(); f.tick();
+    assert.deepEqual(f.rootFiles.get('history-published-private.json'),previous,reason);
+    assert.equal(f.rootFiles.get('history-pending-private.json').state,'dispatch_accepted',reason);
+    assert.equal(f.rootFiles.has('history-live-'+accepted.revision+'-private.json'),false,reason);
+    assert.equal(f.events.length,3,reason);
+  }
 });

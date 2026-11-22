@@ -504,7 +504,117 @@ function annalsHistoryVerifiedSubtraction_(prior,live,archive){
        annalsHash_(AnnalsPublicDisplay.historyPage(expected)+'\n'))return null;
   return expected;
 }
-function annalsHistorySubtractionChain_(prior,target){
+// Check the one-to-one archive shape before interpreting a missing source.
+function annalsHistoryArchiveRows_(archive){
+  if(!archive||archive.schemaVersion!==1||!Array.isArray(archive.entries)||!Array.isArray(archive.approvals)||
+     Object.keys(archive).some(function(key){return !['schemaVersion','entries','approvals','retiredIds'].includes(key);})||
+     archive.entries.length!==archive.approvals.length)return null;
+  const isId=id=>typeof id==='string'&&/^[a-z0-9][a-z0-9-]{5,63}$/.test(id);
+  const retired=archive.retiredIds===undefined?[]:archive.retiredIds;
+  if(!Array.isArray(retired)||retired.length>5000||retired.some(id=>!isId(id)))return null;
+  const retiredSet=new Set(retired), entries=new Map(), approvals=new Map();
+  if(retiredSet.size!==retired.length)return null;
+  for(const entry of archive.entries){
+    if(!entry||!isId(entry.id)||entries.has(entry.id)||retiredSet.has(entry.id))return null;
+    entries.set(entry.id,entry);
+  }
+  for(const receipt of archive.approvals){
+    if(!receipt||!entries.has(receipt.entryId)||approvals.has(receipt.entryId))return null;
+    approvals.set(receipt.entryId,receipt);
+  }
+  return {entries:entries,approvals:approvals,retired:retired};
+}
+function annalsHistoryArchiveApproval_(entry,receipt,key){
+  const serial=AnnalsProduction.serial;
+  if(!receipt||receipt.entryId!==entry.id||!Number.isFinite(Date.parse(receipt.approvedAt))||
+     receipt.contentSha256!==annalsHash_(serial(entry)))return false;
+  const reviewers={
+    'standing-consent-text-v1':'standing-consent-automation-v1',
+    'standing-consent-image-v1':'standing-consent-image-automation-v1',
+    'standing-consent-photos-v2':'standing-consent-image-automation-v1',
+    'standing-consent-quote-v1':'standing-consent-quote-automation-v1'
+  };
+  if(receipt.mode!==undefined&&!Object.prototype.hasOwnProperty.call(reviewers,receipt.mode))return false;
+  try{
+    if(serial(AnnalsProduction.publicEntry(entry))!==serial(entry))return false;
+    AnnalsProduction.consents(entry,receipt.consents);
+    if(receipt.mode!==undefined){
+      const quote=receipt.mode==='standing-consent-quote-v1';
+      const photo=entry.photos?'standing-consent-photos-v2':entry.photo?'standing-consent-image-v1':'standing-consent-text-v1';
+      if(entry.credit!=='anonymous'||receipt.consents.quotePublication!==(entry.category==='quotation')||
+         (quote?entry.category!=='quotation'||!entry.speakerPortrait||entry.photo||entry.photos:
+           entry.speakerPortrait||receipt.mode!==photo||receipt.consents.namedAttribution!==!!entry.contributorPortrait))return false;
+    }
+    const proof=annalsPublicApproval_(entry,Object.assign({},receipt,{reviewedBy:reviewers[receipt.mode]}),key);
+    return !!proof&&serial(proof)===serial(receipt);
+  }catch(ignored){return false;}
+}
+function annalsHistoryWithdrawalReceipt_(entry,approval,key,updatedAt){
+  if(!/^annal-[a-f0-9]{24}$/.test(entry.id))return false;
+  const prefix=entry.id.slice(6), matches=annalsRoot_().searchFolders("trashed = false and title contains '"+prefix+"'");
+  if(!matches.hasNext())return false;
+  const folder=matches.next(), id=folder.getName();
+  if(matches.hasNext()||!/^[a-f0-9]{64}$/.test(id)||!id.startsWith(prefix))return false;
+  const checked=annalsPrivate_(folder), removal=annalsRead_(checked,'removal-private.json'),
+    dispatch=annalsRead_(checked,'removal-dispatch-private.json');
+  if(!removal||removal.state!=='dispatch_accepted'||!dispatch||dispatch.state!=='accepted')return false;
+  const signedAt=Date.parse(removal.approvedAt), attemptedAt=Date.parse(dispatch.at),
+    acceptedAt=Date.parse(dispatch.completedAt), publishedAt=Date.parse(updatedAt);
+  if(!(Date.parse(approval.approvedAt)<=signedAt&&signedAt<=attemptedAt&&attemptedAt<=acceptedAt&&
+       acceptedAt<=publishedAt&&publishedAt-signedAt<=86400000))return false;
+  const serial=AnnalsProduction.serial, proof=annalsPublicRemoval_(entry,removal.approvedAt,key);
+  return !!proof&&serial(removal.entry)===serial(entry)&&serial(removal.proof)===serial(proof);
+}
+function annalsHistoryAnnalsSources_(edition){
+  return edition.chapters.flatMap(chapter=>chapter.passages.flatMap(passage=>passage.sources))
+    .filter(source=>source.kind==='annal');
+}
+function annalsHistoryArchiveEdge_(previous,next,beforeArchive,afterArchive,key){
+  const before=annalsHistoryArchiveRows_(beforeArchive), after=annalsHistoryArchiveRows_(afterArchive);
+  if(!before||!after)return false;
+  const serial=AnnalsProduction.serial, sources=new Map();
+  for(const source of annalsHistoryAnnalsSources_(previous)){
+    const entry=before.entries.get(source.entryId), receipt=before.approvals.get(source.entryId);
+    if(!entry||receipt.contentSha256!==source.digest||
+       source.portrait&&(receipt.consents?.namedAttribution!==true||entry.contributorPortrait!==source.portrait))return false;
+    sources.set(source.entryId,source);
+  }
+  const changed=[...before.entries.keys()].filter(id=>serial(before.entries.get(id))!==serial(after.entries.get(id))||
+    serial(before.approvals.get(id))!==serial(after.approvals.get(id)));
+  if(changed.length!==1||!sources.has(changed[0]))return false;
+  const affected=changed[0], priorEntry=before.entries.get(affected), priorApproval=before.approvals.get(affected),
+    corrected=after.entries.get(affected), correctedApproval=after.approvals.get(affected);
+  // This commit applies one event. Other Annals edits can appear between History
+  // revisions, so compare the immediate commit parent rather than an older edition.
+  const expectedEntries=beforeArchive.entries.flatMap(entry=>entry.id!==affected?[entry]:corrected?[corrected]:[]);
+  const expectedApprovals=beforeArchive.approvals.flatMap(receipt=>receipt.entryId!==affected?[receipt]:
+    corrected?[correctedApproval]:[]);
+  const expectedRetired=corrected?before.retired:before.retired.concat(affected);
+  if(serial(afterArchive.entries)!==serial(expectedEntries)||serial(afterArchive.approvals)!==serial(expectedApprovals)||
+     serial(after.retired)!==serial(expectedRetired))return false;
+  for(const id of sources.keys()){
+    if(!annalsHistoryArchiveApproval_(before.entries.get(id),before.approvals.get(id),key))return false;
+  }
+  // All retained relevant rows other than the affected one are exact matches.
+  if(corrected){
+    const signedAt=Date.parse(correctedApproval.approvedAt), age=Date.parse(next.updatedAt)-signedAt;
+    return correctedApproval.mode===undefined&&correctedApproval.contentSha256!==priorApproval.contentSha256&&
+      signedAt>Date.parse(priorApproval.approvedAt)&&age>=-60000&&age<=86400000&&
+      annalsHistoryArchiveApproval_(corrected,correctedApproval,key);
+  }
+  return annalsHistoryWithdrawalReceipt_(priorEntry,priorApproval,key,next.updatedAt);
+}
+
+function annalsHistoryArchiveReadback_(edition,pinnedArchive,liveArchive){
+  const pinned=annalsHistoryArchiveRows_(pinnedArchive), live=annalsHistoryArchiveRows_(liveArchive);
+  if(!pinned||!live)return false;
+  const serial=AnnalsProduction.serial;
+  return annalsHistoryAnnalsSources_(edition).every(({entryId})=>
+    serial(pinned.entries.get(entryId))===serial(live.entries.get(entryId))&&
+    serial(pinned.approvals.get(entryId))===serial(live.approvals.get(entryId))&&
+    pinned.retired.includes(entryId)===live.retired.includes(entryId));
+}
+function annalsHistorySubtractionChain_(prior,target,liveArchive){
   var steps=target.revision-prior.revision;
   // Restrict the public reads performed while holding the existing intake lock.
   if(!Number.isSafeInteger(steps)||steps<1||steps>12)return null;
@@ -513,17 +623,29 @@ function annalsHistorySubtractionChain_(prior,target){
   if(!Array.isArray(commits)||commits.length!==steps+1||
     commits.some(function(c){return !c||!/^[a-f0-9]{40}$/.test(c.sha);})||
     new Set(commits.map(function(c){return c.sha;})).size!==commits.length)return null;
-  var base='https://raw.githubusercontent.com/justinpfisher/Stammtisch/';
-  var read=function(c,path){return JSON.parse(annalsHistoryReadPublic_(base+c.sha+'/data/'+path));};
+  var key=annalsProps_().getProperty('ANNALS_PUBLISH_SIGNING_KEY')||'';
+  if(key.length<32||key===annalsProps_().getProperty('ANNALS_APPROVAL_KEY')||
+     key===annalsProps_().getProperty('ANNALS_HISTORY_SIGNING_KEY'))return null;
+  var base='https://raw.githubusercontent.com/justinpfisher/Stammtisch/', files=new Map();
+  var read=function(c,path){
+    var address=c.sha+'/data/'+path;
+    if(!files.has(address))files.set(address,JSON.parse(annalsHistoryReadPublic_(base+address)));
+    return files.get(address);
+  };
   var serial=AnnalsProduction.serial, previous=read(commits[steps],'club-history.json');
   // A subtraction can erase the accepted bytes. Match the original on main
   // and replay each projection against the archive at its own immutable commit.
   if(serial(previous)!==serial(prior))return null;
   var chain=[previous];
   for(var i=steps-1;i>=0;i--){
-    var next=read(commits[i],'club-history.json');
-    if(next.revision!==previous.revision+1||
-      !annalsHistorySubtractionProjection_(previous,next,read(commits[i],'annals-approved.json')))return null;
+    var commit=commits[i], parents=commit.parents;
+    if(!Array.isArray(parents)||parents.length!==1||!parents[0]||!/^[a-f0-9]{40}$/.test(parents[0].sha)||
+       parents[0].sha===commit.sha)return null;
+    var next=read(commit,'club-history.json'), archive=read(commit,'annals-approved.json');
+    if(next.revision!==previous.revision+1||serial(read(parents[0],'club-history.json'))!==serial(previous)||
+      !annalsHistoryArchiveEdge_(previous,next,read(parents[0],'annals-approved.json'),archive,key)||
+      !annalsHistorySubtractionProjection_(previous,next,archive)||
+      i===0&&liveArchive&&!annalsHistoryArchiveReadback_(prior,archive,liveArchive))return null;
     chain.push(next);
     previous=next;
   }
@@ -532,8 +654,9 @@ function annalsHistorySubtractionChain_(prior,target){
 function annalsHistoryVerifiedOvertake_(pending,live){
   if(!pending.review.boundLedger||pending.document.schemaVersion!==2||live.schemaVersion!==2||
      annalsHash_(AnnalsProduction.serial(pending.document))!==pending.approval.contentSha256)return null;
-  var chain=annalsHistorySubtractionChain_(pending.document,live);
-  if(!chain||!annalsHistoryVerifiedSubtraction_(chain[chain.length-2],live,annalsOpeningArchive_()))return null;
+  var archive=annalsOpeningArchive_();
+  var chain=annalsHistorySubtractionChain_(pending.document,live,archive);
+  if(!chain||!annalsHistoryVerifiedSubtraction_(chain[chain.length-2],live,archive))return null;
   return chain;
 }
 function annalsHistorySubtractionCheckpoint_(prior,target,chapters){
