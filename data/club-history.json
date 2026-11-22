@@ -1,7 +1,7 @@
 {
   "chapters": [
     {
-      "heading": "Origins",
+      "heading": "The name",
       "id": "origins",
       "passages": [
         {
@@ -16,12 +16,12 @@
               "ref": "six-face-crest"
             }
           ],
-          "text": "The friends were already gathering when Justin found a name for what they did. He remembers coming home from a family trip to Germany in autumn 2022 and telling the others that theirs was a Stammtisch. The journey is easier to date than the conversation. The Club’s records mention celebrity selections in November 2024 and a draft constitution the following February. By December 2025, Marc, Matt, Ken, Jamie, Jerome and Justin had a web address and a crest with room for all six faces."
+          "text": "The company had been gathering for some time when one of its number, of Germanic heritage, observed that it was already Stammtisching. The evening on which this was pointed out has escaped the record. The name, on the other hand, has proved easier to retain."
         }
       ]
     },
     {
-      "heading": "Gathering together",
+      "heading": "The appointed evening",
       "id": "gatherings",
       "passages": [
         {
@@ -32,7 +32,7 @@
               "ref": "monthly-stammtisch"
             }
           ],
-          "text": "Six calendars posed a practical difficulty. As Justin remembers it, the friends knew that if they had to find a free evening afresh each month, they might never meet. They gave Stammtisch a standing date. The appointment today is the third Friday at eight, Toronto time, often at headquarters."
+          "text": "A tradition that depended on finding a free evening in six calendars was unlikely to meet very often. The Club set aside the third Friday of each month, at eight o’clock Toronto time."
         },
         {
           "id": "opening-2",
@@ -52,16 +52,16 @@
               "digest": "38110f4dec7c074039d138caa360999b5f3f4777d81bee1c60a2c876a683575c",
               "entryId": "annal-5e0607c7dc924fb5663c40e0",
               "kind": "annal",
-              "label": "Daq in Black (Amaro Nonino Edition)",
+              "label": "Daq in Black",
               "portrait": "marc"
             }
           ],
-          "text": "At many gatherings, one or two members take a turn preparing a special cocktail. Marc gave that tradition a place in the written record when he contributed Kingston Windfall and Daq in Black to the Annals. The company has also fielded a Mud Hero obstacle-course team. The 2025 notes preserve some of the discussion about the shirts."
+          "text": "At many gatherings, one or two members take a turn preparing a cocktail. Kingston Windfall and Daq in Black are both in the Annals. The Club has also fielded a Mud Hero team, for which the surviving notes are particularly informative on the subject of shirts."
         }
       ]
     },
     {
-      "heading": "Annual Assemblies",
+      "heading": "The Annual Gentlemen’s Assembly",
       "id": "assemblies",
       "passages": [
         {
@@ -76,14 +76,27 @@
               "ref": "huntsville-assembly"
             }
           ],
-          "text": "Justin remembers the friends going to the cottage together before the COVID-19 pandemic. When the weekend acquired its present title, the Annual Gentlemen’s Assembly, is still open. A surviving notice scheduled a Gentlemen’s Assembly for 16 January 2026. The next one on the calendar is 5 February 2027 in Huntsville."
+          "text": "By one recollection, the company was going to the cottage together before the pandemic. The date of the first weekend is not known, nor is the date on which it became the Annual Gentlemen’s Assembly. The cottage had evidently been fit for purpose before it acquired a formal title."
         }
       ]
     },
     {
-      "heading": "Developing traditions",
+      "heading": "The Club’s observances",
       "id": "traditions",
       "passages": [
+        {
+          "id": "opening-2",
+          "sources": [
+            {
+              "digest": "fbd9d1485454f5396cf59f683922069ab3632d967368e3665a784f826b62c7bd",
+              "entryId": "annal-f463f9566e3d9c3fe09465de",
+              "kind": "annal",
+              "label": "Christisch in the Annals",
+              "portrait": "fish"
+            }
+          ],
+          "text": "The December gathering is known as Christisch. The gifts come from the members’ own homes, leaving commerce with a gratifyingly small role in the proceedings. One recollection places an exchange in December 2025. The year of the first Christisch remains uncertain."
+        },
         {
           "id": "opening-1",
           "sources": [
@@ -92,25 +105,12 @@
               "ref": "remembrance-speech"
             }
           ],
-          "text": "In Celebration of Life, each member keeps a list of fifty names. When someone on a member’s list dies, that member gives a speech at the next Stammtisch about the person and what they gave the world. The standings have their own page. The gathering makes time for the life."
-        },
-        {
-          "id": "opening-2",
-          "sources": [
-            {
-              "digest": "fbd9d1485454f5396cf59f683922069ab3632d967368e3665a784f826b62c7bd",
-              "entryId": "annal-f463f9566e3d9c3fe09465de",
-              "kind": "annal",
-              "label": "Justin’s Christisch entry",
-              "portrait": "fish"
-            }
-          ],
-          "text": "The December gathering has a name of its own, Christisch, and the gifts come from the members’ own homes. Justin thinks he remembers the exchange in December 2025, though he is unsure of the year. The first Christisch is still to be dated."
+          "text": "In Celebration of Life, each member keeps a list of fifty names. When someone on a member’s list dies, that member speaks at the next Stammtisch about the person and what they gave the world. The standings are kept elsewhere. This part of the evening belongs to the life being remembered."
         }
       ]
     }
   ],
-  "revision": 1,
+  "revision": 2,
   "schemaVersion": 2,
-  "updatedAt": "2026-11-21T23:47:24.375Z"
+  "updatedAt": "2026-11-22T01:00:52.808Z"
 }
