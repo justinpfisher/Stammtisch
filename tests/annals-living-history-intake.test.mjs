@@ -23,7 +23,7 @@ function fixture({disabled=false,rejected=false}={}){
   const opening={schemaVersion:2,revision:1,updatedAt:at,chapters:chapterIds.map(id=>({
     id,heading:'Opening '+id,passages:[{id:'opening-1',text:'Existing opening prose about '+id+'.',
       sources:[{kind:'record',ref:'opening-record'}]}]}))};
-  let live=opening, main=opening;
+  let live=opening, main=opening, failOnSave;
   const events=[], archive={entries:[],approvals:[]}, rootFiles=new Map(), folders=new Map();
   const members={}, addresses=portraits.map((_,i)=>'member'+i+'@example.test');
   for(const address of addresses)members[address]={
@@ -62,11 +62,15 @@ function fixture({disabled=false,rejected=false}={}){
   for(const [name,code] of modules)vm.runInContext(code,cx,{filename:name});
   Object.assign(cx,{
     annalsHash_:sha,annalsHex_:bytes=>bytes.toString('hex'),
+    annalsUiCall_:(nonce,fn)=>{assert.equal(nonce,'fictional-owner');return fn();},annalsLocked_:fn=>fn(),
     annalsRoot_:()=>root,annalsFolder_:id=>folders.get(id),annalsPrivate_:value=>value,
     annalsProps_:()=>({getProperty:name=>props[name],deleteProperty:name=>delete props[name]}),
     annalsRead_:(f,name)=>f.files.get(name),annalsFile_:(f,name)=>f.files.has(name),
-    annalsSavePrivate_:(f,name,value)=>f.files.set(name,value),
-    annalsWriteOnce_:(f,name,value)=>{assert.equal(f.files.has(name),false);f.files.set(name,value);},
+    annalsSavePrivate_:(f,name,value)=>{
+      if(f===root&&name===failOnSave){failOnSave=undefined;throw Error('Fictional interrupted write');}
+      f.files.set(name,plain(value));
+    },
+    annalsWriteOnce_:(f,name,value)=>{assert.equal(f.files.has(name),false);f.files.set(name,plain(value));},
     annalsDispatchEvent_:(f,action,client_payload)=>{events.push({action,client_payload});return !rejected;}
   });
   const serial=cx.AnnalsProduction.serial;
@@ -105,6 +109,8 @@ function fixture({disabled=false,rejected=false}={}){
     return {id,entryId,files,source,draft,member,approved,approve,withdraw};
   }
   const f={opening,rootFiles,archive,events,cx,props,add,
+    failSnapshotWrite:()=>{failOnSave='history-published-private.json';},
+    setMain:value=>{main=value;},
     signed:()=>events.at(-1).client_payload.document,
     tick:()=>cx.annalsVerifyAutomaticPublications_(3),
     serveNext:()=>{
@@ -272,4 +278,84 @@ test('an uncertain dispatch has one attempt and leaves the verified opening in p
   assert.equal(f.events.length,1);
   assert.equal(f.rootFiles.get('history-pending-private.json').state,'uncertain_or_rejected_no_retry');
   assert.equal(f.rootFiles.get('history-published-private.json'),f.opening);
+});
+
+test('an interrupted signed reconciliation resumes only its verified ledger and snapshot without dispatching again',()=>{
+  const f=fixture();f.add(0);
+  const ledger='history-bound-ledger-private.json', snapshot='history-published-private.json',
+    pending='history-pending-private.json';
+  f.tick(); f.serveNext();
+  f.failSnapshotWrite(); f.tick();
+  const partial=f.rootFiles.get(ledger);
+  assert.deepEqual(plain(partial.chapters),plain(f.signed().chapters));
+  assert.equal(f.rootFiles.get(snapshot).revision,1);
+  assert.equal(f.rootFiles.get(pending).state,'dispatch_accepted');
+  assert.ok(f.rootFiles.has('history-live-2-private.json'));
+
+  f.rootFiles.set(ledger,{...partial,claimTopics:{unrelated:'wrong-topic'}});
+  f.tick();
+  assert.equal(f.rootFiles.get(snapshot).revision,1);
+  assert.equal(f.rootFiles.get(pending).state,'dispatch_accepted');
+  f.rootFiles.set(ledger,partial);
+  const journalName='history-revision-2-private.json', journal=f.rootFiles.get(journalName);
+  f.rootFiles.set(journalName,{...journal,review:{...journal.review,operation:'unrelated'}});
+  f.tick();
+  assert.equal(f.rootFiles.get(snapshot).revision,1);
+  f.rootFiles.set(journalName,journal);
+  f.setMain(f.opening);
+  f.tick();
+  assert.equal(f.rootFiles.get(snapshot).revision,1);
+  f.serveMain();
+  f.tick(); f.tick();
+  assert.equal(f.events.length,1);
+  assert.deepEqual(plain(f.rootFiles.get(snapshot)),plain(f.signed()));
+  assert.equal(f.rootFiles.get(pending).state,'verified_live');
+});
+
+test('an interrupted Annals withdrawal rebase resumes only from the exact signed subtraction',()=>{
+  const f=fixture(), item=f.add(0);
+  const ledger='history-bound-ledger-private.json', snapshot='history-published-private.json';
+  f.tick(); f.serveNext(); f.tick();
+  item.withdraw();
+  const withdrawn=f.subtract();
+  f.failSnapshotWrite(); f.tick();
+  const partial=f.rootFiles.get(ledger);
+  assert.deepEqual(plain(partial.chapters),plain(withdrawn.chapters));
+  assert.equal(f.rootFiles.get(snapshot).revision,2);
+
+  f.rootFiles.set(ledger,{...partial,chapters:f.opening.chapters.slice(1)});
+  f.tick();
+  assert.equal(f.rootFiles.get(snapshot).revision,2);
+  f.rootFiles.set(ledger,{...partial,claimTopics:{unrelated:'wrong-topic'}});
+  f.tick();
+  assert.equal(f.rootFiles.get(snapshot).revision,2);
+  f.rootFiles.set(ledger,partial);
+  f.tick(); f.tick();
+  assert.equal(f.events.length,1);
+  assert.deepEqual(plain(f.rootFiles.get(snapshot)),plain(withdrawn));
+  assert.deepEqual(keys(f.rootFiles.get(snapshot)),[]);
+});
+
+test('a History-only withdrawal cannot keep a revoked portrait on a surviving passage from that entry',()=>{
+  const f=fixture(), both=recall+' '+second;
+  const item=f.add(0,{span:both,claims:[candidate(),candidate(second)]});
+  f.tick(); f.serveNext(); f.tick();
+  const [removed,retained]=passages(f.signed()).slice(1);
+  const {digest}=f.cx.annalsListHistoryMaintenance('fictional-owner');
+  const {hash}=f.cx.annalsPrepareHistoryMaintenance('fictional-owner',digest,'traditions',removed.id,
+    'withdraw','','The first fictional recollection was withdrawn.');
+  assert.equal(f.cx.annalsPublishHistoryMaintenance('fictional-owner',hash,true).dispatchAccepted,true);
+  f.serveNext(); f.tick();
+  assert.deepEqual(plain(passages(f.signed()).slice(1)),[plain(retained)]);
+  item.member.contributorPortraitPublication.revokedAt=at;
+  f.tick();
+  assert.equal(f.events.length,3);
+  const [remaining]=passages(f.signed()).slice(1);
+  assert.equal(remaining.id,retained.id);
+  assert.match(remaining.text,/As one member remembers it, we sang before/);
+  assert.equal(remaining.sources[0].portrait,null);
+  assert.deepEqual(keys(f.signed()),[]);
+  assert.equal(passages(f.signed()).some(p=>p.id===removed.id),false);
+  f.serveNext(); f.tick(); f.tick();
+  assert.equal(f.events.length,3);
 });

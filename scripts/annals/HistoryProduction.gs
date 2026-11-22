@@ -422,10 +422,18 @@ function annalsRebaseHistoryAfterAnnals_(archive,live){
   if(pending&&pending.state!=='verified_live')return false;
   var current=annalsRead_(root,'history-published-private.json');
   var ledger=annalsRead_(root,'history-bound-ledger-private.json');
-  if(!current||!ledger||!ledger.privateOpeningPacketSha256)return false;
+  if(!current||!ledger||ledger.schemaVersion!==1||!/^[a-f0-9]{64}$/.test(ledger.privateOpeningPacketSha256))return false;
   var projected=annalsHistoryVerifiedSubtraction_(current,live,archive);
   if(!projected)return false;
-  annalsSavePrivate_(root,'history-bound-ledger-private.json',Object.assign({},ledger,{chapters:projected.chapters}));
+  var serial=AnnalsProduction.serial, savedChapters=serial(ledger.chapters);
+  if(savedChapters===serial(current.chapters)){
+    annalsSavePrivate_(root,'history-bound-ledger-private.json',Object.assign({},ledger,{chapters:projected.chapters}));
+  }else{
+    // The final signed History journal still records the ledger metadata.
+    // Annals subtractions can change only the verified chapter projection.
+    var checkpoint=pending&&pending.review&&pending.review.boundLedger;
+    if(!checkpoint||serial(ledger)!==serial(Object.assign({},checkpoint,{chapters:projected.chapters})))return false;
+  }
   annalsSavePrivate_(root,'history-published-private.json',projected);
   return true;
 }
@@ -436,8 +444,7 @@ function annalsBoundMaintenanceState_(sync){
   var root=annalsRoot_(),current=annalsRead_(root,'history-published-private.json');
   var ledger=annalsRead_(root,'history-bound-ledger-private.json'),pending=annalsRead_(root,'history-pending-private.json');
   if(!current||current.schemaVersion!==2||!ledger||ledger.schemaVersion!==1||
-    !/^[a-f0-9]{64}$/.test(ledger.privateOpeningPacketSha256)||
-    AnnalsProduction.serial(ledger.chapters)!==AnnalsProduction.serial(current.chapters))
+    !/^[a-f0-9]{64}$/.test(ledger.privateOpeningPacketSha256))
     throw new Error('Verify the current source-bound Club History first');
   if(pending&&pending.state!=='verified_live')throw new Error('Reconcile the prior History revision before editing');
   if(sync){
@@ -448,6 +455,8 @@ function annalsBoundMaintenanceState_(sync){
       return annalsBoundMaintenanceState_(false);
     }
   }
+  if(AnnalsProduction.serial(ledger.chapters)!==AnnalsProduction.serial(current.chapters))
+    throw new Error('Verify the current source-bound Club History first');
   return {root:root,current:current,ledger:ledger,digest:annalsHash_(AnnalsProduction.serial(current))};
 }
 function annalsListHistoryMaintenance(nonce){
@@ -536,6 +545,30 @@ function annalsDispatchHistoryRevision_(folder,id,review,schemaVersion,chapters,
     return {dispatchAccepted:accepted,published:false};
 }
 
+function annalsHistoryBoundWriteReady_(root,pending,published,ledger,nextLedger,verified){
+    var current=annalsRead_(root,'history-published-private.json')||{schemaVersion:1,revision:0,chapters:[],updatedAt:''};
+    var serial=AnnalsProduction.serial, currentDigest=annalsHash_(serial(current)),
+      publishedDigest=annalsHash_(serial(published)), isPrevious=currentDigest===pending.approval.previousDigest;
+    var previousAligned=isPrevious&&(!ledger&&current.schemaVersion===1&&current.revision===0||
+      ledger&&ledger.schemaVersion===1&&ledger.privateOpeningPacketSha256===nextLedger.privateOpeningPacketSha256&&
+      serial(ledger.chapters)===serial(current.chapters));
+    if(!verified)return previousAligned;
+
+    // A retry can finish the exact recorded write, including when a proved
+    // Annals subtraction overtook the signed revision between attempts.
+    if(!(isPrevious||currentDigest===pending.approval.contentSha256||currentDigest===publishedDigest))return false;
+    var saved=serial(ledger), targetAligned=saved===serial(nextLedger);
+    var signedLedger=Object.assign({},pending.review.boundLedger,{chapters:pending.document.chapters});
+    var overtakenLedgerAligned=published.revision>pending.document.revision&&
+      currentDigest!==publishedDigest&&saved===serial(signedLedger);
+    if(!previousAligned&&!targetAligned&&!overtakenLedgerAligned)return false;
+    var reserved=annalsRead_(root,'history-revision-'+pending.document.revision+'-private.json');
+    if(!reserved||serial(reserved.approval)!==serial(pending.approval)||
+      serial(reserved.document)!==serial(pending.document)||serial(reserved.review)!==serial(pending.review))return false;
+    var main=JSON.parse(annalsHistoryReadPublic_('https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/club-history.json'));
+    return annalsHash_(serial(main))===publishedDigest;
+}
+
 function annalsReconcileHistoryLocked_(){
     var root=annalsRoot_(),pending=annalsRead_(root,'history-pending-private.json');
     if(!pending||pending.state!=='dispatch_accepted')return {verified:false,retryAllowed:false};
@@ -552,13 +585,23 @@ function annalsReconcileHistoryLocked_(){
     var name='history-live-'+pending.document.revision+'-private.json',existing=annalsRead_(root,name);
     if(existing){
       if(existing.digest!==pending.approval.contentSha256||!Number.isFinite(Date.parse(existing.verifiedAt)))throw new Error('Conflicting history verification evidence');
-    }else {
+    }
+    var ledger=null,nextLedger=null;
+    if(pending.review.boundLedger){
+      ledger=annalsRead_(root,'history-bound-ledger-private.json');
+      nextLedger=Object.assign({},pending.review.boundLedger,{chapters:published.chapters});
+      if(!annalsHistoryBoundWriteReady_(root,pending,published,ledger,nextLedger,existing))
+        throw new Error('Conflicting History ledger or snapshot');
+    }
+    if(!existing){
       var verified={verifiedAt:new Date().toISOString(),digest:pending.approval.contentSha256};
       if(!exact){verified.confirmedOnMain=true;verified.supersededByRevision=published.revision;}
       annalsWriteOnce_(root,name,verified);
     }
-    if(pending.review.boundLedger)annalsSavePrivate_(root,'history-bound-ledger-private.json',
-      Object.assign({},pending.review.boundLedger,{chapters:published.chapters}));
+    if(nextLedger){
+      if(AnnalsProduction.serial(ledger)!==AnnalsProduction.serial(nextLedger))
+        annalsSavePrivate_(root,'history-bound-ledger-private.json',nextLedger);
+    }
     else annalsSavePrivate_(root,'history-ledger-private.json',pending.review.ledger);
     annalsSavePrivate_(root,'history-published-private.json',published);
     // Preserve the accepted dispatch; never replay to recover a receipt.

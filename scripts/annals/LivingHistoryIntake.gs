@@ -48,14 +48,10 @@ var AnnalsLivingHistory=(function(){
     var span=/[.!?]$/.test(c.span)?c.span:c.span+'.';
     // The model edits the editorial footing, not the evidence. The attributed
     // excerpt stays literal so uncertainty, chronology and details cannot drift.
-    var lead=name?name+' recalls: ':'A member recalls: ';
-    if(c.editorialFrame==='club_record')lead=name?'For the Club’s record, '+name+' recalls: ':'For the Club’s record, one member recalls: ';
-    if(c.editorialFrame==='tradition'&&c.chapter==='traditions')
-      lead=name?'The tradition, as '+name+' remembers it: ':'The tradition, as one member remembers it: ';
     var recalled=/^I (?:remember|recall) that ([a-z].*)$/.exec(span);
-    if(recalled&&c.editorialFrame==='club_record')
-      lead=name?'As '+name+' remembers it, ':'As one member remembers it, ';
-    var text=lead+(recalled&&c.editorialFrame==='club_record'?recalled[1]:span);
+    var frame=c.editorialFrame==='tradition'&&c.chapter!=='traditions'?'recollection':c.editorialFrame;
+    var reworded=recalled&&frame==='club_record';
+    var text=creditLead(name,frame,reworded)+(reworded?recalled[1]:span);
     return {topic:c.topic,chapter:c.chapter,sourceEntryId:bound.entryId,sourceVersion:bound.digest,
       passage:{id:'claim-'+bound.claimId.slice(0,24),text:text,sources:[
         {kind:'annal',entryId:bound.entryId,digest:bound.digest,label:'Read the original entry',portrait:bound.portrait}]}};
@@ -63,6 +59,35 @@ var AnnalsLivingHistory=(function(){
   function fromEntry(p,entryId){
     return /^claim-[a-f0-9]{24}$/.test(p.id)&&p.sources.length===1&&
       p.sources[0].kind==='annal'&&p.sources[0].entryId===entryId;
+  }
+  function creditLead(name,frame,reworded){
+    if(reworded)return 'As '+(name||'one member')+' remembers it, ';
+    if(frame==='club_record')return 'For the Club’s record, '+(name||'one member')+' recalls: ';
+    if(frame==='tradition')return 'The tradition, as '+(name||'one member')+' remembers it: ';
+    return (name||'A member')+' recalls: ';
+  }
+  function removeRevokedCredit(current,chapters,entryId,portrait){
+    for(var chapter of chapters){
+      var changed=false;
+      var passages=chapter.passages.map(function(p){
+        if(!fromEntry(p,entryId)||!p.sources[0].portrait||p.sources[0].portrait===portrait)return p;
+        var source=p.sources[0],text=p.text;
+        if(Object.prototype.hasOwnProperty.call(titles,source.portrait)){
+          for(var frame of [['recollection',false],['club_record',false],['tradition',false],['club_record',true]]){
+            var lead=creditLead(titles[source.portrait],frame[0],frame[1]);
+            if(!text.startsWith(lead))continue;
+            text=creditLead(null,frame[0],frame[1])+text.slice(lead.length);
+            break;
+          }
+        }
+        changed=true;
+        return Object.assign({},p,{text:text,sources:[Object.assign({},source,{portrait:null})]});
+      });
+      if(changed)return Object.assign({},current,{chapters:current.chapters.map(function(c){
+        return c===chapter?Object.assign({},c,{passages:passages}):c;
+      })});
+    }
+    return current;
   }
   // Retain other accounts in their existing order. Put a new account directly
   // after those on the same topic, without merging their claims or attribution.
@@ -97,7 +122,8 @@ var AnnalsLivingHistory=(function(){
     }).filter(Boolean):current.chapters.concat([{id:affectedChapter,heading:headings[affectedChapter],passages:replacement}]);
     return Object.assign({},current,{chapters:chapters});
   }
-  return Object.freeze({containsSpan:containsSpan,eligible:eligible,fromEntry:fromEntry,passage:passage,project:project});
+  return Object.freeze({containsSpan:containsSpan,eligible:eligible,fromEntry:fromEntry,passage:passage,
+    project:project,removeRevokedCredit:removeRevokedCredit});
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=AnnalsLivingHistory;
 
@@ -112,7 +138,7 @@ function annalsHistoryIntakeReady_(){
     !!ledger&&ledger.schemaVersion===1&&/^[a-f0-9]{64}$/.test(ledger.privateOpeningPacketSha256)&&
     AnnalsProduction.serial(current.chapters)===AnnalsProduction.serial(ledger.chapters);
 }
-function annalsHistoryIntakeRecords_(folder, entryId, draft, source, state){
+function annalsHistoryIntakeRecords_(folder, entryId, draft, source, portrait, state){
   var original=annalsRead_(folder,'approval-private.json');
   var saved=annalsRead_(folder,'correction-approval-private.json')||original;
   if(!saved||saved.publicationState!=='dispatch_accepted'||!saved.entry||!saved.receipt||!saved.publication||
@@ -139,12 +165,17 @@ function annalsHistoryIntakeRecords_(folder, entryId, draft, source, state){
     approval.contentSha256!==digest||annalsHash_(AnnalsProduction.serial(entry))!==digest||
     AnnalsProduction.serial(approval)!==AnnalsProduction.serial(saved.publication)||
     AnnalsProduction.serial(approval.consents)!==AnnalsProduction.serial(saved.receipt.consents))return null;
-  var portrait=annalsContributorPortrait_(source);
   portrait=portrait&&entry.contributorPortrait===portrait&&approval.consents.namedAttribution===true?portrait:null;
   return candidates.map(function(c){
     var claimId=annalsHash_(AnnalsProduction.serial({entryId:entryId,chapter:c.chapter,span:c.span}));
     return AnnalsLivingHistory.passage(c,{entryId:entryId,digest:digest,claimId:claimId,publication:true,portrait:portrait});
   });
+}
+function annalsDispatchIntakeProjection_(folder,id,state,projected,metadata){
+  state.dispatched=true; // one chapter and one signing attempt per intake tick
+  var review={operation:'standing-consent-history-intake',
+    boundLedger:Object.assign({},state.history.ledger,metadata,{chapters:projected.chapters})};
+  return annalsDispatchHistoryRevision_(folder,id,review,2,projected.chapters,2,state.history.current.revision).dispatchAccepted===true;
 }
 function annalsHistoryIntakeFolder_(folder,id,state){
   if(!state.history||state.dispatched||annalsFile_(folder,'quarantine-private.json')||
@@ -158,9 +189,14 @@ function annalsHistoryIntakeFolder_(folder,id,state){
   var records=[];
   if(annalsOrdinaryPublicationAllowed_(source)){
     annalsOrdinarySourceGate_(source);
+    var portrait=annalsContributorPortrait_(source);
+    // Owner-maintained versions block additions. Revocation is strictly
+    // subtractive and acts on passages that actually survive in History.
+    var deattributed=AnnalsLivingHistory.removeRevokedCredit(current,active,entryId,portrait);
+    if(deattributed!==current)return annalsDispatchIntakeProjection_(folder,id,state,deattributed,{});
     if(!draft||!Array.isArray(draft.riskFlags)||draft.riskFlags.length||
       !['anecdote','recipe','description','other'].includes(draft.interpretation&&draft.interpretation.intent))return false;
-    records=annalsHistoryIntakeRecords_(folder,entryId,draft,source,state);
+    records=annalsHistoryIntakeRecords_(folder,entryId,draft,source,portrait,state);
     if(!records)return false;
   }
   var affected=new Set(active.map(function(c){return c.id;}).concat(records.map(function(r){return r.chapter;})));
@@ -174,30 +210,21 @@ function annalsHistoryIntakeFolder_(folder,id,state){
     projected.chapters.forEach(function(c){c.passages.forEach(function(p){
       if(Object.prototype.hasOwnProperty.call(used,p.id))nextTopics[p.id]=used[p.id];
     });});
-    state.dispatched=true; // one chapter and one signing attempt per intake tick
-    var review={operation:'standing-consent-history-intake',
-      boundLedger:Object.assign({},ledger,{chapters:projected.chapters,claimTopics:nextTopics})};
-    return annalsDispatchHistoryRevision_(folder,id,review,2,projected.chapters,2,current.revision).dispatchAccepted===true;
+    return annalsDispatchIntakeProjection_(folder,id,state,projected,{claimTopics:nextTopics});
   }
   return false;
 }
 
 function annalsHistoryTickReconcile_(state){
   state.history=null;
-  if(!annalsHistoryIntakeReady_()||typeof annalsReconcileHistoryLocked_!=='function')return;
+  if(annalsProps_().getProperty('ANNALS_HISTORY_PUBLICATION_ENABLED')!=='true'||
+    typeof annalsReconcileHistoryLocked_!=='function')return;
   var root=annalsRoot_(),pending=annalsRead_(root,'history-pending-private.json');
   if(pending&&pending.state!=='verified_live'){
-    if(pending.state!=='dispatch_accepted')return;
+    if(pending.state!=='dispatch_accepted'||!pending.review||!pending.review.boundLedger)return;
     if(annalsReconcileHistoryLocked_().verified!==true)return;
   }
   // An Annals correction or withdrawal may have already subtracted support
-  // from public History. Reconcile independent of any eligible draft or folder.
-  var snapshot=annalsBoundMaintenanceState_(false), current=snapshot.current;
-  var live=JSON.parse(annalsHistoryReadPublic_('https://stammtischbrewery.com/data/club-history.json'));
-  if(annalsHash_(AnnalsProduction.serial(live))===annalsHash_(AnnalsProduction.serial(current))){
-    state.history=snapshot;
-  }else if(live.schemaVersion===2&&live.revision>current.revision){
-    state.archive=annalsOpeningArchive_();
-    if(annalsRebaseHistoryAfterAnnals_(state.archive,live))state.history=annalsBoundMaintenanceState_(false);
-  }
+  // from public History. Recover an interrupted write before choosing work.
+  state.history=annalsBoundMaintenanceState_(true);
 }
