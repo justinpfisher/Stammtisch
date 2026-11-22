@@ -403,7 +403,7 @@ function archivedSupport(entries, receipts) {
   const records = new Map(receipts.map(r => [r.entryId,r]));
   return new Map(entries.map(e => {
     const receipt = records.get(e.id);
-    return [e.id,{digest:receipt?.contentSha256,portrait:
+    return [e.id,{entry:e,receipt,digest:receipt?.contentSha256,portrait:
       receipt?.consents?.namedAttribution === true ? e.contributorPortrait ?? null : null}];
   }));
 }
@@ -433,18 +433,33 @@ function subtractOpeningRecipe(c,p,missing){
   return {...p,text,sources:remaining};
 }
 // Call only after the ordinary publisher has verified the records' signatures.
-// An Annals correction may remove support and credit, never invent a narrative.
+// Independently authenticate a new photo-only correction before adopting its digest.
+function annalsHistoryPhotoCorrectionProof_(entry,receipt){
+  const key=annalsProps_().getProperty('ANNALS_PUBLISH_SIGNING_KEY')||'';
+  const proof=annalsPublicApproval_(entry,receipt,key);
+  return proof&&AnnalsProduction.serial(proof)===AnnalsProduction.serial(receipt);
+}
 function annalsPredictHistorySubtraction_(value, entries, receipts, now) {
   if (value.schemaVersion !== 2) return value;
   const support = archivedSupport(entries,receipts);
+  const rebindPhoto=typeof AnnalsHistoryNarrative!=='undefined'&&AnnalsHistoryNarrative.rebindPhotoOnlyCorrection;
   let changed = false;
   const chapters = value.chapters.map(chapter => {
     const passages = chapter.passages.flatMap(original => {
-      const stale=original.sources.filter(s=>s.kind==='annal'&&support.get(s.entryId)?.digest!==s.digest);
       let p=original;
+      const current=support.get(original.sources[0]?.entryId);
+      if(current&&rebindPhoto){
+        const rebound=rebindPhoto(original,current.entry,current.receipt,
+          entry=>annalsHash_(AnnalsProduction.serial(entry)));
+        if(rebound!==original&&annalsHistoryPhotoCorrectionProof_(current.entry,current.receipt)){
+          p=rebound;
+          changed=true;
+        }
+      }
+      const stale=p.sources.filter(s=>s.kind==='annal'&&support.get(s.entryId)?.digest!==s.digest);
       if (stale.length) {
         changed = true;
-        p=subtractOpeningRecipe(chapter,original,stale);
+        p=subtractOpeningRecipe(chapter,p,stale);
         if(!p)return [];
       }
       let portraitChanged = false;

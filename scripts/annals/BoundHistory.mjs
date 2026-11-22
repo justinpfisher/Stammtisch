@@ -1,3 +1,7 @@
+import {createHash} from 'node:crypto';
+import Production from './ProductionCore.js';
+import HistoryNarrative from './HistoryNarrative.js';
+
 // Public, source-bound projection for Club History. The signed publisher owns additions.
 export const CHAPTER_IDS = Object.freeze(['origins', 'gatherings', 'assemblies', 'traditions']);
 const slug = /^[a-z][a-z0-9-]{0,79}$/;
@@ -72,7 +76,7 @@ function archivedSupport(entries, receipts) {
   const records = new Map(receipts.map(r => [r.entryId,r]));
   return new Map(entries.map(e => {
     const receipt = records.get(e.id);
-    return [e.id,{digest:receipt?.contentSha256,portrait:
+    return [e.id,{entry:e,receipt,digest:receipt?.contentSha256,portrait:
       receipt?.consents?.namedAttribution === true ? e.contributorPortrait ?? null : null}];
   }));
 }
@@ -102,7 +106,8 @@ function subtractOpeningRecipe(c,p,missing){
   return {...p,text,sources:remaining};
 }
 // Call only after the ordinary publisher has verified the records' signatures.
-// An Annals correction may remove support and credit, never invent a narrative.
+// Retain a reviewed passage when the verified correction only adds a photo.
+// Other source changes may remove support and credit.
 export function subtractStaleHistory(value, entries, receipts, now) {
   if (value.schemaVersion !== 2) return value;
   validateBoundHistory(value);
@@ -110,11 +115,20 @@ export function subtractStaleHistory(value, entries, receipts, now) {
   let changed = false;
   const chapters = value.chapters.map(chapter => {
     const passages = chapter.passages.flatMap(original => {
-      const stale=original.sources.filter(s=>s.kind==='annal'&&support.get(s.entryId)?.digest!==s.digest);
       let p=original;
+      const current=support.get(original.sources[0]?.entryId);
+      if(current){
+        const rebound=HistoryNarrative.rebindPhotoOnlyCorrection(original,current.entry,current.receipt,
+          entry=>createHash('sha256').update(Production.serial(entry)).digest('hex'));
+        if(rebound!==original){
+          p=rebound;
+          changed=true;
+        }
+      }
+      const stale=p.sources.filter(s=>s.kind==='annal'&&support.get(s.entryId)?.digest!==s.digest);
       if (stale.length) {
         changed = true;
-        p=subtractOpeningRecipe(chapter,original,stale);
+        p=subtractOpeningRecipe(chapter,p,stale);
         if(!p)return [];
       }
       let portraitChanged = false;

@@ -123,11 +123,11 @@ function fixture({disabled=false,rejected=false}={}){
     files.set('source-private.json',source);
     files.set('draft-private.json',draft);
     files.set('auto-live-verification-private.json',{state:'verified_live'});
-    function approve(text,corrected=false){
+    function approve(text,corrected=false,photo){
       const entry={id:entryId,category,title:'A recollection in the Annals',summary:text,year:2026,dateLabel:'',
-        sortDate:'',quoteVerbatim:'',recipe,credit:'Club member',contributorPortrait:portraits[i]};
+        sortDate:'',quoteVerbatim:'',recipe,credit:'Club member',contributorPortrait:portraits[i],...(photo?{photo}:{})};
       const receipt={entryId,approvedAt:at,reviewedBy:corrected?'fictional-owner':'standing-consent-automation-v1',
-        consents:{publication:true,namedAttribution:true,photoPublication:false,quotePublication:false,recipeVerified:category==='cocktail'},
+        consents:{publication:true,namedAttribution:true,photoPublication:!!photo,quotePublication:false,recipeVerified:category==='cocktail'},
         contentSha256:sha(serial(entry))};
       receipt.signature=createHmac('sha256',props.ANNALS_APPROVAL_KEY).update(serial({entry,receipt})).digest('hex');
       const publication=plain(cx.annalsPublicApproval_(entry,receipt,props.ANNALS_PUBLISH_SIGNING_KEY));
@@ -318,6 +318,79 @@ test('placement under exact review preserves independently sourced accounts and 
   assert.deepEqual(plain(doc.chapters.find(c=>c.id==='gatherings')),plain(preservedGatherings));
   assert.deepEqual(keys(doc),['fish','marc','matt']);
   assert.equal(historyBacklinks(doc).get(other.entryId).size,1);
+});
+
+test('the exact signed photo-only correction reconciles without a new History dispatch or editorial review',()=>{
+  const f=fixture(), item=f.add(0), other=f.add(1,{span:second});
+  f.compose(item); f.serveNext(); f.tick();
+  f.compose(other); f.serveNext(); f.tick();
+  const old=f.rootFiles.get('history-published-private.json');
+  const correction=item.approve(item.approved.entry.summary,true,{sha256:'b'.repeat(64),alt:'A fictional drink'});
+  const next=f.subtract();
+  const corrected=plain(old.chapters);
+  const binding=corrected.find(c=>c.id==='traditions').passages.find(p=>p.sources[0].entryId===item.entryId);
+  binding.sources[0].digest=correction.receipt.contentSha256;
+  assert.deepEqual(plain(next.chapters),corrected);
+  assert.equal(next.revision,old.revision+1);
+  assert.equal(f.events.length,2);
+
+  const current=f.archive.approvals[0];
+  f.archive.approvals[0]={...current,signature:'a'.repeat(64)};
+  f.tick();
+  assert.deepEqual(f.rootFiles.get('history-published-private.json'),old);
+  f.archive.approvals[0]=current;
+
+  f.failSnapshotWrite(); f.tick();
+  assert.deepEqual(f.rootFiles.get('history-published-private.json'),old);
+  assert.deepEqual(plain(f.rootFiles.get('history-bound-ledger-private.json').chapters),corrected);
+  f.tick(); f.tick();
+  assert.deepEqual(f.rootFiles.get('history-published-private.json'),plain(next));
+  assert.equal(f.events.length,2);
+
+  item.withdraw();
+  const withdrawn=f.subtract(); f.tick();
+  assert.equal(historyBacklinks(withdrawn).has(item.entryId),false);
+  assert.equal(historyBacklinks(withdrawn).has(other.entryId),true);
+  assert.deepEqual(f.rootFiles.get('history-published-private.json'),plain(withdrawn));
+  assert.equal(f.events.length,2);
+});
+
+test('a withdrawal can overtake an interrupted photo-only update only through the verified checkpoint',()=>{
+  const f=fixture(), item=f.add(0);
+  f.compose(item); f.serveNext(); f.tick();
+  const old=f.rootFiles.get('history-published-private.json');
+  item.approve(item.approved.entry.summary,true,{sha256:'b'.repeat(64),alt:'A fictional drink'});
+  const intermediate=f.subtract();
+  f.failSnapshotWrite(); f.tick();
+  assert.deepEqual(f.rootFiles.get('history-bound-ledger-private.json').chapters,plain(intermediate.chapters));
+  item.withdraw();
+  const final=f.subtract();
+
+  const checkpoint=f.publications.find(p=>p.document.revision===intermediate.revision);
+  const approval=checkpoint.archive.approvals[0];
+  checkpoint.archive.approvals[0]={...approval,signature:'a'.repeat(64)};
+  f.tick();
+  assert.deepEqual(f.rootFiles.get('history-published-private.json'),old);
+  checkpoint.archive.approvals[0]=approval;
+  f.tick(); f.tick();
+  assert.deepEqual(f.rootFiles.get('history-published-private.json'),plain(final));
+  assert.deepEqual(plain(final.chapters),f.opening.chapters);
+  assert.equal(f.events.length,1);
+});
+
+test('an automatic photo-only source update cannot restore an earlier History-only withdrawal',()=>{
+  const f=fixture(), item=f.add(0);
+  f.compose(item); f.serveNext(); f.tick();
+  const {digest}=f.cx.annalsListHistoryMaintenance('fictional-owner');
+  const {hash}=f.cx.annalsPrepareHistoryMaintenance('fictional-owner',digest,'traditions',passages(f.signed())[1].id,
+    'withdraw','','The fictional recollection was withdrawn from History.');
+  assert.equal(f.publish({hash}).dispatchAccepted,true);
+  f.serveNext(); f.tick();
+  item.approve(item.approved.entry.summary,true,{sha256:'b'.repeat(64),alt:'A fictional drink'});
+  const after=f.subtract(); f.tick();
+  assert.deepEqual(plain(after.chapters),f.opening.chapters);
+  assert.throws(()=>f.preview(item),/exact used and signed Annals evidence/);
+  assert.equal(f.events.length,2);
 });
 
 test('corrected and withdrawn signed Annals sources reconcile exactly without altering unrelated chapters or records',()=>{

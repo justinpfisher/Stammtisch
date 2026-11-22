@@ -122,6 +122,22 @@ function stageHistoryNarrative({current,proposal,evidence,reviewedDigest},histor
   }
 }
 
-return Object.freeze({narrativeReviewDigest,stageHistoryNarrative});
+// The signed correction may add the first photo to an already public recipe.
+// Reconstruct the entire previous Annals entry. No text comparison or model
+// annotation can substitute for the exact original source digest.
+function rebindPhotoOnlyCorrection(passage,entry,receipt,digest){
+  const source=passage.sources[0];
+  if(!/^narrative-[a-f0-9]{24}-[1-9][0-9]*$/.test(passage.id)||passage.sources.length!==1||
+     source.kind!=='annal'||source.label!=='Supporting Annals entry'||entry?.id!==source.entryId||
+     entry.category!=='cocktail'||!entry.photo||entry.photos||receipt?.entryId!==entry.id||
+     receipt.mode!==undefined||receipt.consents?.publication!==true||receipt.consents.photoPublication!==true||
+     receipt.contentSha256===source.digest||!hexDigest.test(receipt.contentSha256)||
+     digest(entry)!==receipt.contentSha256)return passage;
+  const {photo,...previous}=entry;
+  if(digest(previous)!==source.digest)return passage;
+  return {...passage,sources:[{...source,digest:receipt.contentSha256}]};
+}
+
+return Object.freeze({narrativeReviewDigest,stageHistoryNarrative,rebindPhotoOnlyCorrection});
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=AnnalsHistoryNarrative;
