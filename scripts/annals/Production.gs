@@ -840,7 +840,7 @@ function runAnnalsProductionIntake() {
 function annalsResumeConsentedDrafts_(limit) {
   var p = annalsProps_(), cursor = p.getProperty('ANNALS_DRAFT_CURSOR');
   var folders = cursor ? DriveApp.continueFolderIterator(cursor) : annalsRoot_().getFolders(), done = 0, checked = 0;
-  var priorityRule=null;
+  var priorityRule=null, historyContext;
   try{var pendingRule=annalsRead_(annalsRoot_(),'col-release-pending-private.json');
     if(pendingRule&&pendingRule.kind==='v3'&&['verified_live','verified_cancelled'].indexOf(pendingRule.state)<0&&/^[a-f0-9]{64}$/.test(pendingRule.sourceId)){
       priorityRule=pendingRule.sourceId;annalsReconcileRuleRelease_(priorityRule);
@@ -890,7 +890,14 @@ function annalsResumeConsentedDrafts_(limit) {
       continue;
     }
     try {
-      if (annalsProcessConsentedText_(id)) done++;
+      // Reuse one optional, already verified snapshot for the batch.
+      if(historyContext===undefined){
+        historyContext=null;
+        try {
+          if(typeof annalsHistoryIntakeContext_==='function')historyContext=annalsHistoryIntakeContext_()||null;
+        } catch(ignored) { /* An unavailable witness never delays ordinary drafting. */ }
+      }
+      if (annalsProcessConsentedText_(id,historyContext)) done++;
       else if (source.imageConsentAtReceipt === true &&
           source.attachmentManifest && Array.isArray(source.attachmentManifest.items) &&
           source.attachmentManifest.items.length > 0 &&
@@ -1337,7 +1344,7 @@ function annalsAutoThumbnail_(id, source) {
 function annalsPrepareDraft(nonce, id, text, selectedNames, consent) {
   return annalsUiCall_(nonce, function () { return annalsPrepareDraftCore_(id, text, selectedNames, consent); });
 }
-function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHeld, derivedImages) {
+function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHeld, derivedImages, preparedHistoryContext) {
   var process = function () {
     if (consent !== true) throw new Error('Processing consent required');
     var p = annalsProps_(), f = annalsFolder_(id);
@@ -1360,22 +1367,25 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
         throw new Error('Invalid automated image selection');
       images = derivedImages;
     }
-    var historyEnabled=false;
-    try{historyEnabled=intakeLockHeld===true&&typeof annalsHistoryIntakeReady_==='function'&&
-      annalsOrdinaryPublicationAllowed_(source)&&annalsHistoryIntakeReady_();}
-    catch(ignored){/* An unavailable History snapshot never blocks ordinary drafting. */}
-    var request = AnnalsProduction.request(text, images, historyEnabled);
+    var historyContext=intakeLockHeld===true&&preparedHistoryContext&&source.sourceId===id&&
+      annalsOrdinaryPublicationAllowed_(source)?preparedHistoryContext:null;
+    var requestBody=JSON.stringify(AnnalsProduction.request(text,images,historyContext&&historyContext.reference));
     var month = Utilities.formatDate(new Date(), 'America/Toronto', 'yyyy-MM');
     var ledger = AnnalsProduction.reserve(JSON.parse(p.getProperty('ANNALS_BUDGET_LEDGER') || 'null'), month);
     p.setProperty('ANNALS_BUDGET_LEDGER', JSON.stringify(ledger)); // before any network request
-    annalsWriteOnce_(f, 'ai-attempt-private.json', { state: 'attempt_reserved', reservedCents: 10,
+    var attempt={ state: 'attempt_reserved', reservedCents: 10,
       at: new Date().toISOString(), owner: intakeLockHeld === true ? annalsServiceOwner_() : annalsOwner_(), model: AnnalsProduction.MODEL,
-      processingConsent: true, submittedText: text, selectedNames: selectedNames, imageInputCount: images.length });
+      processingConsent: true, submittedText: text, selectedNames: selectedNames, imageInputCount: images.length };
+    if(historyContext){
+      attempt.historyContext=historyContext;
+      attempt.historyRequestSha256=annalsHash_(requestBody);
+    }
+    annalsWriteOnce_(f, 'ai-attempt-private.json', attempt);
     var response;
     try {
       response = UrlFetchApp.fetch('https://api.openai.com/v1/responses', {
         method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + p.getProperty('ANNALS_OPENAI_API_KEY') },
-        payload: JSON.stringify(request), muteHttpExceptions: true, followRedirects: false, validateHttpsCertificates: true });
+        payload: requestBody, muteHttpExceptions: true, followRedirects: false, validateHttpsCertificates: true });
     } catch (e) {
       annalsRecordAttemptOutcome_(f, 'network_error');
       throw new Error('AI attempt held; no automatic retry');
@@ -1390,30 +1400,39 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
       annalsRecordAttemptOutcome_(f, 'provider_http_error', status);
       throw new Error('AI attempt held; no automatic retry');
     }
-    // Retain one bounded response only in owner-only Drive before validation.
-    // Never log it or send it to GitHub. This does not permit a second AI call.
-    var responseText;
+    // Retain the bounded original response even when validation holds it.
+    // This private evidence never leaves Drive and permits no second AI call.
+    var responseText, candidate;
     try {
       responseText = response.getContentText();
       if (typeof responseText !== 'string' || responseText.length > 100000) {
         annalsRecordAttemptOutcome_(f, 'provider_response_too_large');
         throw new Error('Response evidence exceeds private bounds');
       }
-      annalsWriteOnce_(f, 'ai-response-private.json', {
+      var evidence={
         receivedAt: new Date().toISOString(), httpStatus: status,
         model: AnnalsProduction.MODEL, responseText: responseText
-      });
+      };
+      try { candidate=AnnalsProduction.response(JSON.parse(responseText),images.length>0); }
+      catch(ignored) { /* Archive the exact response before reporting the hold. */ }
+      if(candidate&&candidate.historyNarrative){
+        var signature=null;
+        try{
+          if(historyContext&&typeof annalsHistoryAssessmentSignature_==='function')
+            signature=annalsHistoryAssessmentSignature_(id,source,attempt,responseText,candidate.historyNarrative);
+        }catch(ignored){ /* A missing private proof holds only the proposed History. */ }
+        if(signature)evidence.historyAssessmentSignature=signature;
+        else delete candidate.historyNarrative;
+      }
+      annalsWriteOnce_(f, 'ai-response-private.json', evidence);
     } catch (e) {
       annalsRecordAttemptOutcome_(f, 'response_evidence_unavailable');
       throw new Error('AI attempt held; no automatic retry');
     }
-    var candidate;
-    try { candidate = AnnalsProduction.response(JSON.parse(responseText), images.length > 0); }
-    catch (e) {
+    if(!candidate){
       annalsRecordAttemptOutcome_(f, 'invalid_response');
       throw new Error('AI attempt held; no automatic retry');
     }
-    if(!historyEnabled)delete candidate.historyNarrative;
     try { annalsWriteOnce_(f, 'draft-private.json', candidate); }
     catch (e) {
       annalsRecordAttemptOutcome_(f, 'private_storage_error');
@@ -1423,7 +1442,7 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
   };
   return intakeLockHeld === true ? process() : annalsLocked_(process);
 }
-function annalsProcessConsentedText_(id) {
+function annalsProcessConsentedText_(id,historyContext) {
   var folder = annalsFolder_(id);
   if (annalsFile_(folder, 'quarantine-private.json')) return false;
   var source = annalsRead_(folder, 'source-private.json');
@@ -1449,7 +1468,7 @@ function annalsProcessConsentedText_(id) {
   var images = derived ? [{mime:'image/jpeg',base64:derived.base64}] : [];
   if(set.length)images=set.map(function(p){return {mime:'image/jpeg',base64:p.base64};});
   if(needsImage&&!derived&&!set.length)return false;
-  annalsPrepareDraftCore_(id, annalsAiSafeSourceText_(source), [], true, true, images); // caller already holds intake lock
+  annalsPrepareDraftCore_(id, annalsAiSafeSourceText_(source), [], true, true, images, historyContext); // intake lock held
   var dispatched = annalsAutoAttemptSafe_(annalsFolder_(id), id);
   if (!dispatched) annalsNotifyDraftReady_(annalsFolder_(id));
   return true;
@@ -1624,13 +1643,19 @@ function annalsPublicRemoval_(entry, approvedAt, key) {
   proof.signature = annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial({ operation: 'remove', removal: proof }), key, Utilities.Charset.UTF_8));
   return proof;
 }
+function annalsPrivateReceiptSignature_(material, domain) {
+  var props=annalsProps_(), key=props.getProperty('ANNALS_APPROVAL_KEY')||'';
+  if(key.length<32||domain&&(key===props.getProperty('ANNALS_PUBLISH_SIGNING_KEY')||
+    key===props.getProperty('ANNALS_HISTORY_SIGNING_KEY')))return null;
+  var signed=domain?{domain:domain,receipt:material}:material;
+  return annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial(signed),key,Utilities.Charset.UTF_8));
+}
 function annalsPrivateReceiptValid_(entry, receipt) {
-  var key = annalsProps_().getProperty('ANNALS_APPROVAL_KEY') || '';
-  if (!receipt || key.length < 32 || annalsHash_(AnnalsProduction.serial(entry)) !== receipt.contentSha256) return false;
-  var unsigned = { entryId: receipt.entryId, approvedAt: receipt.approvedAt, reviewedBy: receipt.reviewedBy,
-    consents: receipt.consents, contentSha256: receipt.contentSha256 };
-  var expected = annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial({ entry: entry, receipt: unsigned }), key, Utilities.Charset.UTF_8));
-  return expected === receipt.signature;
+  if(!receipt||annalsHash_(AnnalsProduction.serial(entry))!==receipt.contentSha256)return false;
+  var unsigned={entryId:receipt.entryId,approvedAt:receipt.approvedAt,reviewedBy:receipt.reviewedBy,
+    consents:receipt.consents,contentSha256:receipt.contentSha256};
+  var expected=annalsPrivateReceiptSignature_({entry:entry,receipt:unsigned});
+  return !!expected&&expected===receipt.signature;
 }
 /** A renewed restricted publisher credential may advance its own verified expiry
  * without a private code release. Missing configuration preserves the last
