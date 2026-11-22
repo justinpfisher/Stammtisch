@@ -605,14 +605,13 @@ function annalsHistoryArchiveEdge_(previous,next,beforeArchive,afterArchive,key)
   return annalsHistoryWithdrawalReceipt_(priorEntry,priorApproval,key,next.updatedAt);
 }
 
-function annalsHistoryArchiveReadback_(edition,pinnedArchive,liveArchive){
-  const pinned=annalsHistoryArchiveRows_(pinnedArchive), live=annalsHistoryArchiveRows_(liveArchive);
-  if(!pinned||!live)return false;
+function annalsHistoryArchiveContinues_(edition,priorArchive,nextArchive){
+  const prior=annalsHistoryArchiveRows_(priorArchive), next=annalsHistoryArchiveRows_(nextArchive);
+  if(!prior||!next||prior.retired.some((id,index)=>next.retired[index]!==id))return false;
   const serial=AnnalsProduction.serial;
   return annalsHistoryAnnalsSources_(edition).every(({entryId})=>
-    serial(pinned.entries.get(entryId))===serial(live.entries.get(entryId))&&
-    serial(pinned.approvals.get(entryId))===serial(live.approvals.get(entryId))&&
-    pinned.retired.includes(entryId)===live.retired.includes(entryId));
+    serial(prior.entries.get(entryId))===serial(next.entries.get(entryId))&&
+    serial(prior.approvals.get(entryId))===serial(next.approvals.get(entryId)));
 }
 function annalsHistorySubtractionChain_(prior,target,liveArchive){
   var steps=target.revision-prior.revision;
@@ -636,18 +635,21 @@ function annalsHistorySubtractionChain_(prior,target,liveArchive){
   // A subtraction can erase the accepted bytes. Match the original on main
   // and replay each projection against the archive at its own immutable commit.
   if(serial(previous)!==serial(prior))return null;
-  var chain=[previous];
+  var chain=[previous], previousArchive=read(commits[steps],'annals-approved.json');
   for(var i=steps-1;i>=0;i--){
     var commit=commits[i], parents=commit.parents;
     if(!Array.isArray(parents)||parents.length!==1||!parents[0]||!/^[a-f0-9]{40}$/.test(parents[0].sha)||
        parents[0].sha===commit.sha)return null;
-    var next=read(commit,'club-history.json'), archive=read(commit,'annals-approved.json');
+    var next=read(commit,'club-history.json'), archive=read(commit,'annals-approved.json'),
+      parentArchive=read(parents[0],'annals-approved.json');
     if(next.revision!==previous.revision+1||serial(read(parents[0],'club-history.json'))!==serial(previous)||
-      !annalsHistoryArchiveEdge_(previous,next,read(parents[0],'annals-approved.json'),archive,key)||
+      !annalsHistoryArchiveContinues_(previous,previousArchive,parentArchive)||
+      !annalsHistoryArchiveEdge_(previous,next,parentArchive,archive,key)||
       !annalsHistorySubtractionProjection_(previous,next,archive)||
-      i===0&&liveArchive&&!annalsHistoryArchiveReadback_(prior,archive,liveArchive))return null;
+      i===0&&liveArchive&&!annalsHistoryArchiveContinues_(next,archive,liveArchive))return null;
     chain.push(next);
     previous=next;
+    previousArchive=archive;
   }
   return serial(previous)===serial(target)?chain:null;
 }

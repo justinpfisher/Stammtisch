@@ -169,7 +169,7 @@ function fixture({disabled=false,rejected=false}={}){
       'Each fictional paragraph was checked against the exact evidence.',item.id);
   }
   const publish=(review,confirmed=true)=>cx.annalsPublishHistoryMaintenance('fictional-owner',review.hash,confirmed);
-  const f={opening,rootFiles,archive,events,cx,props,add,publications,providerRequests,preview,publish,
+  const f={opening,rootFiles,archive,events,cx,props,add,publications,commitParents,providerRequests,preview,publish,
     assess:item=>{
       item.files.delete('draft-private.json');
       providerResponse=completion(item.raw);
@@ -829,6 +829,17 @@ test('a withdrawal edge requires its own contemporaneous signed receipt and no u
       f.archive.retiredIds.shift();
       f.archive.entries.push(plain(a.approved.entry));
       f.archive.approvals.push(plain(a.approved.publication));
+    }],
+    ['an unrelated parent commit resurrects an earlier withdrawn entry',({f,a,b,final})=>{
+      const last=f.publications.find(row=>row.document.revision===final.revision);
+      const parent=f.commitParents.find(row=>row.sha===last.parents[0].sha);
+      parent.archive.retiredIds=[];
+      parent.archive.entries.unshift(plain(a.approved.entry));
+      parent.archive.approvals.unshift(plain(a.approved.publication));
+      last.archive.entries.unshift(plain(a.approved.entry));
+      last.archive.approvals.unshift(plain(a.approved.publication));
+      last.archive.retiredIds=[b.entryId];
+      Object.assign(f.archive,plain(last.archive));
     }],
     ['separately signed unrelated addition in the same commit',({f,middle})=>{
       const other=f.add(3,{narrative:null});
