@@ -68,7 +68,7 @@ function stageChapter(section,claims,names,spans,historyDigest){
       requireStage(order>=lastOrder);
       lastOrder=order;
       for(const claim of used){
-        poignant ||= claim.poignant;
+        poignant = poignant || claim.poignant;
         const source=claim.publicSource.kind==='annal'&&!claim.portraitAllowed?
           {...claim.publicSource,portrait:null}:claim.publicSource;
         const key=source.kind==='annal'?source.entryId:source.ref;
