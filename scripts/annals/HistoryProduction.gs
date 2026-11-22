@@ -323,6 +323,7 @@ function annalsPublishHistoryOpening(nonce,expectedHash,confirmed){
 // The owner's approved editorial revision of the exact reconciled opening.
 // Keep passage IDs and evidence. The signed document, not this copy, serves Pages.
 var ANNALS_HISTORY_EDITORIAL_BASE_='10c5341e2cc9e40d2a2e0387ea4efa186010217aee1bd2a172ac7a1b5b7334aa';
+var ANNALS_HISTORY_BRIEF_BASE_='dec51dce2772c0033259e89ee614b86328734deb54ae92d6179a3f6180e99941';
 var ANNALS_HISTORY_EDITORIAL_COPY_={
   "origins": {
     "heading": "The name",
@@ -352,18 +353,9 @@ var ANNALS_HISTORY_EDITORIAL_COPY_={
   }
 };
 
-function annalsHistoryEditorialCandidate_(){
-  var state=annalsBoundMaintenanceState_(false);
-  if(state.digest!==ANNALS_HISTORY_EDITORIAL_BASE_)
-    throw new Error('Editorial refresh requires the exact reconciled opening edition');
-  var live=JSON.parse(annalsHistoryReadPublic_('https://stammtischbrewery.com/data/club-history.json'));
-  if(annalsHash_(AnnalsProduction.serial(live))!==state.digest)
-    throw new Error('Editorial refresh requires the exact live opening edition');
-  var packet=annalsRead_(state.root,'history-opening-authorized-private.json');
-  if(!packet||annalsHash_(AnnalsProduction.serial(packet))!==state.ledger.privateOpeningPacketSha256)
-    throw new Error('Opening evidence changed');
+function annalsOpeningEditorialChapters_(packet){
   var checked=annalsOpeningEdition_(packet,annalsOpeningArchive_(),true);
-  var chapters=checked.map(function(chapter){
+  return checked.map(function(chapter){
     var copy=ANNALS_HISTORY_EDITORIAL_COPY_[chapter.id];
     return {id:chapter.id,heading:copy.heading,passages:Object.keys(copy.passages).map(function(id){
       var passage=chapter.passages.find(function(item){return item.id===id;});
@@ -377,6 +369,43 @@ function annalsHistoryEditorialCandidate_(){
       })};
     })};
   });
+}
+
+// The Club's account is recorded in docs/club-context-and-history.md.
+// Keep all four chapter destinations available for future signed contributions.
+function annalsBriefHistoryChapters_(){
+  function chapter(id,heading,text,refs){
+    return {id:id,heading:heading,passages:[{id:'opening-1',text:text,
+      sources:refs.map(function(ref){return {kind:'record',ref:ref};})}]};
+  }
+  return [
+    chapter('origins','The early days',
+      'Sometime before the pandemic, six friends started getting together. There were evenings here and there, and weekends at the cottage. It’s hard to say which came first.',
+      ['club-recollection']),
+    chapter('gatherings','The third Friday',
+      'The trouble with finding a free evening in six calendars was having to do it again the next month. Eventually they settled on the third Friday of every month at eight.',
+      ['club-recollection','monthly-stammtisch']),
+    chapter('traditions','Club traditions',
+      'Quite a few Club traditions began with one of the six having a funny idea and the other five giving it entirely too much encouragement.',
+      ['club-recollection']),
+    chapter('assemblies','The Annual Gentlemen’s Assembly',
+      'They still go to the cottage. It’s the Annual Gentlemen’s Assembly now.',
+      ['club-recollection','huntsville-assembly'])
+  ];
+}
+
+function annalsHistoryEditorialCandidate_(){
+  var state=annalsBoundMaintenanceState_(false);
+  if(state.digest!==ANNALS_HISTORY_EDITORIAL_BASE_&&state.digest!==ANNALS_HISTORY_BRIEF_BASE_)
+    throw new Error('Editorial refresh requires the exact reconciled opening edition');
+  var live=JSON.parse(annalsHistoryReadPublic_('https://stammtischbrewery.com/data/club-history.json'));
+  if(annalsHash_(AnnalsProduction.serial(live))!==state.digest)
+    throw new Error('Editorial refresh requires the exact live opening edition');
+  var packet=annalsRead_(state.root,'history-opening-authorized-private.json');
+  if(!packet||annalsHash_(AnnalsProduction.serial(packet))!==state.ledger.privateOpeningPacketSha256)
+    throw new Error('Opening evidence changed');
+  var chapters=state.digest===ANNALS_HISTORY_BRIEF_BASE_?
+    annalsBriefHistoryChapters_():annalsOpeningEditorialChapters_(packet);
   return {state:state,chapters:chapters,digest:annalsHash_(AnnalsProduction.serial({base:state.digest,chapters:chapters}))};
 }
 function annalsPreviewHistoryEditorial(nonce){

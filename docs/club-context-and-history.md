@@ -29,6 +29,10 @@ The GitHub repository is **public**. Keep this record about club identity, alrea
 
 ## Traditions and activities
 
+### How the Club took shape
+
+A member recalls that the six friends began getting together informally before the pandemic. Both evenings together and cottage weekends figure in those early years. Which came first is uncertain. They chose a standing Friday so they could keep meeting without having to find a new date each month. The member remembers a familiar pattern behind several Club traditions. Someone would suggest something for a laugh and the others would take it further.
+
 ### Monthly gathering and the Annual Gentlemen's Assembly
 
 The recurring third-Friday gathering is the fundamental tradition: making time for the same people, with ceremonial language applied to an intentionally simple event. **Monthly Stammtisch often takes place at the headquarters. The Annual Gentlemen's Assembly is distinct: an off-site retreat, typically at a rented cottage.** An Annual General Meeting has appeared in constitution/governance drafting, but do not invent a formal agenda or minutes.

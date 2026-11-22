@@ -106,22 +106,24 @@ const HISTORY_PORTRAITS=Object.freeze({fish:'Justin',marc:'Marc',matt:'Matt',ken
 // Only approved public destinations are rendered. Private provenance stays in the ledger.
 const HISTORY_RECORD_LINKS=Object.freeze({
   'club-record':['index.html#the-club','Club record'],
+  'club-recollection':['https://github.com/justinpfisher/Stammtisch/blob/main/docs/club-context-and-history.md#how-the-club-took-shape','How the Club took shape'],
   'six-face-crest':['assets/crest.webp','The six-face crest'],
   'monthly-stammtisch':['index.html#monthly-stammtisch','Monthly Stammtisch'],
   'january-2026-notice':['https://github.com/justinpfisher/Stammtisch/blob/07131f6845e8129978dc197d11ebdef84b0b014a/client/src/pages/Home.tsx','The January 2026 notice'],
   'huntsville-assembly':['location.html','The Huntsville Assembly'],
   'remembrance-speech':['celebration.html','The remembrance speech']
 });
+function historySourceLink(source) {
+  if (source.kind === 'annal') return '<a href="annals.html#'+escapeHtml(source.entryId)+'">'+escapeHtml(source.label)+'</a>';
+  if (source.kind !== 'record' || !Object.hasOwn(HISTORY_RECORD_LINKS, source.ref)) return '';
+  const [href, label] = HISTORY_RECORD_LINKS[source.ref];
+  return '<a href="'+href+'">'+label+'</a>';
+}
 function historyChapters(document) {
   if(!document.chapters.length) return '<p class="history-pending">The Club has a history. The formal account is, for the moment, less forthcoming.</p>';
   return document.chapters.map(c => {
     const body=document.schemaVersion===2 ? c.passages.map(p=>{
-      const links=p.sources.flatMap(s=>{
-        if(s.kind==='annal')return ['<a href="annals.html#'+escapeHtml(s.entryId)+'">'+escapeHtml(s.label)+'</a>'];
-        if(s.kind!=='record'||!Object.hasOwn(HISTORY_RECORD_LINKS,s.ref))return [];
-        const [href,label]=HISTORY_RECORD_LINKS[s.ref];
-        return ['<a href="'+href+'">'+label+'</a>'];
-      });
+      const links=p.sources.map(historySourceLink).filter(Boolean);
       return '<div class="history-passage" id="history-'+escapeHtml(c.id)+'-'+escapeHtml(p.id)+'"><p>'+editorialHtml(p.text)+'</p>'+
         (links.length?'<p class="history-sources">'+links.join(' · ')+'</p>':'')+'</div>';
     }).join('') : c.paragraphs.map(p=>'<p>'+editorialHtml(p)+'</p>').join('');
@@ -143,8 +145,63 @@ function historyContributorRow(document) {
       '<li><img src="assets/members/annals/'+key+'-annals.webp" alt="" width="64" height="64" loading="lazy"><span>'+
       escapeHtml(name)+'</span></li>').join('')+'</ul></section>';
 }
+// The first compact edition binds this public recollection to its four opening
+// passages. A subtraction from an earlier edition must still render its original layout.
+function isCompactHistory(document) {
+  return document.schemaVersion === 2 && document.chapters.some(chapter =>
+    chapter.passages.some(passage => passage.sources.some(source =>
+      source.kind === 'record' && source.ref === 'club-recollection')));
+}
+
+function continuousHistory(chapters) {
+  const paragraphs = [];
+  chapters.forEach((chapter, chapterIndex) => {
+    chapter.passages.forEach((passage, index) => {
+      const text = '<span id="history-'+escapeHtml(chapter.id)+'-'+escapeHtml(passage.id)+'">'+editorialHtml(passage.text)+'</span>';
+      const anchored = index === 0 ? '<span id="chapter-'+escapeHtml(chapter.id)+'">'+text+'</span>' : text;
+      // The Assembly is the example that ends the opening paragraph on traditions.
+      // Give later inserted passages their own paragraphs and retain every deep link.
+      const previous = chapters[chapterIndex - 1];
+      if (chapter.id === 'assemblies' && index === 0 && passage.id === 'opening-1' &&
+          previous && previous.id === 'traditions' && previous.passages.length === 1 &&
+          previous.passages[0].id === 'opening-1') {
+        paragraphs[paragraphs.length - 1] += ' '+anchored;
+      } else {
+        paragraphs.push(anchored);
+      }
+    });
+  });
+  return '<div class="history-story">'+paragraphs.map(text => '<p>'+text+'</p>').join('')+'</div>';
+}
+
+function historyNotes(document) {
+  const references = new Set();
+  for (const chapter of document.chapters) for (const passage of chapter.passages) for (const source of passage.sources) {
+    const link = historySourceLink(source);
+    if (!link) continue;
+    const name = source.kind === 'annal' && HISTORY_PORTRAITS[source.portrait];
+    references.add(name ? link+' (contributed by '+escapeHtml(name)+')' : link);
+  }
+  const updated = displayDate('Submitted '+document.updatedAt.slice(0,7)).replace('Submitted', 'Updated');
+  return '<details class="history-notes"><summary>Sources and revision history <span aria-hidden="true">+</span></summary>'+
+    '<ul>'+Array.from(references, link => '<li>'+link+'</li>').join('')+'</ul>'+
+    '<p>'+escapeHtml(updated)+' · <a href="https://github.com/justinpfisher/Stammtisch/commits/main/history.html">Revision '+document.revision+'</a></p>'+
+    '<p>'+escapeHtml(EDITORIAL_NOTICE)+'</p><p><a href="mailto:annals@stammtischbrewery.com">Members: contribute a recollection or correction</a></p></details>';
+}
+
+function historyMembers() {
+  const members = Object.entries(HISTORY_PORTRAITS).sort((a, b) => a[1].localeCompare(b[1], 'en'));
+  return '<section class="history-members" aria-labelledby="members-heading"><h2 id="members-heading">The members</h2><ul>'+
+    members.map(([key, name]) => '<li><img src="assets/members/annals/'+key+'-annals.webp" alt="" width="96" height="96" loading="lazy" decoding="async"><span>'+escapeHtml(name)+'</span></li>').join('')+
+    '</ul></section>';
+}
+
 function historyPage(document) {
-  return `<!doctype html><html lang="en-CA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#193d32"><title>Club History | Stammtisch Social Club</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="history.css"></head><body><a class="skip-link" href="#main">Skip to content</a>${siteHeader('history')}<main id="main" class="shell history-reading" data-history-revision="${document.revision}"><a class="history-back" href="annals.html">← The Annals</a><header class="history-masthead"><p class="eyebrow">The living record</p><h1>Club History</h1><p class="history-lead">A record assembled from what the Club can substantiate. Its past is considered important enough to preserve, but not to improve by invention.</p>${document.updatedAt?'<p class="history-meta">'+escapeHtml(displayDate('Submitted '+document.updatedAt.slice(0,7)).replace('Submitted','Updated'))+'</p>':''}<p class="history-meta history-revisions">Revision ${document.revision} · <a href="https://github.com/justinpfisher/Stammtisch/commits/main/history.html">Public revision history ↗</a></p></header>${historyChapters(document)}${historyCompany(document)}${historyContributorRow(document)}<footer>${escapeHtml(EDITORIAL_NOTICE)}<p><a href="mailto:annals@stammtischbrewery.com">Members: contribute a recollection or correction</a></p></footer></main>${siteFooter('history')}</body></html>`;
+  const compact = isCompactHistory(document);
+  const body = compact
+    ? '<header class="history-masthead"><h1>Club History</h1></header>'+continuousHistory(document.chapters)+historyNotes(document)+historyMembers()
+    : `<a class="history-back" href="annals.html">← The Annals</a><header class="history-masthead"><p class="eyebrow">The living record</p><h1>Club History</h1><p class="history-lead">A record assembled from what the Club can substantiate. Its past is considered important enough to preserve, but not to improve by invention.</p>${document.updatedAt?'<p class="history-meta">'+escapeHtml(displayDate('Submitted '+document.updatedAt.slice(0,7)).replace('Submitted','Updated'))+'</p>':''}<p class="history-meta history-revisions">Revision ${document.revision} · <a href="https://github.com/justinpfisher/Stammtisch/commits/main/history.html">Public revision history ↗</a></p></header>${historyChapters(document)}${historyCompany(document)}${historyContributorRow(document)}<footer>${escapeHtml(EDITORIAL_NOTICE)}<p><a href="mailto:annals@stammtischbrewery.com">Members: contribute a recollection or correction</a></p></footer>`;
+  return `<!doctype html><html lang="en-CA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#193d32"><title>Club History | Stammtisch Social Club</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="history.css"></head><body><a class="skip-link" href="#main">Skip to content</a>${siteHeader('history')}<main id="main" class="shell history-reading${compact ? ' history-compact' : ''}" data-history-revision="${document.revision}">${body}</main>${siteFooter('history')}</body></html>`;
 }
 return Object.freeze({displayDate:displayDate,editorialHtml:editorialHtml,recipeIntroduction:recipeIntroduction,
   EDITORIAL_NOTICE:EDITORIAL_NOTICE,historyPage:historyPage,

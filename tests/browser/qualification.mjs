@@ -395,6 +395,49 @@ try{
         await page.waitForURL('**/annals.html#'+boundEntry.id);
         assert.equal(await page.locator('#'+boundEntry.id+' h2').count()+await page.locator('#'+boundEntry.id+' h3').count(),1);
       },{javaScriptEnabled:false});
+      await check(browser,profile,'compact History roster, sources and permanent links',async page=>{
+        const edition=structuredClone(history);
+        edition.revision=3;
+        edition.chapters[0].passages[0].sources.push({kind:'record',ref:'club-recollection'});
+        await page.route('**/history.html',route=>route.fulfill({contentType:'text/html; charset=utf-8',body:renderHistory(edition)}));
+
+        await page.goto(origin+'/annals.html#'+boundEntry.id);
+        await page.locator('#'+boundEntry.id+' a[href="history.html#chapter-traditions"]').click();
+        await page.waitForURL('**/history.html#chapter-traditions');
+        const main=page.getByRole('main');
+        assert.deepEqual(await main.getByRole('heading').allTextContents(),['Club History','The members']);
+        assert.equal((await main.locator(':target').innerText()).trim(),edition.chapters[3].passages[0].text.trim());
+        const roster=main.getByRole('region',{name:'The members'});
+        const members=[['Jamie','jamie'],['Jerome','jerome'],['Justin','fish'],['Ken','ken'],['Marc','marc'],['Matt','matt']];
+        const items=roster.getByRole('listitem');
+        assert.deepEqual(await items.allTextContents(),members.map(([name])=>name));
+        for(const [index,[name,key]] of members.entries()){
+          const portrait=items.nth(index).locator('img');
+          assert.equal(await portrait.getAttribute('src'),'assets/members/annals/'+key+'-annals.webp',name);
+          assert.equal(await portrait.getAttribute('loading'),'lazy');
+          assert.equal(await portrait.getAttribute('alt'),''); // The adjacent name supplies the accessible label.
+          await portrait.scrollIntoViewIfNeeded();
+          await portrait.evaluate(img=>img.decode());
+          const size=await portrait.evaluate(img=>[img.naturalWidth,img.naturalHeight]);
+          assert.deepEqual(size,[256,256],name);
+          const box=await portrait.boundingBox();
+          assert.ok(box.width>=48 && box.width<=97 && Math.abs(box.width-box.height)<1,name);
+        }
+        const columns=await roster.locator('ul').evaluate(list=>getComputedStyle(list).gridTemplateColumns.split(' ').length);
+        assert.equal(columns,profile.name==='desktop-chromium'?6:3);
+        await noOverflow(page);
+
+        const notes=main.locator('.history-notes');
+        const source=notes.getByRole('link',{name:'Original fictional browser entry'});
+        assert.equal(await source.isVisible(),false);
+        await notes.locator('summary').click();
+        assert.equal(await source.isVisible(),true);
+        assert.match(await notes.innerText(),/contributed by Justin/);
+        await noOverflow(page);
+        await source.click();
+        await page.waitForURL('**/annals.html#'+boundEntry.id);
+        assert.equal(await page.locator(':target').getAttribute('id'),boundEntry.id);
+      });
       await check(browser,profile,'visible euphemisms, source-safe quotation notice and accessibility',async page=>{
         await page.goto(origin+'/annals.html');
         const card=page.locator('#offline-browser-quote');

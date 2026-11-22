@@ -351,3 +351,45 @@ test('the editorial evidence check can omit a revoked portrait but never waives 
   f.member.autoPublication.revokedAt=at;
   assert.throws(()=>f.c.annalsOpeningEdition_(f.packet,f.archive,true),/provenance or permission/);
 });
+
+test('the short Club account replaces the exact second edition through the same signer',()=>{
+  const published=JSON.parse(readFileSync(new URL('../data/club-history.json',import.meta.url),'utf8'));
+  const base=published.revision===2?published:{schemaVersion:2,revision:2,updatedAt:at,chapters:[
+    {id:'origins',heading:'Earlier opening',passages:[{id:'opening-1',text:'Earlier account.',
+      sources:[{kind:'record',ref:'club-record'}]}]}
+  ]};
+  const f=fixture({currentHistory:base}), c=f.c;
+  if(published.revision===2)assert.equal(historyDigest(base),c.ANNALS_HISTORY_BRIEF_BASE_);
+  else c.ANNALS_HISTORY_BRIEF_BASE_=historyDigest(base);
+  const ledger={schemaVersion:1,privateOpeningPacketSha256:digest(serial(f.packet)),chapters:base.chapters,
+    ownerWithdrawnEntries:{'previous-withdrawal':true}};
+  f.store.set('history-bound-ledger-private.json',ledger);
+  f.store.set('history-published-private.json',base);
+  const readArchive=c.annalsOpeningArchive_;
+  c.annalsOpeningArchive_=()=>{throw new Error('Unused recipes are not evidence for the new account');};
+  const preview=c.annalsPreviewHistoryEditorial('owner');
+  assert.throws(()=>c.annalsPublishHistoryEditorial('owner',preview.previewDigest,false),/Confirm/);
+  assert.throws(()=>c.annalsPublishHistoryEditorial('owner','stale',true),/preview changed/);
+  assert.equal(f.events.length,0);
+  assert.equal(c.annalsPublishHistoryEditorial('owner',preview.previewDigest,true).dispatchAccepted,true);
+  c.annalsOpeningArchive_=readArchive;
+  const doc=f.events[0].client_payload.document, html=renderHistory(doc);
+  assert.equal(doc.revision,3);
+  assert.deepEqual(Array.from(doc.chapters,ch=>ch.id),['origins','gatherings','traditions','assemblies']);
+  assert.equal(historyBacklinks(doc).size,0);
+  assert.match(html,/Sometime before the pandemic, six friends/);
+  assert.match(html,/hard to say which came first/);
+  assert.match(html,/third Friday of every month at eight/);
+  assert.match(html,/entirely too much encouragement/);
+  assert.doesNotMatch(html,/Kingston Windfall|Daq in Black|Contributors to Club History|assets\/crest\.webp|A record assembled/);
+  const portraits=[...html.matchAll(/assets\/members\/annals\/([a-z]+)-annals\.webp/g)].map(m=>m[1]).sort();
+  assert.deepEqual(portraits,['fish','jamie','jerome','ken','marc','matt']);
+  assert.equal(f.store.get('history-bound-ledger-private.json'),ledger);
+  assert.equal(c.annalsReconcileHistory('owner').verified,false);
+  f.readback();
+  assert.equal(c.annalsReconcileHistory('owner').revision,3);
+  const saved=f.store.get('history-bound-ledger-private.json');
+  assert.equal(serial(saved),serial({...ledger,chapters:doc.chapters}));
+  assert.throws(()=>c.annalsPublishHistoryEditorial('owner',preview.previewDigest,true),/exact reconciled opening edition/);
+  assert.equal(f.events.length,1);
+});

@@ -328,6 +328,8 @@ A quotation is the actual speaker's words, subject only to established permitted
 
 ### Club History
 
+Open with the six friends and how they came to meet regularly. Keep the opening short. A recent drink or outing belongs in the Annals unless it helps explain how a Club custom began or changed. At the foot of the History, show the six approved member portraits together as the Club roster.
+
 Club History should read as a **continuous AI-written historical narrative in the Stammtisch voice**: slightly grandiose in telling, modest and faithful in factual substance. It must not become a neutral database export, a string of "A member recalls" fragments, a mock-constitution, a sequence of unrelated cards or a parody that overwhelms its subject.
 
 Draw from actual, permission-qualified member recollections and documented evidence. Preserve dates, ordering, exact sourced words, attribution, contradiction, correction and revision records. AI may reorganise, integrate overlapping accounts and provide carefully limited narrative transitions, but must not invent motives, agreement, attendance, places, ceremonial proceedings, titles, rules or connective events.
