@@ -10,7 +10,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 FILES = (
     "PilotCore.js", "ProductionCore.js", "AutoCore.js", "MediaCore.js",
-    "MediaPolicy.js", "Production.gs", "ReviewUi.html", "HistoryCore.js",
+    "MediaPolicy.js", "LivingHistoryIntake.gs", "Production.gs", "ReviewUi.html", "HistoryCore.js",
     "GovernanceCore.js", "HistoryProduction.gs", "PublicDisplay.js",
     "production-appsscript.json", "PhotoContracts.js", "PhotoProduction.gs",
     "RulesCore.js", "RulesProduction.gs", "JpegCodec.js", "PhotoDerivative.js", "GuardedRelease.gs",

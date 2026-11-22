@@ -105,7 +105,8 @@
         "syrupIngredients": [],
         "steps": []
       },
-      "credit": "anonymous"
+      "credit": "anonymous",
+      "contributorPortrait": "jerome"
     }
   ],
   "approvals": [
@@ -151,17 +152,17 @@
       "signature": "e2452ed0e590805f347a8ed7049d85b433fa0e52d09eecac2a8c32d51e2a5fed"
     },
     {
-      "approvedAt": "2026-11-21T13:20:05.324Z",
+      "approvedAt": "2026-11-21T22:49:42.933Z",
       "consents": {
-        "namedAttribution": false,
+        "namedAttribution": true,
         "photoPublication": false,
         "publication": true,
         "quotePublication": false,
         "recipeVerified": false
       },
-      "contentSha256": "afd4e7ccce389cd7152fc5b73e3f179e4f6fe686d71621ad92ade5fd705855e2",
+      "contentSha256": "f371840b91d74c46a388a7dce482f745d043e14e561542c2dfb9cda8a35f2bb6",
       "entryId": "annal-216ab229a2144f93d1c39152",
-      "signature": "68e38c32396971c93d27f05d7e0beb69d60f6f4b84181cabd3216ee587829980"
+      "signature": "6c09eaf674638339d6c7e75b917c2d1f02ed8a1c4e3d3b5951d3456bd96772b1"
     }
   ],
   "retiredIds": [

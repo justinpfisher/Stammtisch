@@ -88,6 +88,17 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 <label><input id="confirmHistoryOpening" type="checkbox">Publish the exact previously approved opening edition.</label>
 <button id="publishHistoryOpening" disabled>Publish the opening edition through History</button>
 </fieldset>
+<fieldset><legend>Maintain published Club History</legend>
+<button id="loadHistoryMaintenance">Load the current History passages</button>
+<label>Passage<select id="historyMaintenanceTarget"></select></label>
+<label>Change<select id="historyMaintenanceAction"><option value="correct">Correct this passage, retaining its sources</option><option value="withdraw">Withdraw this passage and its History credit</option></select></label>
+<label>Replacement public wording (correction only)<textarea id="historyMaintenanceCopy" maxlength="1500"></textarea></label>
+<label>Private supporting evidence or withdrawal reason<textarea id="historyMaintenanceEvidence" maxlength="1000"></textarea></label>
+<p>These changes do not edit any original Annals entry. If a correction changes which sources support the passage, withdraw it rather than retaining the wrong sources.</p>
+<button id="prepareHistoryMaintenance" disabled>Preview the exact change</button><pre id="historyMaintenancePreview"></pre>
+<label><input id="confirmHistoryMaintenance" type="checkbox">I checked the preview, the supporting sources and permissions, and confirm publication.</label>
+<button id="publishHistoryMaintenance" disabled>Publish the signed History change</button><button id="reconcileHistoryMaintenance">Verify the last signed History change</button>
+</fieldset>
 <button id="checkSigningRotation" disabled>Check signing rotation against this private historical record</button><pre id="signingRotationResult"></pre>
 <label><input id="signingReconciliationConfirmed" type="checkbox">I verified outstanding dispatches against existing live and withdrawal evidence; the historical missing withdrawal receipt remains recorded as a gap.</label>
 <button id="diagnoseSigningQualification" disabled>Read signing recorder diagnostics</button><pre id="signingDiagnosticResult"></pre>
@@ -114,7 +125,7 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 <label>Verified photographic event period (YYYY, YYYY-MM or YYYY-MM-DD; blank if unknown)<input id="photoEventPeriod" type="text" maxlength="10"></label>
 <fieldset id="galleryText" hidden><legend>Photograph captions and alternative text</legend><p class="muted">Describe only verified source details. The existing screened images stay fixed; ordinary standing permission is rechecked without a fresh per-image vote.</p><div id="galleryTextFields"></div></fieldset>
 <label>Credit chosen by the contributor<input id="credit" type="text" maxlength="70" value="anonymous"></label>
-<label id="contributorPortraitOption" hidden><input id="useContributorPortrait" type="checkbox">Display the verified contributor illustration without a visible name or email (non-quotation only)</label>
+<label id="contributorPortraitOption" hidden><input id="useContributorPortrait" type="checkbox">Show the verified contributor portrait and first name in “Recorded by” (non-quotation only). No email is shown.</label>
 <label>Quotation text, for quotation entries only (censored quotations will be labelled non-verbatim)<textarea id="quoteVerbatim" maxlength="1500"></textarea></label>
 <label>Actual speaker (for quotations only)<select id="speakerPortrait">
 <option value="">Unidentified speaker — no portrait</option><option value="fish">Justin (Fish)</option>
@@ -148,6 +159,9 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 <fieldset id="correctionApproval" hidden><legend>Approve correction</legend><pre id="correctionExact"></pre>
 <label><input type="checkbox" id="correctionPublication">The contributor and anyone identified approved this corrected exact text for the public website and public GitHub history.</label>
 <label><input type="checkbox" id="correctionReviewed">I checked this correction against the private originals and resolved uncertainties.</label>
+<label><input type="checkbox" id="correctionNamedAttribution">If the correction shows a first name, named credit or portrait, the identified person approved that exact public attribution.</label>
+<label><input type="checkbox" id="correctionQuotePublication">If this is a quotation, the required permission covers the exact public quotation and attribution.</label>
+<label><input type="checkbox" id="correctionRecipeVerified">If this is a recipe, I verified the exact ingredients, measures and steps against the original.</label>
 <label><input type="checkbox" id="correctionPhotoPublication">If a photograph is included, the photographer and anyone identifiable approved this exact image and context for public use.</label>
 <label>Private correction evidence and reason<textarea id="correctionEvidence" maxlength="2000"></textarea></label>
 <button id="approveCorrection">Approve and send this correction</button></fieldset>
@@ -316,7 +330,7 @@ async function list(reset){
 }
 async function open(id){current=await call('annalsReviewItem',nonce,id);updateQueuedItem();review=null;pendingPhotoBase64=null;el('queue').hidden=true;el('detail').hidden=false;el('recipeRecoveryReadback').textContent='';el('subject').textContent=current.subject;el('itemStatus').textContent=current.status+(current.holdReason?' — '+current.holdReason:'');el('quoteRecovery').hidden=!current.reassessmentAvailable;el('quoteRecoveryConfirmed').checked=false;el('recipeRecovery').hidden=current.holdReason!=='recipe_measure_or_step_uncertain'||!current.draft||!!current.approved||!!current.quarantined;el('recipeRecoveryConfirmed').checked=false;el('source').value=('EMAIL SUBJECT (original field):\n'+current.subject+'\n\nEMAIL BODY (original field):\n'+current.text).slice(0,12000);el('original').href=current.folderUrl;el('ruleProposalBox').hidden=current.protectiveRoute!=='col_proposal'||!!current.ruleRequest;el('ruleRequestBox').hidden=!current.ruleRequest;el('ruleRequestPacket').textContent=current.ruleRequest?JSON.stringify(current.ruleRequest,null,2):'';el('recordPendingRule').disabled=!current.rulesReady||!current.ruleRequest;el('releaseRuleImplementation').disabled=!current.rulesReady||!current.ruleRequest||current.ruleRequest.state!=='awaiting_implementation';el('ruleImplementationEvidence').value='';el('historyBox').hidden=current.protectiveRoute==='col_proposal'||current.quarantined;el('rulePacket').textContent=current.ruleProposal?JSON.stringify(current.ruleProposal,null,2):'';historyReview=null;el('historyPreview').textContent=current.historyReview?JSON.stringify(current.historyReview.chapters,null,2):'';el('approveHistoryRevision').disabled=true;el('historyConfirmed').checked=false;el('attachments').replaceChildren();current.attachments.forEach(a=>{const label=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.value=a.name;check.className='media';check.disabled=!['image/jpeg','image/png'].includes(a.mime)||a.size>4194304;label.append(check,document.createTextNode(a.name));el('attachments').append(label)});
 ruleAcceptancePrepared=null;ruleAcceptanceState=null;literalStageQualified=false;el('ruleAcceptanceSecurityConfirmed').checked=false;el('signingReconciliationConfirmed').checked=false;el('ruleAcceptancePreparation').textContent='';el('ruleAcceptanceStatus').textContent='';el('signingQualificationResult').textContent='';el('signingDiagnosticResult').textContent='';el('ruleAcceptanceBox').hidden=current.protectiveRoute!=='col_proposal';
-['aiConsent','publication','recipeVerified','quotePublication','namedAttribution','photoPublication','reviewed','correctionPhotoPublication'].forEach(id=>el(id).checked=false);el('evidence').value='';el('photoFile').value='';el('includePhoto').checked=false;el('photoAlt').value='';
+['aiConsent','publication','recipeVerified','quotePublication','namedAttribution','photoPublication','reviewed','correctionNamedAttribution','correctionQuotePublication','correctionRecipeVerified','correctionPhotoPublication'].forEach(id=>el(id).checked=false);el('evidence').value='';el('photoFile').value='';el('includePhoto').checked=false;el('photoAlt').value='';
 if(photoPreviewUrl)URL.revokeObjectURL(photoPreviewUrl);photoPreviewUrl=null;el('photoPreview').hidden=!current.photoDerivative;if(current.photoDerivative){el('photoPreview').src='data:image/jpeg;base64,'+current.photoDerivative.base64;el('includePhoto').checked=!!(current.correctionReview?.entry?.photo||current.publishedEntry?.photo||current.review?.entry?.photo);el('photoAlt').value=(current.correctionReview?.entry?.photo||current.publishedEntry?.photo||current.review?.entry?.photo||{}).alt||'';}
 const d=current.correctionReview?.entry||current.publishedEntry||current.review?.entry||current.draft||{};fillGalleryText(d);el('photoEventPeriod').value=d.eventPeriod||'';['title','summary','quoteVerbatim'].forEach(id=>el(id).value=d[id]||'');el('category').value=['cocktail','quotation','assembly','club_history','miscellany'].includes(d.category)?d.category:['monthly_gathering','artefact'].includes(d.category)?'club_history':'';el('year').value=d.year||'';el('dateLabel').value=d.dateLabel||'';el('sortDate').value=d.sortDate||'';el('credit').value=d.credit||'anonymous';
 el('contributorPortraitOption').hidden=!current.contributorPortrait;
@@ -397,6 +411,47 @@ el('retainRuleWitness').onclick=()=>act(async()=>{const result=await call('annal
 el('prepareRuleProposal').onclick=()=>act(async()=>{const packet=await call('annalsPrepareRuleProposal',nonce,current.id,val('ruleHeading'),val('ruleReplacement'),val('ruleRecommendation'));el('rulePacket').textContent=JSON.stringify(packet,null,2);say('Private proposal comparison saved. No rule was adopted or published.');});
 el('saveHistoryClaim').onclick=()=>act(async()=>{const raw={chapter:val('historyChapter'),factKey:val('historyFactKey'),field:val('historyField'),statement:val('historyStatement'),period:val('historyPeriod'),order:Number(val('historyOrder')),status:val('historyClaimStatus'),uncertainty:val('historyUncertainty'),evidenceNote:val('historyEvidence')};historyReview=await call('annalsSaveHistoryClaim',nonce,current.id,raw,val('historyOperation'),val('historyEvidence'));el('historyPreview').textContent=JSON.stringify(historyReview.chapters,null,2);el('historyConfirmed').checked=false;el('approveHistoryRevision').disabled=historyReview.held===true;if(historyReview.held){say('Conflicting recollections held privately. Reconcile the sources before preparing a correction.');return;}say('Exact narrative revision prepared privately. Existing public history is unchanged.');});
 el('approveHistoryRevision').onclick=()=>act(async()=>{if(!historyReview||!el('historyConfirmed').checked)throw new Error('Review the exact chapter revision first.');const r=await call('annalsApproveHistoryRevision',nonce,current.id,historyReview.hash,true);el('approveHistoryRevision').disabled=true;say(r.dispatchAccepted?'Signed history revision accepted; live verification remains pending.':'History dispatch is uncertain or rejected. No automatic retry.');});
+el('reconcileHistoryMaintenance').onclick=()=>act(async()=>{
+  const result=await call('annalsReconcileHistory',nonce);
+  say(result.verified?'Verified Club History revision '+result.revision+' on the live site.':'The signed History change is not verified live yet. Do not retry.');
+});
+let boundEdition=null,boundReview=null,boundTargets=[];
+function resetBoundReview(){
+  boundReview=null;el('historyMaintenancePreview').textContent='';
+  el('publishHistoryMaintenance').disabled=true;el('confirmHistoryMaintenance').checked=false;
+}
+el('loadHistoryMaintenance').onclick=()=>act(async()=>{
+  resetBoundReview();boundEdition=null;boundTargets=[];el('prepareHistoryMaintenance').disabled=true;
+  el('historyMaintenanceTarget').replaceChildren();
+  boundEdition=await call('annalsListHistoryMaintenance',nonce);
+  for(const c of boundEdition.chapters)for(const p of c.passages){
+    const option=document.createElement('option');
+    option.value=String(boundTargets.length);option.textContent=c.heading+' / '+p.id+' / '+p.text.slice(0,72);
+    boundTargets.push({chapterId:c.id,passageId:p.id,text:p.text});el('historyMaintenanceTarget').append(option);
+  }
+  el('prepareHistoryMaintenance').disabled=!boundTargets.length;
+  el('historyMaintenanceCopy').value=boundTargets.length?boundTargets[0].text:'';
+  el('historyMaintenanceEvidence').value='';
+});
+el('historyMaintenanceTarget').onchange=()=>{
+  resetBoundReview();el('historyMaintenanceCopy').value=boundTargets[Number(val('historyMaintenanceTarget'))]?.text||'';
+};
+for(const id of ['historyMaintenanceAction','historyMaintenanceCopy','historyMaintenanceEvidence'])
+  el(id).addEventListener('input',resetBoundReview);
+el('prepareHistoryMaintenance').onclick=()=>act(async()=>{
+  resetBoundReview();const selected=boundTargets[Number(val('historyMaintenanceTarget'))];
+  if(!boundEdition||!selected)throw new Error('Load and select a current passage first.');
+  boundReview=await call('annalsPrepareHistoryMaintenance',nonce,boundEdition.digest,selected.chapterId,selected.passageId,
+    val('historyMaintenanceAction'),val('historyMaintenanceCopy'),val('historyMaintenanceEvidence'));
+  el('historyMaintenancePreview').textContent=JSON.stringify(boundReview.chapters,null,2);
+  el('publishHistoryMaintenance').disabled=false;
+});
+el('publishHistoryMaintenance').onclick=()=>act(async()=>{
+  if(!boundReview||!el('confirmHistoryMaintenance').checked)throw new Error('Confirm the exact History preview first.');
+  const digest=boundReview.hash;resetBoundReview();el('prepareHistoryMaintenance').disabled=true;
+  const result=await call('annalsPublishHistoryMaintenance',nonce,digest,true);
+  say(result.dispatchAccepted?'Signed History change accepted. Check the last History publication for live verification.':'History dispatch uncertain or rejected. Do not retry.');
+});
 let openingPreview=null;
 el('previewHistoryOpening').onclick=()=>act(async()=>{
   openingPreview=null;
@@ -441,8 +496,8 @@ const c={};['publication','quotePublication','recipeVerified','namedAttribution'
 el('publish').onclick=()=>act(async()=>{const result=await call('annalsPublishApproved',nonce,current.id);await open(current.id);say(result.dispatchAccepted?'GitHub accepted the signed approved entry. Verify the workflow and public page after deployment completes.':'No new dispatch was confirmed. Check configuration and GitHub Actions before any retry.')});
 function fillEntry(e){fillGalleryText(e);el('photoEventPeriod').value=e.eventPeriod||'';el('category').value=e.category;el('title').value=e.title;el('summary').value=e.summary;el('year').value=e.year;el('dateLabel').value=e.dateLabel;el('sortDate').value=e.sortDate;el('credit').value=e.credit;el('useContributorPortrait').checked=!!e.contributorPortrait;el('quoteVerbatim').value=e.quoteVerbatim||'';el('speakerPortrait').value=e.speakerPortrait||'';['drinkIngredients','syrupIngredients','steps','suggestedSteps'].forEach(k=>el(k).value=(e.recipe?.[k]||[]).join('\n'));}
 el('startCorrection').onclick=()=>act(async()=>{if(!current.publishedEntry||current.publicationState!=='dispatch_accepted')throw new Error('The public dispatch must be accepted before correcting.');fillEntry(current.correctionReview?.entry||current.publishedEntry);say('Edit the exact public fields above, then save and review the correction.')});
-el('saveCorrection').onclick=()=>act(async()=>{if(!current.publishedEntry||current.publicationState!=='dispatch_accepted')throw new Error('The public dispatch must be accepted before correcting.');await savePendingPhoto();review=await call('annalsSaveCorrection',nonce,current.id,entry());el('correctionExact').textContent=JSON.stringify(review.entry,null,2);el('correctionApproval').hidden=false;['correctionPublication','correctionReviewed','correctionPhotoPublication'].forEach(id=>el(id).checked=false);el('correctionEvidence').value='';say('Review the exact changed text and photo derivative, then record private correction evidence.')});
-el('approveCorrection').onclick=()=>act(async()=>{if(!review||!el('correctionPublication').checked||!el('correctionReviewed').checked)throw new Error('Exact correction review and approval are required.');const normalize=x=>JSON.stringify(Object.keys(x).sort().map(k=>[k,x[k]]));if(normalize(entry())!==normalize(review.entry))throw new Error('The form changed. Save and review the correction again.');const c={publication:true};['quotePublication','recipeVerified','namedAttribution'].forEach(id=>c[id]=el(id).checked);c.photoPublication=!!review.entry.photos||el('correctionPhotoPublication').checked;const result=await call('annalsApproveCorrection',nonce,current.id,review.hash,c,val('correctionEvidence'),true);await open(current.id);say(result.dispatchAccepted?'Correction approved and accepted for publishing. Verify the public page after deployment.':'Correction approval was saved, but dispatch was not confirmed. Check GitHub Actions before any retry.')});
+el('saveCorrection').onclick=()=>act(async()=>{if(!current.publishedEntry||current.publicationState!=='dispatch_accepted')throw new Error('The public dispatch must be accepted before correcting.');await savePendingPhoto();review=await call('annalsSaveCorrection',nonce,current.id,entry());el('correctionExact').textContent=JSON.stringify(review.entry,null,2);el('correctionApproval').hidden=false;['correctionPublication','correctionReviewed','correctionNamedAttribution','correctionQuotePublication','correctionRecipeVerified','correctionPhotoPublication'].forEach(id=>el(id).checked=false);el('correctionEvidence').value='';say('Review the exact changed text and photo derivative, then record private correction evidence.')});
+el('approveCorrection').onclick=()=>act(async()=>{if(!review||!el('correctionPublication').checked||!el('correctionReviewed').checked)throw new Error('Exact correction review and approval are required.');const normalize=x=>JSON.stringify(Object.keys(x).sort().map(k=>[k,x[k]]));if(normalize(entry())!==normalize(review.entry))throw new Error('The form changed. Save and review the correction again.');const c={publication:true,quotePublication:el('correctionQuotePublication').checked,recipeVerified:el('correctionRecipeVerified').checked,namedAttribution:el('correctionNamedAttribution').checked,photoPublication:!!review.entry.photos||!!review.entry.photo&&el('correctionPhotoPublication').checked};const result=await call('annalsApproveCorrection',nonce,current.id,review.hash,c,val('correctionEvidence'),true);await open(current.id);say(result.dispatchAccepted?'Correction approved and accepted for publishing. Verify the public page after deployment.':'Correction approval was saved, but dispatch was not confirmed. Check GitHub Actions before any retry.')});
 el('approveRemoval').onclick=()=>act(async()=>{if(!current.publishedEntry||current.publicationState!=='dispatch_accepted'||!el('removalConfirmed').checked)throw new Error('Review and confirm the exact currently published entry first.');const result=await call('annalsApproveRemoval',nonce,current.id,current.publishedEntryHash,val('removalReason'),true);if(!result||result.approved!==true)throw new Error('Removal was not confirmed. Check the saved private record and GitHub Actions before any further action.');current.removal={state:result.dispatchAccepted===true?'dispatch_accepted':'dispatch_not_configured_or_held'};el('publishedState').textContent='Removal status: '+current.removal.state;updateQueuedItem();say(result.dispatchAccepted===true?'Removal approved and accepted for publishing. Verify the public page after deployment.':'Removal approval was saved, but dispatch was not confirmed. Check GitHub Actions before any retry.')});
 el('more').onclick=()=>act(()=>list(false));el('refreshList').onclick=()=>act(()=>list(true));el('back').onclick=()=>act(async()=>{current=null;el('detail').hidden=true;el('queue').hidden=false;if(!el('items').children.length)await list(true);else say('Choose a contribution to review its current saved status.');});
 el('loadSpeakerMap').onclick=()=>act(loadSpeakerMap);

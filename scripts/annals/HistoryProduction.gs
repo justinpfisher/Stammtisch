@@ -207,6 +207,46 @@ var ANNALS_HISTORY_OPENING_ANNALS_SHA_={
   "annal-5e0607c7dc924fb5663c40e0": "38110f4dec7c074039d138caa360999b5f3f4777d81bee1c60a2c876a683575c"
 };
 
+// Digest of the original signed publication proof in b9d260b51d8d3a5734ece1beae8af84a2702e6bc.
+// That standing-consent approval used member-only intake before the two flags existed.
+var ANNALS_HISTORY_OPENING_LEGACY_PROOF_SHA_={
+  "annal-96b5ae266a36793c6a203033": "d2de13e28028bd473b7b2288e344d12a372f3d1a1aa5e719b310d1f454281977"
+};
+
+function annalsOpeningSourceGate_(folder,source,entryId,portrait){
+  var expected=ANNALS_HISTORY_OPENING_LEGACY_PROOF_SHA_[entryId];
+  if(!expected){
+    annalsOrdinarySourceGate_(source);
+    return;
+  }
+  var original=annalsRead_(folder,'approval-private.json'),
+    proof=original&&original.publication, received=Date.parse(source.source.receivedAt);
+  if(!proof||original.publicationState!=='dispatch_accepted'||!original.entry||
+    proof.entryId!==entryId||original.entry.id!==entryId||original.entry.contributorPortrait!==portrait||
+    proof.contentSha256!==annalsHash_(AnnalsProduction.serial(original.entry))||
+    expected!==annalsHash_(AnnalsProduction.serial(proof))||
+    !Number.isFinite(received)||!(received<=Date.parse(proof.approvedAt))||
+    source.aiConsentActive!==true||source.autoConsentAtReceipt!==true)
+    throw new Error('Opening legacy membership evidence missing or changed');
+
+  // The original publisher wrote this eligibility decision before the signed approval.
+  var initial=annalsRead_(folder,'auto-decision-private.json'),
+    wasHeld=initial&&initial.state==='held',
+    eligibility=wasHeld?annalsRead_(folder,'auto-reassessment-private.json'):initial,
+    subject=source.source.subject, excerpt=source.source.excerpt;
+  if(!eligibility||eligibility.state!=='eligible'||eligibility.policy!==proof.mode||
+    original.approvalMode!==proof.mode||eligibility.contentSha256!==proof.contentSha256||
+    (!wasHeld&&annalsFile_(folder,'auto-reassessment-private.json'))||
+    typeof subject!=='string'||typeof excerpt!=='string'||/[\r\n]/.test(subject)||
+    eligibility.sourceDigest!==annalsHash_(subject+'\n'+excerpt))
+    throw new Error('Opening legacy source-to-approval evidence missing or changed');
+
+  // Keep the original fields authoritative when present and never write the derived flags.
+  var hasFlag=Object.prototype.hasOwnProperty;
+  annalsOrdinarySourceGate_(hasFlag.call(source,'clubMemberAuthenticated')||hasFlag.call(source,'externalContributionAtReceipt')?
+    source:Object.assign({},source,{clubMemberAuthenticated:true,externalContributionAtReceipt:false}));
+}
+
 function annalsOpeningArchive_(){
   var response=UrlFetchApp.fetch('https://stammtischbrewery.com/data/annals-approved.json',
     {muteHttpExceptions:true,followRedirects:false,validateHttpsCertificates:true});
@@ -240,14 +280,15 @@ function annalsOpeningEdition_(packet,archive){
         var id=packet.annals[spec[1]],entryId=spec[1],folder=annalsFolder_(id),
           source=annalsRead_(folder,'source-private.json'),entry=archive.entries.find(function(e){return e.id===entryId;}),
           receipt=archive.approvals.find(function(r){return r.entryId===entryId;});
-        if('annal-'+id.slice(0,24)!==entryId||!source||annalsFile_(folder,'quarantine-private.json')||
+        if('annal-'+id.slice(0,24)!==entryId||!source||source.sourceId!==id||!source.source||
+          annalsFile_(folder,'quarantine-private.json')||annalsFile_(folder,'removal-private.json')||
           !annalsConsentActive_(source.source.sender)||
           !annalsStandingPublicationActive_(source.source.sender,source.source.receivedAt)||
           !entry||!receipt||!receipt.consents||receipt.consents.publication!==true||receipt.consents.namedAttribution!==true||
           entry.contributorPortrait!==spec[3]||annalsContributorPortrait_(source)!==spec[3]||
           receipt.contentSha256!==ANNALS_HISTORY_OPENING_ANNALS_SHA_[entryId]||
           receipt.contentSha256!==annalsHash_(AnnalsProduction.serial(entry)))throw new Error('Opening Annals provenance or permission changed');
-        annalsOrdinarySourceGate_(source);
+        annalsOpeningSourceGate_(folder,source,entryId,spec[3]);
         return {kind:'annal',entryId:entryId,digest:receipt.contentSha256,label:spec[2],
           portrait:spec[3]};
       })};
