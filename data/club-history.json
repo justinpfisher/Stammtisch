@@ -1,7 +1,7 @@
 {
   "chapters": [
     {
-      "heading": "The name",
+      "heading": "The early days",
       "id": "origins",
       "passages": [
         {
@@ -9,19 +9,15 @@
           "sources": [
             {
               "kind": "record",
-              "ref": "club-record"
-            },
-            {
-              "kind": "record",
-              "ref": "six-face-crest"
+              "ref": "club-recollection"
             }
           ],
-          "text": "The company had been gathering for some time when one of its number, of Germanic heritage, observed that it was already Stammtisching. The evening on which this was pointed out has escaped the record. The name, on the other hand, has proved easier to retain."
+          "text": "The beginnings of the Club are to be found, sometime before the pandemic, in the perfectly ordinary circumstance of six friends getting together whenever they could. Both evenings in company and weekends at the cottage are remembered from this early period. The surviving recollections do not permit either to claim precedence."
         }
       ]
     },
     {
-      "heading": "The appointed evening",
+      "heading": "The third Friday",
       "id": "gatherings",
       "passages": [
         {
@@ -29,34 +25,30 @@
           "sources": [
             {
               "kind": "record",
+              "ref": "club-recollection"
+            },
+            {
+              "kind": "record",
               "ref": "monthly-stammtisch"
             }
           ],
-          "text": "A tradition that depended on finding a free evening in six calendars was unlikely to meet very often. The Club set aside the third Friday of each month, at eight o’clock Toronto time."
-        },
+          "text": "Once the pleasure of assembling had been established, there remained the less agreeable business of arranging to do it again. In due course the Club set aside the third Friday of each month, at eight o’clock by the Eastern clock, which in winter stands five hours behind Greenwich. This relieved six calendars of the obligation to enter into fresh negotiations on every occasion."
+        }
+      ]
+    },
+    {
+      "heading": "Club traditions",
+      "id": "traditions",
+      "passages": [
         {
-          "id": "opening-2",
+          "id": "opening-1",
           "sources": [
             {
               "kind": "record",
-              "ref": "club-record"
-            },
-            {
-              "digest": "26f03d51bef159af31ec060b53c172face39acc68015346c3b3f0335e64361bd",
-              "entryId": "annal-96b5ae266a36793c6a203033",
-              "kind": "annal",
-              "label": "Kingston Windfall",
-              "portrait": "marc"
-            },
-            {
-              "digest": "38110f4dec7c074039d138caa360999b5f3f4777d81bee1c60a2c876a683575c",
-              "entryId": "annal-5e0607c7dc924fb5663c40e0",
-              "kind": "annal",
-              "label": "Daq in Black",
-              "portrait": "marc"
+              "ref": "club-recollection"
             }
           ],
-          "text": "At many gatherings, one or two members take a turn preparing a cocktail. Kingston Windfall and Daq in Black are both in the Annals. The Club has also fielded a Mud Hero team, for which the surviving notes are particularly informative on the subject of shirts."
+          "text": "Several of the Club’s observances owe their existence to a suggestion originally advanced for no more solemn purpose than the diversion of the company. The company, finding the suggestion agreeable, would then bestow upon it rather more attention than the occasion strictly warranted."
         }
       ]
     },
@@ -69,48 +61,19 @@
           "sources": [
             {
               "kind": "record",
-              "ref": "january-2026-notice"
+              "ref": "club-recollection"
             },
             {
               "kind": "record",
               "ref": "huntsville-assembly"
             }
           ],
-          "text": "By one recollection, the company was going to the cottage together before the pandemic. The date of the first weekend is not known, nor is the date on which it became the Annual Gentlemen’s Assembly. The cottage had evidently been fit for purpose before it acquired a formal title."
-        }
-      ]
-    },
-    {
-      "heading": "The Club’s observances",
-      "id": "traditions",
-      "passages": [
-        {
-          "id": "opening-2",
-          "sources": [
-            {
-              "digest": "fbd9d1485454f5396cf59f683922069ab3632d967368e3665a784f826b62c7bd",
-              "entryId": "annal-f463f9566e3d9c3fe09465de",
-              "kind": "annal",
-              "label": "Christisch in the Annals",
-              "portrait": "fish"
-            }
-          ],
-          "text": "The December gathering is known as Christisch. The gifts come from the members’ own homes, leaving commerce with a gratifyingly small role in the proceedings. One recollection places an exchange in December 2025. The year of the first Christisch remains uncertain."
-        },
-        {
-          "id": "opening-1",
-          "sources": [
-            {
-              "kind": "record",
-              "ref": "remembrance-speech"
-            }
-          ],
-          "text": "In Celebration of Life, each member keeps a list of fifty names. When someone on a member’s list dies, that member speaks at the next Stammtisch about the person and what they gave the world. The standings are kept elsewhere. This part of the evening belongs to the life being remembered."
+          "text": "The cottage weekend itself came, in time, to bear the title of Annual Gentlemen’s Assembly."
         }
       ]
     }
   ],
-  "revision": 2,
+  "revision": 3,
   "schemaVersion": 2,
-  "updatedAt": "2026-11-22T01:00:52.808Z"
+  "updatedAt": "2026-11-22T04:44:18.440Z"
 }
