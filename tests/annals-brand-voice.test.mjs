@@ -2,12 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
+import { emptyHistory, renderHistory } from '../scripts/annals/HistoryPublisher.mjs';
 
 const require = createRequire(import.meta.url);
 const Production = require('../scripts/annals/ProductionCore.js');
 const Photos = require('../scripts/annals/PhotoContracts.js');
 const history = readFileSync(new URL('../history.html', import.meta.url), 'utf8');
-const publicDisplay = readFileSync(new URL('../scripts/annals/PublicDisplay.js', import.meta.url), 'utf8');
+const historyEdition = JSON.parse(readFileSync(new URL('../data/club-history.json', import.meta.url), 'utf8'));
 const guide = readFileSync(new URL('../docs/brand-editorial-style-guide.md', import.meta.url), 'utf8');
 const home = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const assembly = readFileSync(new URL('../location.html', import.meta.url), 'utf8');
@@ -29,13 +30,15 @@ test('public site retains agreed wit and avoids repeated disproportionate claims
   assert.match(assembly, /The proceedings must now endeavour to keep pace/);
 });
 
-test('History holding page and shared future renderer use the same distinct Club voice', () => {
+test('the current History edition and empty-state renderer use the same distinct Club voice', () => {
   const lead = 'A record assembled from what the Club can substantiate.';
   const empty = 'The Club has a history. The formal account is, for the moment, less forthcoming.';
-  for (const copy of [history, publicDisplay]) {
-    assert.ok(copy.includes(lead));
-    assert.ok(copy.includes(empty));
-  }
+  const holdingPage = renderHistory(emptyHistory());
+  assert.ok(holdingPage.includes(lead));
+  assert.ok(holdingPage.includes(empty));
+  assert.ok(history.includes(lead));
+  assert.equal(history.includes(empty), historyEdition.chapters.length === 0);
+  assert.equal(history.replaceAll('\r\n', '\n'), renderHistory(historyEdition) + '\n');
   assert.match(guide, /continuous AI-written historical narrative in the Stammtisch voice/);
 });
 
