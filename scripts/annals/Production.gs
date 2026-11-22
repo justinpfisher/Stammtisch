@@ -1367,22 +1367,25 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
         throw new Error('Invalid automated image selection');
       images = derivedImages;
     }
-    var historyContext=intakeLockHeld===true&&preparedHistoryContext&&annalsOrdinaryPublicationAllowed_(source)?
-      preparedHistoryContext:null;
-    var request = AnnalsProduction.request(text, images, historyContext&&historyContext.reference);
+    var historyContext=intakeLockHeld===true&&preparedHistoryContext&&source.sourceId===id&&
+      annalsOrdinaryPublicationAllowed_(source)?preparedHistoryContext:null;
+    var requestBody=JSON.stringify(AnnalsProduction.request(text,images,historyContext&&historyContext.reference));
     var month = Utilities.formatDate(new Date(), 'America/Toronto', 'yyyy-MM');
     var ledger = AnnalsProduction.reserve(JSON.parse(p.getProperty('ANNALS_BUDGET_LEDGER') || 'null'), month);
     p.setProperty('ANNALS_BUDGET_LEDGER', JSON.stringify(ledger)); // before any network request
     var attempt={ state: 'attempt_reserved', reservedCents: 10,
       at: new Date().toISOString(), owner: intakeLockHeld === true ? annalsServiceOwner_() : annalsOwner_(), model: AnnalsProduction.MODEL,
       processingConsent: true, submittedText: text, selectedNames: selectedNames, imageInputCount: images.length };
-    if(historyContext)attempt.historyContext=historyContext;
+    if(historyContext){
+      attempt.historyContext=historyContext;
+      attempt.historyRequestSha256=annalsHash_(requestBody);
+    }
     annalsWriteOnce_(f, 'ai-attempt-private.json', attempt);
     var response;
     try {
       response = UrlFetchApp.fetch('https://api.openai.com/v1/responses', {
         method: 'post', contentType: 'application/json', headers: { Authorization: 'Bearer ' + p.getProperty('ANNALS_OPENAI_API_KEY') },
-        payload: JSON.stringify(request), muteHttpExceptions: true, followRedirects: false, validateHttpsCertificates: true });
+        payload: requestBody, muteHttpExceptions: true, followRedirects: false, validateHttpsCertificates: true });
     } catch (e) {
       annalsRecordAttemptOutcome_(f, 'network_error');
       throw new Error('AI attempt held; no automatic retry');
@@ -1397,9 +1400,9 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
       annalsRecordAttemptOutcome_(f, 'provider_http_error', status);
       throw new Error('AI attempt held; no automatic retry');
     }
-    // Retain one bounded response only in owner-only Drive before validation.
-    // Never log it or send it to GitHub. This does not permit a second AI call.
-    var responseText;
+    // Retain the bounded original response even when validation holds it.
+    // This private evidence never leaves Drive and permits no second AI call.
+    var responseText, candidate;
     try {
       responseText = response.getContentText();
       if (typeof responseText !== 'string' || responseText.length > 100000) {
@@ -1410,23 +1413,26 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
         receivedAt: new Date().toISOString(), httpStatus: status,
         model: AnnalsProduction.MODEL, responseText: responseText
       };
-      if(historyContext)evidence.historyAssessmentSha256=annalsHash_(AnnalsProduction.serial({
-        context:historyContext,responseText:responseText
-      }));
+      try { candidate=AnnalsProduction.response(JSON.parse(responseText),images.length>0); }
+      catch(ignored) { /* Archive the exact response before reporting the hold. */ }
+      if(candidate&&candidate.historyNarrative){
+        var signature=null;
+        try{
+          if(historyContext&&typeof annalsHistoryAssessmentSignature_==='function')
+            signature=annalsHistoryAssessmentSignature_(id,source,attempt,responseText,candidate.historyNarrative);
+        }catch(ignored){ /* A missing private proof holds only the proposed History. */ }
+        if(signature)evidence.historyAssessmentSignature=signature;
+        else delete candidate.historyNarrative;
+      }
       annalsWriteOnce_(f, 'ai-response-private.json', evidence);
     } catch (e) {
       annalsRecordAttemptOutcome_(f, 'response_evidence_unavailable');
       throw new Error('AI attempt held; no automatic retry');
     }
-    var candidate;
-    try { candidate = AnnalsProduction.response(JSON.parse(responseText), images.length > 0); }
-    catch (e) {
+    if(!candidate){
       annalsRecordAttemptOutcome_(f, 'invalid_response');
       throw new Error('AI attempt held; no automatic retry');
     }
-    if(candidate.historyNarrative&&(!historyContext||
-      !AnnalsHistoryNarrative.bindGeneration(candidate.historyNarrative,historyContext,AnnalsProduction.HISTORY_REFERENCE_LIMIT)))
-      delete candidate.historyNarrative;
     try { annalsWriteOnce_(f, 'draft-private.json', candidate); }
     catch (e) {
       annalsRecordAttemptOutcome_(f, 'private_storage_error');
@@ -1637,13 +1643,19 @@ function annalsPublicRemoval_(entry, approvedAt, key) {
   proof.signature = annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial({ operation: 'remove', removal: proof }), key, Utilities.Charset.UTF_8));
   return proof;
 }
+function annalsPrivateReceiptSignature_(material, domain) {
+  var props=annalsProps_(), key=props.getProperty('ANNALS_APPROVAL_KEY')||'';
+  if(key.length<32||domain&&(key===props.getProperty('ANNALS_PUBLISH_SIGNING_KEY')||
+    key===props.getProperty('ANNALS_HISTORY_SIGNING_KEY')))return null;
+  var signed=domain?{domain:domain,receipt:material}:material;
+  return annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial(signed),key,Utilities.Charset.UTF_8));
+}
 function annalsPrivateReceiptValid_(entry, receipt) {
-  var key = annalsProps_().getProperty('ANNALS_APPROVAL_KEY') || '';
-  if (!receipt || key.length < 32 || annalsHash_(AnnalsProduction.serial(entry)) !== receipt.contentSha256) return false;
-  var unsigned = { entryId: receipt.entryId, approvedAt: receipt.approvedAt, reviewedBy: receipt.reviewedBy,
-    consents: receipt.consents, contentSha256: receipt.contentSha256 };
-  var expected = annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial({ entry: entry, receipt: unsigned }), key, Utilities.Charset.UTF_8));
-  return expected === receipt.signature;
+  if(!receipt||annalsHash_(AnnalsProduction.serial(entry))!==receipt.contentSha256)return false;
+  var unsigned={entryId:receipt.entryId,approvedAt:receipt.approvedAt,reviewedBy:receipt.reviewedBy,
+    consents:receipt.consents,contentSha256:receipt.contentSha256};
+  var expected=annalsPrivateReceiptSignature_({entry:entry,receipt:unsigned});
+  return !!expected&&expected===receipt.signature;
 }
 /** A renewed restricted publisher credential may advance its own verified expiry
  * without a private code release. Missing configuration preserves the last

@@ -88,18 +88,35 @@ function annalsHistoryIntakeContext_(){
     AnnalsAuto.sensitiveText,AnnalsProduction.HISTORY_REFERENCE_LIMIT);
 }
 
-function annalsHistoryStoredGeneration_(folder,proposal){
+// A private assessment attestation has a separate domain from entry approvals and dispatches.
+function annalsHistoryAssessmentSignature_(id,source,attempt,responseText,proposal){
+  if(!/^[a-f0-9]{64}$/.test(id)||!source||source.sourceId!==id||source.senderAuthenticated!==true||
+    source.clubMemberAuthenticated!==true||!attempt||typeof attempt.historyRequestSha256!=='string'||
+    !/^[a-f0-9]{64}$/.test(attempt.historyRequestSha256))return null;
+  var generation=AnnalsHistoryNarrative.bindGeneration(proposal,attempt.historyContext,AnnalsProduction.HISTORY_REFERENCE_LIMIT);
+  if(!generation)return null;
+  var serial=AnnalsProduction.serial;
+  return annalsPrivateReceiptSignature_({
+    sourceId:id,sourceSha256:annalsHash_(serial(source)),
+    requestSha256:attempt.historyRequestSha256,attemptSha256:annalsHash_(serial(attempt)),
+    chapter:proposal.chapter,chapterDigest:generation.chapterDigest,revision:generation.revision,
+    responseSha256:annalsHash_(responseText)
+  },'annals-history-assessment-v1');
+}
+
+function annalsHistoryStoredGeneration_(folder,id,source,proposal){
   var attempt=annalsRead_(folder,'ai-attempt-private.json'), response=annalsRead_(folder,'ai-response-private.json');
   var context=attempt&&attempt.historyContext, serial=AnnalsProduction.serial;
   if(!context||attempt.model!==AnnalsProduction.MODEL||!Number.isSafeInteger(attempt.imageInputCount)||
      attempt.imageInputCount<0||attempt.imageInputCount>3||!response||response.model!==attempt.model||
      response.httpStatus!==200||typeof response.responseText!=='string'||response.responseText.length>100000||
-     response.historyAssessmentSha256!==annalsHash_(serial({context:context,responseText:response.responseText})))return null;
+     typeof response.historyAssessmentSignature!=='string'||!/^[a-f0-9]{64}$/.test(response.historyAssessmentSignature))return null;
   try{
     var assessed=AnnalsProduction.response(JSON.parse(response.responseText),attempt.imageInputCount>0);
     if(serial(assessed.historyNarrative)!==serial(proposal))return null;
-    var generation=AnnalsHistoryNarrative.bindGeneration(assessed.historyNarrative,context,AnnalsProduction.HISTORY_REFERENCE_LIMIT);
-    return generation?Object.assign({assessmentSha256:response.historyAssessmentSha256},generation):null;
+    var signature=annalsHistoryAssessmentSignature_(id,source,attempt,response.responseText,assessed.historyNarrative);
+    return signature===response.historyAssessmentSignature?
+      {revision:context.revision,chapterDigest:context.chapterDigests[proposal.chapter],signature:signature}:null;
   }catch(ignored){return null;}
 }
 
@@ -125,7 +142,7 @@ function annalsHistoryNarrativeReview_(state,id,chapterId,afterId){
     return c.passages.some(function(p){return AnnalsLivingHistory.fromEntry(p,entryId);});
   }))throw new Error('Select an exact insertion point for an unused narrative source');
 
-  var generation=annalsHistoryStoredGeneration_(f,proposed);
+  var generation=annalsHistoryStoredGeneration_(f,id,source,proposed);
   var serial=AnnalsProduction.serial, hash=function(value){return annalsHash_(serial(value));};
   if(!generation||generation.revision>state.current.revision||generation.chapterDigest!==hash(chapter)||
     !annalsHistoryPublicEdition_(state))

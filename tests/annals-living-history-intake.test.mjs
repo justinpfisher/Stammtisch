@@ -44,7 +44,7 @@ function fixture({disabled=false,rejected=false,editOpening=()=>{}}={}){
   editOpening(opening);
   let live=opening, main=opening, failOnSave, publicHistoryAvailable=true;
   const events=[], archive={schemaVersion:1,entries:[],approvals:[],retiredIds:[]};
-  const rootFiles=new Map(), folders=new Map(), publications=[], commitParents=[], providerRequests=[], publicReads=[];
+  const rootFiles=new Map(), folders=new Map(), publications=[], commitParents=[], providerRequests=[], providerBodies=[], publicReads=[];
   let contextProofReads=0;
   const preparedDrafts=new Set();
   let providerResponse, archiveBeforeMutation=plain(archive);
@@ -95,6 +95,7 @@ function fixture({disabled=false,rejected=false,editOpening=()=>{}}={}){
     UrlFetchApp:{fetch:(url,options)=>{
       if(url==='https://api.openai.com/v1/responses'){
         assert.ok(providerResponse,'unexpected provider attempt');
+        providerBodies.push(options.payload);
         providerRequests.push(JSON.parse(options.payload));
         return {getResponseCode:()=>200,getContentText:()=>JSON.stringify(providerResponse)};
       }
@@ -186,10 +187,12 @@ function fixture({disabled=false,rejected=false,editOpening=()=>{}}={}){
       if(historyContext){
         const proposed=item.files.get('draft-private.json').historyNarrative;
         const responseText=JSON.stringify(completion({...item.raw,historyNarrative:proposed?[proposed]:[]}));
-        const model=cx.AnnalsProduction.MODEL;
-        item.files.set('ai-attempt-private.json',{model,imageInputCount:0,historyContext});
+        const model=cx.AnnalsProduction.MODEL, submittedText=item.source.source.excerpt;
+        const requestBody=JSON.stringify(cx.AnnalsProduction.request(submittedText,[],historyContext.reference));
+        const attempt={model,imageInputCount:0,historyContext,submittedText,historyRequestSha256:sha(requestBody)};
+        item.files.set('ai-attempt-private.json',attempt);
         item.files.set('ai-response-private.json',{model,httpStatus:200,responseText,
-          historyAssessmentSha256:sha(serial({context:historyContext,responseText}))});
+          historyAssessmentSignature:cx.annalsHistoryAssessmentSignature_(item.id,item.source,attempt,responseText,proposed)});
       }
       preparedDrafts.add(item.id);
     }
@@ -203,7 +206,7 @@ function fixture({disabled=false,rejected=false,editOpening=()=>{}}={}){
     providerResponse=completion(item.raw);
     return cx.annalsPrepareDraftCore_(item.id,item.source.source.excerpt,[],true,true,images,context);
   }
-  const f={opening,rootFiles,archive,events,cx,props,add,publications,commitParents,providerRequests,publicReads,preview,publish,
+  const f={opening,rootFiles,archive,events,cx,props,add,publications,commitParents,providerRequests,providerBodies,publicReads,preview,publish,
     proofReads:()=>contextProofReads,
     assess:(item,images=[])=>assess(item,images,cx.annalsHistoryIntakeContext_()),
     assessQueue:items=>{
@@ -261,7 +264,9 @@ test('one mocked assessment proposes composed copy without raising model, token 
   assert.ok(assessment.text.format.schema.required.includes('historyNarrative'));
   const saved=item.files.get('draft-private.json');
   assert.ok(saved.historyNarrative);
-  const bound=item.files.get('ai-attempt-private.json').historyContext;
+  const attempt=item.files.get('ai-attempt-private.json'), proof=item.files.get('ai-response-private.json'), bound=attempt.historyContext;
+  assert.equal(attempt.historyRequestSha256,sha(f.providerBodies[0]));
+  assert.match(proof.historyAssessmentSignature,/^[a-f0-9]{64}$/);
   assert.equal(bound.reference,assessment.input[0].content[0].text);
   assert.equal(bound.revision,f.opening.revision);
   assert.equal(bound.chapterDigests.traditions,sha(core.serial(f.opening.chapters.at(-1))));
@@ -272,6 +277,7 @@ test('one mocked assessment proposes composed copy without raising model, token 
   assert.equal(f.events.length,0);
   assert.equal(f.publish(preview).dispatchAccepted,true);
   assert.equal(f.providerRequests.length,1,'review and signing require no second assessment');
+  assert.ok(!JSON.stringify(f.events).includes(proof.historyAssessmentSignature));
   assert.equal(passages(f.signed()).at(-1).text,
     'One account places the company’s singing after the gathering. The lamps stayed lit during the clearing of the room.');
   for(const category of ['cocktail','assembly','club_history','monthly_gathering','artefact','miscellany']){
@@ -404,6 +410,9 @@ test('pre-preview reference and proposal changes cannot replace the original ass
     ['different chapter target',({draft})=>{draft.historyNarrative.chapter='assemblies';}],
     ['different chapter digest',({attempt})=>{attempt.historyContext.chapterDigests.traditions='e'.repeat(64);}],
     ['different edition revision',({attempt})=>{attempt.historyContext.revision++;}],
+    ['different sent request fingerprint',({attempt})=>{attempt.historyRequestSha256='e'.repeat(64);}],
+    ['edited retained request text',({attempt})=>{attempt.submittedText+=' A different request.';}],
+    ['source fingerprint changed despite unchanged used spans',({item})=>{item.source.source.excerpt+=' A separate note.';}],
     ['edited returned prose',({draft})=>{draft.historyNarrative.paragraphs[0][0].text='The Club considered a different version of the evening.';}],
     ['edited raw response with identical proposed prose',({response})=>{response.responseText+=' ';}]
   ];
@@ -412,7 +421,7 @@ test('pre-preview reference and proposal changes cannot replace the original ass
     f.assess(item);
     const attempt=item.files.get('ai-attempt-private.json'), response=item.files.get('ai-response-private.json');
     const draft=item.files.get('draft-private.json'), packet=JSON.parse(attempt.historyContext.reference);
-    alter({attempt,response,draft,packet});
+    alter({item,attempt,response,draft,packet});
     attempt.historyContext.reference=JSON.stringify(packet);
     assert.throws(()=>f.preview(item,{chapter:draft.historyNarrative.chapter}),/requires current signed chapter context/,reason);
     assert.equal(f.events.length,0,reason);
@@ -431,11 +440,61 @@ test('the response binding also rejects invalid packet shape and altered exempla
     if(invalid==='unrecognized target')packet.chapterContinuity.at(-1).chapter='hypothetical';
     if(invalid==='changed exemplar')packet.voiceOnly.assembly='A different pinned example.';
     attempt.historyContext.reference=JSON.stringify(packet);
-    response.historyAssessmentSha256=sha(f.cx.AnnalsProduction.serial({
-      context:attempt.historyContext,responseText:response.responseText
-    }));
+    assert.equal(f.cx.AnnalsHistoryNarrative.bindGeneration(item.raw.historyNarrative[0],
+      attempt.historyContext,f.cx.AnnalsProduction.HISTORY_REFERENCE_LIMIT),null,invalid);
     assert.throws(()=>f.preview(item),/requires current signed chapter context/,invalid);
     assert.equal(f.events.length,0,invalid);
+  }
+});
+
+test('a valid-shape substituted packet and recomputed ordinary hashes cannot authenticate an assessment',()=>{
+  const f=fixture(), item=f.add(0);
+  f.assess(item);
+  const reviewed=f.preview(item);
+  const core=f.cx.AnnalsProduction, attempt=item.files.get('ai-attempt-private.json');
+  const response=item.files.get('ai-response-private.json'), proposal=item.files.get('draft-private.json').historyNarrative;
+  const packet=JSON.parse(attempt.historyContext.reference);
+  packet.chapterContinuity.find(sample=>sample.chapter===proposal.chapter).prose='The company arranged the fictional furniture with care.';
+  attempt.historyContext.reference=JSON.stringify(packet);
+  attempt.historyRequestSha256=sha(JSON.stringify(core.request(attempt.submittedText,[],attempt.historyContext.reference)));
+  const unkeyed=sha(core.serial({context:attempt.historyContext,responseText:response.responseText}));
+  response.historyAssessmentSha256=unkeyed;
+  assert.ok(f.cx.AnnalsHistoryNarrative.bindGeneration(proposal,attempt.historyContext,core.HISTORY_REFERENCE_LIMIT));
+  assert.throws(()=>f.preview(item),/requires current signed chapter context/);
+  response.historyAssessmentSignature=unkeyed;
+  assert.throws(()=>f.preview(item),/requires current signed chapter context/);
+  assert.throws(()=>f.publish(reviewed),/requires current signed chapter context/);
+  assert.equal(f.events.length,0);
+  assert.equal(f.providerRequests.length,1);
+});
+
+test('authentic assessment proof cannot be moved to another contribution with the same request and response',()=>{
+  const f=fixture(), first=f.add(0), secondItem=f.add(1,{narrative:plain(first.raw.historyNarrative[0])});
+  secondItem.source.source.sender=first.source.source.sender;
+  f.assess(first); f.assess(secondItem);
+  const original=first.files.get('ai-response-private.json'), secondResponse=secondItem.files.get('ai-response-private.json');
+  assert.equal(f.providerBodies[0],f.providerBodies[1]);
+  assert.equal(original.responseText,secondResponse.responseText);
+  assert.notEqual(original.historyAssessmentSignature,secondResponse.historyAssessmentSignature);
+  assert.ok(f.preview(secondItem).hash);
+  for(const file of ['ai-attempt-private.json','ai-response-private.json','draft-private.json'])
+    secondItem.files.set(file,plain(first.files.get(file)));
+  assert.throws(()=>f.preview(secondItem),/requires current signed chapter context/);
+  assert.equal(f.events.length,0);
+  assert.equal(f.providerRequests.length,2);
+});
+
+test('missing or aliased private signing authority holds History and preserves ordinary Annals',()=>{
+  for(const risk of ['missing','same as public','same as History']){
+    const f=fixture(), item=f.add(0), core=f.cx.AnnalsProduction, ordinary={...item.raw};
+    delete ordinary.historyNarrative;
+    f.props.ANNALS_APPROVAL_KEY=risk==='missing'?'':risk==='same as public'?
+      f.props.ANNALS_PUBLISH_SIGNING_KEY:f.props.ANNALS_HISTORY_SIGNING_KEY;
+    f.assess(item);
+    assert.deepEqual(item.files.get('draft-private.json'),plain(core.candidate(ordinary,false)),risk);
+    assert.equal(item.files.get('ai-response-private.json').historyAssessmentSignature,undefined,risk);
+    assert.equal(f.providerRequests.length,1,risk);
+    assert.deepEqual(f.publicReads,[],risk);
   }
 });
 
