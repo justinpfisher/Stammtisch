@@ -29,13 +29,14 @@ test('public site retains agreed wit and avoids repeated disproportionate claims
   assert.match(assembly, /The proceedings must now endeavour to keep pace/);
 });
 
-test('History holding page and shared future renderer use the same distinct Club voice', () => {
+test('History page and shared renderer use the same distinct Club voice', () => {
   const lead = 'A record assembled from what the Club can substantiate.';
   const empty = 'The Club has a history. The formal account is, for the moment, less forthcoming.';
-  for (const copy of [history, publicDisplay]) {
-    assert.ok(copy.includes(lead));
-    assert.ok(copy.includes(empty));
-  }
+  const current = JSON.parse(readFileSync(new URL('../data/club-history.json', import.meta.url), 'utf8'));
+  assert.ok(history.includes(lead));
+  assert.ok(publicDisplay.includes(lead));
+  assert.ok(publicDisplay.includes(empty));
+  assert.equal(history.includes(empty), current.chapters.length===0);
   assert.match(guide, /continuous AI-written historical narrative in the Stammtisch voice/);
 });
 

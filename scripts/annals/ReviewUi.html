@@ -88,6 +88,12 @@ body{font:17px/1.5 system-ui;background:#f7f3e8;color:#193d32;margin:0 auto;padd
 <label><input id="confirmHistoryOpening" type="checkbox">Publish the exact previously approved opening edition.</label>
 <button id="publishHistoryOpening" disabled>Publish the opening edition through History</button>
 </fieldset>
+<fieldset><legend>Approved History editorial refresh</legend>
+<button id="previewHistoryEditorial">Preview the approved editorial refresh</button>
+<pre id="historyEditorialPreview"></pre>
+<label><input id="confirmHistoryEditorial" type="checkbox">Publish this exact signed revision.</label>
+<button id="publishHistoryEditorial" disabled>Publish the editorial refresh</button>
+</fieldset>
 <fieldset><legend>Maintain published Club History</legend>
 <button id="loadHistoryMaintenance">Load the current History passages</button>
 <label>Passage<select id="historyMaintenanceTarget"></select></label>
@@ -468,6 +474,24 @@ el('publishHistoryOpening').onclick=()=>act(async()=>{
   el('publishHistoryOpening').disabled=true;
   const r=await call('annalsPublishHistoryOpening',nonce,digest,true);
   say(r.dispatchAccepted?'Opening revision dispatched. Check exact live publication next.':'Opening publication not verified. Do not replay without reconciliation.');
+});
+let editorialPreview=null;
+el('previewHistoryEditorial').onclick=()=>act(async()=>{
+  editorialPreview=null;
+  el('historyEditorialPreview').textContent='';
+  el('publishHistoryEditorial').disabled=true;
+  el('confirmHistoryEditorial').checked=false;
+  editorialPreview=await call('annalsPreviewHistoryEditorial',nonce);
+  el('historyEditorialPreview').textContent=JSON.stringify(editorialPreview.chapters,null,2);
+  el('publishHistoryEditorial').disabled=false;
+});
+el('publishHistoryEditorial').onclick=()=>act(async()=>{
+  if(!editorialPreview||!el('confirmHistoryEditorial').checked)throw new Error('Confirm the exact editorial preview first.');
+  const digest=editorialPreview.previewDigest;
+  editorialPreview=null;
+  el('publishHistoryEditorial').disabled=true;
+  const result=await call('annalsPublishHistoryEditorial',nonce,digest,true);
+  say(result.dispatchAccepted?'Signed editorial revision dispatched. Check the last history publication.':'Editorial publication is uncertain or rejected. Do not retry.');
 });
 el('reconcileHistory').onclick=()=>act(async()=>{const r=await call('annalsReconcileHistory',nonce);say(r.verified?'History revision '+r.revision+' verified live.':'History is not verified live. No request was replayed.');});
 el('quarantine').onclick=()=>act(async()=>{const result=await call('annalsQuarantineSubmission',nonce,current.id,val('quarantineReason'),el('quarantineConfirmed').checked);if(!result||result.quarantined!==true)throw new Error('Quarantine was not confirmed. Check the saved private record before any further action.');current.quarantined=true;current.status='Quarantined - owner-identified test';el('itemStatus').textContent=current.status;updateQueuedItem();say('Test quarantined privately. Originals and audit records are preserved.');});
