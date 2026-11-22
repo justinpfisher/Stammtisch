@@ -89,6 +89,8 @@ function annalsHistoryNarrativeReview_(state,id,chapterId,afterId){
   var chapter=state.current.chapters.find(function(c){return c.id===chapterId;});
   var after=chapter?chapter.passages.findIndex(function(p){return p.id===afterId;}):-1;
   var entryId='annal-'+id.slice(0,24);
+  if((state.ledger.ownerWithdrawnEntries||{})[entryId]===true)
+    throw new Error('This contribution was withdrawn from Club History');
   if(after<0||state.current.chapters.some(function(c){
     return c.passages.some(function(p){return AnnalsLivingHistory.fromEntry(p,entryId);});
   }))throw new Error('Select an exact insertion point for an unused narrative source');

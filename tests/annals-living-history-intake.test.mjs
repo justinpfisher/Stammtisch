@@ -389,8 +389,49 @@ test('an automatic photo-only source update cannot restore an earlier History-on
   item.approve(item.approved.entry.summary,true,{sha256:'b'.repeat(64),alt:'A fictional drink'});
   const after=f.subtract(); f.tick();
   assert.deepEqual(plain(after.chapters),f.opening.chapters);
-  assert.throws(()=>f.preview(item),/exact used and signed Annals evidence/);
+  assert.throws(()=>f.preview(item),/withdrawn from Club History/);
   assert.equal(f.events.length,2);
+});
+
+test('a rebound History-only withdrawal survives a later signed correction of the same contribution',()=>{
+  const f=fixture(), item=f.add(0), separate=f.add(1,{span:second});
+  // Leave an unrelated narrative in place, without another portrait credit.
+  separate.member.contributorPortraitPublication.revokedAt=at;
+  f.compose(separate); f.serveNext(); f.tick();
+  f.compose(item); f.serveNext(); f.tick();
+  const approvedPhoto={sha256:'b'.repeat(64),alt:'An originally approved fictional drink photograph'};
+  const first=item.approve(item.approved.entry.summary,true,approvedPhoto);
+  const rebound=f.subtract(); f.tick();
+  const used=passages(rebound).find(p=>p.sources[0].entryId===item.entryId);
+  assert.equal(used.sources[0].digest,first.receipt.contentSha256);
+  assert.deepEqual(keys(rebound),['fish']);
+
+  const {digest}=f.cx.annalsListHistoryMaintenance('fictional-owner');
+  const {hash}=f.cx.annalsPrepareHistoryMaintenance('fictional-owner',digest,'traditions',used.id,
+    'withdraw','','The fictional member withdrew this contribution from History.');
+  assert.equal(f.publish({hash}).dispatchAccepted,true);
+  f.serveNext(); f.tick();
+  const withdrawn=f.rootFiles.get('history-published-private.json');
+  assert.deepEqual(keys(withdrawn),[]);
+  assert.deepEqual(plain(passages(withdrawn)),plain(passages(rebound).filter(p=>p.id!==used.id)));
+  const ledger=f.rootFiles.get('history-bound-ledger-private.json');
+  assert.equal(ledger.ownerWithdrawnEntries[item.entryId],true);
+  assert.deepEqual(Object.keys(ledger.ownerMaintainedSourceVersions),[item.entryId+':'+first.receipt.contentSha256]);
+
+  const unrelated=item.approve(item.approved.entry.summary+' The curtain was repaired on a later date.',true,approvedPhoto);
+  assert.notEqual(unrelated.receipt.contentSha256,first.receipt.contentSha256);
+  f.subtract(); f.tick(); f.tick();
+  assert.equal(f.events.length,3);
+  assert.throws(()=>f.preview(item),/withdrawn from Club History/);
+  assert.deepEqual(f.rootFiles.get('history-published-private.json'),withdrawn);
+  assert.equal(historyBacklinks(withdrawn).has(separate.entryId),true);
+
+  const newContribution=f.add(2,{narrative:proposal(recall,{chapter:'assemblies'})});
+  assert.equal(f.compose(newContribution).dispatchAccepted,true);
+  f.serveNext(); f.tick();
+  assert.deepEqual(plain(passages(f.signed())),plain(passages(withdrawn)));
+  assert.equal(historyBacklinks(f.signed()).has(item.entryId),false);
+  assert.equal(historyBacklinks(f.signed()).has(newContribution.entryId),true);
 });
 
 test('corrected and withdrawn signed Annals sources reconcile exactly without altering unrelated chapters or records',()=>{
@@ -610,4 +651,101 @@ test('the two-withdrawal catch-up holds when any intermediate or private binding
     assert.equal(state.f.rootFiles.get(state.snapshot).revision,3,reason);
     assert.equal(state.f.events.length,2,reason);
   }
+});
+
+function withdrawalsBeforeAcceptedReconciliation(){
+  const f=fixture(), a=f.add(0), b=f.add(1,{span:second}), c=f.add(2,{narrative:proposal(recall,{chapter:'assemblies'})});
+  c.member.contributorPortraitPublication.revokedAt=at;
+  f.compose(a); f.serveNext(); f.tick(); f.compose(b); f.serveNext(); f.tick();
+  const previous=f.rootFiles.get('history-published-private.json');
+  assert.equal(f.compose(c).dispatchAccepted,true);
+  f.serveNext(); // Its public successor arrives before the intake has reconciled this dispatch.
+  a.withdraw();
+  const middle=f.subtract();
+  b.withdraw();
+  const final=f.subtract();
+  return {f,c,previous,middle,final,accepted:f.signed()};
+}
+
+test('an accepted dispatch reconciles two signed withdrawals before its first reconciliation',()=>{
+  const {f,c,previous,middle,final,accepted}=withdrawalsBeforeAcceptedReconciliation();
+  const snapshot='history-published-private.json', ledger='history-bound-ledger-private.json';
+  const pending='history-pending-private.json', evidence='history-live-'+accepted.revision+'-private.json';
+  assert.equal(f.rootFiles.get(snapshot),previous);
+  assert.equal(f.rootFiles.has(evidence),false);
+  assert.equal(final.revision,accepted.revision+2);
+  assert.deepEqual(keys(middle),['marc']);
+  assert.deepEqual(keys(final),[]);
+  assert.equal(historyBacklinks(final).has(c.entryId),true);
+  assert.deepEqual(plain(final.chapters.find(ch=>ch.id==='assemblies')),plain(accepted.chapters.find(ch=>ch.id==='assemblies')));
+
+  f.failSnapshotWrite(); f.tick();
+  assert.deepEqual(f.rootFiles.get(snapshot),previous);
+  assert.deepEqual(f.rootFiles.get(ledger).chapters,plain(final.chapters));
+  assert.equal(f.rootFiles.get(evidence).supersededByRevision,final.revision);
+  assert.equal(f.rootFiles.get(pending).state,'dispatch_accepted');
+  f.tick(); f.tick();
+  assert.deepEqual(f.rootFiles.get(snapshot),plain(final));
+  assert.equal(f.rootFiles.get(pending).verifiedRevision,final.revision);
+  assert.equal(f.events.length,3);
+});
+
+test('accepted reconciliation holds when the historical edge, signed edition or private journal is unverified',()=>{
+  const cases=[
+    ['unrelated intermediate Annals archive',({f,middle})=>{
+      f.publications.find(row=>row.document.revision===middle.revision).archive=f.publications[0].archive;
+    }],
+    ['altered intermediate copy',({f,middle})=>{
+      passages(f.publications.find(row=>row.document.revision===middle.revision).document)[0].text='Unrelated fictional wording.';
+    }],
+    ['missing intermediate commit',({f,middle})=>{
+      f.publications.splice(f.publications.findIndex(row=>row.document.revision===middle.revision),1);
+    }],
+    ['nonmatching signed opening of the chain',({f,accepted})=>{
+      passages(f.publications.find(row=>row.document.revision===accepted.revision).document)[0].text='Different fictional signed base.';
+    }],
+    ['altered reservation before first reconciliation',({f,accepted})=>{
+      f.rootFiles.get('history-revision-'+accepted.revision+'-private.json').review.operation='unrelated';
+    }],
+    ['unrelated previous ledger metadata before first reconciliation',({f})=>{
+      f.rootFiles.get('history-bound-ledger-private.json').ownerWithdrawnEntries={unrelated:true};
+    }]
+  ];
+  for(const [reason,alter] of cases){
+    const state=withdrawalsBeforeAcceptedReconciliation(), {f,previous,accepted}=state;
+    alter(state); f.tick(); f.tick();
+    assert.deepEqual(f.rootFiles.get('history-published-private.json'),previous,reason);
+    assert.equal(f.rootFiles.get('history-pending-private.json').state,'dispatch_accepted',reason);
+    assert.equal(f.rootFiles.has('history-live-'+accepted.revision+'-private.json'),false,reason);
+    assert.equal(f.events.length,3,reason);
+  }
+});
+
+test('an accepted reconciliation resumes an exact intermediate ledger after another withdrawal',()=>{
+  const f=fixture(), a=f.add(0), b=f.add(1,{span:second});
+  f.compose(a); f.serveNext(); f.tick();
+  const snapshot='history-published-private.json', ledger='history-bound-ledger-private.json';
+  const previous=f.rootFiles.get(snapshot);
+  f.compose(b); f.serveNext();
+  a.withdraw();
+  const middle=f.subtract();
+  f.failSnapshotWrite(); f.tick();
+  const saved=f.rootFiles.get(ledger);
+  assert.deepEqual(saved.chapters,plain(middle.chapters));
+  assert.equal(f.rootFiles.get(snapshot),previous);
+  b.withdraw();
+  const final=f.subtract();
+  const bad=plain(saved);
+  passages(bad)[0].text='Unrelated private wording.';
+  f.rootFiles.set(ledger,bad);
+  f.tick();
+  assert.equal(f.rootFiles.get(snapshot),previous);
+  f.rootFiles.set(ledger,{...saved,ownerWithdrawnEntries:{unrelated:true}});
+  f.tick();
+  assert.equal(f.rootFiles.get(snapshot),previous);
+  f.rootFiles.set(ledger,saved);
+  f.tick(); f.tick();
+  assert.deepEqual(f.rootFiles.get(snapshot),plain(final));
+  assert.deepEqual(keys(final),[]);
+  assert.equal(f.events.length,2);
 });

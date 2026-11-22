@@ -504,44 +504,41 @@ function annalsHistoryVerifiedSubtraction_(prior,live,archive){
        annalsHash_(AnnalsPublicDisplay.historyPage(expected)+'\n'))return null;
   return expected;
 }
-function annalsHistoryVerifiedOvertake_(pending,live){
-  if(!pending.review.boundLedger||pending.document.schemaVersion!==2||live.schemaVersion!==2||
-     live.revision!==pending.document.revision+1)return null;
-  // A subtraction can erase all traces of the accepted revision. Do not infer
-  // that the job ran even if its hypothetical subtraction matches today's site.
-  // Match its exact immutable historical bytes on the current main timeline.
-  var commits=JSON.parse(annalsHistoryReadPublic_(
-    'https://api.github.com/repos/justinpfisher/Stammtisch/commits?sha=main&path=data%2Fclub-history.json&per_page=2'));
-  if(!Array.isArray(commits)||commits.length!==2||
-    commits.some(function(k){return !k||!/^[a-f0-9]{40}$/.test(k.sha);}))return null;
-  var base='https://raw.githubusercontent.com/justinpfisher/Stammtisch/';
-  var read=function(sha){return JSON.parse(annalsHistoryReadPublic_(base+sha+'/data/club-history.json'));};
-  var previous=read(commits[1].sha),head=read(commits[0].sha);
-  if(annalsHash_(AnnalsProduction.serial(previous))!==pending.approval.contentSha256||
-     AnnalsProduction.serial(head)!==AnnalsProduction.serial(live))return null;
-  return annalsHistoryVerifiedSubtraction_(pending.document,live,annalsOpeningArchive_());
-}
-function annalsHistorySubtractionCheckpoint_(prior,target,chapters){
+function annalsHistorySubtractionChain_(prior,target){
   var steps=target.revision-prior.revision;
   // Restrict the public reads performed while holding the existing intake lock.
-  if(!Number.isSafeInteger(steps)||steps<2||steps>12)return false;
+  if(!Number.isSafeInteger(steps)||steps<1||steps>12)return null;
   var commits=JSON.parse(annalsHistoryReadPublic_(
     'https://api.github.com/repos/justinpfisher/Stammtisch/commits?sha=main&path=data%2Fclub-history.json&per_page='+(steps+1)));
   if(!Array.isArray(commits)||commits.length!==steps+1||
     commits.some(function(c){return !c||!/^[a-f0-9]{40}$/.test(c.sha);})||
-    new Set(commits.map(function(c){return c.sha;})).size!==commits.length)return false;
+    new Set(commits.map(function(c){return c.sha;})).size!==commits.length)return null;
   var base='https://raw.githubusercontent.com/justinpfisher/Stammtisch/';
   var read=function(c,path){return JSON.parse(annalsHistoryReadPublic_(base+c.sha+'/data/'+path));};
-  var serial=AnnalsProduction.serial, previous=read(commits[steps],'club-history.json'), found=false;
-  if(serial(previous)!==serial(prior))return false;
+  var serial=AnnalsProduction.serial, previous=read(commits[steps],'club-history.json');
+  // A subtraction can erase the accepted bytes. Match the original on main
+  // and replay each projection against the archive at its own immutable commit.
+  if(serial(previous)!==serial(prior))return null;
+  var chain=[previous];
   for(var i=steps-1;i>=0;i--){
     var next=read(commits[i],'club-history.json');
     if(next.revision!==previous.revision+1||
-      !annalsHistorySubtractionProjection_(previous,next,read(commits[i],'annals-approved.json')))return false;
-    if(serial(next.chapters)===chapters)found=true;
+      !annalsHistorySubtractionProjection_(previous,next,read(commits[i],'annals-approved.json')))return null;
+    chain.push(next);
     previous=next;
   }
-  return found&&serial(previous)===serial(target);
+  return serial(previous)===serial(target)?chain:null;
+}
+function annalsHistoryVerifiedOvertake_(pending,live){
+  if(!pending.review.boundLedger||pending.document.schemaVersion!==2||live.schemaVersion!==2||
+     annalsHash_(AnnalsProduction.serial(pending.document))!==pending.approval.contentSha256)return null;
+  var chain=annalsHistorySubtractionChain_(pending.document,live);
+  if(!chain||!annalsHistoryVerifiedSubtraction_(chain[chain.length-2],live,annalsOpeningArchive_()))return null;
+  return chain;
+}
+function annalsHistorySubtractionCheckpoint_(prior,target,chapters){
+  var chain=annalsHistorySubtractionChain_(prior,target);
+  return !!chain&&chain.slice(1).some(function(doc){return AnnalsProduction.serial(doc.chapters)===chapters;});
 }
 function annalsRebaseHistoryAfterAnnals_(archive,live){
   var root=annalsRoot_(),pending=annalsRead_(root,'history-pending-private.json');
@@ -658,9 +655,16 @@ function annalsPublishHistoryMaintenance(nonce,expectedHash,confirmed){
     if(AnnalsProduction.serial(chapters)!==AnnalsProduction.serial(review.chapters))throw new Error('History maintenance preview changed');
     var target=state.current.chapters.find(function(c){return c.id===review.chapterId;}).passages.find(function(p){return p.id===review.passageId;});
     var blocked=Object.assign({},state.ledger.ownerMaintainedSourceVersions||{});
+    var boundLedger=Object.assign({},state.ledger,{chapters:chapters,ownerMaintainedSourceVersions:blocked});
     target.sources.forEach(function(src){if(src.kind==='annal')blocked[src.entryId+':'+src.digest]=true;});
+    if(review.operation==='bound-owner-withdraw'){
+      // A public Annals correction changes its digest, not the contribution withdrawn from History.
+      var withdrawn=Object.assign({},state.ledger.ownerWithdrawnEntries||{});
+      target.sources.forEach(function(src){if(src.kind==='annal')withdrawn[src.entryId]=true;});
+      boundLedger.ownerWithdrawnEntries=withdrawn;
+    }
     return annalsDispatchHistoryRevision_(state.root,null,Object.assign({},review,{
-      boundLedger:Object.assign({},state.ledger,{chapters:chapters,ownerMaintainedSourceVersions:blocked})
+      boundLedger:boundLedger
     }),2,chapters,2,state.current.revision);
   });});
 }
@@ -683,37 +687,45 @@ function annalsDispatchHistoryRevision_(folder,id,review,schemaVersion,chapters,
       contentSha256:annalsHash_(AnnalsProduction.serial(document)),issuedAt:document.updatedAt};
     proof.signature=annalsHex_(Utilities.computeHmacSha256Signature(AnnalsProduction.serial({document:document,approval:proof}),key,Utilities.Charset.UTF_8));
     if(AnnalsProduction.serial({document:document,approval:proof}).length>45000)throw new Error('History update exceeds bounded publication size');
+    if(review.boundLedger)review=Object.assign({},review,{
+      previousLedgerSha256:annalsHash_(AnnalsProduction.serial(annalsRead_(root,'history-bound-ledger-private.json')||null))
+    });
     var record={sourceId:id,review:review,document:document,approval:proof,state:'reserved_no_retry'};
     annalsWriteOnce_(root,'history-revision-'+document.revision+'-private.json',record);
     annalsSavePrivate_(root,'history-pending-private.json',record);
     var accepted=annalsDispatchEvent_(folder,'annals-history-revision',{document:document,approval:proof},'history-dispatch-'+document.revision+'-private.json');
-    record.state=accepted?'dispatch_accepted':'uncertain_or_rejected_no_retry';
-    annalsSavePrivate_(root,'history-pending-private.json',record);
+    annalsSavePrivate_(root,'history-pending-private.json',Object.assign({},record,{
+      state:accepted?'dispatch_accepted':'uncertain_or_rejected_no_retry'
+    }));
     return {dispatchAccepted:accepted,published:false};
 }
 
-function annalsHistoryBoundWriteReady_(root,pending,published,ledger,nextLedger,verified){
+function annalsHistoryBoundWriteReady_(root,pending,chain,ledger,verified){
     var current=annalsRead_(root,'history-published-private.json')||{schemaVersion:1,revision:0,chapters:[],updatedAt:''};
     var serial=AnnalsProduction.serial, currentDigest=annalsHash_(serial(current)),
-      publishedDigest=annalsHash_(serial(published)), isPrevious=currentDigest===pending.approval.previousDigest;
-    var previousAligned=isPrevious&&(!ledger&&current.schemaVersion===1&&current.revision===0||
+      isPrevious=currentDigest===pending.approval.previousDigest, nextLedger=pending.review.boundLedger;
+    var reserved=annalsRead_(root,'history-revision-'+pending.document.revision+'-private.json');
+    if(!reserved||reserved.state!=='reserved_no_retry'||serial(reserved.approval)!==serial(pending.approval)||
+      serial(reserved.document)!==serial(pending.document)||serial(reserved.review)!==serial(pending.review)||
+      reserved.sourceId!==pending.sourceId)return false;
+    var previousLedgerSha256=pending.review.previousLedgerSha256;
+    var previousAligned=isPrevious&&(previousLedgerSha256===undefined||annalsHash_(serial(ledger||null))===previousLedgerSha256)&&
+      (!ledger&&current.schemaVersion===1&&current.revision===0||
       ledger&&ledger.schemaVersion===1&&ledger.privateOpeningPacketSha256===nextLedger.privateOpeningPacketSha256&&
       serial(ledger.chapters)===serial(current.chapters));
     if(!verified)return previousAligned;
 
-    // A retry can finish the exact recorded write, including when a proved
-    // Annals subtraction overtook the signed revision between attempts.
-    if(!(isPrevious||currentDigest===pending.approval.contentSha256||currentDigest===publishedDigest))return false;
-    var saved=serial(ledger), targetAligned=saved===serial(nextLedger);
-    var signedLedger=Object.assign({},pending.review.boundLedger,{chapters:pending.document.chapters});
-    var overtakenLedgerAligned=published.revision>pending.document.revision&&
-      currentDigest!==publishedDigest&&saved===serial(signedLedger);
-    if(!previousAligned&&!targetAligned&&!overtakenLedgerAligned)return false;
-    var reserved=annalsRead_(root,'history-revision-'+pending.document.revision+'-private.json');
-    if(!reserved||serial(reserved.approval)!==serial(pending.approval)||
-      serial(reserved.document)!==serial(pending.document)||serial(reserved.review)!==serial(pending.review))return false;
+    // A partial write can stop on any proved edition. The ledger is written
+    // first and must retain the exact journal metadata at or ahead of the snapshot.
+    var snapshot=isPrevious?pending.document.revision-1:
+      chain.find(function(doc){return serial(doc)===serial(current);})?.revision;
+    if(!Number.isSafeInteger(snapshot))return false;
+    var saved=serial(ledger);
+    if(!previousAligned&&!chain.some(function(doc){
+      return doc.revision>=snapshot&&saved===serial(Object.assign({},nextLedger,{chapters:doc.chapters}));
+    }))return false;
     var main=JSON.parse(annalsHistoryReadPublic_('https://raw.githubusercontent.com/justinpfisher/Stammtisch/main/data/club-history.json'));
-    return annalsHash_(serial(main))===publishedDigest;
+    return serial(main)===serial(chain[chain.length-1]);
 }
 
 function annalsReconcileHistoryLocked_(){
@@ -725,10 +737,8 @@ function annalsReconcileHistoryLocked_(){
     var published=JSON.parse(response.getContentText());
     var exact=annalsHash_(AnnalsProduction.serial(published))===pending.approval.contentSha256&&
       annalsHash_(html.getContentText())===annalsHash_(AnnalsPublicDisplay.historyPage(pending.document)+'\n');
-    if(!exact){
-      published=annalsHistoryVerifiedOvertake_(pending,published);
-      if(!published)return {verified:false,retryAllowed:false};
-    }
+    var chain=exact?[pending.document]:annalsHistoryVerifiedOvertake_(pending,published);
+    if(!chain)return {verified:false,retryAllowed:false};
     var name='history-live-'+pending.document.revision+'-private.json',existing=annalsRead_(root,name);
     if(existing){
       if(existing.digest!==pending.approval.contentSha256||!Number.isFinite(Date.parse(existing.verifiedAt)))throw new Error('Conflicting history verification evidence');
@@ -737,7 +747,7 @@ function annalsReconcileHistoryLocked_(){
     if(pending.review.boundLedger){
       ledger=annalsRead_(root,'history-bound-ledger-private.json');
       nextLedger=Object.assign({},pending.review.boundLedger,{chapters:published.chapters});
-      if(!annalsHistoryBoundWriteReady_(root,pending,published,ledger,nextLedger,existing))
+      if(!annalsHistoryBoundWriteReady_(root,pending,chain,ledger,existing))
         throw new Error('Conflicting History ledger or snapshot');
     }
     if(!existing){
