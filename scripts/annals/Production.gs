@@ -1413,7 +1413,7 @@ function annalsPrepareDraftCore_(id, text, selectedNames, consent, intakeLockHel
       annalsRecordAttemptOutcome_(f, 'invalid_response');
       throw new Error('AI attempt held; no automatic retry');
     }
-    if(!historyEnabled)delete candidate.historyCandidates;
+    if(!historyEnabled)delete candidate.historyNarrative;
     try { annalsWriteOnce_(f, 'draft-private.json', candidate); }
     catch (e) {
       annalsRecordAttemptOutcome_(f, 'private_storage_error');

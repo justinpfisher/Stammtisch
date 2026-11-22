@@ -515,18 +515,25 @@ function annalsHistoryMaintenanceProjection_(current,chapterId,passageId,operati
   });
   return current.chapters.flatMap(function(c){return c!==chapter?[c]:replacement.length?[Object.assign({},c,{passages:replacement})]:[];});
 }
-function annalsPrepareHistoryMaintenance(nonce,expectedDigest,chapterId,passageId,operation,copy,privateEvidence){
+function annalsPrepareHistoryMaintenance(nonce,expectedDigest,chapterId,passageId,operation,copy,privateEvidence,sourceId){
   return annalsUiCall_(nonce,function(){return annalsLocked_(function(){
     var state=annalsBoundMaintenanceState_();
     if(state.digest!==expectedDigest||typeof privateEvidence!=='string'||privateEvidence.trim().length<10||
       privateEvidence.length>1000)throw new Error('Reload current History and supply the private evidence or withdrawal reason');
-    var chapters=annalsHistoryMaintenanceProjection_(state.current,chapterId,passageId,operation,copy);
+    var narrative=null;
+    if(operation==='compose'){
+      if(typeof annalsHistoryNarrativeReview_!=='function')throw new Error('Composed History is unavailable');
+      narrative=annalsHistoryNarrativeReview_(state,sourceId,chapterId,passageId);
+    }
+    var chapters=narrative?narrative.chapters:
+      annalsHistoryMaintenanceProjection_(state.current,chapterId,passageId,operation,copy);
     var review={operation:'bound-owner-'+operation,chapterId:chapterId,passageId:passageId,
       replacement:operation==='correct'?copy.trim():null,reason:privateEvidence.trim(),
       expectedDigest:state.digest,expectedRevision:state.current.revision,chapters:chapters};
+    if(narrative){review.sourceId=sourceId;review.bindingDigest=narrative.bindingDigest;}
     review.hash=annalsHash_(AnnalsProduction.serial(review));
     annalsSavePrivate_(state.root,'history-maintenance-review-private.json',review);
-    return {hash:review.hash,chapters:chapters};
+    return {hash:review.hash,chapters:chapters,claims:narrative?narrative.claims:null};
   });});
 }
 function annalsPublishHistoryMaintenance(nonce,expectedHash,confirmed){
@@ -537,6 +544,16 @@ function annalsPublishHistoryMaintenance(nonce,expectedHash,confirmed){
       review.expectedRevision!==state.current.revision)throw new Error('Review the exact change against the current History revision');
     var unsigned=Object.assign({},review);delete unsigned.hash;
     if(annalsHash_(AnnalsProduction.serial(unsigned))!==expectedHash)throw new Error('History maintenance review was altered');
+    if(review.operation==='bound-owner-compose'){
+      if(typeof annalsHistoryNarrativeReview_!=='function')throw new Error('Composed History is unavailable');
+      var narrative=annalsHistoryNarrativeReview_(state,review.sourceId,review.chapterId,review.passageId);
+      if(narrative.bindingDigest!==review.bindingDigest||
+        AnnalsProduction.serial(narrative.chapters)!==AnnalsProduction.serial(review.chapters))
+        throw new Error('Composed History or source permissions changed after review');
+      return annalsDispatchHistoryRevision_(state.root,review.sourceId,Object.assign({},review,{
+        boundLedger:Object.assign({},state.ledger,{chapters:narrative.chapters})
+      }),2,narrative.chapters,2,state.current.revision);
+    }
     var chapters=annalsHistoryMaintenanceProjection_(state.current,review.chapterId,review.passageId,
       review.operation.replace(/^bound-owner-/,''),review.replacement);
     if(AnnalsProduction.serial(chapters)!==AnnalsProduction.serial(review.chapters))throw new Error('History maintenance preview changed');

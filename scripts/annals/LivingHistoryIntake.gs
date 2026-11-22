@@ -1,9 +1,7 @@
 /* Private, deterministic living History evidence gate; no mailbox or model calls here. */
 var AnnalsLivingHistory=(function(){
   'use strict';
-  var headings={origins:'Origins',gatherings:'Gathering together',assemblies:'Annual Assemblies',traditions:'Developing traditions'};
   var titles={fish:'Justin',marc:'Marc',matt:'Matt',ken:'Ken',jamie:'Jamie',jerome:'Jerome'};
-  var slug=/^[a-z][a-z0-9-]{2,79}$/, digest=/^[a-f0-9]{64}$/, annal=/^annal-[a-f0-9]{24}$/;
   var example=/\b(?:hypothetical|fiction(?:al)?|suppose|imagine|for example|if only|pretend|made-up|test fixture|staged example|(?:sample|example) submission|simulated)\b/i;
   function containsSpan(text, span){
     if(typeof text!=='string'||!span)return false;
@@ -14,50 +12,8 @@ var AnnalsLivingHistory=(function(){
     }
     return false;
   }
-  function eligible(value, source, unsafe){
-    if(!source||source.senderAuthenticated!==true||source.aiConsentActive!==true||source.autoConsentAtReceipt!==true||
-       source.syntheticFixture===true||!source.source||source.source.sourceTruncated||
-       source.source.subjectTruncated||source.source.excerptTruncated||
-       !Array.isArray(value)||value.length>4) return [];
-    var fields=source.source, seen=new Set();
-    if(typeof fields.subject!=='string'||typeof fields.excerpt!=='string'||
-      /^\s*fwd?:/i.test(fields.subject)||example.test(fields.subject+'\n'+fields.excerpt))return [];
-    // A plain-text forward may lose its headers in the screened Annals copy.
-    // Consider only the author's portion of the immutable body for History.
-    var authored={subject:fields.subject,excerpt:fields.excerpt.split(
-      /^[ \t]*(?:>|(?:from|sent|subject|to|cc|bcc)[ \t]*:|(?:-+[ \t]*)?(?:forwarded|original) message\b)/im,1)[0]};
-    return value.filter(function(c){
-      if(!c||!['chapter,field,kind,period,span,topic','chapter,editorialFrame,field,kind,period,span,topic'].includes(Object.keys(c).sort().join(','))||
-         !Object.prototype.hasOwnProperty.call(headings,c.chapter)||typeof c.topic!=='string'||!slug.test(c.topic)||
-         ['subject','excerpt'].indexOf(c.field)<0||c.kind!=='recollection'||
-         typeof c.span!=='string'||c.span.length<18||c.span.length>600||c.span.trim()!==c.span||
-         typeof c.period!=='string'||c.period.length>60||
-         (c.period&&c.span.indexOf(c.period)<0)||/["“”«»<>\r\n]/.test(c.span)||
-         unsafe(c.span)||!containsSpan(authored[c.field],c.span)) return false;
-      var identity=c.chapter+'\0'+c.span;
-      if(seen.has(identity))return false;
-      seen.add(identity);return true;
-    });
-  }
-  function passage(c, bound){
-    if(!c||!bound||!annal.test(bound.entryId)||!digest.test(bound.digest)||
-      !digest.test(bound.claimId)||bound.publication!==true||
-      !(bound.portrait===null||Object.prototype.hasOwnProperty.call(titles,bound.portrait)))
-      throw new Error('Version-matched public and private History binding required');
-    var name=bound.portrait?titles[bound.portrait]:null;
-    var span=/[.!?]$/.test(c.span)?c.span:c.span+'.';
-    // The model edits the editorial footing, not the evidence. The attributed
-    // excerpt stays literal so uncertainty, chronology and details cannot drift.
-    var recalled=/^I (?:remember|recall) that ([a-z].*)$/.exec(span);
-    var frame=c.editorialFrame==='tradition'&&c.chapter!=='traditions'?'recollection':c.editorialFrame;
-    var reworded=recalled&&frame==='club_record';
-    var text=creditLead(name,frame,reworded)+(reworded?recalled[1]:span);
-    return {topic:c.topic,chapter:c.chapter,sourceEntryId:bound.entryId,sourceVersion:bound.digest,
-      passage:{id:'claim-'+bound.claimId.slice(0,24),text:text,sources:[
-        {kind:'annal',entryId:bound.entryId,digest:bound.digest,label:'Read the original entry',portrait:bound.portrait}]}};
-  }
   function fromEntry(p,entryId){
-    return /^claim-[a-f0-9]{24}$/.test(p.id)&&p.sources.length===1&&
+    return /^(?:claim-[a-f0-9]{24}|narrative-[a-f0-9]{24}-[1-9][0-9]*)$/.test(p.id)&&p.sources.length===1&&
       p.sources[0].kind==='annal'&&p.sources[0].entryId===entryId;
   }
   function creditLead(name,frame,reworded){
@@ -89,48 +45,26 @@ var AnnalsLivingHistory=(function(){
     }
     return current;
   }
-  // Retain other accounts in their existing order. Put a new account directly
-  // after those on the same topic, without merging their claims or attribution.
-  function project(current, affectedChapter, entryId, records, topics){
-    if(!current||current.schemaVersion!==2||!annal.test(entryId)||
-       !Object.prototype.hasOwnProperty.call(headings,affectedChapter)||!Array.isArray(records)||
-       records.some(function(r){return r.chapter!==affectedChapter||r.sourceEntryId!==entryId;}))
-      throw new Error('Invalid bound History delta');
-    var prior=current.chapters.find(function(c){return c.id===affectedChapter;});
-    var original=prior?prior.passages:[];
-    // Only remove claims created by this automatic route. Signed opening and
-    // editorial passages are handled by the signed subtraction/review path.
-    var stable=original.filter(function(p){return !fromEntry(p,entryId);});
-    var delta=records.map(function(r){return r.passage;});
-    var ids=new Set();
-    if(stable.concat(delta).some(function(p){if(ids.has(p.id))return true;ids.add(p.id);return false;}))
-      throw new Error('Repeated claim identity');
-    var before=original.filter(function(p){return stable.indexOf(p)<0;});
-    if(AnnalsProduction.serial(before)===AnnalsProduction.serial(delta)&&
-      records.every(function(r){return topics[r.passage.id]===r.topic;}))return current;
-    var replacement=stable.slice(), placed=Object.assign({},topics);
-    records.forEach(function(r){
-      var at=replacement.length;
-      for(var i=at-1;i>=0;i--)if(placed[replacement[i].id]===r.topic){at=i+1;break;}
-      replacement.splice(at,0,r.passage);
-      placed[r.passage.id]=r.topic;
-    });
-    if(replacement.length>150)return current;
-    if(!prior&&!replacement.length)return current;
-    var chapters=prior?current.chapters.map(function(c){
-      return c!==prior?c:replacement.length?Object.assign({},c,{passages:replacement}):null;
-    }).filter(Boolean):current.chapters.concat([{id:affectedChapter,heading:headings[affectedChapter],passages:replacement}]);
-    return Object.assign({},current,{chapters:chapters});
-  }
-  return Object.freeze({containsSpan:containsSpan,eligible:eligible,fromEntry:fromEntry,passage:passage,
-    project:project,removeRevokedCredit:removeRevokedCredit});
-})();
-if(typeof module!=='undefined'&&module.exports)module.exports=AnnalsLivingHistory;
 
-/* Living Club History: called only inside the existing authenticated intake lock.
- * It reuses the consented assessment, approves no Annals entry and sends no mail. */
+  function supportedClaims(claims,source,entry){
+    var original=source.source;
+    if(typeof original.subject!=='string'||typeof original.excerpt!=='string'||
+      /^\s*fwd?:/i.test(original.subject)||example.test(original.subject+'\n'+original.excerpt))return false;
+    var own={subject:original.subject,excerpt:original.excerpt.split(
+      /^[ \t]*(?:>|(?:from|sent|subject|to|cc|bcc)[ \t]*:|(?:-+[ \t]*)?(?:forwarded|original) message\b)/im,1)[0]};
+    var screened=AnnalsAuto.safeSource(original.subject,original.excerpt,false);
+    return screened.valid&&claims.every(function(c){
+      return typeof c.span==='string'&&c.span.length>=18&&c.span.trim()===c.span&&
+        !/["“”«»<>\r\n]/.test(c.span)&&!AnnalsAuto.sensitiveText(c.span)&&AnnalsAuto.censor(c.span)===c.span&&
+        containsSpan(own[c.field],c.span)&&containsSpan(screened[c.field],c.span)&&
+        [entry.title,entry.summary].some(function(t){return containsSpan(t,c.span);});
+    });
+  }
+  return Object.freeze({fromEntry:fromEntry,removeRevokedCredit:removeRevokedCredit,supportedClaims:supportedClaims});
+})();
+
 function annalsHistoryIntakeReady_(){
-  if(typeof AnnalsLivingHistory==='undefined'||
+  if(typeof AnnalsHistoryNarrative==='undefined'||
       annalsProps_().getProperty('ANNALS_HISTORY_PUBLICATION_ENABLED')!=='true')return false;
   var root=annalsRoot_(), current=annalsRead_(root,'history-published-private.json'),
     ledger=annalsRead_(root,'history-bound-ledger-private.json');
@@ -138,81 +72,115 @@ function annalsHistoryIntakeReady_(){
     !!ledger&&ledger.schemaVersion===1&&/^[a-f0-9]{64}$/.test(ledger.privateOpeningPacketSha256)&&
     AnnalsProduction.serial(current.chapters)===AnnalsProduction.serial(ledger.chapters);
 }
-function annalsHistoryIntakeRecords_(folder, entryId, draft, source, portrait, state){
-  var original=annalsRead_(folder,'approval-private.json');
-  var saved=annalsRead_(folder,'correction-approval-private.json')||original;
+
+// This prepares the exact source-bound proof for the existing owner review.
+// The model supplies suggestions, never factual corroboration or permission.
+function annalsHistoryNarrativeReview_(state,id,chapterId,afterId){
+  if(typeof AnnalsHistoryNarrative==='undefined'||typeof id!=='string'||!/^[a-f0-9]{64}$/.test(id))
+    throw new Error('A staged narrative item is required');
+  var f=annalsFolder_(id),source=annalsRead_(f,'source-private.json'),draft=annalsRead_(f,'draft-private.json');
+  var proposed=draft&&draft.historyNarrative;
+  if(!source||source.sourceId!==id||!proposed||proposed.chapter!==chapterId||
+    annalsFile_(f,'quarantine-private.json')||annalsFile_(f,'removal-private.json')||
+    !annalsOrdinaryPublicationAllowed_(source)||!Array.isArray(draft.riskFlags)||draft.riskFlags.length||
+    !['anecdote','recipe','description','other'].includes(draft.interpretation&&draft.interpretation.intent))
+    throw new Error('The composed proposal lacks eligible current evidence');
+  annalsOrdinarySourceGate_(source);
+  var chapter=state.current.chapters.find(function(c){return c.id===chapterId;});
+  var after=chapter?chapter.passages.findIndex(function(p){return p.id===afterId;}):-1;
+  var entryId='annal-'+id.slice(0,24);
+  if(after<0||state.current.chapters.some(function(c){
+    return c.passages.some(function(p){return AnnalsLivingHistory.fromEntry(p,entryId);});
+  }))throw new Error('Select an exact insertion point for an unused narrative source');
+
+  var original=annalsRead_(f,'approval-private.json');
+  var saved=annalsRead_(f,'correction-approval-private.json')||original;
+  var blocked=state.ledger.ownerMaintainedSourceVersions||{};
+  var digest=saved&&saved.receipt&&saved.receipt.contentSha256;
   if(!saved||saved.publicationState!=='dispatch_accepted'||!saved.entry||!saved.receipt||!saved.publication||
     saved.entry.id!==entryId||saved.receipt.entryId!==entryId||
-    !annalsPrivateReceiptValid_(saved.entry,saved.receipt))return null;
-  var digest=saved.receipt.contentSha256;
-  var ownerMaintained=state.history.ledger.ownerMaintainedSourceVersions||{};
-  if(ownerMaintained[entryId+':'+digest]===true||
-    (original&&original.receipt&&ownerMaintained[entryId+':'+original.receipt.contentSha256]===true))return null;
+    blocked[entryId+':'+digest]===true||
+    original&&original.receipt&&blocked[entryId+':'+original.receipt.contentSha256]===true||
+    !annalsPrivateReceiptValid_(saved.entry,saved.receipt)||
+    !AnnalsLivingHistory.supportedClaims(proposed.claims,source,saved.entry))
+    throw new Error('Composed History must match exact used and signed Annals evidence');
 
-  // The exact source may already be eligible for Annals, but that alone is not
-  // authority to disclose previously unpublished correspondence through History.
-  var screened=AnnalsAuto.safeSource(source.source.subject,source.source.excerpt,false);
-  if(!screened.valid)return null;
-  var candidates=AnnalsLivingHistory.eligible(draft.historyCandidates,source,AnnalsAuto.sensitiveText).filter(function(c){
-    return AnnalsAuto.censor(c.span)===c.span&&AnnalsLivingHistory.containsSpan(screened[c.field],c.span)&&
-      [saved.entry.title,saved.entry.summary].some(function(t){return AnnalsLivingHistory.containsSpan(t,c.span);});
-  });
-  if(!candidates.length)return null;
-  var archive=state.archive||(state.archive=annalsOpeningArchive_());
+  var archive=annalsOpeningArchive_();
   var entry=archive.entries.find(function(e){return e.id===entryId;});
-  var approval=archive.approvals.find(function(a){return a.entryId===entryId;});
+  var approval=archive.approvals.find(function(r){return r.entryId===entryId;});
+  var serial=AnnalsProduction.serial, hash=function(value){return annalsHash_(serial(value));};
   if(!entry||!approval||!approval.consents||approval.consents.publication!==true||
-    approval.contentSha256!==digest||annalsHash_(AnnalsProduction.serial(entry))!==digest||
-    AnnalsProduction.serial(approval)!==AnnalsProduction.serial(saved.publication)||
-    AnnalsProduction.serial(approval.consents)!==AnnalsProduction.serial(saved.receipt.consents))return null;
-  portrait=portrait&&entry.contributorPortrait===portrait&&approval.consents.namedAttribution===true?portrait:null;
-  return candidates.map(function(c){
-    var claimId=annalsHash_(AnnalsProduction.serial({entryId:entryId,chapter:c.chapter,span:c.span}));
-    return AnnalsLivingHistory.passage(c,{entryId:entryId,digest:digest,claimId:claimId,publication:true,portrait:portrait});
+    approval.contentSha256!==digest||hash(entry)!==digest||
+    serial(approval)!==serial(saved.publication)||serial(approval.consents)!==serial(saved.receipt.consents))
+    throw new Error('The signed public Annals version changed');
+  var portrait=annalsContributorPortrait_(source);
+  var portraitAllowed=!!portrait&&portrait===entry.contributorPortrait&&approval.consents.namedAttribution===true;
+  var publicSource={kind:'annal',entryId:entryId,digest:digest,label:'Supporting Annals entry',
+    portrait:portraitAllowed?portrait:null};
+  // The signed chapter has no annotation for existing observations.
+  if(proposed.paragraphs.some(function(clauses){
+    return clauses.some(function(clause){return clause.kind==='observation';});
+  }))throw new Error('A History insertion cannot add an observation to the existing chapter');
+  var claimIds=new Set(proposed.paragraphs.flatMap(function(clauses){
+    return clauses.flatMap(function(clause){return clause.claims;});
+  }));
+  if(proposed.claims.some(function(c){return !claimIds.has(c.id);}))
+    throw new Error('All proposed evidence, including competing accounts, must be accounted for');
+  var claims=proposed.claims.map(function(c){
+    return {id:c.id,chapter:chapterId,status:'eligible',order:c.order,dispute:c.dispute,variant:c.variant,
+      uncertain:c.uncertain||/\b(?:may|might|possibly|probably|uncertain|around|roughly|approximately|not sure)\b/i.test(c.span),
+      poignant:c.poignant,span:c.span,publicSource:publicSource,portraitAllowed:portraitAllowed};
   });
+  var evidence={aliases:['Justin','Fish','Marc','Matt','Ken','Jamie','Jerome'],claims:claims};
+  var proposal={mode:'revision',chapter:chapterId,
+    sections:[{id:chapterId,heading:chapter.heading,paragraphs:proposed.paragraphs}]};
+  var reviewedDigest=AnnalsHistoryNarrative.narrativeReviewDigest(state.current,proposal,evidence,hash);
+  // A deterministic preview hash is not authority. Existing owner confirmation
+  // checks the exact preview and rederives this entire binding before signing.
+  var staged=AnnalsHistoryNarrative.stageHistoryNarrative({current:state.current,proposal:proposal,
+    evidence:evidence,reviewedDigest:reviewedDigest},hash);
+  if(staged.status!=='staged')throw new Error('The candidate does not meet the composed History contract');
+  var composed=staged.chapters.find(function(c){return c.id===chapterId;}).passages;
+  if(composed.some(function(p){return AnnalsAuto.sensitiveText(p.text);})||
+     chapter.passages.length+composed.length>150)throw new Error('Unsafe or oversized History proposal');
+  var prefix='narrative-'+hash({id:id,proposal:proposal,digest:digest}).slice(0,24)+'-';
+  var passages=chapter.passages.slice();
+  passages.splice.apply(passages,[after+1,0].concat(composed.map(function(p,i){
+    return Object.assign({},p,{id:prefix+(i+1)});
+  })));
+  var chapters=state.current.chapters.map(function(c){
+    return c===chapter?Object.assign({},c,{passages:passages}):c;
+  });
+  var consents=annalsConsentRegistry_().members[source.source.sender.toLowerCase()];
+  return {chapters:chapters,claims:claims,bindingDigest:hash({reviewedDigest:reviewedDigest,after:afterId,
+    source:source,assessedDraft:draft,approvedReceipt:saved.receipt,publicProof:approval,
+    consents:consents,ledger:state.ledger})};
 }
-function annalsDispatchIntakeProjection_(folder,id,state,projected,metadata){
-  state.dispatched=true; // one chapter and one signing attempt per intake tick
-  var review={operation:'standing-consent-history-intake',
-    boundLedger:Object.assign({},state.history.ledger,metadata,{chapters:projected.chapters})};
-  return annalsDispatchHistoryRevision_(folder,id,review,2,projected.chapters,2,state.history.current.revision).dispatchAccepted===true;
-}
+
 function annalsHistoryIntakeFolder_(folder,id,state){
   if(!state.history||state.dispatched||annalsFile_(folder,'quarantine-private.json')||
     annalsFile_(folder,'removal-private.json'))return false;
-  var current=state.history.current, ledger=state.history.ledger, entryId='annal-'+id.slice(0,24);
+  var current=state.history.current, entryId='annal-'+id.slice(0,24);
   var active=current.chapters.filter(function(c){return c.passages.some(function(p){return AnnalsLivingHistory.fromEntry(p,entryId);});});
-  var draft=annalsRead_(folder,'draft-private.json');
-  if(!active.length&&(!draft||!Array.isArray(draft.historyCandidates)||!draft.historyCandidates.length))return false;
+  if(!active.length)return false;
   var source=annalsRead_(folder,'source-private.json');
   if(!source||source.sourceId!==id)return false;
-  var records=[];
+  var projected=current;
   if(annalsOrdinaryPublicationAllowed_(source)){
     annalsOrdinarySourceGate_(source);
-    var portrait=annalsContributorPortrait_(source);
-    // Owner-maintained versions block additions. Revocation is strictly
-    // subtractive and acts on passages that actually survive in History.
-    var deattributed=AnnalsLivingHistory.removeRevokedCredit(current,active,entryId,portrait);
-    if(deattributed!==current)return annalsDispatchIntakeProjection_(folder,id,state,deattributed,{});
-    if(!draft||!Array.isArray(draft.riskFlags)||draft.riskFlags.length||
-      !['anecdote','recipe','description','other'].includes(draft.interpretation&&draft.interpretation.intent))return false;
-    records=annalsHistoryIntakeRecords_(folder,entryId,draft,source,portrait,state);
-    if(!records)return false;
+    projected=AnnalsLivingHistory.removeRevokedCredit(current,active,entryId,annalsContributorPortrait_(source));
+  }else{
+    var chapter=active[0];
+    var remaining=chapter.passages.filter(function(p){return !AnnalsLivingHistory.fromEntry(p,entryId);});
+    projected=Object.assign({},current,{chapters:current.chapters.flatMap(function(c){
+      return c!==chapter?[c]:remaining.length?[Object.assign({},c,{passages:remaining})]:[];
+    })});
   }
-  var affected=new Set(active.map(function(c){return c.id;}).concat(records.map(function(r){return r.chapter;})));
-  var topics=ledger.claimTopics||{};
-  for(var chapter of affected){
-    var chapterRecords=records.filter(function(r){return r.chapter===chapter;});
-    var projected=AnnalsLivingHistory.project(current,chapter,entryId,chapterRecords,topics);
-    if(projected===current)continue;
-    var nextTopics={}, used=Object.assign({},topics);
-    chapterRecords.forEach(function(r){used[r.passage.id]=r.topic;});
-    projected.chapters.forEach(function(c){c.passages.forEach(function(p){
-      if(Object.prototype.hasOwnProperty.call(used,p.id))nextTopics[p.id]=used[p.id];
-    });});
-    return annalsDispatchIntakeProjection_(folder,id,state,projected,{claimTopics:nextTopics});
-  }
-  return false;
+  if(projected===current)return false;
+  state.dispatched=true;
+  var review={operation:'standing-consent-history-revocation',
+    boundLedger:Object.assign({},state.history.ledger,{chapters:projected.chapters})};
+  return annalsDispatchHistoryRevision_(folder,id,review,2,projected.chapters,2,current.revision).dispatchAccepted===true;
 }
 
 function annalsHistoryTickReconcile_(state){
