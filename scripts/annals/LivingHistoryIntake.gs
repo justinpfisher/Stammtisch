@@ -4,7 +4,7 @@ var AnnalsLivingHistory=(function(){
   var headings={origins:'Origins',gatherings:'Gathering together',assemblies:'Annual Assemblies',traditions:'Developing traditions'};
   var titles={fish:'Justin',marc:'Marc',matt:'Matt',ken:'Ken',jamie:'Jamie',jerome:'Jerome'};
   var slug=/^[a-z][a-z0-9-]{2,79}$/, digest=/^[a-f0-9]{64}$/, annal=/^annal-[a-f0-9]{24}$/;
-  var example=/\b(?:hypothetical|fiction(?:al)?|invented|suppose|imagine|for example|if only|pretend|made-up|test fixture|sample submission|simulated)\b/i;
+  var example=/\b(?:hypothetical|fiction(?:al)?|suppose|imagine|for example|if only|pretend|made-up|test fixture|staged example|(?:sample|example) submission|simulated)\b/i;
   function containsSpan(text, span){
     if(typeof text!=='string'||!span)return false;
     for(var at=text.indexOf(span);at>=0;at=text.indexOf(span,at+1)){
@@ -25,7 +25,7 @@ var AnnalsLivingHistory=(function(){
     // A plain-text forward may lose its headers in the screened Annals copy.
     // Consider only the author's portion of the immutable body for History.
     var authored={subject:fields.subject,excerpt:fields.excerpt.split(
-      /^[ \t]*(?:>|(?:from|sent|subject|to):|(?:-+[ \t]*)?(?:forwarded|original) message\b)/im,1)[0]};
+      /^[ \t]*(?:>|(?:from|sent|subject|to|cc|bcc)[ \t]*:|(?:-+[ \t]*)?(?:forwarded|original) message\b)/im,1)[0]};
     return value.filter(function(c){
       if(!c||!['chapter,field,kind,period,span,topic','chapter,editorialFrame,field,kind,period,span,topic'].includes(Object.keys(c).sort().join(','))||
          !Object.prototype.hasOwnProperty.call(headings,c.chapter)||typeof c.topic!=='string'||!slug.test(c.topic)||
@@ -113,12 +113,15 @@ function annalsHistoryIntakeReady_(){
     AnnalsProduction.serial(current.chapters)===AnnalsProduction.serial(ledger.chapters);
 }
 function annalsHistoryIntakeRecords_(folder, entryId, draft, source, state){
-  var saved=annalsRead_(folder,'correction-approval-private.json')||annalsRead_(folder,'approval-private.json');
+  var original=annalsRead_(folder,'approval-private.json');
+  var saved=annalsRead_(folder,'correction-approval-private.json')||original;
   if(!saved||saved.publicationState!=='dispatch_accepted'||!saved.entry||!saved.receipt||!saved.publication||
     saved.entry.id!==entryId||saved.receipt.entryId!==entryId||
     !annalsPrivateReceiptValid_(saved.entry,saved.receipt))return null;
   var digest=saved.receipt.contentSha256;
-  if((state.history.ledger.ownerMaintainedSourceVersions||{})[entryId+':'+digest]===true)return null;
+  var ownerMaintained=state.history.ledger.ownerMaintainedSourceVersions||{};
+  if(ownerMaintained[entryId+':'+digest]===true||
+    (original&&original.receipt&&ownerMaintained[entryId+':'+original.receipt.contentSha256]===true))return null;
 
   // The exact source may already be eligible for Annals, but that alone is not
   // authority to disclose previously unpublished correspondence through History.
@@ -156,7 +159,7 @@ function annalsHistoryIntakeFolder_(folder,id,state){
   if(annalsOrdinaryPublicationAllowed_(source)){
     annalsOrdinarySourceGate_(source);
     if(!draft||!Array.isArray(draft.riskFlags)||draft.riskFlags.length||
-      ['direct_quote','reported_speech'].includes(draft.interpretation&&draft.interpretation.intent))return false;
+      !['anecdote','recipe','description','other'].includes(draft.interpretation&&draft.interpretation.intent))return false;
     records=annalsHistoryIntakeRecords_(folder,entryId,draft,source,state);
     if(!records)return false;
   }

@@ -235,6 +235,7 @@ test('unsafe, unsupported, staged, altered, conflicting or revoked evidence cann
     ['mismatched source identity',({item})=>item.source.sourceId='c'.repeat(64)],
     ['synthetic flag',({item})=>item.source.syntheticFixture=true],
     ['staged example framing',({item})=>item.source.source.subject='This is a hypothetical test fixture.'],
+    ['staged sample outside the span',({item})=>item.source.source.subject='A staged example for the desk'],
     ['clipped clause',({item})=>item.source.source.excerpt='Whether or not '+recall],
     ['fictional span',({item})=>item.source.source.excerpt='For example: '+recall],
     ['forward context',({item})=>item.source.source.excerpt='From: Another person\n'+recall],
@@ -248,6 +249,11 @@ test('unsafe, unsupported, staged, altered, conflicting or revoked evidence cann
     ['quarantined',({item})=>item.files.set('quarantine-private.json',{})],
     ['owner-maintained source',({f,item})=>f.rootFiles.get('history-bound-ledger-private.json').ownerMaintainedSourceVersions={
       [item.entryId+':'+item.approved.receipt.contentSha256]:true}],
+    ['owner-maintained source with an unrelated Annals correction',({f,item})=>{
+      f.rootFiles.get('history-bound-ledger-private.json').ownerMaintainedSourceVersions={
+        [item.entryId+':'+item.approved.receipt.contentSha256]:true};
+      item.approve(recall+' Another already supported sentence.',true);
+    }],
     ['standing consent revoked',({item})=>item.member.autoPublication.revokedAt=at],
     ['withdrawn',({item})=>item.withdraw()]
   ];
