@@ -328,9 +328,9 @@ A quotation is the actual speaker's words, subject only to established permitted
 
 ### Club History
 
-Open with the six friends and how they came to meet regularly. Keep the opening short. A recent drink or outing belongs in the Annals unless it helps explain how a Club custom began or changed. At the foot of the History, show the six approved member portraits together as the Club roster.
+Open with the six friends and how they came to meet regularly. Keep the scope concise and give the sentences room to establish the rhythm. A recent drink or outing belongs in the Annals unless it helps explain how a Club custom began or changed. At the foot of the History, show the six approved member portraits together as the Club roster.
 
-Club History should read as a **continuous AI-written historical narrative in the Stammtisch voice**: slightly grandiose in telling, modest and faithful in factual substance. It must not become a neutral database export, a string of "A member recalls" fragments, a mock-constitution, a sequence of unrelated cards or a parody that overwhelms its subject.
+Club History should read as a **continuous AI-written historical narrative in the Stammtisch voice**: generous in cadence, disproportionately grand about ordinary proceedings, and modest and faithful in factual substance. Write in the third person as the Club or the company. Keep the wit dry and affectionate, and state uncertainty plainly. It must not become a neutral database export, a string of "A member recalls" fragments, a mock-constitution, a sequence of unrelated cards or a parody that overwhelms its subject.
 
 Draw from actual, permission-qualified member recollections and documented evidence. Preserve dates, ordering, exact sourced words, attribution, contradiction, correction and revision records. AI may reorganise, integrate overlapping accounts and provide carefully limited narrative transitions, but must not invent motives, agreement, attendance, places, ceremonial proceedings, titles, rules or connective events.
 
@@ -342,6 +342,16 @@ For each meaningful section:
 2. Let the third-person institutional narrator impart a measured sense of significance.
 3. Use **one** quiet comic observation at most where the material lends itself to it.
 4. Return to the account and continue; let genuine poignant material remain poignant.
+
+#### Canonical Club-authored editorial example
+
+The beginnings of the Club are to be found, sometime before the pandemic, in the perfectly ordinary circumstance of six friends getting together whenever they could. Both evenings in company and weekends at the cottage are remembered from this early period. The surviving recollections do not permit either to claim precedence.
+
+Once the pleasure of assembling had been established, there remained the less agreeable business of arranging to do it again. In due course the Club set aside the third Friday of each month, at eight o’clock by the Eastern clock, which in winter stands five hours behind Greenwich. This relieved six calendars of the obligation to enter into fresh negotiations on every occasion.
+
+Several of the Club’s observances owe their existence to a suggestion originally advanced for no more solemn purpose than the diversion of the company. The company, finding the suggestion agreeable, would then bestow upon it rather more attention than the occasion strictly warranted. The cottage weekend itself came, in time, to bear the title of Annual Gentlemen’s Assembly.
+
+Use this example for cadence, scale and point of view in Club-authored editorial narrative. Keep the subject focused while giving related thoughts a full sentence. Directed at the Club itself, the dry humour can give an ordinary occasion more ceremonial weight than it is likely to bear. The facts of a new passage must come from its own source.
 
 A poignant or private recollection may be written with the Club's characteristic composure without a punchline. Avoid jokes at a member's vulnerability. AI-generated connections do not become evidence; when distinct memories conflict, acknowledge the uncertainty instead of selecting the tidiest story.
 

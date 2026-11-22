@@ -11,6 +11,9 @@ const modules=['PilotCore.js','ProductionCore.js','AutoCore.js','Production.gs',
 const sha=text=>createHash('sha256').update(text).digest('hex');
 const plain=value=>JSON.parse(JSON.stringify(value));
 const at='2026-11-20T21:00:00.000Z';
+const guide=readFileSync(new URL('../docs/brand-editorial-style-guide.md',import.meta.url),'utf8').replaceAll('\r\n','\n');
+const approvedVoice=guide.split('#### Canonical Club-authored editorial example\n\n')[1]
+  .split('\n\nUse this example')[0].split('\n\n');
 const recall='I remember that we sang after the year-end gathering.';
 const second='I remember that we sang before the year-end gathering.';
 const lamps='The lamps were still burning as the furniture was put away.';
@@ -247,12 +250,16 @@ test('one mocked assessment proposes composed copy without raising model, token 
   const packet=JSON.parse(assessment.input[0].content[0].text);
   assert.deepEqual(Object.keys(packet),['voiceOnly','chapterContinuity']);
   assert.deepEqual(packet.voiceOnly,{
-    assembly:'The cottage had evidently been fit for purpose before it acquired a formal title.',
+    origins:approvedVoice[0],
+    evening:approvedVoice[1],
+    observances:approvedVoice[2],
     solemn:'This part of the evening belongs to the life being remembered.'
   });
   assert.deepEqual(packet.chapterContinuity,f.opening.chapters.map(chapter=>({
     chapter:chapter.id,heading:chapter.heading,prose:chapter.passages[0].text
   })));
+  assert.match(assessment.instructions,/generous sentence cadence and dry, affectionate institutional grandeur/);
+  assert.match(assessment.instructions,/solemn example illustrates the restraint due to Celebration of Life/);
   assert.match(assessment.instructions,/Use only the final message for all claims/);
   assert.match(assessment.instructions,/Ignore the packet when writing every field outside historyNarrative/);
   const {historyNarrative,...ordinaryProperties}=assessment.text.format.schema.properties;
@@ -287,6 +294,42 @@ test('one mocked assessment proposes composed copy without raising model, token 
     assert.equal(badProposal.historyNarrative,undefined,category);
     assert.deepEqual(plain(badProposal.recipe),input.raw.recipe,category);
   }
+});
+
+test('approved cadence and four chapter destinations fit the unchanged assessment budget',()=>{
+  const f=fixture(), core=f.cx.AnnalsProduction, narrative=f.cx.AnnalsHistoryNarrative;
+  const assemblyStart=approvedVoice[2].lastIndexOf(' The cottage weekend');
+  assert.ok(assemblyStart>0);
+  const passages={origins:approvedVoice[0],gatherings:approvedVoice[1],
+    traditions:approvedVoice[2].slice(0,assemblyStart),assemblies:approvedVoice[2].slice(assemblyStart+1)};
+  const history={revision:3,chapters:f.opening.chapters.map(chapter=>({
+    ...chapter,passages:[{...chapter.passages[0],text:passages[chapter.id]}]
+  }))};
+  const context=narrative.generationContext(history,value=>sha(core.serial(value)),f.cx.AnnalsAuto.sensitiveText,core.HISTORY_REFERENCE_LIMIT);
+  assert.ok(context.reference.length<=core.HISTORY_REFERENCE_LIMIT);
+  const packet=JSON.parse(context.reference);
+  assert.deepEqual(packet.chapterContinuity.map(sample=>sample.chapter),history.chapters.map(chapter=>chapter.id));
+  for(const sample of packet.chapterContinuity){
+    const original=history.chapters.find(chapter=>chapter.id===sample.chapter).passages[0].text;
+    assert.ok(original===sample.prose||original.split(/(?<=[.!?])\s+/).includes(sample.prose));
+    assert.ok(sample.prose.length<=160);
+  }
+});
+
+test('already authenticated revision 2 voice packets still qualify for an owner preview',()=>{
+  const f=fixture(), item=f.add(0), context=f.cx.annalsHistoryIntakeContext_();
+  const packet=JSON.parse(context.reference);
+  packet.voiceOnly={
+    assembly:'The cottage had evidently been fit for purpose before it acquired a formal title.',
+    solemn:'This part of the evening belongs to the life being remembered.'
+  };
+  context.reference=JSON.stringify(packet);
+  f.cx.annalsHistoryIntakeContext_=()=>context;
+  f.assess(item);
+  assert.ok(item.files.get('ai-response-private.json').historyAssessmentSignature);
+  assert.ok(f.preview(item).hash);
+  assert.equal(f.providerRequests.length,1);
+  assert.equal(f.events.length,0);
 });
 
 test('unavailable or mismatched verified History leaves the ordinary recipe and photo assessment unchanged',()=>{
@@ -367,11 +410,11 @@ test('only safe bounded public prose reaches the same request, with recipe and p
 });
 
 test('public reference wording is held when a model copies it into prose or proposes it as evidence',()=>{
-  for(const kind of ['Assembly exemplar','chapter prose','solemn exemplar as evidence']){
+  for(const kind of ['approved exemplar','chapter prose','solemn exemplar as evidence']){
     const f=fixture(), item=f.add(0), proposed=item.raw.historyNarrative[0];
     const {reference}=f.cx.annalsHistoryIntakeContext_(), packet=JSON.parse(reference);
     if(kind==='solemn exemplar as evidence')proposed.claims[0].span=packet.voiceOnly.solemn;
-    else proposed.paragraphs[0][0].text=kind==='Assembly exemplar'?packet.voiceOnly.assembly:packet.chapterContinuity.at(-1).prose;
+    else proposed.paragraphs[0][0].text=kind==='approved exemplar'?packet.voiceOnly.observances.match(/^[^.]+\./)[0]:packet.chapterContinuity.at(-1).prose;
     f.assess(item);
     const ordinary={...item.raw};
     delete ordinary.historyNarrative;
@@ -395,7 +438,7 @@ test('the exact original generation context must survive through preview and sig
   const reviewed=g.preview(fresh);
   const stamp=fresh.files.get('ai-attempt-private.json').historyContext;
   const packet=JSON.parse(stamp.reference);
-  packet.voiceOnly.assembly='The fictional Club had put away the ceremonial place cards by then.';
+  packet.voiceOnly.observances='The fictional Club had put away the ceremonial place cards by then.';
   stamp.reference=JSON.stringify(packet);
   assert.throws(()=>g.publish(reviewed),/requires current signed chapter context/);
   assert.equal(g.events.length,0);
@@ -438,7 +481,7 @@ test('the response binding also rejects invalid packet shape and altered exempla
     if(invalid==='empty samples')packet.chapterContinuity=[];
     if(invalid==='duplicate chapter')packet.chapterContinuity[1]=packet.chapterContinuity[0];
     if(invalid==='unrecognized target')packet.chapterContinuity.at(-1).chapter='hypothetical';
-    if(invalid==='changed exemplar')packet.voiceOnly.assembly='A different pinned example.';
+    if(invalid==='changed exemplar')packet.voiceOnly.origins='A different pinned example.';
     attempt.historyContext.reference=JSON.stringify(packet);
     assert.equal(f.cx.AnnalsHistoryNarrative.bindGeneration(item.raw.historyNarrative[0],
       attempt.historyContext,f.cx.AnnalsProduction.HISTORY_REFERENCE_LIMIT),null,invalid);

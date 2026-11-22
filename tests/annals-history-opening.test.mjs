@@ -377,10 +377,16 @@ test('the short Club account replaces the exact second edition through the same 
   assert.equal(doc.revision,3);
   assert.deepEqual(Array.from(doc.chapters,ch=>ch.id),['origins','gatherings','traditions','assemblies']);
   assert.equal(historyBacklinks(doc).size,0);
-  assert.match(html,/Sometime before the pandemic, six friends/);
-  assert.match(html,/hard to say which came first/);
-  assert.match(html,/third Friday of every month at eight/);
-  assert.match(html,/entirely too much encouragement/);
+  const guide=readFileSync(new URL('../docs/brand-editorial-style-guide.md',import.meta.url),'utf8').replaceAll('\r\n','\n');
+  const approved=guide.split('#### Canonical Club-authored editorial example\n\n')[1]
+    .split('\n\nUse this example')[0].split('\n\n');
+  const story=html.match(/<div class="history-story">(.*?)<\/div>/)[1];
+  const paragraphs=[...story.matchAll(/<p>(.*?)<\/p>/g)].map(p=>p[1].replace(/<[^>]+>/g,''));
+  assert.equal(approved.length,3);
+  assert.deepEqual(paragraphs,approved);
+  for (const id of ['origins','gatherings','traditions','assemblies']) {
+    assert.match(story,new RegExp('id="chapter-'+id+'"'));
+  }
   assert.doesNotMatch(html,/Kingston Windfall|Daq in Black|Contributors to Club History|assets\/crest\.webp|A record assembled/);
   const portraits=[...html.matchAll(/assets\/members\/annals\/([a-z]+)-annals\.webp/g)].map(m=>m[1]).sort();
   assert.deepEqual(portraits,['fish','jamie','jerome','ken','marc','matt']);

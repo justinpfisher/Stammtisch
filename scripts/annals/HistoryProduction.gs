@@ -380,16 +380,16 @@ function annalsBriefHistoryChapters_(){
   }
   return [
     chapter('origins','The early days',
-      'Sometime before the pandemic, six friends started getting together. There were evenings here and there, and weekends at the cottage. It’s hard to say which came first.',
+      'The beginnings of the Club are to be found, sometime before the pandemic, in the perfectly ordinary circumstance of six friends getting together whenever they could. Both evenings in company and weekends at the cottage are remembered from this early period. The surviving recollections do not permit either to claim precedence.',
       ['club-recollection']),
     chapter('gatherings','The third Friday',
-      'The trouble with finding a free evening in six calendars was having to do it again the next month. Eventually they settled on the third Friday of every month at eight.',
+      'Once the pleasure of assembling had been established, there remained the less agreeable business of arranging to do it again. In due course the Club set aside the third Friday of each month, at eight o’clock by the Eastern clock, which in winter stands five hours behind Greenwich. This relieved six calendars of the obligation to enter into fresh negotiations on every occasion.',
       ['club-recollection','monthly-stammtisch']),
     chapter('traditions','Club traditions',
-      'Quite a few Club traditions began with one of the six having a funny idea and the other five giving it entirely too much encouragement.',
+      'Several of the Club’s observances owe their existence to a suggestion originally advanced for no more solemn purpose than the diversion of the company. The company, finding the suggestion agreeable, would then bestow upon it rather more attention than the occasion strictly warranted.',
       ['club-recollection']),
     chapter('assemblies','The Annual Gentlemen’s Assembly',
-      'They still go to the cottage. It’s the Annual Gentlemen’s Assembly now.',
+      'The cottage weekend itself came, in time, to bear the title of Annual Gentlemen’s Assembly.',
       ['club-recollection','huntsville-assembly'])
   ];
 }
