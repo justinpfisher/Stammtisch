@@ -91,10 +91,14 @@ function subtractOpeningRecipe(c,p,missing){
   const remaining=p.sources.filter(s=>!removed.has(s.entryId));
   const before=OPENING_RECIPE_CLAIMS.filter(k=>p.sources.some(s=>s.kind==='annal'&&s.entryId===k.entryId));
   const after=before.filter(k=>!removed.has(k.entryId));
-  const useTitles=claims=>OPENING_RECIPE_LINE.replace('Kingston Windfall and Daq in Black',claims.map(k=>k.title).join(' and '));
-  const from=useTitles(before);
-  if(!p.text.includes(from)||!remaining.some(s=>s.kind==='record'))return null;
-  const text=after.length?p.text.replace(from,useTitles(after)):p.text.replace(from+' ','');
+  if(!remaining.some(s=>s.kind==='record'))return null;
+  const titles=claims=>claims.map(k=>k.title).join(' and ');
+  const editorialLine=claims=>titles(claims)+(claims.length===2?' are both':' is')+' in the Annals.';
+  const openingLine=claims=>OPENING_RECIPE_LINE.replace('Kingston Windfall and Daq in Black',titles(claims));
+  const line=p.text.includes(editorialLine(before))?editorialLine:openingLine;
+  const from=line(before);
+  if(!p.text.includes(from))return null;
+  const text=after.length?p.text.replace(from,line(after)):p.text.replace(from+' ','');
   return {...p,text,sources:remaining};
 }
 // Call only after the ordinary publisher has verified the records' signatures.

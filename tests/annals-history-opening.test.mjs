@@ -3,7 +3,8 @@ import { createHash, createHmac } from 'node:crypto';
 import vm from 'node:vm';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyHistoryRevision, emptyHistory, renderHistory } from '../scripts/annals/HistoryPublisher.mjs';
+import { applyHistoryRevision, emptyHistory, historyDigest, renderHistory } from '../scripts/annals/HistoryPublisher.mjs';
+import { historyBacklinks, subtractStaleHistory } from '../scripts/annals/BoundHistory.mjs';
 
 const modules=['PilotCore.js','ProductionCore.js','AutoCore.js','Production.gs','HistoryProduction.gs']
   .map(name=>[name,readFileSync(new URL('../scripts/annals/'+name,import.meta.url),'utf8')]);
@@ -14,7 +15,7 @@ const canon=x=>Array.isArray(x)?x.map(canon):x&&typeof x==='object'?Object.fromE
 const serial=x=>JSON.stringify(canon(x));
 const digest=x=>createHash('sha256').update(x).digest('hex');
 const fixture=(options={})=>{
-  const today=emptyHistory(), store=new Map(), files=new Map(), events=[];
+  const today=options.currentHistory??emptyHistory(), store=new Map(), files=new Map(), events=[];
   const key='fictional test-only History authority'.repeat(2);
   const privateKey='fictional test-only Annals approval authority';
   const chapters=[{id:'gatherings',heading:'Gathering together',passages:[
@@ -256,4 +257,97 @@ test('opening obeys existing release readiness and an unconfirmed dispatch is ne
   assert.equal(c.annalsReconcileHistory('owner').verified,false);
   assert.throws(()=>c.annalsPublishHistoryOpening('owner',p.previewDigest,true),/Prior history dispatch/);
   assert.equal(f.events.length,1);
+});
+
+test('the editorial refresh atomically signs exact approved copy, preserves evidence and renders the crest separately',()=>{
+  const current=JSON.parse(readFileSync(new URL('../data/club-history.json',import.meta.url),'utf8'));
+  const currentHtml=readFileSync(new URL('../history.html',import.meta.url),'utf8').replace(/\r\n/g,'\n');
+  assert.equal(renderHistory(current)+'\n',currentHtml);
+  // Keep the one-time operation testable after the real revision advances.
+  const record={kind:'record',ref:'club-record'};
+  const source=(id,label,portrait)=>({kind:'annal',entryId:'annal-'+id,label,portrait,digest:'b'.repeat(64)});
+  const passage=(id,sources)=>({id,text:'Fictional opening evidence.',sources});
+  const opening=current.revision===1?current:{schemaVersion:2,revision:1,updatedAt:at,chapters:[
+    {id:'origins',heading:'Fictional origins',passages:[passage('opening-1',[record])]},
+    {id:'gatherings',heading:'Fictional gatherings',passages:[
+      passage('opening-1',[record]),passage('opening-2',[record,
+        source('96b5ae266a36793c6a203033','Kingston Windfall','marc'),
+        source('5e0607c7dc924fb5663c40e0','Daq in Black','marc')])]},
+    {id:'assemblies',heading:'Fictional assemblies',passages:[passage('opening-1',[record])]},
+    {id:'traditions',heading:'Fictional traditions',passages:[passage('opening-1',[record]),
+      passage('opening-2',[source('f463f9566e3d9c3fe09465de','Christisch','fish')])]}
+  ]};
+  const f=fixture({currentHistory:opening}), c=f.c;
+  if(current.revision!==1)c.ANNALS_HISTORY_EDITORIAL_BASE_=historyDigest(opening);
+  const packet=f.store.get('history-opening-authorized-private.json');
+  const provenance={schemaVersion:1,privateOpeningPacketSha256:digest(serial(packet)),chapters:opening.chapters};
+  f.store.set('history-bound-ledger-private.json',provenance);
+  f.store.set('history-published-private.json',opening);
+  assert.equal(c.ANNALS_HISTORY_EDITORIAL_BASE_,historyDigest(opening));
+  let verifiedChapters=opening.chapters;
+  c.annalsOpeningEdition_=(staged,archive,allowUncredited)=>{
+    assert.equal(staged,packet);
+    assert.equal(archive.entries[0].id,f.archive.entries[0].id);
+    assert.equal(allowUncredited,true);
+    return verifiedChapters;
+  };
+  const normalize=value=>JSON.parse(JSON.stringify(value));
+  const evidence=chapters=>Object.fromEntries(chapters.flatMap(ch=>ch.passages.map(p=>[
+    ch.id+'/'+p.id,p.sources.map(s=>s.kind==='annal'?{entryId:s.entryId,digest:s.digest}:s)
+  ])));
+  assert.throws(()=>c.annalsPreviewHistoryEditorial('other'),/Not owner/);
+  const preview=c.annalsPreviewHistoryEditorial('owner'), chapters=normalize(preview.chapters);
+  assert.deepEqual(chapters.map(ch=>ch.heading),[
+    'The name','The appointed evening','The Annual Gentlemen’s Assembly','The Club’s observances'
+  ]);
+  assert.deepEqual(evidence(chapters),evidence(opening.chapters));
+  assert.deepEqual(chapters[3].passages.map(p=>p.id),['opening-2','opening-1']);
+  assert.doesNotMatch(JSON.stringify(chapters.map(c=>c.passages.map(p=>[p.text,p.sources.map(s=>s.label)]))),
+    /\b(?:Justin|Fish|Marc|Matt|Ken|Jamie|Jerome|Germany|constitution|bylaws|we)\b/i);
+  assert.throws(()=>c.annalsPublishHistoryEditorial('owner',preview.previewDigest,false),/Confirm/);
+  packet.records['fictional-record'].reviewedMeaning='changed';
+  assert.throws(()=>c.annalsPublishHistoryEditorial('owner',preview.previewDigest,true),/Opening evidence changed/);
+  packet.records['fictional-record'].reviewedMeaning='fixture-only';
+  verifiedChapters=opening.chapters.map(ch=>({...ch,passages:ch.passages.map(p=>({...p,sources:p.sources.map(s=>
+    s.kind==='annal'&&s.portrait==='fish'?{...s,portrait:null}:s)}))}));
+  assert.throws(()=>c.annalsPublishHistoryEditorial('owner',preview.previewDigest,true),/Editorial preview changed/);
+  const updated=c.annalsPreviewHistoryEditorial('owner');
+  assert.notEqual(updated.previewDigest,preview.previewDigest);
+  const before=serial([...f.files]);
+  assert.equal(c.annalsPublishHistoryEditorial('owner',updated.previewDigest,true).dispatchAccepted,true);
+  const {document}=f.events[0].client_payload;
+  assert.equal(document.revision,2);
+  assert.equal(f.store.get('history-published-private.json'),opening);
+  assert.equal(serial([...f.files]),before);
+  assert.doesNotMatch(serial(f.events),/privateOpeningPacket|fixture-only|example\.test/);
+  assert.deepEqual([...historyBacklinks(document).get('annal-f463f9566e3d9c3fe09465de')],[['traditions','The Club’s observances']]);
+  const html=renderHistory(document);
+  assert.match(html,/<section class="history-company"><h2>The company<\/h2><img src="assets\/crest\.webp"/);
+  assert.match(html,/<section class="history-contributors"><h2>Contributors to Club History<\/h2>/);
+  assert.doesNotMatch(html,/fish-annals\.webp/);
+  assert.match(html,/annals\.html#annal-f463f9566e3d9c3fe09465de">Christisch in the Annals<\/a>/);
+  for(const id of ['origins','gatherings','assemblies','traditions'])assert.match(html,new RegExp('id="chapter-'+id+'"'));
+  f.readback();
+  assert.equal(c.annalsReconcileHistory('owner').revision,2);
+  assert.equal(f.store.get('history-bound-ledger-private.json').privateOpeningPacketSha256,provenance.privateOpeningPacketSha256);
+  assert.throws(()=>c.annalsPublishHistoryEditorial('owner',updated.previewDigest,true),/exact reconciled opening edition/);
+  assert.equal(f.events.length,1);
+
+  const annals=chapters.flatMap(ch=>ch.passages.flatMap(p=>p.sources.filter(s=>s.kind==='annal')));
+  const keep=annals.filter(s=>s.label!=='Kingston Windfall');
+  const entries=keep.map(s=>({id:s.entryId,contributorPortrait:s.portrait}));
+  const approvals=keep.map(s=>({entryId:s.entryId,contentSha256:s.digest,consents:{namedAttribution:true}}));
+  const projection=subtractStaleHistory(document,entries,approvals,new Date(at));
+  assert.deepEqual(normalize(c.annalsPredictHistorySubtraction_(document,entries,approvals,new Date(at))),normalize(projection));
+  const remaining=projection.chapters.find(ch=>ch.id==='gatherings').passages[1].text;
+  assert.match(remaining,/Daq in Black is in the Annals\. The Club has also fielded a Mud Hero team/);
+  assert.doesNotMatch(remaining,/Kingston Windfall/);
+});
+
+test('the editorial evidence check can omit a revoked portrait but never waives standing publication',()=>{
+  const f=fixture({legacy:true,portraitRevoked:true});
+  assert.throws(()=>f.c.annalsOpeningEdition_(f.packet,f.archive),/provenance or permission/);
+  assert.equal(f.c.annalsOpeningEdition_(f.packet,f.archive,true)[0].passages[0].sources[1].portrait,null);
+  f.member.autoPublication.revokedAt=at;
+  assert.throws(()=>f.c.annalsOpeningEdition_(f.packet,f.archive,true),/provenance or permission/);
 });

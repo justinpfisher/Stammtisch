@@ -255,7 +255,7 @@ function annalsOpeningArchive_(){
   if(!Array.isArray(value.entries)||!Array.isArray(value.approvals))throw new Error('Cannot verify the live approved Annals shape');
   return value;
 }
-function annalsOpeningEdition_(packet,archive){
+function annalsOpeningEdition_(packet,archive,allowUncredited){
   if(!packet||packet.schemaVersion!==1||
     annalsHash_(AnnalsProduction.serial(packet.chapters))!==ANNALS_HISTORY_OPENING_COPY_SHA_||
     !packet.records||!packet.annals)throw new Error('Missing or altered approved opening packet');
@@ -279,18 +279,21 @@ function annalsOpeningEdition_(packet,archive){
         }
         var id=packet.annals[spec[1]],entryId=spec[1],folder=annalsFolder_(id),
           source=annalsRead_(folder,'source-private.json'),entry=archive.entries.find(function(e){return e.id===entryId;}),
-          receipt=archive.approvals.find(function(r){return r.entryId===entryId;});
+          receipt=archive.approvals.find(function(r){return r.entryId===entryId;}),
+          portrait=source&&annalsContributorPortrait_(source);
         if('annal-'+id.slice(0,24)!==entryId||!source||source.sourceId!==id||!source.source||
           annalsFile_(folder,'quarantine-private.json')||annalsFile_(folder,'removal-private.json')||
           !annalsConsentActive_(source.source.sender)||
           !annalsStandingPublicationActive_(source.source.sender,source.source.receivedAt)||
-          !entry||!receipt||!receipt.consents||receipt.consents.publication!==true||receipt.consents.namedAttribution!==true||
-          entry.contributorPortrait!==spec[3]||annalsContributorPortrait_(source)!==spec[3]||
+          !entry||!receipt||!receipt.consents||receipt.consents.publication!==true||
+          entry.contributorPortrait!==spec[3]||
+          (portrait!==spec[3]&&!(allowUncredited===true&&portrait===null))||
+          (receipt.consents.namedAttribution!==true&&allowUncredited!==true)||
           receipt.contentSha256!==ANNALS_HISTORY_OPENING_ANNALS_SHA_[entryId]||
           receipt.contentSha256!==annalsHash_(AnnalsProduction.serial(entry)))throw new Error('Opening Annals provenance or permission changed');
         annalsOpeningSourceGate_(folder,source,entryId,spec[3]);
         return {kind:'annal',entryId:entryId,digest:receipt.contentSha256,label:spec[2],
-          portrait:spec[3]};
+          portrait:receipt.consents.namedAttribution===true?portrait:null};
       })};
     })};
   });
@@ -314,6 +317,83 @@ function annalsPublishHistoryOpening(nonce,expectedHash,confirmed){
       operation:'opening',
       boundLedger:{schemaVersion:1,privateOpeningPacketSha256:annalsHash_(AnnalsProduction.serial(packet)),chapters:chapters}
     },2,chapters,1,0);
+  });});
+}
+
+// The owner's approved editorial revision of the exact reconciled opening.
+// Keep passage IDs and evidence. The signed document, not this copy, serves Pages.
+var ANNALS_HISTORY_EDITORIAL_BASE_='10c5341e2cc9e40d2a2e0387ea4efa186010217aee1bd2a172ac7a1b5b7334aa';
+var ANNALS_HISTORY_EDITORIAL_COPY_={
+  "origins": {
+    "heading": "The name",
+    "passages": {
+      "opening-1": "The company had been gathering for some time when one of its number, of Germanic heritage, observed that it was already Stammtisching. The evening on which this was pointed out has escaped the record. The name, on the other hand, has proved easier to retain."
+    }
+  },
+  "gatherings": {
+    "heading": "The appointed evening",
+    "passages": {
+      "opening-1": "A tradition that depended on finding a free evening in six calendars was unlikely to meet very often. The Club set aside the third Friday of each month, at eight o’clock Toronto time.",
+      "opening-2": "At many gatherings, one or two members take a turn preparing a cocktail. Kingston Windfall and Daq in Black are both in the Annals. The Club has also fielded a Mud Hero team, for which the surviving notes are particularly informative on the subject of shirts."
+    }
+  },
+  "assemblies": {
+    "heading": "The Annual Gentlemen’s Assembly",
+    "passages": {
+      "opening-1": "By one recollection, the company was going to the cottage together before the pandemic. The date of the first weekend is not known, nor is the date on which it became the Annual Gentlemen’s Assembly. The cottage had evidently been fit for purpose before it acquired a formal title."
+    }
+  },
+  "traditions": {
+    "heading": "The Club’s observances",
+    "passages": {
+      "opening-2": "The December gathering is known as Christisch. The gifts come from the members’ own homes, leaving commerce with a gratifyingly small role in the proceedings. One recollection places an exchange in December 2025. The year of the first Christisch remains uncertain.",
+      "opening-1": "In Celebration of Life, each member keeps a list of fifty names. When someone on a member’s list dies, that member speaks at the next Stammtisch about the person and what they gave the world. The standings are kept elsewhere. This part of the evening belongs to the life being remembered."
+    }
+  }
+};
+
+function annalsHistoryEditorialCandidate_(){
+  var state=annalsBoundMaintenanceState_(false);
+  if(state.digest!==ANNALS_HISTORY_EDITORIAL_BASE_)
+    throw new Error('Editorial refresh requires the exact reconciled opening edition');
+  var live=JSON.parse(annalsHistoryReadPublic_('https://stammtischbrewery.com/data/club-history.json'));
+  if(annalsHash_(AnnalsProduction.serial(live))!==state.digest)
+    throw new Error('Editorial refresh requires the exact live opening edition');
+  var packet=annalsRead_(state.root,'history-opening-authorized-private.json');
+  if(!packet||annalsHash_(AnnalsProduction.serial(packet))!==state.ledger.privateOpeningPacketSha256)
+    throw new Error('Opening evidence changed');
+  var checked=annalsOpeningEdition_(packet,annalsOpeningArchive_(),true);
+  var chapters=checked.map(function(chapter){
+    var copy=ANNALS_HISTORY_EDITORIAL_COPY_[chapter.id];
+    return {id:chapter.id,heading:copy.heading,passages:Object.keys(copy.passages).map(function(id){
+      var passage=chapter.passages.find(function(item){return item.id===id;});
+      return {id:id,text:copy.passages[id],sources:passage.sources.map(function(source){
+        if(source.kind!=='annal')return source;
+        if(source.entryId==='annal-f463f9566e3d9c3fe09465de')
+          return Object.assign({},source,{label:'Christisch in the Annals'});
+        if(source.entryId==='annal-5e0607c7dc924fb5663c40e0')
+          return Object.assign({},source,{label:'Daq in Black'});
+        return source;
+      })};
+    })};
+  });
+  return {state:state,chapters:chapters,digest:annalsHash_(AnnalsProduction.serial({base:state.digest,chapters:chapters}))};
+}
+function annalsPreviewHistoryEditorial(nonce){
+  return annalsUiCall_(nonce,function(){return annalsLocked_(function(){
+    var candidate=annalsHistoryEditorialCandidate_();
+    return {chapters:candidate.chapters,previewDigest:candidate.digest};
+  });});
+}
+function annalsPublishHistoryEditorial(nonce,expectedDigest,confirmed){
+  return annalsUiCall_(nonce,function(){return annalsLocked_(function(){
+    if(confirmed!==true)throw new Error('Confirm the editorial preview first');
+    var candidate=annalsHistoryEditorialCandidate_(), state=candidate.state;
+    if(expectedDigest!==candidate.digest)throw new Error('Editorial preview changed');
+    return annalsDispatchHistoryRevision_(state.root,null,{
+      operation:'opening-editorial-refresh',
+      boundLedger:Object.assign({},state.ledger,{chapters:candidate.chapters})
+    },2,candidate.chapters,2,state.current.revision);
   });});
 }
 
@@ -342,10 +422,14 @@ function subtractOpeningRecipe(c,p,missing){
   const remaining=p.sources.filter(s=>!removed.has(s.entryId));
   const before=OPENING_RECIPE_CLAIMS.filter(k=>p.sources.some(s=>s.kind==='annal'&&s.entryId===k.entryId));
   const after=before.filter(k=>!removed.has(k.entryId));
-  const useTitles=claims=>OPENING_RECIPE_LINE.replace('Kingston Windfall and Daq in Black',claims.map(k=>k.title).join(' and '));
-  const from=useTitles(before);
-  if(!p.text.includes(from)||!remaining.some(s=>s.kind==='record'))return null;
-  const text=after.length?p.text.replace(from,useTitles(after)):p.text.replace(from+' ','');
+  if(!remaining.some(s=>s.kind==='record'))return null;
+  const titles=claims=>claims.map(k=>k.title).join(' and ');
+  const editorialLine=claims=>titles(claims)+(claims.length===2?' are both':' is')+' in the Annals.';
+  const openingLine=claims=>OPENING_RECIPE_LINE.replace('Kingston Windfall and Daq in Black',titles(claims));
+  const line=p.text.includes(editorialLine(before))?editorialLine:openingLine;
+  const from=line(before);
+  if(!p.text.includes(from))return null;
+  const text=after.length?p.text.replace(from,line(after)):p.text.replace(from+' ','');
   return {...p,text,sources:remaining};
 }
 // Call only after the ordinary publisher has verified the records' signatures.
