@@ -58,29 +58,42 @@ function generationContext(edition,historyDigest,isSensitive,maxLength){
   return reference.length<=maxLength?{revision:edition.revision,chapterDigests:chapterDigests,reference:reference}:null;
 }
 
-function copiesGenerationReference(proposal,reference){
-  try {
-    const packet=JSON.parse(reference);
-    const sources=Object.values(packet.voiceOnly).concat(packet.chapterContinuity.map(c=>c.prose));
-    const phrases=sources.flatMap(source=>source.split(/(?<=[.!?])\s+/).flatMap(sentence=>{
-      const tokens=words(sentence).split(' ');
-      if(tokens.length<5)return [];
-      if(tokens.length<=8)return [tokens.join(' ')];
-      return tokens.slice(7).map((_,index)=>tokens.slice(index,index+8).join(' '));
-    }));
-    const passages=proposal.paragraphs.map(paragraph=>paragraph.map(clause=>clause.text).join(' '));
-    return passages.concat(proposal.claims.map(claim=>claim.span)).some(text=>{
-      const normalized=words(text);
-      return phrases.some(referencePhrase=>phrase(normalized,referencePhrase));
-    });
-  }catch{return true;}
+function copiesGenerationReference(proposal,packet){
+  const sources=Object.values(packet.voiceOnly).concat(packet.chapterContinuity.map(c=>c.prose));
+  const phrases=sources.flatMap(source=>source.split(/(?<=[.!?])\s+/).flatMap(sentence=>{
+    const tokens=words(sentence).split(' ');
+    if(tokens.length<5)return [];
+    if(tokens.length<=8)return [tokens.join(' ')];
+    return tokens.slice(7).map((_,index)=>tokens.slice(index,index+8).join(' '));
+  }));
+  const passages=proposal.paragraphs.map(paragraph=>paragraph.map(clause=>clause.text).join(' '));
+  return passages.concat(proposal.claims.map(claim=>claim.span)).some(text=>{
+    const normalized=words(text);
+    return phrases.some(referencePhrase=>phrase(normalized,referencePhrase));
+  });
 }
 
-function bindGeneration(proposal,context){
-  const chapterDigest=context?.chapterDigests?.[proposal?.chapter];
-  if(!hexDigest.test(chapterDigest||'')||!Number.isSafeInteger(context.revision)||context.revision<1||
-     copiesGenerationReference(proposal,context.reference))return null;
-  return {revision:context.revision,chapterDigest:chapterDigest,reference:context.reference};
+function bindGeneration(proposal,context,maxLength){
+  try{
+    if(!proposal||!exact(context,['revision','chapterDigests','reference'])||
+      !Number.isSafeInteger(context.revision)||context.revision<1||typeof context.reference!=='string'||
+      context.reference.length>maxLength)return null;
+    const packet=JSON.parse(context.reference), names=MEMBER_ALIASES.map(words);
+    if(!exact(packet,['voiceOnly','chapterContinuity'])||!exact(packet.voiceOnly,Object.keys(VOICE_EXAMPLES))||
+      !Object.keys(VOICE_EXAMPLES).every(key=>packet.voiceOnly[key]===VOICE_EXAMPLES[key])||
+      !Array.isArray(packet.chapterContinuity)||!packet.chapterContinuity.length||
+      packet.chapterContinuity.length>CHAPTER_IDS.length)return null;
+    const chapters=packet.chapterContinuity.map(sample=>{
+      requireStage(exact(sample,['chapter','heading','prose'])&&CHAPTER_IDS.includes(sample.chapter));
+      copy(sample.heading,80,names,[]);
+      copy(sample.prose,320,names,[]);
+      return sample.chapter;
+    });
+    if(new Set(chapters).size!==chapters.length||!exact(context.chapterDigests,chapters)||
+      !chapters.every(id=>typeof context.chapterDigests[id]==='string'&&hexDigest.test(context.chapterDigests[id]))||
+      !chapters.includes(proposal.chapter)||copiesGenerationReference(proposal,packet))return null;
+    return {revision:context.revision,chapterDigest:context.chapterDigests[proposal.chapter],reference:context.reference};
+  }catch{return null;}
 }
 
 function stageChapter(section,claims,names,spans,historyDigest){

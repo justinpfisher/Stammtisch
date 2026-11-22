@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {test} from 'node:test';
 import vm from 'node:vm';
 import {historyBacklinks, historyCredits, subtractStaleHistory} from '../scripts/annals/BoundHistory.mjs';
-import {applyHistoryRevision, renderHistory} from '../scripts/annals/HistoryPublisher.mjs';
+import {applyHistoryRevision, historyDigest, renderHistory} from '../scripts/annals/HistoryPublisher.mjs';
 
 const modules=['PilotCore.js','ProductionCore.js','AutoCore.js','Production.gs','HistoryProduction.gs','HistoryNarrative.js','LivingHistoryIntake.gs']
   .map(name=>[name,readFileSync(new URL('../scripts/annals/'+name,import.meta.url),'utf8')]);
@@ -44,7 +44,8 @@ function fixture({disabled=false,rejected=false,editOpening=()=>{}}={}){
   editOpening(opening);
   let live=opening, main=opening, failOnSave, publicHistoryAvailable=true;
   const events=[], archive={schemaVersion:1,entries:[],approvals:[],retiredIds:[]};
-  const rootFiles=new Map(), folders=new Map(), publications=[], commitParents=[], providerRequests=[];
+  const rootFiles=new Map(), folders=new Map(), publications=[], commitParents=[], providerRequests=[], publicReads=[];
+  let contextProofReads=0;
   const preparedDrafts=new Set();
   let providerResponse, archiveBeforeMutation=plain(archive);
   function recordMain(value, parentArchive=archive){
@@ -75,6 +76,7 @@ function fixture({disabled=false,rejected=false,editOpening=()=>{}}={}){
   };
   rootFiles.set('consent-registry-private.json',{schemaVersion:1,members});
   rootFiles.set('history-published-private.json',opening);
+  rootFiles.set('history-context-live-private.json',{revision:opening.revision,digest:historyDigest(opening),verifiedAt:at});
   rootFiles.set('history-bound-ledger-private.json',{schemaVersion:1,privateOpeningPacketSha256:'b'.repeat(64),chapters:opening.chapters});
   const iterate=values=>{
     let index=0;
@@ -96,6 +98,7 @@ function fixture({disabled=false,rejected=false,editOpening=()=>{}}={}){
         providerRequests.push(JSON.parse(options.payload));
         return {getResponseCode:()=>200,getContentText:()=>JSON.stringify(providerResponse)};
       }
+      publicReads.push(url);
       if(!publicHistoryAvailable&&url==='https://stammtischbrewery.com/data/club-history.json')
         return {getResponseCode:()=>404};
       const pinned=publications.find(record=>url.includes('/'+record.sha+'/'))||
@@ -117,7 +120,10 @@ function fixture({disabled=false,rejected=false,editOpening=()=>{}}={}){
     annalsProps_:()=>({getProperty:name=>props[name],deleteProperty:name=>delete props[name],
       setProperty:(name,value)=>{props[name]=value;}}),
     annalsServiceOwner_:()=> 'fictional-owner',
-    annalsRead_:(f,name)=>f.files.get(name),annalsFile_:(f,name)=>f.files.has(name),
+    annalsRead_:(f,name)=>{
+      if(f===root&&name==='history-context-live-private.json')contextProofReads++;
+      return f.files.get(name);
+    },annalsFile_:(f,name)=>f.files.has(name),
     annalsSavePrivate_:(f,name,value)=>{
       if(f===root&&name===failOnSave){failOnSave=undefined;throw Error('Fictional interrupted write');}
       f.files.set(name,plain(value));
@@ -177,19 +183,33 @@ function fixture({disabled=false,rejected=false,editOpening=()=>{}}={}){
     if(!preparedDrafts.has(item.id)){
       // Set up synthetic pre-assessed drafts against the state at first use.
       const historyContext=cx.annalsHistoryIntakeContext_();
-      if(historyContext)item.files.set('ai-attempt-private.json',{historyContext});
+      if(historyContext){
+        const proposed=item.files.get('draft-private.json').historyNarrative;
+        const responseText=JSON.stringify(completion({...item.raw,historyNarrative:proposed?[proposed]:[]}));
+        const model=cx.AnnalsProduction.MODEL;
+        item.files.set('ai-attempt-private.json',{model,imageInputCount:0,historyContext});
+        item.files.set('ai-response-private.json',{model,httpStatus:200,responseText,
+          historyAssessmentSha256:sha(serial({context:historyContext,responseText}))});
+      }
       preparedDrafts.add(item.id);
     }
     return cx.annalsPrepareHistoryMaintenance('fictional-owner',digest,chapter,after,'compose','',
       'Each fictional paragraph was checked against the exact evidence.',item.id);
   }
   const publish=(review,confirmed=true)=>cx.annalsPublishHistoryMaintenance('fictional-owner',review.hash,confirmed);
-  const f={opening,rootFiles,archive,events,cx,props,add,publications,commitParents,providerRequests,preview,publish,
-    assess:(item,images=[])=>{
-      preparedDrafts.add(item.id);
-      item.files.delete('draft-private.json');
-      providerResponse=completion(item.raw);
-      return cx.annalsPrepareDraftCore_(item.id,item.source.source.excerpt,[],true,true,images);
+  function assess(item,images,context){
+    preparedDrafts.add(item.id);
+    item.files.delete('draft-private.json');
+    providerResponse=completion(item.raw);
+    return cx.annalsPrepareDraftCore_(item.id,item.source.source.excerpt,[],true,true,images,context);
+  }
+  const f={opening,rootFiles,archive,events,cx,props,add,publications,commitParents,providerRequests,publicReads,preview,publish,
+    proofReads:()=>contextProofReads,
+    assess:(item,images=[])=>assess(item,images,cx.annalsHistoryIntakeContext_()),
+    assessQueue:items=>{
+      items.forEach(item=>item.files.delete('draft-private.json'));
+      cx.annalsProcessConsentedText_=(id,context)=>assess(items.find(item=>item.id===id),[],context).drafted;
+      return cx.annalsResumeConsentedDrafts_(items.length);
     },
     hidePublicHistory:()=>{publicHistoryAvailable=false;},
     compose:(item,options)=>publish(preview(item,options)),
@@ -263,11 +283,13 @@ test('one mocked assessment proposes composed copy without raising model, token 
   }
 });
 
-test('unavailable or stale public History leaves the ordinary recipe and photo assessment unchanged',()=>{
-  for(const unavailable of ['Pages unavailable','main ahead of Pages']){
+test('unavailable or mismatched verified History leaves the ordinary recipe and photo assessment unchanged',()=>{
+  for(const unavailable of ['no prior proof','proof for a different edition']){
     const f=fixture(), item=f.add(0), core=f.cx.AnnalsProduction;
-    if(unavailable==='Pages unavailable')f.hidePublicHistory();
-    else f.setMain({...f.opening,revision:f.opening.revision+1});
+    f.hidePublicHistory();
+    const proofFile='history-context-live-private.json';
+    if(unavailable==='no prior proof')f.rootFiles.delete(proofFile);
+    else f.rootFiles.get(proofFile).digest='c'.repeat(64);
     const images=[{mime:'image/jpeg',base64:'Zg=='}];
     item.raw.imageSafety={kind:'drink_or_object',safeToPublish:true,altText:'A glass on a fictional tray'};
     item.raw.imageReviews=[{kind:'drink_or_object',safeToPublish:true,privateDetails:false,thirdPartyMaterial:false,
@@ -279,7 +301,37 @@ test('unavailable or stale public History leaves the ordinary recipe and photo a
     assert.deepEqual(item.files.get('draft-private.json'),plain(core.candidate(ordinary,true)),unavailable);
     assert.equal(item.files.get('ai-attempt-private.json').historyContext,undefined,unavailable);
     assert.equal(JSON.parse(f.props.ANNALS_BUDGET_LEDGER).reservedCents,10,unavailable);
+    assert.deepEqual(f.publicReads,[],unavailable);
   }
+});
+
+test('the existing intake batch reuses one verified picture of History without any public reads',()=>{
+  for(const available of [true,false]){
+    const f=fixture(), first=f.add(0), secondItem=f.add(1,{span:second});
+    f.hidePublicHistory();
+    if(!available)f.rootFiles.delete('history-context-live-private.json');
+    assert.equal(f.assessQueue([first,secondItem]),2);
+    assert.equal(f.proofReads(),1);
+    assert.deepEqual(f.publicReads,[]);
+    assert.equal(f.providerRequests.length,2);
+    assert.equal(f.providerRequests[0].input.length,available?2:1);
+    assert.deepEqual(f.providerRequests[0].input[0],available?f.providerRequests[1].input[0]:
+      plain(f.cx.AnnalsProduction.request(first.source.source.excerpt,[]).input[0]));
+    assert.equal(!!first.files.get('draft-private.json').historyNarrative,available);
+    assert.equal(!!secondItem.files.get('draft-private.json').historyNarrative,available);
+  }
+});
+
+test('the existing exact publication receipt qualifies an earlier deployed signed edition',()=>{
+  const f=fixture(), item=f.add(0), revision=f.opening.revision, digest=historyDigest(f.opening);
+  f.rootFiles.delete('history-context-live-private.json');
+  f.rootFiles.set('history-pending-private.json',{state:'verified_live',verificationKind:'exact_site',
+    verifiedRevision:revision,document:f.opening,approval:{contentSha256:digest}});
+  f.rootFiles.set('history-live-'+revision+'-private.json',{digest,verifiedAt:at});
+  f.hidePublicHistory();
+  f.assess(item);
+  assert.deepEqual(f.publicReads,[]);
+  assert.ok(item.files.get('draft-private.json').historyNarrative);
 });
 
 test('only safe bounded public prose reaches the same request, with recipe and photo fields intact',()=>{
@@ -339,9 +391,52 @@ test('the exact original generation context must survive through preview and sig
   const packet=JSON.parse(stamp.reference);
   packet.voiceOnly.assembly='The fictional Club had put away the ceremonial place cards by then.';
   stamp.reference=JSON.stringify(packet);
-  assert.throws(()=>g.publish(reviewed),/changed after review/);
+  assert.throws(()=>g.publish(reviewed),/requires current signed chapter context/);
   assert.equal(g.events.length,0);
   assert.equal(g.providerRequests.length,1);
+});
+
+test('pre-preview reference and proposal changes cannot replace the original assessment',()=>{
+  const cases=[
+    ['a valid but different chapter sample',({packet})=>{packet.chapterContinuity[0].prose='An altered fictional sample that would still be safe.';}],
+    ['empty sample packet',({packet})=>{packet.chapterContinuity=[];}],
+    ['different exemplar',({packet})=>{packet.voiceOnly.solemn='A wholly different fictional example.';}],
+    ['different chapter target',({draft})=>{draft.historyNarrative.chapter='assemblies';}],
+    ['different chapter digest',({attempt})=>{attempt.historyContext.chapterDigests.traditions='e'.repeat(64);}],
+    ['different edition revision',({attempt})=>{attempt.historyContext.revision++;}],
+    ['edited returned prose',({draft})=>{draft.historyNarrative.paragraphs[0][0].text='The Club considered a different version of the evening.';}],
+    ['edited raw response with identical proposed prose',({response})=>{response.responseText+=' ';}]
+  ];
+  for(const [reason,alter] of cases){
+    const f=fixture(), item=f.add(0);
+    f.assess(item);
+    const attempt=item.files.get('ai-attempt-private.json'), response=item.files.get('ai-response-private.json');
+    const draft=item.files.get('draft-private.json'), packet=JSON.parse(attempt.historyContext.reference);
+    alter({attempt,response,draft,packet});
+    attempt.historyContext.reference=JSON.stringify(packet);
+    assert.throws(()=>f.preview(item,{chapter:draft.historyNarrative.chapter}),/requires current signed chapter context/,reason);
+    assert.equal(f.events.length,0,reason);
+    assert.equal(f.providerRequests.length,1,reason);
+  }
+});
+
+test('the response binding also rejects invalid packet shape and altered exemplar pins',()=>{
+  for(const invalid of ['empty samples','duplicate chapter','unrecognized target','changed exemplar']){
+    const f=fixture(), item=f.add(0);
+    f.assess(item);
+    const attempt=item.files.get('ai-attempt-private.json'), response=item.files.get('ai-response-private.json');
+    const packet=JSON.parse(attempt.historyContext.reference);
+    if(invalid==='empty samples')packet.chapterContinuity=[];
+    if(invalid==='duplicate chapter')packet.chapterContinuity[1]=packet.chapterContinuity[0];
+    if(invalid==='unrecognized target')packet.chapterContinuity.at(-1).chapter='hypothetical';
+    if(invalid==='changed exemplar')packet.voiceOnly.assembly='A different pinned example.';
+    attempt.historyContext.reference=JSON.stringify(packet);
+    response.historyAssessmentSha256=sha(f.cx.AnnalsProduction.serial({
+      context:attempt.historyContext,responseText:response.responseText
+    }));
+    assert.throws(()=>f.preview(item),/requires current signed chapter context/,invalid);
+    assert.equal(f.events.length,0,invalid);
+  }
 });
 
 test('a newer History edition only stales the draft when its selected chapter changes',()=>{
@@ -364,9 +459,19 @@ test('a newer History edition only stales the draft when its selected chapter ch
   }
 });
 
+test('the existing sign-time read still holds when main advances before Pages',()=>{
+  const f=fixture(), item=f.add(0);
+  f.assess(item);
+  const preview=f.preview(item);
+  f.setMain({...f.opening,revision:f.opening.revision+1});
+  assert.throws(()=>f.publish(preview),/requires current signed chapter context/);
+  assert.equal(f.events.length,0);
+  assert.equal(f.providerRequests.length,1);
+});
+
 test('the exact review and signer change only one chapter and reconcile without duplicate publication',()=>{
   const f=fixture(), item=f.add(0);
-  const originals=plain([...item.files].filter(([name])=>!['draft-private.json','ai-attempt-private.json'].includes(name)));
+  const originals=plain([...item.files].filter(([name])=>!['draft-private.json','ai-attempt-private.json','ai-response-private.json'].includes(name)));
   f.tick(); f.tick();
   assert.equal(f.events.length,0);
   assert.throws(()=>f.preview(item,{chapter:'gatherings'}),/eligible current evidence/);
@@ -381,7 +486,7 @@ test('the exact review and signer change only one chapter and reconcile without 
   f.serveNext(); f.tick(); f.tick();
   assert.throws(()=>f.preview(item),/unused narrative source/);
   assert.equal(f.events.length,1);
-  assert.deepEqual(plain([...item.files].filter(([name])=>!['draft-private.json','ai-attempt-private.json'].includes(name))),originals);
+  assert.deepEqual(plain([...item.files].filter(([name])=>!['draft-private.json','ai-attempt-private.json','ai-response-private.json'].includes(name))),originals);
   assert.deepEqual(plain(item.files.get('draft-private.json')),assessed);
   assert.equal(f.rootFiles.get('history-pending-private.json').state,'verified_live');
 });
@@ -447,12 +552,15 @@ test('the private preview keeps supported disagreements and holds flattened acco
   const evidence=[recall,second,lamps].join(' ');
   const item=f.add(0,{excerpt:evidence,publicText:evidence,narrative:draft});
   assert.match(f.preview(item).chapters.find(c=>c.id==='traditions').passages.at(-1).text,/before.*after/);
+  const flattened=fixture();
   item.draft.historyNarrative.paragraphs[0][0].text='Accounts differ, though one places the singing after the gathering.';
-  assert.throws(()=>f.preview(item),/composed History contract/);
+  const incomplete=flattened.add(0,{excerpt:evidence,publicText:evidence,narrative:item.draft.historyNarrative});
+  assert.throws(()=>flattened.preview(incomplete),/composed History contract/);
   item.draft.historyNarrative=complete;
   complete.paragraphs[0].splice(1,0,{kind:'observation',text:'The furniture deserved no such interruption.',claims:[]});
-  assert.throws(()=>f.preview(item),/cannot add an observation/);
+  assert.throws(()=>f.preview(item),/requires current signed chapter context/);
   assert.equal(f.events.length,0);
+  assert.equal(flattened.events.length,0);
 });
 
 test('placement under exact review preserves independently sourced accounts and active credits',()=>{
@@ -501,6 +609,12 @@ test('the exact signed photo-only correction reconciles without a new History di
   assert.deepEqual(plain(f.rootFiles.get('history-bound-ledger-private.json').chapters),corrected);
   f.tick(); f.tick();
   assert.deepEqual(f.rootFiles.get('history-published-private.json'),plain(next));
+  const proof=f.rootFiles.get('history-context-live-private.json');
+  assert.equal(proof.revision,next.revision);
+  assert.equal(proof.digest,historyDigest(next));
+  const reads=f.publicReads.length;
+  assert.equal(f.cx.annalsHistoryIntakeContext_().revision,next.revision);
+  assert.equal(f.publicReads.length,reads);
   assert.equal(f.events.length,2);
 
   item.withdraw();

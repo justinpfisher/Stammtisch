@@ -687,7 +687,17 @@ function annalsRebaseHistoryAfterAnnals_(archive,live){
     if(!atTarget)annalsSavePrivate_(root,'history-bound-ledger-private.json',Object.assign({},ledger,{chapters:projected.chapters}));
   }
   annalsSavePrivate_(root,'history-published-private.json',projected);
+  annalsRememberHistoryContextProof_(root,projected);
   return true;
+}
+
+// This optional witness can be recorded only after the existing main and Pages checks.
+function annalsRememberHistoryContextProof_(root,edition){
+  try {
+    annalsSavePrivate_(root,'history-context-live-private.json',{
+      revision:edition.revision,digest:annalsHash_(AnnalsProduction.serial(edition)),verifiedAt:new Date().toISOString()
+    });
+  } catch(ignored) { /* Ordinary reconciliation does not depend on the optional witness. */ }
 }
 
 // Bound History maintenance is independent of an Annals intake item. In
@@ -889,6 +899,7 @@ function annalsReconcileHistoryLocked_(){
     // Preserve the accepted dispatch; never replay to recover a receipt.
     annalsSavePrivate_(root,'history-pending-private.json',Object.assign({},pending,{state:'verified_live',
       verifiedRevision:published.revision,verificationKind:exact?'exact_site':'proven_signed_subtraction_successor'}));
+    if(!exact)annalsRememberHistoryContextProof_(root,published);
     return {verified:true,revision:published.revision,superseded:!exact};
 }
 function annalsReconcileHistory(nonce){

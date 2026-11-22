@@ -74,10 +74,33 @@ function annalsHistoryPublicEdition_(state){
 function annalsHistoryIntakeContext_(){
   if(typeof AnnalsHistoryNarrative==='undefined'||
       annalsProps_().getProperty('ANNALS_HISTORY_PUBLICATION_ENABLED')!=='true')return null;
-  var state=annalsBoundMaintenanceState_(false), edition=annalsHistoryPublicEdition_(state);
-  if(!edition)return null;
+  var state=annalsBoundMaintenanceState_(false), edition=state.current;
+  var proof=annalsRead_(state.root,'history-context-live-private.json');
+  if(!proof||proof.revision!==edition.revision||proof.digest!==state.digest||!Number.isFinite(Date.parse(proof.verifiedAt))){
+    // The exact-edition receipt already written by an earlier deployment is sufficient.
+    var pending=annalsRead_(state.root,'history-pending-private.json');
+    if(!pending||pending.verificationKind!=='exact_site'||pending.verifiedRevision!==edition.revision||
+       pending.document?.revision!==edition.revision||pending.approval?.contentSha256!==state.digest)return null;
+    var published=annalsRead_(state.root,'history-live-'+edition.revision+'-private.json');
+    if(!published||published.digest!==state.digest||!Number.isFinite(Date.parse(published.verifiedAt)))return null;
+  }
   return AnnalsHistoryNarrative.generationContext(edition,value=>annalsHash_(AnnalsProduction.serial(value)),
     AnnalsAuto.sensitiveText,AnnalsProduction.HISTORY_REFERENCE_LIMIT);
+}
+
+function annalsHistoryStoredGeneration_(folder,proposal){
+  var attempt=annalsRead_(folder,'ai-attempt-private.json'), response=annalsRead_(folder,'ai-response-private.json');
+  var context=attempt&&attempt.historyContext, serial=AnnalsProduction.serial;
+  if(!context||attempt.model!==AnnalsProduction.MODEL||!Number.isSafeInteger(attempt.imageInputCount)||
+     attempt.imageInputCount<0||attempt.imageInputCount>3||!response||response.model!==attempt.model||
+     response.httpStatus!==200||typeof response.responseText!=='string'||response.responseText.length>100000||
+     response.historyAssessmentSha256!==annalsHash_(serial({context:context,responseText:response.responseText})))return null;
+  try{
+    var assessed=AnnalsProduction.response(JSON.parse(response.responseText),attempt.imageInputCount>0);
+    if(serial(assessed.historyNarrative)!==serial(proposal))return null;
+    var generation=AnnalsHistoryNarrative.bindGeneration(assessed.historyNarrative,context,AnnalsProduction.HISTORY_REFERENCE_LIMIT);
+    return generation?Object.assign({assessmentSha256:response.historyAssessmentSha256},generation):null;
+  }catch(ignored){return null;}
 }
 
 // This prepares the exact source-bound proof for the existing owner review.
@@ -102,8 +125,7 @@ function annalsHistoryNarrativeReview_(state,id,chapterId,afterId){
     return c.passages.some(function(p){return AnnalsLivingHistory.fromEntry(p,entryId);});
   }))throw new Error('Select an exact insertion point for an unused narrative source');
 
-  var attempt=annalsRead_(f,'ai-attempt-private.json');
-  var generation=AnnalsHistoryNarrative.bindGeneration(proposed,attempt&&attempt.historyContext);
+  var generation=annalsHistoryStoredGeneration_(f,proposed);
   var serial=AnnalsProduction.serial, hash=function(value){return annalsHash_(serial(value));};
   if(!generation||generation.revision>state.current.revision||generation.chapterDigest!==hash(chapter)||
     !annalsHistoryPublicEdition_(state))
