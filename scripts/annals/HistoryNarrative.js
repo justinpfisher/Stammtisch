@@ -4,12 +4,20 @@ var AnnalsHistoryNarrative=(function(){
 'use strict';
 const CHAPTER_IDS=['origins','gatherings','assemblies','traditions'];
 const MEMBER_ALIASES=Object.freeze(['Justin','Fish','Marc','Matt','Ken','Jamie','Jerome']);
-// Both excerpts are exact public copy from signed History revision 2 (db50d2a).
-// They illustrate cadence only, with no link to a claim or private source.
-const VOICE_EXAMPLES=Object.freeze({
+// Retain exact revision 2 examples to verify already authenticated assessments.
+const REVISION_TWO_VOICE=Object.freeze({
   assembly:'The cottage had evidently been fit for purpose before it acquired a formal title.',
   solemn:'This part of the evening belongs to the life being remembered.'
 });
+// Exact Club-authored example from the Brand and Editorial Style Guide.
+const VOICE_EXAMPLES=Object.freeze({
+  origins:'The beginnings of the Club are to be found, sometime before the pandemic, in the perfectly ordinary circumstance of six friends getting together whenever they could. Both evenings in company and weekends at the cottage are remembered from this early period. The surviving recollections do not permit either to claim precedence.',
+  evening:'Once the pleasure of assembling had been established, there remained the less agreeable business of arranging to do it again. In due course the Club set aside the third Friday of each month, at eight o’clock by the Eastern clock, which in winter stands five hours behind Greenwich. This relieved six calendars of the obligation to enter into fresh negotiations on every occasion.',
+  observances:'Several of the Club’s observances owe their existence to a suggestion originally advanced for no more solemn purpose than the diversion of the company. The company, finding the suggestion agreeable, would then bestow upon it rather more attention than the occasion strictly warranted. The cottage weekend itself came, in time, to bear the title of Annual Gentlemen’s Assembly.',
+  solemn:REVISION_TWO_VOICE.solemn
+});
+const CONTINUITY_LIMIT=160;
+const sentences=text=>text.split(/(?<=[.!?])\s+/);
 const exact=(value,keys)=>value&&typeof value==='object'&&!Array.isArray(value)&&
   Object.keys(value).sort().join(',')===[...keys].sort().join(',');
 const id=/^[a-z][a-z0-9-]{0,79}$/;
@@ -47,10 +55,16 @@ function generationContext(edition,historyDigest,isSensitive,maxLength){
   }
   for(const chapter of edition.chapters){
     if(!CHAPTER_IDS.includes(chapter.id)||!safe(chapter.heading,80))continue;
-    // Prefer one whole recent paragraph, so the packet never clips its meaning.
-    const paragraph=chapter.passages.slice().reverse().find(p=>safe(p.text,320));
-    if(!paragraph)continue;
-    chapterContinuity.push({chapter:chapter.id,heading:chapter.heading,prose:paragraph.text});
+    // Give the full stylistic example room while preserving each available chapter.
+    let prose;
+    for(const passage of chapter.passages.slice().reverse()){
+      if(!safe(passage.text,1500))continue;
+      prose=passage.text.length<=CONTINUITY_LIMIT?passage.text:
+        sentences(passage.text).find(sentence=>safe(sentence,CONTINUITY_LIMIT));
+      if(prose)break;
+    }
+    if(!prose)continue;
+    chapterContinuity.push({chapter:chapter.id,heading:chapter.heading,prose:prose});
     chapterDigests[chapter.id]=historyDigest(chapter);
   }
   if(!chapterContinuity.length)return null;
@@ -60,7 +74,7 @@ function generationContext(edition,historyDigest,isSensitive,maxLength){
 
 function copiesGenerationReference(proposal,packet){
   const sources=Object.values(packet.voiceOnly).concat(packet.chapterContinuity.map(c=>c.prose));
-  const phrases=sources.flatMap(source=>source.split(/(?<=[.!?])\s+/).flatMap(sentence=>{
+  const phrases=sources.flatMap(source=>sentences(source).flatMap(sentence=>{
     const tokens=words(sentence).split(' ');
     if(tokens.length<5)return [];
     if(tokens.length<=8)return [tokens.join(' ')];
@@ -73,14 +87,20 @@ function copiesGenerationReference(proposal,packet){
   });
 }
 
+function matchesVoiceExamples(sample){
+  return [VOICE_EXAMPLES,REVISION_TWO_VOICE].some(example=>{
+    const keys=Object.keys(example);
+    return exact(sample,keys)&&keys.every(key=>sample[key]===example[key]);
+  });
+}
+
 function bindGeneration(proposal,context,maxLength){
   try{
     if(!proposal||!exact(context,['revision','chapterDigests','reference'])||
       !Number.isSafeInteger(context.revision)||context.revision<1||typeof context.reference!=='string'||
       context.reference.length>maxLength)return null;
     const packet=JSON.parse(context.reference), names=MEMBER_ALIASES.map(words);
-    if(!exact(packet,['voiceOnly','chapterContinuity'])||!exact(packet.voiceOnly,Object.keys(VOICE_EXAMPLES))||
-      !Object.keys(VOICE_EXAMPLES).every(key=>packet.voiceOnly[key]===VOICE_EXAMPLES[key])||
+    if(!exact(packet,['voiceOnly','chapterContinuity'])||!matchesVoiceExamples(packet.voiceOnly)||
       !Array.isArray(packet.chapterContinuity)||!packet.chapterContinuity.length||
       packet.chapterContinuity.length>CHAPTER_IDS.length)return null;
     const chapters=packet.chapterContinuity.map(sample=>{
