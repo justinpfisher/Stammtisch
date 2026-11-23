@@ -720,6 +720,30 @@ test('pre-reservation manifest failure can recover on a later bounded pass witho
  assert.equal(f.events.sends.length,1);
 });
 
+test('editorial verification reads the dispatch record only for a pending result',()=>{
+ const f=fixture(),token='a'.repeat(32),reads=[];
+ const resultName='cocktail-photo-result-'+token+'-private.json';
+ const dispatchName='editorial-photo-dispatch-'+token+'-private.json';
+ f.context.annalsRead_=(folder,name)=>{
+  assert.equal(folder,f.folder);
+  reads.push(name);
+  return folder.files.get(name);
+ };
+ f.context.annalsRoot_=()=>assert.fail('An ineligible result must not start live verification');
+ const verify=()=>f.context.annalsVerifyCocktailEditorialResult_(f.folder,itemId,token);
+ for(const state of [null,'qualified_held_for_publisher','editorial_live_verified']){
+  if(state)f.folder.files.set(resultName,{state});
+  reads.length=0;
+  assert.equal(verify(),false);
+  assert.deepEqual(reads,[resultName]);
+ }
+ f.folder.files.set(resultName,{state:'publisher_dispatch_accepted_unverified'});
+ f.folder.files.set(dispatchName,{state:'unknown_no_retry'});
+ reads.length=0;
+ assert.equal(verify(),false);
+ assert.deepEqual(reads,[resultName,dispatchName]);
+});
+
 test('bounded editorial result readback resumes after the first file page',()=>{
  const f=fixture(),cursorStore={},target='a'.repeat(32),items=[];
  for(let i=0;i<44;i++)items.push({getName:()=> 'unrelated-'+i});
