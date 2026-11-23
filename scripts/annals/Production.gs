@@ -436,9 +436,12 @@ function annalsRecordAttemptOutcome_(folder, reason, httpStatus) {
     if (!annalsFile_(folder, 'ai-outcome-private.json')) annalsWriteOnce_(folder, 'ai-outcome-private.json', outcome);
   } catch (ignored) { /* Never replace the safe generic failure with private storage details. */ }
 }
-function annalsLocked_(fn) {
+function annalsLocked_(fn, onBusy) {
   var lock = LockService.getScriptLock();
-  if (!lock.tryLock(1000)) throw new Error('Another operation is running; try again shortly');
+  if (!lock.tryLock(1000)) {
+    if (onBusy) return onBusy();
+    throw new Error('Another operation is running; try again shortly');
+  }
   try { return fn(); } finally { lock.releaseLock(); }
 }
 function annalsUiCall_(nonce, fn) {
@@ -834,6 +837,10 @@ function runAnnalsProductionIntake() {
       summary.verified = annalsVerifyAutomaticPublications_(3);
       if(typeof annalsVerifyCocktailEditorialResults_==='function')summary.photo_live_verified=annalsVerifyCocktailEditorialResults_(2);
       console.log(JSON.stringify(summary)); return summary;
+    }, function () {
+      summary.busy = true;
+      console.log(JSON.stringify(summary));
+      return summary;
     });
   } catch (e) { throw new Error('Private intake stopped; review account configuration privately'); }
 }
