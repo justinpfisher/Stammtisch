@@ -705,10 +705,11 @@ function annalsPublishCocktailEditorialResult_(itemId,token){
 }
 function annalsVerifyCocktailEditorialResult_(folder,itemId,token){
   var resultName='cocktail-photo-result-'+token+'-private.json',
-    result=annalsRead_(folder,resultName),dispatch=annalsRead_(folder,'editorial-photo-dispatch-'+token+'-private.json'),
+    result=annalsRead_(folder,resultName);
+  if(!result||result.state!=='publisher_dispatch_accepted_unverified')return false;
+  var dispatch=annalsRead_(folder,'editorial-photo-dispatch-'+token+'-private.json'),
     markerName='cocktail-photo-live-'+token+'-private.json';
-  if(!result||result.state!=='publisher_dispatch_accepted_unverified'||
-     !dispatch||dispatch.state!=='accepted'||annalsFile_(folder,markerName)||
+  if(!dispatch||dispatch.state!=='accepted'||annalsFile_(folder,markerName)||
      !result.editorialRow||!result.imageSha256)return false;
   var root=annalsRoot_(),indexName='cocktail-photo-job-token-'+token+'-private.json',
     index=annalsRead_(root,indexName),record=index&&annalsRead_(folder,index.jobFilename),
