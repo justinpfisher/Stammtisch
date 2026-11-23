@@ -880,16 +880,27 @@ test('accepted dispatch remains unverified until hosted manifest, derivative and
  assert.equal(f.context.annalsHandleCocktailPhotoResult_(workerMessage(f,job,qualifiedResult(job),
   [f.context.Utilities.newBlob(jpeg,'image/jpeg','x')])),'photo_publisher_dispatch_accepted');
  const dispatch=f.events.dispatches[0],photo=dispatch.payload.photo;
- assert.equal(f.folder.files.get('cocktail-photo-result-'+job.jobToken+'-private.json').state,
-  'publisher_dispatch_accepted_unverified');
+ const resultName='cocktail-photo-result-'+job.jobToken+'-private.json';
+ const read=f.context.annalsRead_;
+ let resultReads=0;
+ f.context.annalsRead_=(folder,name)=>{
+  if(folder===f.folder&&name===resultName)resultReads++;
+  return read(folder,name);
+ };
+ assert.equal(f.context.annalsVerifyCocktailEditorialResults_(2),0);
+ assert.equal(resultReads,2,'pending result still receives a fresh verification read');
+ assert.equal(f.folder.files.get(resultName).state,'publisher_dispatch_accepted_unverified');
  f.events.publicEditorialManifest={schemaVersion:1,artDirection:'moody-atmospheric-v2',images:[photo]};
  f.events.publicEditorialAsset=photo.asset;f.events.publicEditorialBytes=f.events.uploadedBytes;
  assert.equal(f.context.annalsVerifyCocktailEditorialResults_(2),1);
- assert.equal(f.folder.files.get('cocktail-photo-result-'+job.jobToken+'-private.json').state,
-  'editorial_live_verified');
+ assert.equal(f.folder.files.get(resultName).state,'editorial_live_verified');
  assert.equal(f.folder.files.get('cocktail-photo-live-'+job.jobToken+'-private.json').state,'verified_live');
  assert.equal(f.root.files.get('cocktail-photo-job-token-'+job.jobToken+'-private.json').state,
   'editorial_live_verified');
+ resultReads=0;
+ assert.equal(f.context.annalsVerifyCocktailEditorialResults_(2),0);
+ assert.equal(resultReads,1,'the scan reads an already verified result only once');
+ assert.equal(f.events.dispatches.length,1);
 });
 
 test('synthetic source job and worker result flow through the same signed publisher validation',async()=>{

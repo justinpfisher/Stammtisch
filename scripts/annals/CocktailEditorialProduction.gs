@@ -802,6 +802,7 @@ function annalsVerifyCocktailEditorialResults_(limit){
       scanned++;
       if(match){
         var pending=annalsRead_(activeFolder,'cocktail-photo-result-'+match[1]+'-private.json');
+        if(pending&&pending.state==='editorial_live_verified')continue;
         if(pending&&pending.state==='publisher_dispatch_accepted_unverified'&&
            Number.isFinite(Date.parse(pending.dispatchAt||''))&&
            Date.now()-Date.parse(pending.dispatchAt)>24*60*60*1000&&
