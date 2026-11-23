@@ -594,6 +594,52 @@ test('previously stored matching private JPEG can receive missing manifest witho
   assert.equal(x.files.has('correction-dispatch-private.json'),false);
   assert.throws(()=>x.context.annalsImportScreenedPhotoFromPrivateItem('valid',id));
 });
+test('scheduled lock overlap logs busy and leaves the current intake work untouched', () => {
+  const { context, props, files, logs } = mock();
+  props.ANNALS_PRODUCTION_INTAKE_ENABLED = 'true';
+  props.ANNALS_INBOX_CURSOR = '{"offset":1,"message":2,"threadId":null}';
+  const originalProps = { ...props };
+  const originalFiles = [...files.keys()];
+  let attempts = 0;
+  context.LockService.getScriptLock = () => ({
+    tryLock(waitMs) {
+      assert.equal(waitMs, 1000);
+      attempts++;
+      return false;
+    },
+    releaseLock() { assert.fail('A lock owned by another run cannot be released'); }
+  });
+  context.Session.getEffectiveUser = () => assert.fail('Busy intake must not enter the critical section');
+  context.GmailApp = { getInboxThreads: () => assert.fail('Busy intake must not scan Gmail') };
+
+  const result = context.runAnnalsProductionIntake();
+  assert.equal(result.enabled, false);
+  assert.equal(result.busy, true);
+  assert.equal(attempts, 1);
+  assert.deepEqual(logs, [JSON.stringify(result)]);
+  assert.deepEqual(props, originalProps);
+  assert.deepEqual([...files.keys()], originalFiles);
+  assert.throws(() => context.annalsLocked_(() => assert.fail('Owner action still needs the lock')),
+    /Another operation is running; try again shortly/);
+});
+
+test('a genuine intake exception still fails with private details omitted', () => {
+  const { context, props, logs } = mock();
+  props.ANNALS_PRODUCTION_INTAKE_ENABLED = 'true';
+  let released = false;
+  context.LockService.getScriptLock = () => ({
+    tryLock: () => true,
+    releaseLock() { released = true; }
+  });
+  context.Session.getEffectiveUser = () => assert.fail('Fictional private failure');
+
+  assert.throws(() => context.runAnnalsProductionIntake(), {
+    message: 'Private intake stopped; review account configuration privately'
+  });
+  assert.equal(released, true);
+  assert.deepEqual(logs, []);
+});
+
 test('production intake resumes a long thread and wraps without reading while disabled', () => {
   const x=mock(), handled=[], messages=Array.from({length:12},(_,id)=>({id,getId:()=>String(id)})),seen=new Set();
   const thread={getId:()=> 'private-thread', getMessages:()=>messages};
