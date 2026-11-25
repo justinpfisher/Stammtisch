@@ -212,11 +212,11 @@ function annalsHistoryNarrativeReview_(state,id,chapterId,afterId){
 }
 
 function annalsHistoryIntakeFolder_(folder,id,state){
-  if(!state.history||state.dispatched||annalsFile_(folder,'quarantine-private.json')||
-    annalsFile_(folder,'removal-private.json'))return false;
+  if(!state.history||state.dispatched)return false;
   var current=state.history.current, entryId='annal-'+id.slice(0,24);
   var active=current.chapters.filter(function(c){return c.passages.some(function(p){return AnnalsLivingHistory.fromEntry(p,entryId);});});
   if(!active.length)return false;
+  if(annalsFile_(folder,'quarantine-private.json')||annalsFile_(folder,'removal-private.json'))return false;
   var source=annalsRead_(folder,'source-private.json');
   if(!source||source.sourceId!==id)return false;
   var projected=current;
