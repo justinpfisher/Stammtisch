@@ -897,6 +897,67 @@ test('an uncertain dispatch has one attempt and leaves the verified opening in p
   assert.equal(f.rootFiles.get('history-published-private.json'),f.opening);
 });
 
+test('publication verification does not spend a near-deadline tick on unrelated History markers',()=>{
+  const f=fixture(), root=f.cx.annalsRoot_();
+  const unrelated=Array.from({length:12},(_,index)=>({
+    files:new Map(),getName:()=>index.toString(16).padStart(64,'a')
+  }));
+  let visited=0;
+  root.getFolders=()=>({hasNext:()=>visited<unrelated.length,next:()=>unrelated[visited++]});
+  const readFile=f.cx.annalsFile_;
+  const markerNames=new Set(['quarantine-private.json','removal-private.json']);
+  const priorElapsedMs=350_000, platformDeadlineMs=360_000;
+  let elapsedMs=priorElapsedMs;
+  f.cx.annalsFile_=(folder,name)=>{
+    if(folder!==root&&markerNames.has(name))elapsedMs+=1_000; // Fictional Drive latency.
+    return readFile(folder,name);
+  };
+
+  assert.equal(f.tick(),0);
+  assert.equal(visited,unrelated.length);
+  assert.ok(elapsedMs<platformDeadlineMs,`Fictional tick took ${elapsedMs} ms`);
+  assert.equal(elapsedMs,priorElapsedMs,'Unrelated folders need no History marker lookups');
+  assert.equal(f.events.length,0);
+});
+
+test('a linked History passage still honors removal and quarantine before applying a revocation',()=>{
+  const f=fixture(), item=f.add(0);
+  f.compose(item); f.serveNext(); f.tick();
+  item.member.contributorPortraitPublication.revokedAt=at;
+
+  const readFile=f.cx.annalsFile_, lookups=[];
+  let unreadable=false;
+  f.cx.annalsFile_=(folder,name)=>{
+    if(folder.files===item.files&&['quarantine-private.json','removal-private.json'].includes(name)){
+      lookups.push(name);
+      if(unreadable&&name==='removal-private.json')throw new Error('Fictional Drive read failure');
+    }
+    return readFile(folder,name);
+  };
+
+  for(const [blocker,expected] of [
+    ['quarantine-private.json',['quarantine-private.json']],
+    ['removal-private.json',['quarantine-private.json','removal-private.json']]
+  ]){
+    item.files.set(blocker,{});
+    f.tick();
+    assert.deepEqual(lookups.splice(0),expected);
+    assert.equal(f.events.length,1,'Blocked folders must not dispatch');
+    item.files.delete(blocker);
+  }
+
+  unreadable=true;
+  f.tick();
+  assert.deepEqual(lookups.splice(0),['quarantine-private.json','removal-private.json']);
+  assert.equal(f.events.length,1,'An unreadable marker must not authorize dispatch');
+  unreadable=false;
+  f.tick();
+  assert.equal(f.events.length,2);
+  assert.equal(passages(f.signed()).at(-1).sources[0].portrait,null);
+  f.serveNext(); f.tick(); f.tick();
+  assert.equal(f.events.length,2,'Settled revocation must not dispatch again');
+});
+
 test('an interrupted signed reconciliation resumes only its verified ledger and snapshot without dispatching again',()=>{
   const f=fixture(), item=f.add(0);
   const ledger='history-bound-ledger-private.json', snapshot='history-published-private.json',
